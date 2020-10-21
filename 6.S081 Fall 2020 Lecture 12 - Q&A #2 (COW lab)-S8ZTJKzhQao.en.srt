@@ -1,0 +1,7868 @@
+1
+00:00:11,120 --> 00:00:13,519
+all right
+
+2
+00:00:13,519 --> 00:00:15,440
+good morning or good afternoon everyone
+
+3
+00:00:15,440 --> 00:00:16,560
+um
+
+4
+00:00:16,560 --> 00:00:19,920
+let's get started can can people hear me
+
+5
+00:00:19,920 --> 00:00:23,199
+yep thank you all right today
+
+6
+00:00:23,199 --> 00:00:25,760
+what i'd like to do is um give you a
+
+7
+00:00:25,760 --> 00:00:26,640
+chance to ask
+
+8
+00:00:26,640 --> 00:00:28,960
+questions about xv6 and about the recent
+
+9
+00:00:28,960 --> 00:00:30,480
+labs
+
+10
+00:00:30,480 --> 00:00:32,000
+and in order to kind of give us
+
+11
+00:00:32,000 --> 00:00:34,480
+something to talk about
+
+12
+00:00:34,480 --> 00:00:39,110
+i'm going to do as much as i can of the
+
+13
+00:00:39,120 --> 00:00:42,239
+copy on write fork lab here just to give
+
+14
+00:00:42,239 --> 00:00:42,719
+us
+
+15
+00:00:42,719 --> 00:00:45,120
+sort of something to chew on and you
+
+16
+00:00:45,120 --> 00:00:46,800
+should feel free to ask any questions
+
+17
+00:00:46,800 --> 00:00:48,079
+you like
+
+18
+00:00:48,079 --> 00:00:50,320
+you can ask about why my solution is
+
+19
+00:00:50,320 --> 00:00:52,399
+different from your solution or
+
+20
+00:00:52,399 --> 00:00:55,920
+why xv6 works the way it does or why
+
+21
+00:00:55,920 --> 00:00:59,359
+the bugs we encounter um
+
+22
+00:00:59,359 --> 00:01:02,480
+show up in the way they do so
+
+23
+00:01:02,480 --> 00:01:03,920
+just to remind you although i'm sure
+
+24
+00:01:03,920 --> 00:01:05,760
+this is
+
+25
+00:01:05,760 --> 00:01:07,360
+sure i don't need to remind you you know
+
+26
+00:01:07,360 --> 00:01:08,960
+the point of copy and write fork is to
+
+27
+00:01:08,960 --> 00:01:09,840
+avoid
+
+28
+00:01:09,840 --> 00:01:13,360
+copying costs for pages and a fork that
+
+29
+00:01:13,360 --> 00:01:15,920
+are never modified
+
+30
+00:01:15,920 --> 00:01:18,240
+i put in a few lines of code to measure
+
+31
+00:01:18,240 --> 00:01:19,119
+the reduction
+
+32
+00:01:19,119 --> 00:01:22,080
+in the number of bytes that mem copy had
+
+33
+00:01:22,080 --> 00:01:23,920
+to copy
+
+34
+00:01:23,920 --> 00:01:26,560
+during user tests for my copy and write
+
+35
+00:01:26,560 --> 00:01:27,759
+solution and found that
+
+36
+00:01:27,759 --> 00:01:30,079
+it actually reduced the amount of
+
+37
+00:01:30,079 --> 00:01:32,560
+copying by 90 percent
+
+38
+00:01:32,560 --> 00:01:34,320
+and this is for user tests which is kind
+
+39
+00:01:34,320 --> 00:01:37,280
+of a weird program but nevertheless
+
+40
+00:01:37,280 --> 00:01:39,759
+and i think a lot of it is reductions in
+
+41
+00:01:39,759 --> 00:01:41,680
+copying of the instruction pages because
+
+42
+00:01:41,680 --> 00:01:43,280
+the instruction pages for
+
+43
+00:01:43,280 --> 00:01:46,960
+are never modified so there's never any
+
+44
+00:01:46,960 --> 00:01:48,640
+point in having copies of them
+
+45
+00:01:48,640 --> 00:01:49,680
+and i think that's where a lot of the
+
+46
+00:01:49,680 --> 00:01:52,320
+win was from copy and write fork also
+
+47
+00:01:52,320 --> 00:01:54,079
+reduces ram use
+
+48
+00:01:54,079 --> 00:01:55,920
+the sort of maximum amount of ram you
+
+49
+00:01:55,920 --> 00:01:57,759
+ever need to use and it reduces the
+
+50
+00:01:57,759 --> 00:02:00,880
+amount of time you spend in fork
+
+51
+00:02:00,880 --> 00:02:02,719
+and so fork returns more quickly you
+
+52
+00:02:02,719 --> 00:02:04,079
+know on the other hand of course the
+
+53
+00:02:04,079 --> 00:02:07,040
+total cost may be larger because if
+
+54
+00:02:07,040 --> 00:02:09,119
+programs end up modifying all the copy
+
+55
+00:02:09,119 --> 00:02:10,720
+and write pages
+
+56
+00:02:10,720 --> 00:02:12,400
+you end up having to do all the copies
+
+57
+00:02:12,400 --> 00:02:15,280
+plus take all the page faults
+
+58
+00:02:15,280 --> 00:02:17,520
+which can be a little bit expensive but
+
+59
+00:02:17,520 --> 00:02:18,480
+nevertheless
+
+60
+00:02:18,480 --> 00:02:22,080
+people have found that in general it's a
+
+61
+00:02:22,080 --> 00:02:24,800
+net benefit i mean as you know the main
+
+62
+00:02:24,800 --> 00:02:25,599
+challenges
+
+63
+00:02:25,599 --> 00:02:28,800
+are one challenge is how to avoid
+
+64
+00:02:28,800 --> 00:02:31,120
+freeing memory and now we're sharing
+
+65
+00:02:31,120 --> 00:02:32,560
+pages among processes
+
+66
+00:02:32,560 --> 00:02:34,239
+we have to not de-allocate them have to
+
+67
+00:02:34,239 --> 00:02:36,080
+not free them until the last
+
+68
+00:02:36,080 --> 00:02:37,840
+process is finished using them so we
+
+69
+00:02:37,840 --> 00:02:40,400
+need more book keeping
+
+70
+00:02:40,400 --> 00:02:41,920
+and the other interesting challenge is
+
+71
+00:02:41,920 --> 00:02:43,760
+that there's
+
+72
+00:02:43,760 --> 00:02:47,519
+in copy out in particular the xv6
+
+73
+00:02:47,519 --> 00:02:49,200
+modifies user memory without actually
+
+74
+00:02:49,200 --> 00:02:53,360
+going to the mmu paging hardware
+
+75
+00:02:53,360 --> 00:02:55,519
+and so we have to mimic some page faults
+
+76
+00:02:55,519 --> 00:02:57,760
+there
+
+77
+00:02:57,760 --> 00:03:00,080
+i'm going to go through the lab starting
+
+78
+00:03:00,080 --> 00:03:02,720
+at the beginning the copy and write lab
+
+79
+00:03:02,720 --> 00:03:04,879
+before i start i just want to uh just
+
+80
+00:03:04,879 --> 00:03:06,879
+sort of mention the strategy that
+
+81
+00:03:06,879 --> 00:03:08,959
+i think of myself as following when i do
+
+82
+00:03:08,959 --> 00:03:11,040
+labs and i do a lot of labs you know
+
+83
+00:03:11,040 --> 00:03:13,120
+from one year to an x i don't remember
+
+84
+00:03:13,120 --> 00:03:16,790
+the details of how to do the labs
+
+85
+00:03:16,800 --> 00:03:19,280
+and in addition the labs change all
+
+86
+00:03:19,280 --> 00:03:20,159
+right so
+
+87
+00:03:20,159 --> 00:03:21,680
+um when i'm doing the labs i always take
+
+88
+00:03:21,680 --> 00:03:23,599
+small steps i make find
+
+89
+00:03:23,599 --> 00:03:26,080
+you know some sort of next subset of the
+
+90
+00:03:26,080 --> 00:03:27,280
+problem to solve
+
+91
+00:03:27,280 --> 00:03:29,519
+maybe five or ten lines of code i
+
+92
+00:03:29,519 --> 00:03:30,640
+program that up
+
+93
+00:03:30,640 --> 00:03:32,000
+and i run it and try to get it to
+
+94
+00:03:32,000 --> 00:03:35,519
+working before i go on to the next
+
+95
+00:03:35,519 --> 00:03:37,680
+proceeding to the next step and this is
+
+96
+00:03:37,680 --> 00:03:39,519
+you know as opposed to for example
+
+97
+00:03:39,519 --> 00:03:41,599
+thinking through and writing a complete
+
+98
+00:03:41,599 --> 00:03:43,920
+solution
+
+99
+00:03:43,920 --> 00:03:46,720
+before starting to test and debug it i
+
+100
+00:03:46,720 --> 00:03:47,920
+always
+
+101
+00:03:47,920 --> 00:03:50,239
+test and debug a little bit at a time a
+
+102
+00:03:50,239 --> 00:03:51,840
+lot of the reason for that is that
+
+103
+00:03:51,840 --> 00:03:55,040
+um even though you may um you may have
+
+104
+00:03:55,040 --> 00:03:56,480
+sort of thought through a lot of the
+
+105
+00:03:56,480 --> 00:03:58,400
+things a lot of the challenges and a lot
+
+106
+00:03:58,400 --> 00:03:59,519
+of the design
+
+107
+00:03:59,519 --> 00:04:00,720
+for what you're going to have to do to
+
+108
+00:04:00,720 --> 00:04:02,799
+solve a lab i find at least there's
+
+109
+00:04:02,799 --> 00:04:03,200
+often
+
+110
+00:04:03,200 --> 00:04:06,720
+surprises and so if i
+
+111
+00:04:06,720 --> 00:04:09,040
+implement everything first i may find
+
+112
+00:04:09,040 --> 00:04:11,680
+then that i wasted a lot of time because
+
+113
+00:04:11,680 --> 00:04:13,360
+i didn't fully understand the problem
+
+114
+00:04:13,360 --> 00:04:18,390
+until i actually got into debugging it
+
+115
+00:04:18,400 --> 00:04:19,840
+and the way i choose the next step at
+
+116
+00:04:19,840 --> 00:04:22,400
+each point is usually driven by
+
+117
+00:04:22,400 --> 00:04:24,639
+whatever panic or crash or test failure
+
+118
+00:04:24,639 --> 00:04:25,919
+i see next sort of
+
+119
+00:04:25,919 --> 00:04:30,000
+tells me what to what i need to fix next
+
+120
+00:04:30,000 --> 00:04:31,520
+and while i'm doing this lab i'll i'll
+
+121
+00:04:31,520 --> 00:04:33,440
+make a few mistakes that i actually made
+
+122
+00:04:33,440 --> 00:04:36,080
+the last time i did the lab
+
+123
+00:04:36,080 --> 00:04:38,400
+so that we can do have a little practice
+
+124
+00:04:38,400 --> 00:04:40,880
+debugging together
+
+125
+00:04:40,880 --> 00:04:43,199
+and again feel free to break in at any
+
+126
+00:04:43,199 --> 00:04:44,000
+time and
+
+127
+00:04:44,000 --> 00:04:47,909
+ask questions about anything
+
+128
+00:04:47,919 --> 00:04:50,720
+i'm starting here with a fresh copy of
+
+129
+00:04:50,720 --> 00:04:53,440
+the copy and write lab
+
+130
+00:04:53,440 --> 00:04:56,320
+source the same as all of you did so
+
+131
+00:04:56,320 --> 00:04:58,880
+i'll just fire this up
+
+132
+00:04:58,880 --> 00:05:03,270
+and
+
+133
+00:05:03,280 --> 00:05:05,600
+run the copy and write test and you know
+
+134
+00:05:05,600 --> 00:05:06,960
+maybe i'll get lucky and all the tests
+
+135
+00:05:06,960 --> 00:05:08,000
+will pass and i won't have to do
+
+136
+00:05:08,000 --> 00:05:08,960
+anything
+
+137
+00:05:08,960 --> 00:05:12,160
+ah too bad one of the tests failed okay
+
+138
+00:05:12,160 --> 00:05:13,680
+so not too surprising
+
+139
+00:05:13,680 --> 00:05:17,600
+um and
+
+140
+00:05:17,600 --> 00:05:19,759
+you know a good step at this point is to
+
+141
+00:05:19,759 --> 00:05:21,440
+go have a look at the tests
+
+142
+00:05:21,440 --> 00:05:24,080
+and figure out what it's trying to do
+
+143
+00:05:24,080 --> 00:05:25,840
+and the sad truth is some of the tests
+
+144
+00:05:25,840 --> 00:05:27,360
+are
+
+145
+00:05:27,360 --> 00:05:29,280
+complicated and hard to understand and
+
+146
+00:05:29,280 --> 00:05:31,520
+don't necessarily test anything
+
+147
+00:05:31,520 --> 00:05:33,840
+specific they just sort of try different
+
+148
+00:05:33,840 --> 00:05:35,759
+things to see if something will break
+
+149
+00:05:35,759 --> 00:05:39,120
+but luckily with this simple test um
+
+150
+00:05:39,120 --> 00:05:42,400
+it's pretty clear what it's doing um
+
+151
+00:05:42,400 --> 00:05:44,000
+yeah yeah do you mean to share your
+
+152
+00:05:44,000 --> 00:05:45,600
+screen you cannot see anything
+
+153
+00:05:45,600 --> 00:05:50,479
+oh gosh i'm i'm sorry about that
+
+154
+00:05:50,479 --> 00:05:55,110
+thank you thank you for letting me know
+
+155
+00:05:55,120 --> 00:05:58,720
+all right is that better yes
+
+156
+00:05:58,720 --> 00:06:01,919
+good uh brilliant all right okay
+
+157
+00:06:01,919 --> 00:06:06,080
+well that's bug number one um
+
+158
+00:06:06,080 --> 00:06:09,280
+okay so um i'll just uh
+
+159
+00:06:09,280 --> 00:06:12,319
+here i am in my copy and write test i
+
+160
+00:06:12,319 --> 00:06:12,960
+ran
+
+161
+00:06:12,960 --> 00:06:19,029
+copy and write test and it fails
+
+162
+00:06:19,039 --> 00:06:21,680
+i look at the test this simple test on
+
+163
+00:06:21,680 --> 00:06:22,880
+the screen at right is
+
+164
+00:06:22,880 --> 00:06:26,240
+what actually failed and this test
+
+165
+00:06:26,240 --> 00:06:27,759
+luckily enough it actually tells us what
+
+166
+00:06:27,759 --> 00:06:30,000
+it's doing and allocates
+
+167
+00:06:30,000 --> 00:06:32,000
+what it knows to be more than half the
+
+168
+00:06:32,000 --> 00:06:33,440
+available memory
+
+169
+00:06:33,440 --> 00:06:36,560
+in xv6 and then forks
+
+170
+00:06:36,560 --> 00:06:38,720
+and so of course the reason this fails
+
+171
+00:06:38,720 --> 00:06:39,919
+is that fork
+
+172
+00:06:39,919 --> 00:06:43,039
+makes a copy then ordinary xv6
+
+173
+00:06:43,039 --> 00:06:46,800
+actually literally makes a copy and so
+
+174
+00:06:46,800 --> 00:06:48,160
+if we have to copy more than half of
+
+175
+00:06:48,160 --> 00:06:49,759
+memory there's just not enough space for
+
+176
+00:06:49,759 --> 00:06:50,880
+that
+
+177
+00:06:50,880 --> 00:06:53,360
+okay so of course this is this is what
+
+178
+00:06:53,360 --> 00:06:54,960
+copy and write's all about
+
+179
+00:06:54,960 --> 00:06:57,680
+um and we know that the basic game is
+
+180
+00:06:57,680 --> 00:06:59,759
+that instead of copying
+
+181
+00:06:59,759 --> 00:07:02,560
+the process's memory we want to just
+
+182
+00:07:02,560 --> 00:07:04,160
+copy its page table
+
+183
+00:07:04,160 --> 00:07:06,560
+and not the memory so the child has just
+
+184
+00:07:06,560 --> 00:07:07,599
+has a
+
+185
+00:07:07,599 --> 00:07:09,759
+carbon copy of the parent's page table
+
+186
+00:07:09,759 --> 00:07:11,280
+instead of memory
+
+187
+00:07:11,280 --> 00:07:15,510
+referring to all the same physical pages
+
+188
+00:07:15,520 --> 00:07:20,469
+the place where
+
+189
+00:07:20,479 --> 00:07:24,080
+fork does its copying is in vm.c in
+
+190
+00:07:24,080 --> 00:07:27,749
+uvm copy
+
+191
+00:07:27,759 --> 00:07:30,880
+and so we can just modify this code
+
+192
+00:07:30,880 --> 00:07:35,440
+um to instead of allocating a page of
+
+193
+00:07:35,440 --> 00:07:36,960
+memory
+
+194
+00:07:36,960 --> 00:07:40,400
+uh here and copying onto it
+
+195
+00:07:40,400 --> 00:07:44,080
+we're gonna eliminate those three lines
+
+196
+00:07:44,080 --> 00:07:49,029
+and instead
+
+197
+00:07:49,039 --> 00:07:56,869
+just copy page table entries so
+
+198
+00:07:56,879 --> 00:08:05,510
+i'm actually just going to hack this
+
+199
+00:08:05,520 --> 00:08:08,950
+copy of
+
+200
+00:08:08,960 --> 00:08:11,199
+map pages since we didn't actually
+
+201
+00:08:11,199 --> 00:08:12,319
+allocate memory here i'm going to get
+
+202
+00:08:12,319 --> 00:08:14,000
+rid of this free
+
+203
+00:08:14,000 --> 00:08:15,599
+i'm going to fix this mac pages to
+
+204
+00:08:15,599 --> 00:08:17,039
+instead of
+
+205
+00:08:17,039 --> 00:08:21,830
+mapping mem at
+
+206
+00:08:21,840 --> 00:08:25,120
+address i i'm going to map the pa
+
+207
+00:08:25,120 --> 00:08:26,879
+which is the physical address we pulled
+
+208
+00:08:26,879 --> 00:08:29,520
+out of the parents page table
+
+209
+00:08:29,520 --> 00:08:32,719
+so is that clear so this will just have
+
+210
+00:08:32,719 --> 00:08:34,000
+the effect of
+
+211
+00:08:34,000 --> 00:08:36,320
+mapping all of the parents pages into
+
+212
+00:08:36,320 --> 00:08:39,200
+the child's address space
+
+213
+00:08:39,200 --> 00:08:42,880
+isn't pa already a un-64
+
+214
+00:08:42,880 --> 00:08:46,560
+uh probably or is it
+
+215
+00:08:46,560 --> 00:08:48,320
+is it bad if you were to cast it if it's
+
+216
+00:08:48,320 --> 00:08:50,480
+already that type the cast does
+
+217
+00:08:50,480 --> 00:08:52,880
+absolutely nothing other than shut the
+
+218
+00:08:52,880 --> 00:08:54,480
+compiler up
+
+219
+00:08:54,480 --> 00:08:56,000
+since it's already since addresses are
+
+220
+00:08:56,000 --> 00:08:58,880
+64 bits and uh 64 is 64 bit
+
+221
+00:08:58,880 --> 00:09:01,440
+that cast doesn't change the bits it
+
+222
+00:09:01,440 --> 00:09:02,240
+just
+
+223
+00:09:02,240 --> 00:09:05,519
+makes the type checker less upset
+
+224
+00:09:05,519 --> 00:09:07,279
+but let's see i actually don't know what
+
+225
+00:09:07,279 --> 00:09:10,080
+any of these types are
+
+226
+00:09:10,080 --> 00:09:11,200
+all right one thing is we don't need
+
+227
+00:09:11,200 --> 00:09:15,509
+this mem variable
+
+228
+00:09:15,519 --> 00:09:21,269
+oh well okay so you're right about pa
+
+229
+00:09:21,279 --> 00:09:23,360
+gosh i wonder if we're done now let's
+
+230
+00:09:23,360 --> 00:09:26,480
+run the cow test and see what happens
+
+231
+00:09:26,480 --> 00:09:29,600
+definitely not done okay so
+
+232
+00:09:29,600 --> 00:09:33,680
+what we got here is this user trap
+
+233
+00:09:33,680 --> 00:09:37,519
+with s cos of two anybody remember what
+
+234
+00:09:37,519 --> 00:09:41,350
+s cause two is
+
+235
+00:09:41,360 --> 00:09:44,080
+i'll just tell you construction failure
+
+236
+00:09:44,080 --> 00:09:46,160
+it's an illegal instruction so
+
+237
+00:09:46,160 --> 00:09:48,240
+why would we get getting an illegal
+
+238
+00:09:48,240 --> 00:09:51,200
+instruction now
+
+239
+00:09:51,200 --> 00:09:57,910
+is this what we expected
+
+240
+00:09:57,920 --> 00:10:01,600
+did we overwrite uh the like
+
+241
+00:10:01,600 --> 00:10:05,440
+portion where we have instructions
+
+242
+00:10:05,440 --> 00:10:07,040
+yes something is damaging the
+
+243
+00:10:07,040 --> 00:10:08,959
+instructions of the
+
+244
+00:10:08,959 --> 00:10:12,470
+user program
+
+245
+00:10:12,480 --> 00:10:14,320
+of course the fault we're not surprised
+
+246
+00:10:14,320 --> 00:10:17,040
+we get a fault here
+
+247
+00:10:17,040 --> 00:10:19,360
+but we were hoping for right for stored
+
+248
+00:10:19,360 --> 00:10:20,320
+faults
+
+249
+00:10:20,320 --> 00:10:22,959
+to drive the copying process and copy on
+
+250
+00:10:22,959 --> 00:10:24,560
+write
+
+251
+00:10:24,560 --> 00:10:30,829
+we're not getting the store fault
+
+252
+00:10:30,839 --> 00:10:33,120
+um any other
+
+253
+00:10:33,120 --> 00:10:36,480
+hypotheses for this this is not really
+
+254
+00:10:36,480 --> 00:10:37,760
+fair because like
+
+255
+00:10:37,760 --> 00:10:40,000
+this is my bug not your bug but
+
+256
+00:10:40,000 --> 00:10:43,590
+nevertheless
+
+257
+00:10:43,600 --> 00:10:46,959
+does it have to do with the flags yes
+
+258
+00:10:46,959 --> 00:10:53,509
+it does
+
+259
+00:10:53,519 --> 00:10:55,839
+okay so i'll just leave that to the side
+
+260
+00:10:55,839 --> 00:10:57,920
+it'll actually come up again
+
+261
+00:10:57,920 --> 00:11:00,800
+another question is we're hoping for
+
+262
+00:11:00,800 --> 00:11:02,720
+store page faults
+
+263
+00:11:02,720 --> 00:11:07,040
+which will drive the copying process
+
+264
+00:11:07,040 --> 00:11:21,190
+why didn't we get a stored page fault
+
+265
+00:11:21,200 --> 00:11:25,519
+all right why would we get a store page
+
+266
+00:11:25,519 --> 00:11:27,279
+fault
+
+267
+00:11:27,279 --> 00:11:29,279
+under what circumstances does the risk 5
+
+268
+00:11:29,279 --> 00:11:30,560
+generate
+
+269
+00:11:30,560 --> 00:11:34,790
+a store page fault
+
+270
+00:11:34,800 --> 00:11:36,959
+we would get it if the right flag is not
+
+271
+00:11:36,959 --> 00:11:38,000
+set but
+
+272
+00:11:38,000 --> 00:11:40,160
+now we can just write to everything
+
+273
+00:11:40,160 --> 00:11:42,160
+normally yeah i've left the right flag
+
+274
+00:11:42,160 --> 00:11:44,240
+set all right so that's bug one which
+
+275
+00:11:44,240 --> 00:11:46,720
+i did actually make last time i did this
+
+276
+00:11:46,720 --> 00:11:47,519
+lab so
+
+277
+00:11:47,519 --> 00:11:48,880
+i've left the right flag set in the
+
+278
+00:11:48,880 --> 00:11:50,560
+parent and i've done i haven't done
+
+279
+00:11:50,560 --> 00:11:52,000
+anything to the right flags
+
+280
+00:11:52,000 --> 00:11:55,680
+this flags variable here is um
+
+281
+00:11:55,680 --> 00:11:56,959
+it's just the way we pulled it out of
+
+282
+00:11:56,959 --> 00:11:58,800
+the parent's page table it's all its
+
+283
+00:11:58,800 --> 00:12:01,120
+pages are writable and so that means
+
+284
+00:12:01,120 --> 00:12:02,160
+that it's going to be right up on the
+
+285
+00:12:02,160 --> 00:12:03,760
+child too we won't get store page faults
+
+286
+00:12:03,760 --> 00:12:04,639
+so i'll just be
+
+287
+00:12:04,639 --> 00:12:08,000
+sharing a page read write which is not
+
+288
+00:12:08,000 --> 00:12:08,800
+what we wanted
+
+289
+00:12:08,800 --> 00:12:10,880
+so how am i going to turn off the how am
+
+290
+00:12:10,880 --> 00:12:12,320
+i going to write protect
+
+291
+00:12:12,320 --> 00:12:20,870
+these pages
+
+292
+00:12:20,880 --> 00:12:27,670
+any proposals which i type
+
+293
+00:12:27,680 --> 00:12:31,279
+how about you can do flags
+
+294
+00:12:31,279 --> 00:12:34,560
+um and equals um
+
+295
+00:12:34,560 --> 00:12:38,160
+the the wave sign
+
+296
+00:12:38,160 --> 00:12:41,440
+underscore w
+
+297
+00:12:41,440 --> 00:12:43,360
+yeah yeah so we gotta get it we need the
+
+298
+00:12:43,360 --> 00:12:45,200
+tilde there i call that wave sign at
+
+299
+00:12:45,200 --> 00:12:46,079
+tilde
+
+300
+00:12:46,079 --> 00:12:48,800
+we need to the waves the it's clear we
+
+301
+00:12:48,800 --> 00:12:50,399
+need to clear this bit in the flags but
+
+302
+00:12:50,399 --> 00:12:52,480
+we want to leave all the other flags set
+
+303
+00:12:52,480 --> 00:12:54,480
+okay so that's gonna will this clear the
+
+304
+00:12:54,480 --> 00:13:01,829
+flag and the parent of the child
+
+305
+00:13:01,839 --> 00:13:05,040
+child just the child so how do i clear
+
+306
+00:13:05,040 --> 00:13:06,880
+do i also need to clear the flag and the
+
+307
+00:13:06,880 --> 00:13:10,470
+parent
+
+308
+00:13:10,480 --> 00:13:14,160
+yes because uh like we want the child to
+
+309
+00:13:14,160 --> 00:13:16,160
+be independent for the parents so if we
+
+310
+00:13:16,160 --> 00:13:17,839
+write something we don't want like the
+
+311
+00:13:17,839 --> 00:13:18,720
+child to also
+
+312
+00:13:18,720 --> 00:13:20,959
+get the modification from the parents
+
+313
+00:13:20,959 --> 00:13:22,480
+that's absolutely right we need to write
+
+314
+00:13:22,480 --> 00:13:23,760
+protect the page and the parent as well
+
+315
+00:13:23,760 --> 00:13:25,200
+because we don't want the child to see
+
+316
+00:13:25,200 --> 00:13:26,480
+the parents
+
+317
+00:13:26,480 --> 00:13:28,959
+modifications we're trying to mimic them
+
+318
+00:13:28,959 --> 00:13:30,880
+having completely separate copies
+
+319
+00:13:30,880 --> 00:13:33,760
+so what can i do to clear the flag in
+
+320
+00:13:33,760 --> 00:13:34,079
+the
+
+321
+00:13:34,079 --> 00:13:43,750
+parents page table
+
+322
+00:13:43,760 --> 00:13:46,480
+you can do something like star pte and
+
+323
+00:13:46,480 --> 00:13:47,440
+equals
+
+324
+00:13:47,440 --> 00:13:51,120
+not pte right yeah so i have the parents
+
+325
+00:13:51,120 --> 00:13:52,959
+paid a pointer the parents page table
+
+326
+00:13:52,959 --> 00:13:54,959
+entry right here in pte
+
+327
+00:13:54,959 --> 00:13:58,480
+um and so i can clear the pte flag here
+
+328
+00:13:58,480 --> 00:14:01,040
+too so that's pretty convenient
+
+329
+00:14:01,040 --> 00:14:05,199
+um and my belief is that's enough to
+
+330
+00:14:05,199 --> 00:14:06,399
+make
+
+331
+00:14:06,399 --> 00:14:08,639
+both copies of the page or both mappings
+
+332
+00:14:08,639 --> 00:14:10,160
+of the page
+
+333
+00:14:10,160 --> 00:14:13,920
+uh read-only so hopefully now we'll
+
+334
+00:14:13,920 --> 00:14:17,199
+start getting um
+
+335
+00:14:17,199 --> 00:14:21,199
+right faults is it all possible to
+
+336
+00:14:21,199 --> 00:14:24,959
+do to clear the ptew bit before you say
+
+337
+00:14:24,959 --> 00:14:27,120
+flags equals pte flags
+
+338
+00:14:27,120 --> 00:14:29,839
+of pg and that way like the original
+
+339
+00:14:29,839 --> 00:14:31,279
+flag is just
+
+340
+00:14:31,279 --> 00:14:34,079
+the correct thing oh i see put a way up
+
+341
+00:14:34,079 --> 00:14:34,959
+here
+
+342
+00:14:34,959 --> 00:14:42,829
+yeah oh yeah i know i'll give that a
+
+343
+00:14:42,839 --> 00:14:44,639
+shot
+
+344
+00:14:44,639 --> 00:14:50,870
+well seems to work yeah that makes sense
+
+345
+00:14:50,880 --> 00:14:55,199
+okay so now i get my right fault um
+
+346
+00:14:55,199 --> 00:14:56,639
+which is what we're hoping for and
+
+347
+00:14:56,639 --> 00:14:58,000
+hopefully what this right fold means is
+
+348
+00:14:58,000 --> 00:14:59,360
+that one of the other processes tried to
+
+349
+00:14:59,360 --> 00:15:01,199
+modify the page and
+
+350
+00:15:01,199 --> 00:15:03,120
+the risk 5 generated a page fault from
+
+351
+00:15:03,120 --> 00:15:05,600
+that and
+
+352
+00:15:05,600 --> 00:15:11,110
+we're going to want to react to that by
+
+353
+00:15:11,120 --> 00:15:13,600
+uh making a copy of the page and mapping
+
+354
+00:15:13,600 --> 00:15:14,639
+it read write
+
+355
+00:15:14,639 --> 00:15:17,839
+um before we do that just to make sure
+
+356
+00:15:17,839 --> 00:15:18,800
+that
+
+357
+00:15:18,800 --> 00:15:20,639
+what we're seeing you know this this
+
+358
+00:15:20,639 --> 00:15:22,880
+it's this f here
+
+359
+00:15:22,880 --> 00:15:25,839
+this s cause that is sort of making me
+
+360
+00:15:25,839 --> 00:15:27,120
+imagine that we're
+
+361
+00:15:27,120 --> 00:15:28,399
+seeing what we want to see namely a
+
+362
+00:15:28,399 --> 00:15:30,160
+storeflow let's actually go and look and
+
+363
+00:15:30,160 --> 00:15:33,600
+see where that happened we know what's
+
+364
+00:15:33,600 --> 00:15:35,040
+in process id3
+
+365
+00:15:35,040 --> 00:15:38,240
+uh process id 1 is init process id 2 is
+
+366
+00:15:38,240 --> 00:15:39,279
+the
+
+367
+00:15:39,279 --> 00:15:41,839
+shell and so maybe process id3 is going
+
+368
+00:15:41,839 --> 00:15:42,560
+to be cow
+
+369
+00:15:42,560 --> 00:15:51,269
+test we can look in
+
+370
+00:15:51,279 --> 00:15:54,880
+we can look in cowtest.asm
+
+371
+00:15:54,880 --> 00:15:58,079
+and look for 9da
+
+372
+00:15:58,079 --> 00:16:01,600
+and see if it makes sense as a
+
+373
+00:16:01,600 --> 00:16:04,720
+instruction that could generate a store
+
+374
+00:16:04,720 --> 00:16:08,720
+page fault
+
+375
+00:16:08,720 --> 00:16:11,759
+boy this doesn't look so good
+
+376
+00:16:11,759 --> 00:16:16,160
+um i can't even remember what a uipc
+
+377
+00:16:16,160 --> 00:16:17,759
+does but i don't believe it
+
+378
+00:16:17,759 --> 00:16:21,040
+performs a store any guesses what's
+
+379
+00:16:21,040 --> 00:16:28,870
+going on
+
+380
+00:16:28,880 --> 00:16:31,360
+it'd be nice if the page falls we're
+
+381
+00:16:31,360 --> 00:16:36,560
+seeing actually made sense
+
+382
+00:16:36,560 --> 00:16:40,320
+um i'll tell you uh it turns out this
+
+383
+00:16:40,320 --> 00:16:43,519
+page fault occurred in the shell
+
+384
+00:16:43,519 --> 00:16:46,720
+after the shell fork but before it exec
+
+385
+00:16:46,720 --> 00:16:48,639
+cow test and so we're really looking at
+
+386
+00:16:48,639 --> 00:16:50,480
+a wrong asm file
+
+387
+00:16:50,480 --> 00:16:52,079
+it turns out the right asm file is the
+
+388
+00:16:52,079 --> 00:16:53,600
+shell asm file so
+
+389
+00:16:53,600 --> 00:16:56,959
+we'll look for 9da there
+
+390
+00:16:56,959 --> 00:17:00,240
+oh yes and in the shell 9da is a store
+
+391
+00:17:00,240 --> 00:17:01,199
+instruction
+
+392
+00:17:01,199 --> 00:17:03,600
+and it's at the beginning of this parse
+
+393
+00:17:03,600 --> 00:17:05,439
+command function that actually
+
+394
+00:17:05,439 --> 00:17:07,520
+parses the cow test command that we
+
+395
+00:17:07,520 --> 00:17:08,880
+typed and figures out
+
+396
+00:17:08,880 --> 00:17:11,520
+what to do with it mainly call exec and
+
+397
+00:17:11,520 --> 00:17:13,679
+it's doing a store under the stack
+
+398
+00:17:13,679 --> 00:17:17,360
+it's the preamble that stores the
+
+399
+00:17:17,360 --> 00:17:20,880
+these saved registers um
+
+400
+00:17:20,880 --> 00:17:22,559
+and not surprisingly that this should be
+
+401
+00:17:22,559 --> 00:17:24,480
+the first page fault we get because
+
+402
+00:17:24,480 --> 00:17:26,240
+it's on the stack you know the very
+
+403
+00:17:26,240 --> 00:17:27,919
+first thing most functions do after fork
+
+404
+00:17:27,919 --> 00:17:29,679
+returns is they modify their variables
+
+405
+00:17:29,679 --> 00:17:32,160
+in the stack and boom
+
+406
+00:17:32,160 --> 00:17:34,160
+unsurprisingly that causes a store page
+
+407
+00:17:34,160 --> 00:17:35,360
+fault so
+
+408
+00:17:35,360 --> 00:17:41,510
+any questions about why we're faulting
+
+409
+00:17:41,520 --> 00:17:43,120
+i have a quick question how did you
+
+410
+00:17:43,120 --> 00:17:45,440
+figure out it was in the shell rather
+
+411
+00:17:45,440 --> 00:17:47,760
+than in cow test
+
+412
+00:17:47,760 --> 00:17:50,799
+because i looked at 90a and cow test
+
+413
+00:17:50,799 --> 00:17:54,000
+and that is not a store instruction i
+
+414
+00:17:54,000 --> 00:17:54,720
+thought
+
+415
+00:17:54,720 --> 00:17:59,520
+gosh what could possibly be going on
+
+416
+00:17:59,520 --> 00:18:01,679
+now look at processing three so is pin
+
+417
+00:18:01,679 --> 00:18:02,960
+three to shell or is that
+
+418
+00:18:02,960 --> 00:18:05,840
+pit three is pid two is the shell that
+
+419
+00:18:05,840 --> 00:18:07,520
+printed that prompt
+
+420
+00:18:07,520 --> 00:18:09,840
+pid three is the next process that's
+
+421
+00:18:09,840 --> 00:18:10,799
+created
+
+422
+00:18:10,799 --> 00:18:13,840
+and so initially the shell
+
+423
+00:18:13,840 --> 00:18:17,280
+to make pid 3 but after the fork it's
+
+424
+00:18:17,280 --> 00:18:17,760
+still
+
+425
+00:18:17,760 --> 00:18:20,000
+running the shell right it's a child of
+
+426
+00:18:20,000 --> 00:18:22,320
+the shell running
+
+427
+00:18:22,320 --> 00:18:25,280
+a copy of the shell it's going to call
+
+428
+00:18:25,280 --> 00:18:25,840
+exec
+
+429
+00:18:25,840 --> 00:18:27,440
+to run cow test but it hasn't done it
+
+430
+00:18:27,440 --> 00:18:29,120
+yet
+
+431
+00:18:29,120 --> 00:18:30,480
+it hasn't been able to get that far
+
+432
+00:18:30,480 --> 00:18:35,750
+without taking a store page fault
+
+433
+00:18:35,760 --> 00:18:38,870
+when it writes a stack
+
+434
+00:18:38,880 --> 00:18:40,559
+so can you clarify does that mean that
+
+435
+00:18:40,559 --> 00:18:42,400
+there's like an error
+
+436
+00:18:42,400 --> 00:18:45,360
+with the shell relate to process id 2
+
+437
+00:18:45,360 --> 00:18:46,240
+because it doesn't
+
+438
+00:18:46,240 --> 00:18:49,280
+have the proper data in order for the
+
+439
+00:18:49,280 --> 00:18:51,520
+child to have the right data or is it an
+
+440
+00:18:51,520 --> 00:18:53,280
+error with process id
+
+441
+00:18:53,280 --> 00:18:56,799
+3 it's a page fault
+
+442
+00:18:56,799 --> 00:19:00,640
+that occurs in process id 3.
+
+443
+00:19:00,640 --> 00:19:02,000
+right but the bug that we're seeing
+
+444
+00:19:02,000 --> 00:19:05,510
+right here like there's no bug
+
+445
+00:19:05,520 --> 00:19:07,600
+this is you know i'm implementing copy
+
+446
+00:19:07,600 --> 00:19:09,600
+on right fork
+
+447
+00:19:09,600 --> 00:19:13,280
+and what we just did in vm.c
+
+448
+00:19:13,280 --> 00:19:17,520
+was right protect every single page in
+
+449
+00:19:17,520 --> 00:19:19,600
+the parent and the child
+
+450
+00:19:19,600 --> 00:19:22,799
+right that's what this line is doing so
+
+451
+00:19:22,799 --> 00:19:24,480
+the next time either the parent or the
+
+452
+00:19:24,480 --> 00:19:26,000
+child does a store
+
+453
+00:19:26,000 --> 00:19:28,480
+from user code it's going to be a store
+
+454
+00:19:28,480 --> 00:19:30,080
+into a right protected page
+
+455
+00:19:30,080 --> 00:19:31,679
+because every page is right protected
+
+456
+00:19:31,679 --> 00:19:34,400
+and so it will cause a page fault
+
+457
+00:19:34,400 --> 00:19:36,240
+oh so this is the proper page fault that
+
+458
+00:19:36,240 --> 00:19:38,799
+we want this is right and i was just
+
+459
+00:19:38,799 --> 00:19:42,480
+all i was doing is checking that
+
+460
+00:19:42,480 --> 00:19:44,320
+that what's going on is exactly what we
+
+461
+00:19:44,320 --> 00:19:45,600
+think is going on
+
+462
+00:19:45,600 --> 00:19:47,760
+as opposed to some other bug gosh it
+
+463
+00:19:47,760 --> 00:19:48,720
+makes sense
+
+464
+00:19:48,720 --> 00:19:50,720
+okay all right so we took a page fault
+
+465
+00:19:50,720 --> 00:19:52,480
+here in this store which is presumably
+
+466
+00:19:52,480 --> 00:19:54,080
+the first store the shell does after the
+
+467
+00:19:54,080 --> 00:19:57,110
+fork
+
+468
+00:19:57,120 --> 00:20:00,000
+okay so now we have to handle these uh
+
+469
+00:20:00,000 --> 00:20:02,720
+now you want to do something useful
+
+470
+00:20:02,720 --> 00:20:05,679
+in this page faults so first the page
+
+471
+00:20:05,679 --> 00:20:06,000
+fault
+
+472
+00:20:06,000 --> 00:20:09,600
+handlers and the cr and trap.c
+
+473
+00:20:09,600 --> 00:20:13,840
+in user fault
+
+474
+00:20:13,840 --> 00:20:16,960
+um i think it
+
+475
+00:20:16,960 --> 00:20:18,400
+pretty much doesn't matter where we
+
+476
+00:20:18,400 --> 00:20:20,720
+insert code to uh
+
+477
+00:20:20,720 --> 00:20:22,480
+i mean that there's all these different
+
+478
+00:20:22,480 --> 00:20:24,039
+cases here that
+
+479
+00:20:24,039 --> 00:20:27,360
+uservec is userback right yeah oh user
+
+480
+00:20:27,360 --> 00:20:29,440
+trap the user trap is dealing with
+
+481
+00:20:29,440 --> 00:20:30,559
+we're just going to throw in another
+
+482
+00:20:30,559 --> 00:20:32,880
+else
+
+483
+00:20:32,880 --> 00:20:35,039
+we only interested in right faults we're
+
+484
+00:20:35,039 --> 00:20:37,520
+happy to read these shared pages because
+
+485
+00:20:37,520 --> 00:20:39,919
+all the data's there it's just rights we
+
+486
+00:20:39,919 --> 00:20:47,750
+want to catch so
+
+487
+00:20:47,760 --> 00:20:50,480
+now it turns out as you as i'm sure you
+
+488
+00:20:50,480 --> 00:20:51,360
+know that
+
+489
+00:20:51,360 --> 00:20:52,880
+we're going to need to use the code i'm
+
+490
+00:20:52,880 --> 00:20:55,039
+about to write from two different places
+
+491
+00:20:55,039 --> 00:20:59,120
+so i'm going to just wrap it up in uh
+
+492
+00:20:59,120 --> 00:21:01,280
+the code that sort of makes the copy of
+
+493
+00:21:01,280 --> 00:21:02,400
+this page
+
+494
+00:21:02,400 --> 00:21:04,240
+in a function i'm going to call cow
+
+495
+00:21:04,240 --> 00:21:06,159
+fault
+
+496
+00:21:06,159 --> 00:21:08,799
+it needs to know the current page table
+
+497
+00:21:08,799 --> 00:21:10,559
+and it needs to know the virtual address
+
+498
+00:21:10,559 --> 00:21:12,000
+that we faulted on
+
+499
+00:21:12,000 --> 00:21:15,840
+that's st val sometimes it can fail
+
+500
+00:21:15,840 --> 00:21:18,480
+because say it runs out of memory um
+
+501
+00:21:18,480 --> 00:21:19,440
+maybe chao
+
+502
+00:21:19,440 --> 00:21:20,880
+chao equal fails so we need to prepare
+
+503
+00:21:20,880 --> 00:21:22,559
+for return value and
+
+504
+00:21:22,559 --> 00:21:24,000
+pretty much no matter what the failure
+
+505
+00:21:24,000 --> 00:21:25,600
+is uh
+
+506
+00:21:25,600 --> 00:21:28,400
+we're going to kill this process all
+
+507
+00:21:28,400 --> 00:21:28,720
+right
+
+508
+00:21:28,720 --> 00:21:30,880
+and if we didn't kill it we'll have cow
+
+509
+00:21:30,880 --> 00:21:32,320
+fault return minus one if there's a
+
+510
+00:21:32,320 --> 00:21:33,600
+failure
+
+511
+00:21:33,600 --> 00:21:35,919
+return zero if there's no failure if
+
+512
+00:21:35,919 --> 00:21:37,200
+there's no failure then
+
+513
+00:21:37,200 --> 00:21:38,720
+we're going to rely on cow fault having
+
+514
+00:21:38,720 --> 00:21:40,720
+made this virtual address writable
+
+515
+00:21:40,720 --> 00:21:42,559
+so that when user trap returns the
+
+516
+00:21:42,559 --> 00:21:44,320
+process can actually continue
+
+517
+00:21:44,320 --> 00:21:46,640
+successfully
+
+518
+00:21:46,640 --> 00:21:50,320
+um so that you put
+
+519
+00:21:50,320 --> 00:21:52,240
+or like is there a reason why you put
+
+520
+00:21:52,240 --> 00:21:53,919
+this line above
+
+521
+00:21:53,919 --> 00:21:59,440
+the else if which dev deventer um
+
+522
+00:21:59,440 --> 00:22:03,039
+i don't think so uh whether it's correct
+
+523
+00:22:03,039 --> 00:22:04,720
+uh depends on what deventer does we'll
+
+524
+00:22:04,720 --> 00:22:07,280
+just take a look the the risk is that
+
+525
+00:22:07,280 --> 00:22:10,320
+deventer might um
+
+526
+00:22:10,320 --> 00:22:12,720
+see a device interrupt for some reason
+
+527
+00:22:12,720 --> 00:22:14,559
+even though we are in a page fault
+
+528
+00:22:14,559 --> 00:22:16,000
+so we could just got to check that
+
+529
+00:22:16,000 --> 00:22:18,400
+deventer
+
+530
+00:22:18,400 --> 00:22:21,760
+looks at s cause and if
+
+531
+00:22:21,760 --> 00:22:25,760
+s causes f it's gonna return zero
+
+532
+00:22:25,760 --> 00:22:31,039
+so we just want to make sure that if
+
+533
+00:22:31,039 --> 00:22:34,880
+uh yeah if devent or return 0 then
+
+534
+00:22:34,880 --> 00:22:38,320
+it's going to go on to our code so
+
+535
+00:22:38,320 --> 00:22:40,159
+that's fine
+
+536
+00:22:40,159 --> 00:22:44,630
+okay okay now we need to write
+
+537
+00:22:44,640 --> 00:22:45,679
+actually there's one thing i want to
+
+538
+00:22:45,679 --> 00:22:47,919
+observe here and that's that
+
+539
+00:22:47,919 --> 00:22:50,720
+if there's a failure we kill the process
+
+540
+00:22:50,720 --> 00:22:51,760
+so
+
+541
+00:22:51,760 --> 00:22:53,760
+this is unfortunate it would be
+
+542
+00:22:53,760 --> 00:22:55,600
+fantastic if instead
+
+543
+00:22:55,600 --> 00:22:57,760
+you know most of the time processes
+
+544
+00:22:57,760 --> 00:22:59,440
+allocate memory or whatever by calling
+
+545
+00:22:59,440 --> 00:23:01,600
+system calls the system calls can return
+
+546
+00:23:01,600 --> 00:23:03,280
+some error value negative one or
+
+547
+00:23:03,280 --> 00:23:04,720
+something if there's a failure
+
+548
+00:23:04,720 --> 00:23:06,080
+and the process can then do something
+
+549
+00:23:06,080 --> 00:23:07,919
+appropriate
+
+550
+00:23:07,919 --> 00:23:09,440
+if it knows how in order to deal with
+
+551
+00:23:09,440 --> 00:23:11,360
+that failure here though because there's
+
+552
+00:23:11,360 --> 00:23:12,480
+no system call
+
+553
+00:23:12,480 --> 00:23:14,480
+there's not any obvious way to tell the
+
+554
+00:23:14,480 --> 00:23:15,679
+process that
+
+555
+00:23:15,679 --> 00:23:19,280
+something went wrong which is
+
+556
+00:23:19,280 --> 00:23:21,919
+irritating you can imagine solutions to
+
+557
+00:23:21,919 --> 00:23:23,280
+this for example
+
+558
+00:23:23,280 --> 00:23:24,799
+in some more sophisticated operating
+
+559
+00:23:24,799 --> 00:23:26,880
+system we could have
+
+560
+00:23:26,880 --> 00:23:30,080
+something like the alarm user
+
+561
+00:23:30,080 --> 00:23:31,840
+fault handler that you implemented that
+
+562
+00:23:31,840 --> 00:23:33,520
+we could call up into to say look you
+
+563
+00:23:33,520 --> 00:23:33,919
+know
+
+564
+00:23:33,919 --> 00:23:36,400
+we can't continue your process because
+
+565
+00:23:36,400 --> 00:23:38,000
+we can't fix this page fault
+
+566
+00:23:38,000 --> 00:23:39,360
+but we want to tell you something went
+
+567
+00:23:39,360 --> 00:23:41,600
+wrong
+
+568
+00:23:41,600 --> 00:23:44,640
+but we're not going to do that now it's
+
+569
+00:23:44,640 --> 00:23:46,799
+much simpler to just kill the process
+
+570
+00:23:46,799 --> 00:23:49,440
+okay so we have to implement page this
+
+571
+00:23:49,440 --> 00:23:51,360
+cow fault program
+
+572
+00:23:51,360 --> 00:23:55,750
+takes a
+
+573
+00:23:55,760 --> 00:23:58,080
+uh a page table the current process page
+
+574
+00:23:58,080 --> 00:23:59,679
+that was argument and the virtual
+
+575
+00:23:59,679 --> 00:24:00,559
+address
+
+576
+00:24:00,559 --> 00:24:05,760
+that the fault occurred on
+
+577
+00:24:05,760 --> 00:24:07,520
+okay so the first question we always
+
+578
+00:24:07,520 --> 00:24:09,520
+have to worry about when dealing with
+
+579
+00:24:09,520 --> 00:24:11,279
+virtual addresses that the user program
+
+580
+00:24:11,279 --> 00:24:13,200
+produced like this one
+
+581
+00:24:13,200 --> 00:24:16,080
+is what if it's a completely crazy
+
+582
+00:24:16,080 --> 00:24:17,200
+address
+
+583
+00:24:17,200 --> 00:24:19,440
+like way up above the top of the process
+
+584
+00:24:19,440 --> 00:24:21,360
+or what if it's an address like
+
+585
+00:24:21,360 --> 00:24:23,600
+in the um trap frame or in the
+
+586
+00:24:23,600 --> 00:24:25,440
+trampoline page or in the
+
+587
+00:24:25,440 --> 00:24:33,200
+page the stack guard page um
+
+588
+00:24:33,200 --> 00:24:34,559
+so can anybody sort of outline a
+
+589
+00:24:34,559 --> 00:24:37,830
+strategy for uh
+
+590
+00:24:37,840 --> 00:24:40,159
+defending ourselves against the user
+
+591
+00:24:40,159 --> 00:24:42,159
+process intentionally faulting
+
+592
+00:24:42,159 --> 00:24:50,070
+on crazy addresses
+
+593
+00:24:50,080 --> 00:24:54,320
+isn't there like a max virtual address
+
+594
+00:24:54,320 --> 00:24:56,559
+yes yes there is and that will actually
+
+595
+00:24:56,559 --> 00:24:57,360
+come up
+
+596
+00:24:57,360 --> 00:25:00,559
+um but the uh
+
+597
+00:25:00,559 --> 00:25:03,919
+top of the user address space is below
+
+598
+00:25:03,919 --> 00:25:08,000
+um max va
+
+599
+00:25:08,000 --> 00:25:11,110
+and the um
+
+600
+00:25:11,120 --> 00:25:13,840
+like the stack guard page which we
+
+601
+00:25:13,840 --> 00:25:14,880
+shouldn't be allowing right you
+
+602
+00:25:14,880 --> 00:25:16,080
+certainly shouldn't be treating as a
+
+603
+00:25:16,080 --> 00:25:17,760
+copy and right thing
+
+604
+00:25:17,760 --> 00:25:22,789
+all right i will uh um
+
+605
+00:25:22,799 --> 00:25:25,279
+i'll show a solution here we're just
+
+606
+00:25:25,279 --> 00:25:30,549
+going to call walk for now
+
+607
+00:25:30,559 --> 00:25:32,480
+and one thing that can go wrong is walk
+
+608
+00:25:32,480 --> 00:25:34,559
+doesn't find a page table entry
+
+609
+00:25:34,559 --> 00:25:38,320
+so for most illegal pages that a
+
+610
+00:25:38,320 --> 00:25:41,919
+process might refer to there's no pte
+
+611
+00:25:41,919 --> 00:25:43,520
+and there's only a few exceptions to
+
+612
+00:25:43,520 --> 00:25:45,120
+that so if we
+
+613
+00:25:45,120 --> 00:25:47,279
+detect the illegal if we tucked the
+
+614
+00:25:47,279 --> 00:25:48,480
+detect then
+
+615
+00:25:48,480 --> 00:25:50,640
+pde not found return value from walk and
+
+616
+00:25:50,640 --> 00:25:53,360
+return minus one
+
+617
+00:25:53,360 --> 00:25:55,760
+we've handled almost every case the only
+
+618
+00:25:55,760 --> 00:25:57,200
+cases i'm aware of
+
+619
+00:25:57,200 --> 00:25:59,440
+where walk would return a page table
+
+620
+00:25:59,440 --> 00:26:00,240
+entry but we
+
+621
+00:26:00,240 --> 00:26:02,640
+don't want to allow rights to it are for
+
+622
+00:26:02,640 --> 00:26:03,919
+the
+
+623
+00:26:03,919 --> 00:26:06,480
+trampoline trap frame and stack guard
+
+624
+00:26:06,480 --> 00:26:08,080
+pages
+
+625
+00:26:08,080 --> 00:26:11,679
+and those all have pteu clear
+
+626
+00:26:11,679 --> 00:26:14,000
+so the way i'm going to detect crazy
+
+627
+00:26:14,000 --> 00:26:16,960
+addresses illegal addresses is by
+
+628
+00:26:16,960 --> 00:26:20,400
+checking that ptu
+
+629
+00:26:20,400 --> 00:26:24,159
+is set and also
+
+630
+00:26:24,159 --> 00:26:29,350
+just for chuckles look at ptev
+
+631
+00:26:29,360 --> 00:26:31,200
+and if either of those is clear then we
+
+632
+00:26:31,200 --> 00:26:33,200
+know this is like
+
+633
+00:26:33,200 --> 00:26:37,520
+um not an okay address
+
+634
+00:26:37,520 --> 00:26:39,200
+and we'll just return minus one now
+
+635
+00:26:39,200 --> 00:26:40,960
+which will kill the process
+
+636
+00:26:40,960 --> 00:26:42,400
+so i believe you've taken care of all
+
+637
+00:26:42,400 --> 00:26:50,390
+the uh
+
+638
+00:26:50,400 --> 00:26:52,960
+illegal addresses the user process could
+
+639
+00:26:52,960 --> 00:26:53,600
+use
+
+640
+00:26:53,600 --> 00:26:56,880
+try to use all right how can we
+
+641
+00:26:56,880 --> 00:26:58,480
+find out we want to do a copy now we
+
+642
+00:26:58,480 --> 00:27:00,640
+want to make the this process a
+
+643
+00:27:00,640 --> 00:27:03,679
+copy of the page how do we find the page
+
+644
+00:27:03,679 --> 00:27:06,720
+to copy from i have a question here
+
+645
+00:27:06,720 --> 00:27:10,000
+please um wouldn't the strategy
+
+646
+00:27:10,000 --> 00:27:13,760
+of using the pteu to judge if the
+
+647
+00:27:13,760 --> 00:27:17,120
+page is if there
+
+648
+00:27:17,120 --> 00:27:19,840
+if it's a legit page for copy and write
+
+649
+00:27:19,840 --> 00:27:21,120
+wouldn't the strategy
+
+650
+00:27:21,120 --> 00:27:23,520
+not be very good for the long term
+
+651
+00:27:23,520 --> 00:27:27,120
+process maybe you add some other
+
+652
+00:27:27,120 --> 00:27:30,159
+part to the address space which is which
+
+653
+00:27:30,159 --> 00:27:31,600
+is supposed to be
+
+654
+00:27:31,600 --> 00:27:34,559
+a writable which are only supposed to be
+
+655
+00:27:34,559 --> 00:27:35,279
+readable
+
+656
+00:27:35,279 --> 00:27:37,760
+but that doesn't get taken care of here
+
+657
+00:27:37,760 --> 00:27:39,120
+as in you'll have to come back here
+
+658
+00:27:39,120 --> 00:27:40,000
+again
+
+659
+00:27:40,000 --> 00:27:41,919
+you're absolutely right if we were to
+
+660
+00:27:41,919 --> 00:27:43,279
+add
+
+661
+00:27:43,279 --> 00:27:46,399
+any other interesting paging feature
+
+662
+00:27:46,399 --> 00:27:48,480
+you know like maybe lazy page allocation
+
+663
+00:27:48,480 --> 00:27:49,919
+for example
+
+664
+00:27:49,919 --> 00:27:51,520
+we'd have to revisit these decisions and
+
+665
+00:27:51,520 --> 00:27:52,960
+come up with some other strategy for
+
+666
+00:27:52,960 --> 00:27:53,919
+deciding
+
+667
+00:27:53,919 --> 00:27:56,080
+is this a copy and write page is this a
+
+668
+00:27:56,080 --> 00:27:56,960
+lazy
+
+669
+00:27:56,960 --> 00:27:59,520
+allocation page is this a paged out to
+
+670
+00:27:59,520 --> 00:28:00,480
+disk page
+
+671
+00:28:00,480 --> 00:28:03,760
+is this a memory map file um
+
+672
+00:28:03,760 --> 00:28:06,480
+and and we need more sophisticated you
+
+673
+00:28:06,480 --> 00:28:07,360
+know with the
+
+674
+00:28:07,360 --> 00:28:10,320
+in the end i think most serious
+
+675
+00:28:10,320 --> 00:28:11,679
+operating systems actually keep their
+
+676
+00:28:11,679 --> 00:28:12,000
+own
+
+677
+00:28:12,000 --> 00:28:15,039
+data structure nothing to do with
+
+678
+00:28:15,039 --> 00:28:16,559
+you know not a page table but sort of
+
+679
+00:28:16,559 --> 00:28:18,559
+mimicking a page table that describes
+
+680
+00:28:18,559 --> 00:28:20,480
+the process's address space and
+
+681
+00:28:20,480 --> 00:28:22,559
+sort of describes what each page means
+
+682
+00:28:22,559 --> 00:28:23,679
+and what its state is
+
+683
+00:28:23,679 --> 00:28:27,190
+and we'd have to consult that table
+
+684
+00:28:27,200 --> 00:28:29,520
+but for this lab since we don't have
+
+685
+00:28:29,520 --> 00:28:30,960
+those other features and we're not sure
+
+686
+00:28:30,960 --> 00:28:33,750
+what they would be
+
+687
+00:28:33,760 --> 00:28:34,640
+i'm just going to do something
+
+688
+00:28:34,640 --> 00:28:36,000
+straightforward and indeed we would have
+
+689
+00:28:36,000 --> 00:28:37,200
+to come back and fix it
+
+690
+00:28:37,200 --> 00:28:41,679
+if we made xv6 more sophisticated
+
+691
+00:28:41,679 --> 00:28:45,120
+um wouldn't that panic if va is
+
+692
+00:28:45,120 --> 00:28:51,669
+more than max va because of the walk
+
+693
+00:28:51,679 --> 00:28:58,559
+um gosh media would
+
+694
+00:28:58,559 --> 00:29:00,080
+now we'll look at that yeah maybe if the
+
+695
+00:29:00,080 --> 00:29:03,029
+process
+
+696
+00:29:03,039 --> 00:29:06,000
+uh yeah i think you're right well that's
+
+697
+00:29:06,000 --> 00:29:06,880
+too bad
+
+698
+00:29:06,880 --> 00:29:09,600
+okay so we're certainly uh you're right
+
+699
+00:29:09,600 --> 00:29:11,279
+all right well i was i was wrong about
+
+700
+00:29:11,279 --> 00:29:12,720
+this
+
+701
+00:29:12,720 --> 00:29:15,200
+wait can you just return a negative one
+
+702
+00:29:15,200 --> 00:29:16,880
+if you just check the maps va
+
+703
+00:29:16,880 --> 00:29:19,840
+i think the observation is that if if
+
+704
+00:29:19,840 --> 00:29:20,960
+the user tries to
+
+705
+00:29:20,960 --> 00:29:23,600
+intentionally program tries to write a
+
+706
+00:29:23,600 --> 00:29:25,360
+very large address
+
+707
+00:29:25,360 --> 00:29:27,279
+of course you know i can't expect to
+
+708
+00:29:27,279 --> 00:29:28,720
+survive that
+
+709
+00:29:28,720 --> 00:29:32,159
+um but what we would do here
+
+710
+00:29:32,159 --> 00:29:34,960
+is call walk with a very large address
+
+711
+00:29:34,960 --> 00:29:36,080
+and i'm looking at here the
+
+712
+00:29:36,080 --> 00:29:37,279
+implementation of walk
+
+713
+00:29:37,279 --> 00:29:42,000
+in and it's going to panic
+
+714
+00:29:42,000 --> 00:29:43,919
+i think we can just use the same
+
+715
+00:29:43,919 --> 00:29:45,679
+approach as walk address does i have
+
+716
+00:29:45,679 --> 00:29:47,200
+this same bug
+
+717
+00:29:47,200 --> 00:29:49,039
+you can just return minus one like other
+
+718
+00:29:49,039 --> 00:29:50,799
+people were saying if va is
+
+719
+00:29:50,799 --> 00:29:55,200
+greater than max va before walk
+
+720
+00:29:55,200 --> 00:29:56,880
+what i'm upset about is that the tests
+
+721
+00:29:56,880 --> 00:29:59,600
+don't seem to test this
+
+722
+00:29:59,600 --> 00:30:03,039
+because i didn't put this in my solution
+
+723
+00:30:03,039 --> 00:30:08,399
+okay um
+
+724
+00:30:08,399 --> 00:30:11,520
+okay okay so um
+
+725
+00:30:11,520 --> 00:30:13,039
+how do we find out we need to we want to
+
+726
+00:30:13,039 --> 00:30:14,799
+copy the page
+
+727
+00:30:14,799 --> 00:30:17,120
+how do i get a pointer to the page to
+
+728
+00:30:17,120 --> 00:30:18,320
+the
+
+729
+00:30:18,320 --> 00:30:22,640
+pointer to something i can copy
+
+730
+00:30:22,640 --> 00:30:26,080
+the pta 2pa yeah so
+
+731
+00:30:26,080 --> 00:30:34,549
+it's just in the pde um
+
+732
+00:30:34,559 --> 00:30:40,870
+and where am i going to copy to
+
+733
+00:30:40,880 --> 00:30:44,070
+what should i copy to
+
+734
+00:30:44,080 --> 00:30:47,440
+a nearly allocated page yeah so i just
+
+735
+00:30:47,440 --> 00:30:47,840
+call
+
+736
+00:30:47,840 --> 00:30:52,000
+k lock of course chao lock is
+
+737
+00:30:52,000 --> 00:30:57,440
+likely to fail so um i gotta catch that
+
+738
+00:30:57,440 --> 00:31:01,669
+uh we're actually gonna see this
+
+739
+00:31:01,679 --> 00:31:03,120
+so i'm gonna put in a print statement so
+
+740
+00:31:03,120 --> 00:31:05,519
+we know
+
+741
+00:31:05,519 --> 00:31:13,190
+okay
+
+742
+00:31:13,200 --> 00:31:14,799
+i actually made this error and i wanted
+
+743
+00:31:14,799 --> 00:31:16,399
+to reproduce it so that we would have to
+
+744
+00:31:16,399 --> 00:31:18,720
+track it down but you're too clever for
+
+745
+00:31:18,720 --> 00:31:21,190
+me
+
+746
+00:31:21,200 --> 00:31:24,320
+all right i want to copy 2
+
+747
+00:31:24,320 --> 00:31:31,350
+pa2 from p1
+
+748
+00:31:31,360 --> 00:31:34,399
+okay so how can i what do i need to do
+
+749
+00:31:34,399 --> 00:31:36,320
+in order to map this page
+
+750
+00:31:36,320 --> 00:31:40,470
+this new page pa2 into the
+
+751
+00:31:40,480 --> 00:31:46,159
+address space
+
+752
+00:31:46,159 --> 00:31:49,600
+what should i type there's like two
+
+753
+00:31:49,600 --> 00:31:51,519
+broad ways there's either
+
+754
+00:31:51,519 --> 00:31:53,440
+unmapping and then mapping with the
+
+755
+00:31:53,440 --> 00:31:55,120
+built-ins that exist
+
+756
+00:31:55,120 --> 00:31:58,559
+or you could manipulate the bits
+
+757
+00:31:58,559 --> 00:32:01,600
+yeah be well i am way too lazy to figure
+
+758
+00:32:01,600 --> 00:32:02,159
+out
+
+759
+00:32:02,159 --> 00:32:05,200
+how to use m on map and map so i'm going
+
+760
+00:32:05,200 --> 00:32:05,519
+to
+
+761
+00:32:05,519 --> 00:32:07,919
+just cook up a new page table entry
+
+762
+00:32:07,919 --> 00:32:13,350
+right here
+
+763
+00:32:13,360 --> 00:32:16,399
+um i have a question so actually i ran
+
+764
+00:32:16,399 --> 00:32:16,960
+into
+
+765
+00:32:16,960 --> 00:32:20,399
+this issue in almost every lab in which
+
+766
+00:32:20,399 --> 00:32:23,440
+i somehow needed to remap things
+
+767
+00:32:23,440 --> 00:32:26,559
+and uh because it
+
+768
+00:32:26,559 --> 00:32:29,600
+occurred so often i implemented
+
+769
+00:32:29,600 --> 00:32:34,559
+a map that which could remap basically
+
+770
+00:32:34,559 --> 00:32:37,760
+um and i was wondering is that a bad
+
+771
+00:32:37,760 --> 00:32:42,710
+design choice is it like dangerous
+
+772
+00:32:42,720 --> 00:32:44,320
+that's totally reasonable you know the
+
+773
+00:32:44,320 --> 00:32:45,840
+functions on xv6
+
+774
+00:32:45,840 --> 00:32:48,880
+are are you know specialized
+
+775
+00:32:48,880 --> 00:32:52,480
+to xv6 as it exists
+
+776
+00:32:52,480 --> 00:32:56,159
+um and so they
+
+777
+00:32:56,159 --> 00:32:57,440
+you know they make assumptions about how
+
+778
+00:32:57,440 --> 00:32:59,279
+the other code works they have panics in
+
+779
+00:32:59,279 --> 00:33:00,000
+them that are
+
+780
+00:33:00,000 --> 00:33:02,240
+intended to catch other code using them
+
+781
+00:33:02,240 --> 00:33:03,679
+in unexpected ways but
+
+782
+00:33:03,679 --> 00:33:05,440
+if you change the way xv6 works and you
+
+783
+00:33:05,440 --> 00:33:06,960
+need to do different things then
+
+784
+00:33:06,960 --> 00:33:09,919
+it's totally reasonable to modify you
+
+785
+00:33:09,919 --> 00:33:11,679
+know oh you need to
+
+786
+00:33:11,679 --> 00:33:13,600
+be able to remap this without a panic
+
+787
+00:33:13,600 --> 00:33:17,600
+well old xv6 never needs to do that
+
+788
+00:33:17,600 --> 00:33:20,080
+but your code does so you should feel
+
+789
+00:33:20,080 --> 00:33:21,440
+free to modify
+
+790
+00:33:21,440 --> 00:33:25,360
+anything you need to
+
+791
+00:33:25,360 --> 00:33:28,799
+okay so okay so the deal is
+
+792
+00:33:28,799 --> 00:33:30,480
+here we had a write protected page that
+
+793
+00:33:30,480 --> 00:33:32,559
+was probably shared with another process
+
+794
+00:33:32,559 --> 00:33:33,919
+what do we have to do to that other
+
+795
+00:33:33,919 --> 00:33:36,840
+process at this point
+
+796
+00:33:36,840 --> 00:33:39,039
+um
+
+797
+00:33:39,039 --> 00:33:40,159
+what do we need to do to the other
+
+798
+00:33:40,159 --> 00:33:46,310
+process
+
+799
+00:33:46,320 --> 00:33:49,600
+we can just not do anything and then
+
+800
+00:33:49,600 --> 00:33:52,559
+when it page folds we allocate a new
+
+801
+00:33:52,559 --> 00:33:53,200
+page
+
+802
+00:33:53,200 --> 00:33:56,480
+and remove the original one
+
+803
+00:33:56,480 --> 00:33:57,919
+that's absolutely right so you could
+
+804
+00:33:57,919 --> 00:33:59,600
+imagine doing something but it would be
+
+805
+00:33:59,600 --> 00:34:02,240
+quite complex to do it correctly
+
+806
+00:34:02,240 --> 00:34:04,960
+and so we just do nothing and if the
+
+807
+00:34:04,960 --> 00:34:05,360
+other
+
+808
+00:34:05,360 --> 00:34:07,279
+process never writes this page well it's
+
+809
+00:34:07,279 --> 00:34:09,040
+not a problem if it does write a page
+
+810
+00:34:09,040 --> 00:34:09,520
+then
+
+811
+00:34:09,520 --> 00:34:11,280
+it'll go through all this it'll make a
+
+812
+00:34:11,280 --> 00:34:13,359
+copy and
+
+813
+00:34:13,359 --> 00:34:15,919
+it'll proceed safely as well so doing
+
+814
+00:34:15,919 --> 00:34:16,560
+nothing is
+
+815
+00:34:16,560 --> 00:34:20,480
+totally reasonable um okay so now we're
+
+816
+00:34:20,480 --> 00:34:22,399
+going to return the return
+
+817
+00:34:22,399 --> 00:34:25,040
+value zero says there was no error and
+
+818
+00:34:25,040 --> 00:34:26,240
+hopefully the um
+
+819
+00:34:26,240 --> 00:34:30,079
+process will but we should
+
+820
+00:34:30,079 --> 00:34:33,040
+should free the physical page right or
+
+821
+00:34:33,040 --> 00:34:34,480
+are we not there yet
+
+822
+00:34:34,480 --> 00:34:36,719
+um we can do it or not um
+
+823
+00:34:36,719 --> 00:34:38,399
+[Music]
+
+824
+00:34:38,399 --> 00:34:40,560
+um i guess if we're going steps we
+
+825
+00:34:40,560 --> 00:34:41,599
+shouldn't yeah
+
+826
+00:34:41,599 --> 00:34:44,879
+so if i did this what would happen
+
+827
+00:34:44,879 --> 00:34:47,200
+well we would definitely crash right all
+
+828
+00:34:47,200 --> 00:34:49,839
+right so let's not do this
+
+829
+00:34:49,839 --> 00:34:53,280
+or i don't know if we would crash but
+
+830
+00:34:53,280 --> 00:34:56,079
+um we would then be if we if we freed a
+
+831
+00:34:56,079 --> 00:34:57,200
+page
+
+832
+00:34:57,200 --> 00:34:59,920
+it would be presumably pa1 because
+
+833
+00:34:59,920 --> 00:35:02,240
+people don't have free pa 2.
+
+834
+00:35:02,240 --> 00:35:04,240
+because we're using ph2 if we free pa1
+
+835
+00:35:04,240 --> 00:35:05,760
+that means the other
+
+836
+00:35:05,760 --> 00:35:08,160
+process has got a problem it is now
+
+837
+00:35:08,160 --> 00:35:09,520
+mapped into its address space and
+
+838
+00:35:09,520 --> 00:35:10,720
+presumably using
+
+839
+00:35:10,720 --> 00:35:12,400
+you know executing instructions in or i
+
+840
+00:35:12,400 --> 00:35:14,320
+don't know what a page that we just
+
+841
+00:35:14,320 --> 00:35:16,160
+freed and might be reusing for some
+
+842
+00:35:16,160 --> 00:35:17,520
+other purpose and
+
+843
+00:35:17,520 --> 00:35:19,839
+writing something else over so i'm
+
+844
+00:35:19,839 --> 00:35:23,190
+reluctant to free it
+
+845
+00:35:23,200 --> 00:35:26,870
+although it's
+
+846
+00:35:26,880 --> 00:35:32,400
+oh yeah so sadly among many other things
+
+847
+00:35:32,400 --> 00:35:36,160
+xv6 walk is never called from outside of
+
+848
+00:35:36,160 --> 00:35:38,320
+vm.c
+
+849
+00:35:38,320 --> 00:35:51,109
+in ordinary xv6 but now we're doing it
+
+850
+00:35:51,119 --> 00:35:59,280
+all right where were we
+
+851
+00:35:59,280 --> 00:36:02,160
+okay remember the very first page what
+
+852
+00:36:02,160 --> 00:36:04,560
+we got was an s cause 2.
+
+853
+00:36:04,560 --> 00:36:14,230
+why are we getting s cos 2 page faults
+
+854
+00:36:14,240 --> 00:36:20,790
+that's an illegal instruction
+
+855
+00:36:20,800 --> 00:36:23,040
+like this is the next problem we have to
+
+856
+00:36:23,040 --> 00:36:32,150
+solve this problem now what's gone wrong
+
+857
+00:36:32,160 --> 00:36:34,320
+or what are what are some plausible
+
+858
+00:36:34,320 --> 00:36:43,349
+guesses for what might have gone wrong
+
+859
+00:36:43,359 --> 00:36:46,160
+so the sequence we when i type cow test
+
+860
+00:36:46,160 --> 00:36:48,320
+what we think happens is that the shell
+
+861
+00:36:48,320 --> 00:36:51,599
+forks it's copy and right fork
+
+862
+00:36:51,599 --> 00:36:55,520
+we have the child running
+
+863
+00:36:55,520 --> 00:36:59,119
+the shell's instructions um
+
+864
+00:36:59,119 --> 00:37:02,000
+probably taking store faults but for
+
+865
+00:37:02,000 --> 00:37:03,680
+handling those store faults correctly
+
+866
+00:37:03,680 --> 00:37:06,480
+and then the child execs the child copy
+
+867
+00:37:06,480 --> 00:37:13,829
+of the shell execs cow test
+
+868
+00:37:13,839 --> 00:37:15,839
+what bad thing might that do to the
+
+869
+00:37:15,839 --> 00:37:22,400
+parent shell
+
+870
+00:37:22,400 --> 00:37:23,839
+well when you call exec the
+
+871
+00:37:23,839 --> 00:37:26,240
+implementation of exec
+
+872
+00:37:26,240 --> 00:37:29,200
+uh frees up all the processes current
+
+873
+00:37:29,200 --> 00:37:31,200
+pages
+
+874
+00:37:31,200 --> 00:37:34,880
+and then allocates new pages to load
+
+875
+00:37:34,880 --> 00:37:39,030
+the file into that you're executing
+
+876
+00:37:39,040 --> 00:37:41,119
+what's going to happen in the child the
+
+877
+00:37:41,119 --> 00:37:42,800
+child shell that calls exact when it
+
+878
+00:37:42,800 --> 00:37:50,560
+frees all of its pages
+
+879
+00:37:50,560 --> 00:37:51,839
+what's that going to do to the parent
+
+880
+00:37:51,839 --> 00:37:54,000
+shell it's going to end up
+
+881
+00:37:54,000 --> 00:37:56,720
+accidentally oh sorry is it going to
+
+882
+00:37:56,720 --> 00:37:58,240
+accidentally free the
+
+883
+00:37:58,240 --> 00:38:01,520
+um shells um page 2
+
+884
+00:38:01,520 --> 00:38:03,839
+page pages yes we're going to free every
+
+885
+00:38:03,839 --> 00:38:05,440
+single one of the shelves pages
+
+886
+00:38:05,440 --> 00:38:08,079
+except the one or two that the that were
+
+887
+00:38:08,079 --> 00:38:08,880
+written
+
+888
+00:38:08,880 --> 00:38:10,560
+so this includes the shells instruction
+
+889
+00:38:10,560 --> 00:38:12,000
+pages
+
+890
+00:38:12,000 --> 00:38:13,920
+and then we're going to reallocate them
+
+891
+00:38:13,920 --> 00:38:14,640
+they're going to be instantly
+
+892
+00:38:14,640 --> 00:38:17,119
+reallocated by exec to hold other stuff
+
+893
+00:38:17,119 --> 00:38:19,040
+loaded from the file that we're running
+
+894
+00:38:19,040 --> 00:38:21,119
+cow test so it's going to totally change
+
+895
+00:38:21,119 --> 00:38:22,480
+everything in the shell underfoot
+
+896
+00:38:22,480 --> 00:38:24,640
+and unsurprisingly it's going to
+
+897
+00:38:24,640 --> 00:38:26,240
+instantly crash
+
+898
+00:38:26,240 --> 00:38:30,119
+so we have to not free those pages
+
+899
+00:38:30,119 --> 00:38:32,480
+somehow um
+
+900
+00:38:32,480 --> 00:38:35,680
+does everyone see that a good question
+
+901
+00:38:35,680 --> 00:38:38,880
+um what does the scpc here point to
+
+902
+00:38:38,880 --> 00:38:40,720
+which assembly file would you find that
+
+903
+00:38:40,720 --> 00:38:44,829
+instruction
+
+904
+00:38:44,839 --> 00:38:53,190
+well
+
+905
+00:38:53,200 --> 00:38:55,599
+you said it's shale right it's people
+
+906
+00:38:55,599 --> 00:38:56,480
+well last
+
+907
+00:38:56,480 --> 00:38:58,720
+time was for some other fault somewhere
+
+908
+00:38:58,720 --> 00:39:00,000
+else it was shell
+
+909
+00:39:00,000 --> 00:39:01,599
+what it is here i actually don't know i
+
+910
+00:39:01,599 --> 00:39:03,200
+never
+
+911
+00:39:03,200 --> 00:39:05,520
+uh i did not unfortunately take the time
+
+912
+00:39:05,520 --> 00:39:07,520
+to track this down
+
+913
+00:39:07,520 --> 00:39:11,440
+um um so one problem with any answer
+
+914
+00:39:11,440 --> 00:39:13,119
+even if i could give you an answer
+
+915
+00:39:13,119 --> 00:39:14,720
+so so the the answer is either the shell
+
+916
+00:39:14,720 --> 00:39:17,280
+or cow test
+
+917
+00:39:17,280 --> 00:39:22,320
+for process id3 that again is the
+
+918
+00:39:22,320 --> 00:39:25,599
+it's probably cow test i have to say i
+
+919
+00:39:25,599 --> 00:39:26,880
+don't completely know what's going on
+
+920
+00:39:26,880 --> 00:39:28,320
+here
+
+921
+00:39:28,320 --> 00:39:30,720
+looking at the asm files unlikely to be
+
+922
+00:39:30,720 --> 00:39:31,680
+helpful
+
+923
+00:39:31,680 --> 00:39:33,359
+because the whole problem that we
+
+924
+00:39:33,359 --> 00:39:36,560
+believe has happened is that
+
+925
+00:39:36,560 --> 00:39:39,520
+the page holding the instructions was
+
+926
+00:39:39,520 --> 00:39:41,359
+freed and reused
+
+927
+00:39:41,359 --> 00:39:45,040
+and so they were therefore not executing
+
+928
+00:39:45,040 --> 00:39:48,320
+the instructions in the asm file anymore
+
+929
+00:39:48,320 --> 00:39:50,880
+or executing some garbage that makes
+
+930
+00:39:50,880 --> 00:39:51,839
+sense yeah
+
+931
+00:39:51,839 --> 00:39:54,079
+um so we could look at the address 2004
+
+932
+00:39:54,079 --> 00:39:57,119
+but it it wouldn't really tell us what
+
+933
+00:39:57,119 --> 00:39:58,960
+had happened
+
+934
+00:39:58,960 --> 00:40:00,560
+we might we probably could find this out
+
+935
+00:40:00,560 --> 00:40:03,280
+using the debugger
+
+936
+00:40:03,280 --> 00:40:06,400
+we could uh break in gdb and then look
+
+937
+00:40:06,400 --> 00:40:07,520
+at the instructions it's
+
+938
+00:40:07,520 --> 00:40:10,480
+actually at whatever virtual address a
+
+939
+00:40:10,480 --> 00:40:11,599
+thousand four
+
+940
+00:40:11,599 --> 00:40:14,880
+points to a quick follow-up question
+
+941
+00:40:14,880 --> 00:40:18,960
+um about that fall uh so
+
+942
+00:40:18,960 --> 00:40:20,400
+my understanding is that we're getting
+
+943
+00:40:20,400 --> 00:40:22,160
+like an invalid instruction fault
+
+944
+00:40:22,160 --> 00:40:23,119
+because
+
+945
+00:40:23,119 --> 00:40:25,920
+um like we're changing the instruction
+
+946
+00:40:25,920 --> 00:40:26,400
+pages
+
+947
+00:40:26,400 --> 00:40:28,079
+instruction physical memory underfoot
+
+948
+00:40:28,079 --> 00:40:29,680
+and like the memories just being written
+
+949
+00:40:29,680 --> 00:40:30,880
+to something else
+
+950
+00:40:30,880 --> 00:40:34,319
+um is it possible that
+
+951
+00:40:34,319 --> 00:40:37,599
+like in some lucky case that they are
+
+952
+00:40:37,599 --> 00:40:38,560
+being rewritten
+
+953
+00:40:38,560 --> 00:40:40,640
+but when we look at it again it's being
+
+954
+00:40:40,640 --> 00:40:42,240
+being rewritten to valid instruction
+
+955
+00:40:42,240 --> 00:40:43,760
+pages so we actually just start
+
+956
+00:40:43,760 --> 00:40:46,240
+executing like random instructions and
+
+957
+00:40:46,240 --> 00:40:47,520
+we don't actually get an invalid
+
+958
+00:40:47,520 --> 00:40:48,880
+instruction fault we get some other
+
+959
+00:40:48,880 --> 00:40:49,599
+fault
+
+960
+00:40:49,599 --> 00:40:53,440
+yes absolutely
+
+961
+00:40:53,440 --> 00:40:56,560
+yeah yeah i mean really we're now like
+
+962
+00:40:56,560 --> 00:40:58,000
+anything could happen
+
+963
+00:40:58,000 --> 00:41:01,200
+um i would not have been able to guess
+
+964
+00:41:01,200 --> 00:41:05,040
+if i had not done this lab
+
+965
+00:41:05,040 --> 00:41:07,599
+i wouldn't be able to guess what would
+
+966
+00:41:07,599 --> 00:41:11,589
+go wrong at this point
+
+967
+00:41:11,599 --> 00:41:13,520
+and indeed i think i have seen other
+
+968
+00:41:13,520 --> 00:41:15,599
+strange things
+
+969
+00:41:15,599 --> 00:41:19,040
+happen at this point because maybe the
+
+970
+00:41:19,040 --> 00:41:20,000
+data maybe the first
+
+971
+00:41:20,000 --> 00:41:22,000
+page that has garbage in it actually has
+
+972
+00:41:22,000 --> 00:41:23,680
+data in it and a
+
+973
+00:41:23,680 --> 00:41:25,520
+shell trips over some complete garbage
+
+974
+00:41:25,520 --> 00:41:27,200
+data like a stack
+
+975
+00:41:27,200 --> 00:41:30,870
+instead of instructions
+
+976
+00:41:30,880 --> 00:41:32,240
+okay so we don't want to free the page
+
+977
+00:41:32,240 --> 00:41:34,160
+right away we you know we only want to
+
+978
+00:41:34,160 --> 00:41:35,839
+free the page when it's really not being
+
+979
+00:41:35,839 --> 00:41:39,750
+used anymore
+
+980
+00:41:39,760 --> 00:41:43,040
+so can anybody uh propose
+
+981
+00:41:43,040 --> 00:41:46,319
+a sort of criterion for when
+
+982
+00:41:46,319 --> 00:41:48,640
+we should or shouldn't free the pa for
+
+983
+00:41:48,640 --> 00:41:50,960
+each page of memory
+
+984
+00:41:50,960 --> 00:41:53,040
+we could keep track of like how many
+
+985
+00:41:53,040 --> 00:41:54,640
+times
+
+986
+00:41:54,640 --> 00:41:57,520
+or like basically whenever in k alec
+
+987
+00:41:57,520 --> 00:41:59,200
+whenever you
+
+988
+00:41:59,200 --> 00:42:01,200
+you should increment and decrement some
+
+989
+00:42:01,200 --> 00:42:02,400
+type of variable
+
+990
+00:42:02,400 --> 00:42:04,640
+and keep an array of like all the
+
+991
+00:42:04,640 --> 00:42:06,079
+different addresses
+
+992
+00:42:06,079 --> 00:42:08,560
+yes yeah exactly so one way to think
+
+993
+00:42:08,560 --> 00:42:10,240
+about this is that we want to only free
+
+994
+00:42:10,240 --> 00:42:11,359
+a page
+
+995
+00:42:11,359 --> 00:42:15,119
+when there's zero page tables that refer
+
+996
+00:42:15,119 --> 00:42:16,800
+to it
+
+997
+00:42:16,800 --> 00:42:19,119
+but there could be many if if a program
+
+998
+00:42:19,119 --> 00:42:20,480
+forks and that forks again and then
+
+999
+00:42:20,480 --> 00:42:21,680
+forks again boy
+
+1000
+00:42:21,680 --> 00:42:23,440
+we can now have like three or four
+
+1001
+00:42:23,440 --> 00:42:25,440
+different processes that all refer
+
+1002
+00:42:25,440 --> 00:42:27,200
+due to copy and write fork to this one
+
+1003
+00:42:27,200 --> 00:42:28,560
+page
+
+1004
+00:42:28,560 --> 00:42:31,119
+um so that this you know this count of
+
+1005
+00:42:31,119 --> 00:42:32,880
+how many times how many page tables
+
+1006
+00:42:32,880 --> 00:42:34,079
+refer to a page and go up
+
+1007
+00:42:34,079 --> 00:42:36,800
+due to fork and they can go back down
+
+1008
+00:42:36,800 --> 00:42:37,520
+when a process
+
+1009
+00:42:37,520 --> 00:42:40,560
+exits or calls exec um you know it's
+
+1010
+00:42:40,560 --> 00:42:42,240
+clears all these references out of its
+
+1011
+00:42:42,240 --> 00:42:44,319
+page table entry or if a process
+
+1012
+00:42:44,319 --> 00:42:45,040
+actually
+
+1013
+00:42:45,040 --> 00:42:47,760
+does a write and causes a right fault
+
+1014
+00:42:47,760 --> 00:42:49,760
+that's also a situation in which
+
+1015
+00:42:49,760 --> 00:42:52,319
+we have one fewer reference from a one
+
+1016
+00:42:52,319 --> 00:42:55,119
+fewer page tables referring to a page
+
+1017
+00:42:55,119 --> 00:42:57,839
+so we want to keep a count and we want
+
+1018
+00:42:57,839 --> 00:42:59,280
+to count be counting
+
+1019
+00:42:59,280 --> 00:43:00,800
+the number of page table entries that
+
+1020
+00:43:00,800 --> 00:43:02,800
+refer to a page
+
+1021
+00:43:02,800 --> 00:43:04,480
+so we're going to need to think about
+
+1022
+00:43:04,480 --> 00:43:06,240
+how to maintain this count and when to
+
+1023
+00:43:06,240 --> 00:43:08,079
+increment it
+
+1024
+00:43:08,079 --> 00:43:09,680
+exactly where on the code to increment
+
+1025
+00:43:09,680 --> 00:43:13,760
+it and decrement it
+
+1026
+00:43:13,760 --> 00:43:17,359
+okay so the there's as
+
+1027
+00:43:17,359 --> 00:43:19,839
+you may be aware there's multiple ways
+
+1028
+00:43:19,839 --> 00:43:22,150
+to
+
+1029
+00:43:22,160 --> 00:43:25,359
+maintain this count the way i do it
+
+1030
+00:43:25,359 --> 00:43:28,720
+is i make an array um
+
+1031
+00:43:28,720 --> 00:43:30,640
+called ref count it's just gonna have a
+
+1032
+00:43:30,640 --> 00:43:32,319
+for every page
+
+1033
+00:43:32,319 --> 00:43:34,960
+account um we need to know how many
+
+1034
+00:43:34,960 --> 00:43:36,400
+entries are in ref count
+
+1035
+00:43:36,400 --> 00:43:39,520
+in xc6 it's so simple um
+
+1036
+00:43:39,520 --> 00:43:41,760
+that it just has it just uses a fixed
+
+1037
+00:43:41,760 --> 00:43:42,640
+amount of memory
+
+1038
+00:43:42,640 --> 00:43:44,240
+physical memory right we only need to
+
+1039
+00:43:44,240 --> 00:43:46,800
+keep a count per page of physical memory
+
+1040
+00:43:46,800 --> 00:43:50,880
+um we know that from inspecting
+
+1041
+00:43:50,880 --> 00:43:56,160
+k in it that xv6 uses only fizz top
+
+1042
+00:43:56,160 --> 00:43:58,720
+amount of physical memory we only need
+
+1043
+00:43:58,720 --> 00:44:00,400
+to keep a count per page
+
+1044
+00:44:00,400 --> 00:44:02,160
+not per byte so we're going to divide
+
+1045
+00:44:02,160 --> 00:44:04,560
+fizz top by 4096
+
+1046
+00:44:04,560 --> 00:44:06,839
+and that's how many array elements we
+
+1047
+00:44:06,839 --> 00:44:09,599
+need
+
+1048
+00:44:09,599 --> 00:44:11,200
+in a more serious operating system where
+
+1049
+00:44:11,200 --> 00:44:12,240
+we don't know how much memory is
+
+1050
+00:44:12,240 --> 00:44:13,680
+available
+
+1051
+00:44:13,680 --> 00:44:15,440
+until we inspect the hardware we might
+
+1052
+00:44:15,440 --> 00:44:17,760
+have to we would have to allocate this
+
+1053
+00:44:17,760 --> 00:44:19,839
+array
+
+1054
+00:44:19,839 --> 00:44:23,040
+dynamically any questions about where to
+
+1055
+00:44:23,040 --> 00:44:28,390
+put the counts
+
+1056
+00:44:28,400 --> 00:44:31,920
+all right actually yes i'm wondering is
+
+1057
+00:44:31,920 --> 00:44:34,079
+there a reason that you're using 4096
+
+1058
+00:44:34,079 --> 00:44:35,359
+specifically and not the
+
+1059
+00:44:35,359 --> 00:44:38,800
+page size macro uh yeah the reason is
+
+1060
+00:44:38,800 --> 00:44:41,119
+that i can remember 4096
+
+1061
+00:44:41,119 --> 00:44:42,480
+and i don't remember the name of the
+
+1062
+00:44:42,480 --> 00:44:44,800
+page size macro but i'm happy to use it
+
+1063
+00:44:44,800 --> 00:44:46,400
+if you like
+
+1064
+00:44:46,400 --> 00:44:50,560
+um it actually if
+
+1065
+00:44:50,560 --> 00:44:52,560
+if xv6 was intended to be portable and
+
+1066
+00:44:52,560 --> 00:44:53,920
+to be able to run on
+
+1067
+00:44:53,920 --> 00:44:55,040
+all kinds of different machines with
+
+1068
+00:44:55,040 --> 00:44:56,720
+different page sizes we'd have to be
+
+1069
+00:44:56,720 --> 00:44:58,480
+much more careful about this but
+
+1070
+00:44:58,480 --> 00:45:01,440
+there's 500 ways in which xv6 is totally
+
+1071
+00:45:01,440 --> 00:45:04,480
+not portable um
+
+1072
+00:45:04,480 --> 00:45:07,990
+so
+
+1073
+00:45:08,000 --> 00:45:10,079
+i don't worry about it state size is
+
+1074
+00:45:10,079 --> 00:45:11,359
+determined in hardware
+
+1075
+00:45:11,359 --> 00:45:14,950
+and i guess where
+
+1076
+00:45:14,960 --> 00:45:18,240
+and the hardware that risk five
+
+1077
+00:45:18,240 --> 00:45:22,720
+manual says how big a pages
+
+1078
+00:45:22,720 --> 00:45:26,960
+yeah because the um it's the mmu
+
+1079
+00:45:26,960 --> 00:45:30,640
+that takes a virtual address and uses it
+
+1080
+00:45:30,640 --> 00:45:32,800
+to index into the page table
+
+1081
+00:45:32,800 --> 00:45:34,880
+oh right right because the address
+
+1082
+00:45:34,880 --> 00:45:36,960
+translation happens in hardware so the
+
+1083
+00:45:36,960 --> 00:45:38,480
+hardware has to know how big the
+
+1084
+00:45:38,480 --> 00:45:41,280
+pages are okay it's it's configurable
+
+1085
+00:45:41,280 --> 00:45:42,079
+but
+
+1086
+00:45:42,079 --> 00:45:43,200
+you know there's a couple of different
+
+1087
+00:45:43,200 --> 00:45:44,560
+strategies you can tell the hardware to
+
+1088
+00:45:44,560 --> 00:45:45,200
+use but
+
+1089
+00:45:45,200 --> 00:45:49,760
+we tell it to use 4096 byte pages
+
+1090
+00:45:49,760 --> 00:45:52,880
+okay sorry quick question uh so where
+
+1091
+00:45:52,880 --> 00:45:53,280
+are
+
+1092
+00:45:53,280 --> 00:45:55,440
+i guess this is a c question so in where
+
+1093
+00:45:55,440 --> 00:45:56,960
+are like global
+
+1094
+00:45:56,960 --> 00:46:00,640
+um variables like ref count stored
+
+1095
+00:46:00,640 --> 00:46:03,280
+like what like already associated with
+
+1096
+00:46:03,280 --> 00:46:04,480
+specific
+
+1097
+00:46:04,480 --> 00:46:08,160
+process or this is the kernel
+
+1098
+00:46:08,160 --> 00:46:11,200
+um what's going on is that the
+
+1099
+00:46:11,200 --> 00:46:14,240
+file the executable file
+
+1100
+00:46:14,240 --> 00:46:18,240
+um that the compiler and the
+
+1101
+00:46:18,240 --> 00:46:22,870
+loader or linker produces
+
+1102
+00:46:22,880 --> 00:46:26,870
+has it just sort of just
+
+1103
+00:46:26,880 --> 00:46:29,440
+indicates how much date how the total
+
+1104
+00:46:29,440 --> 00:46:31,119
+size of all the global variables in the
+
+1105
+00:46:31,119 --> 00:46:32,800
+program
+
+1106
+00:46:32,800 --> 00:46:35,760
+and so we don't see the code for this
+
+1107
+00:46:35,760 --> 00:46:36,319
+but when
+
+1108
+00:46:36,319 --> 00:46:43,119
+qmu loads the kernel
+
+1109
+00:46:43,119 --> 00:46:45,440
+well what's really going on is that when
+
+1110
+00:46:45,440 --> 00:46:46,880
+you compile
+
+1111
+00:46:46,880 --> 00:46:50,160
+the program called the linker figures
+
+1112
+00:46:50,160 --> 00:46:51,760
+out based on uh
+
+1113
+00:46:51,760 --> 00:46:53,119
+looks at all the global variables and
+
+1114
+00:46:53,119 --> 00:46:55,920
+their sizes and assigns an address in
+
+1115
+00:46:55,920 --> 00:46:57,280
+memory
+
+1116
+00:46:57,280 --> 00:47:04,309
+you know to each global variable
+
+1117
+00:47:04,319 --> 00:47:06,260
+and that's where it lives in memory
+
+1118
+00:47:06,260 --> 00:47:08,000
+[Music]
+
+1119
+00:47:08,000 --> 00:47:13,589
+i mean um
+
+1120
+00:47:13,599 --> 00:47:16,870
+and
+
+1121
+00:47:16,880 --> 00:47:19,119
+we just arranged that the you know so
+
+1122
+00:47:19,119 --> 00:47:20,160
+the xv6
+
+1123
+00:47:20,160 --> 00:47:22,880
+kernel uses you know i don't know 10 000
+
+1124
+00:47:22,880 --> 00:47:23,760
+bytes of
+
+1125
+00:47:23,760 --> 00:47:26,640
+various global variables and wherever
+
+1126
+00:47:26,640 --> 00:47:27,280
+the
+
+1127
+00:47:27,280 --> 00:47:29,680
+boot process loads it into memory say at
+
+1128
+00:47:29,680 --> 00:47:31,440
+address a million
+
+1129
+00:47:31,440 --> 00:47:34,549
+it just
+
+1130
+00:47:34,559 --> 00:47:37,760
+uses those addresses
+
+1131
+00:47:37,760 --> 00:47:40,880
+for the global variables i see is this
+
+1132
+00:47:40,880 --> 00:47:43,760
+is this similar to how like there's only
+
+1133
+00:47:43,760 --> 00:47:44,160
+one
+
+1134
+00:47:44,160 --> 00:47:46,800
+copy of like the instructions for a
+
+1135
+00:47:46,800 --> 00:47:48,480
+program on disk and there's only like
+
+1136
+00:47:48,480 --> 00:47:49,839
+one copy of
+
+1137
+00:47:49,839 --> 00:47:51,839
+the kind of global variables for that
+
+1138
+00:47:51,839 --> 00:47:55,349
+program on those
+
+1139
+00:47:55,359 --> 00:47:58,710
+well
+
+1140
+00:47:58,720 --> 00:48:03,270
+um a program has this well
+
+1141
+00:48:03,280 --> 00:48:05,040
+not really sure how to answer this i
+
+1142
+00:48:05,040 --> 00:48:06,559
+mean
+
+1143
+00:48:06,559 --> 00:48:10,240
+the uh when you declare a global
+
+1144
+00:48:10,240 --> 00:48:12,319
+variable like index
+
+1145
+00:48:12,319 --> 00:48:14,000
+when you compile the compiler and the
+
+1146
+00:48:14,000 --> 00:48:15,680
+linker just decide
+
+1147
+00:48:15,680 --> 00:48:17,440
+based on who knows what or it's
+
+1148
+00:48:17,440 --> 00:48:19,040
+configurable but they decide
+
+1149
+00:48:19,040 --> 00:48:20,960
+the address for that variable they they
+
+1150
+00:48:20,960 --> 00:48:22,640
+decide all right boy x is going to go at
+
+1151
+00:48:22,640 --> 00:48:24,559
+address 1000.
+
+1152
+00:48:24,559 --> 00:48:26,880
+and then the code that reads a write x
+
+1153
+00:48:26,880 --> 00:48:28,480
+you know if we have code that says
+
+1154
+00:48:28,480 --> 00:48:32,079
+you know ref count of zero equals one
+
+1155
+00:48:32,079 --> 00:48:34,400
+you know what that compiled into was
+
+1156
+00:48:34,400 --> 00:48:36,000
+just setting the memory
+
+1157
+00:48:36,000 --> 00:48:38,240
+at address a thousand or wherever we
+
+1158
+00:48:38,240 --> 00:48:40,240
+linker decided to put ref count
+
+1159
+00:48:40,240 --> 00:48:43,520
+we just does a store to set the memory
+
+1160
+00:48:43,520 --> 00:48:48,559
+to address a thousand one
+
+1161
+00:48:48,559 --> 00:48:54,390
+um yeah
+
+1162
+00:48:54,400 --> 00:48:56,960
+it's it's not it's actually almost
+
+1163
+00:48:56,960 --> 00:48:58,559
+exactly the same that happens when you
+
+1164
+00:48:58,559 --> 00:49:02,800
+run an ordinary user program
+
+1165
+00:49:02,800 --> 00:49:04,000
+you know the linker and the compiler
+
+1166
+00:49:04,000 --> 00:49:06,480
+decide where memory global variables are
+
+1167
+00:49:06,480 --> 00:49:07,280
+and
+
+1168
+00:49:07,280 --> 00:49:10,400
+they just read and write there and
+
+1169
+00:49:10,400 --> 00:49:13,839
+and it just works i'm sorry that's not
+
+1170
+00:49:13,839 --> 00:49:18,549
+much of an explanation
+
+1171
+00:49:18,559 --> 00:49:21,760
+all right so we just define this global
+
+1172
+00:49:21,760 --> 00:49:22,960
+array of counts one
+
+1173
+00:49:22,960 --> 00:49:26,960
+per physical page and
+
+1174
+00:49:26,960 --> 00:49:28,480
+we need to modify these counts in
+
+1175
+00:49:28,480 --> 00:49:30,559
+various places certainly when we first
+
+1176
+00:49:30,559 --> 00:49:32,720
+allocate a page
+
+1177
+00:49:32,720 --> 00:49:34,559
+we're going to say that it has one
+
+1178
+00:49:34,559 --> 00:49:36,240
+reference because we return the rest of
+
+1179
+00:49:36,240 --> 00:49:37,760
+the page to whoever the call whoever
+
+1180
+00:49:37,760 --> 00:49:38,319
+called k
+
+1181
+00:49:38,319 --> 00:49:41,760
+lock and at the moment only that
+
+1182
+00:49:41,760 --> 00:49:43,440
+program has a reference to this page so
+
+1183
+00:49:43,440 --> 00:49:50,069
+i'm just going to
+
+1184
+00:49:50,079 --> 00:49:55,750
+set the ref count for this page
+
+1185
+00:49:55,760 --> 00:49:57,520
+to be 1. so first of all i'm just going
+
+1186
+00:49:57,520 --> 00:49:59,200
+to calculate the page number which is
+
+1187
+00:49:59,200 --> 00:50:00,480
+the
+
+1188
+00:50:00,480 --> 00:50:04,559
+address of the page divided by 4096
+
+1189
+00:50:04,559 --> 00:50:09,829
+that's the page number
+
+1190
+00:50:09,839 --> 00:50:12,640
+and then i'm going to set the reference
+
+1191
+00:50:12,640 --> 00:50:13,040
+count
+
+1192
+00:50:13,040 --> 00:50:21,829
+for the page we just allocated to one
+
+1193
+00:50:21,839 --> 00:50:27,599
+any questions about this code
+
+1194
+00:50:27,599 --> 00:50:30,880
+um just because i know that i'm going to
+
+1195
+00:50:30,880 --> 00:50:33,440
+have bugs with reference counting
+
+1196
+00:50:33,440 --> 00:50:34,559
+i'm actually going to do a little bit of
+
+1197
+00:50:34,559 --> 00:50:39,190
+a sanity check here and
+
+1198
+00:50:39,200 --> 00:50:42,640
+um just the you know the reference count
+
+1199
+00:50:42,640 --> 00:50:44,160
+really should be zero if the pages we
+
+1200
+00:50:44,160 --> 00:50:46,079
+just allocated a page that was free
+
+1201
+00:50:46,079 --> 00:50:47,520
+boy it better have a reference count of
+
+1202
+00:50:47,520 --> 00:50:52,870
+zero
+
+1203
+00:50:52,880 --> 00:51:00,390
+all right any questions about this code
+
+1204
+00:51:00,400 --> 00:51:02,240
+all right so in general we want to
+
+1205
+00:51:02,240 --> 00:51:05,119
+increment the reference count when
+
+1206
+00:51:05,119 --> 00:51:08,640
+we add when copy and write fork
+
+1207
+00:51:08,640 --> 00:51:10,480
+adds a page table entry that points to
+
+1208
+00:51:10,480 --> 00:51:12,319
+an existing page
+
+1209
+00:51:12,319 --> 00:51:14,640
+and we want to actually we want to
+
+1210
+00:51:14,640 --> 00:51:15,760
+decrement
+
+1211
+00:51:15,760 --> 00:51:18,400
+the reference count as it turns out in
+
+1212
+00:51:18,400 --> 00:51:19,520
+many places
+
+1213
+00:51:19,520 --> 00:51:21,920
+for example when a process exits we need
+
+1214
+00:51:21,920 --> 00:51:23,280
+to decrement the reference count of all
+
+1215
+00:51:23,280 --> 00:51:24,079
+its pages
+
+1216
+00:51:24,079 --> 00:51:27,599
+when you call exec and that
+
+1217
+00:51:27,599 --> 00:51:28,960
+frees all the current memory because
+
+1218
+00:51:28,960 --> 00:51:30,079
+it's going to replace it we want to
+
+1219
+00:51:30,079 --> 00:51:31,440
+decrement all those reference accounts
+
+1220
+00:51:31,440 --> 00:51:32,079
+when a
+
+1221
+00:51:32,079 --> 00:51:34,240
+copy and write page fault happens and we
+
+1222
+00:51:34,240 --> 00:51:36,000
+make a copy
+
+1223
+00:51:36,000 --> 00:51:37,440
+we want to decrement a reference count
+
+1224
+00:51:37,440 --> 00:51:39,119
+on the old page it turns out these are
+
+1225
+00:51:39,119 --> 00:51:40,400
+all the same places
+
+1226
+00:51:40,400 --> 00:51:43,200
+that currently free a page because the
+
+1227
+00:51:43,200 --> 00:51:44,800
+current xv6
+
+1228
+00:51:44,800 --> 00:51:46,160
+thinks there's only ever one reference
+
+1229
+00:51:46,160 --> 00:51:47,920
+to each page
+
+1230
+00:51:47,920 --> 00:51:49,440
+so in most of the places we care about
+
+1231
+00:51:49,440 --> 00:51:50,640
+where we want to decrement there's
+
+1232
+00:51:50,640 --> 00:51:51,119
+currently
+
+1233
+00:51:51,119 --> 00:51:53,040
+called the k free so what i'm going to
+
+1234
+00:51:53,040 --> 00:51:54,240
+do is
+
+1235
+00:51:54,240 --> 00:51:56,640
+modify k free to be have somewhat
+
+1236
+00:51:56,640 --> 00:51:58,240
+different semantics and to
+
+1237
+00:51:58,240 --> 00:52:01,359
+have kfree be
+
+1238
+00:52:01,359 --> 00:52:03,359
+sort of a function that decrements the
+
+1239
+00:52:03,359 --> 00:52:04,640
+reference count and
+
+1240
+00:52:04,640 --> 00:52:06,559
+frees the page only if the reference
+
+1241
+00:52:06,559 --> 00:52:08,800
+account has dropped to zero
+
+1242
+00:52:08,800 --> 00:52:10,640
+i mean that will just automatically fix
+
+1243
+00:52:10,640 --> 00:52:16,790
+all the places that call kfree
+
+1244
+00:52:16,800 --> 00:52:19,280
+all right so um we need to actually do
+
+1245
+00:52:19,280 --> 00:52:20,720
+the check
+
+1246
+00:52:20,720 --> 00:52:25,280
+um before we fill the page with junk
+
+1247
+00:52:25,280 --> 00:52:27,280
+um so this makes the cafe a little bit
+
+1248
+00:52:27,280 --> 00:52:28,800
+more complicated because
+
+1249
+00:52:28,800 --> 00:52:30,079
+even though there's a critical section
+
+1250
+00:52:30,079 --> 00:52:32,000
+with locks and k3 already
+
+1251
+00:52:32,000 --> 00:52:33,839
+we can't use it because it happens after
+
+1252
+00:52:33,839 --> 00:52:35,040
+the point at which we filled the page
+
+1253
+00:52:35,040 --> 00:52:37,750
+with garbage
+
+1254
+00:52:37,760 --> 00:52:41,119
+so we need to lock
+
+1255
+00:52:41,119 --> 00:52:43,839
+because we could be freeing the same
+
+1256
+00:52:43,839 --> 00:52:45,760
+page at the same time from multiple
+
+1257
+00:52:45,760 --> 00:52:47,280
+different cores
+
+1258
+00:52:47,280 --> 00:52:50,800
+again i'm going to find the
+
+1259
+00:52:50,800 --> 00:52:54,240
+page number by dividing the
+
+1260
+00:52:54,240 --> 00:52:59,270
+physical address by 4096
+
+1261
+00:52:59,280 --> 00:53:03,200
+i want to panic again just a sanity
+
+1262
+00:53:03,200 --> 00:53:04,640
+check
+
+1263
+00:53:04,640 --> 00:53:06,400
+gosh you know if we're freeing a page it
+
+1264
+00:53:06,400 --> 00:53:13,589
+better have more than zero ref counts
+
+1265
+00:53:13,599 --> 00:53:17,520
+um we need to return if the
+
+1266
+00:53:17,520 --> 00:53:19,119
+page has more than one ref reference
+
+1267
+00:53:19,119 --> 00:53:21,119
+count to it
+
+1268
+00:53:21,119 --> 00:53:24,309
+well actually let's
+
+1269
+00:53:24,319 --> 00:53:27,920
+decrement the reference count we want to
+
+1270
+00:53:27,920 --> 00:53:29,760
+return after we release locks and so we
+
+1271
+00:53:29,760 --> 00:53:31,200
+have to remember a variable we're going
+
+1272
+00:53:31,200 --> 00:53:31,920
+to
+
+1273
+00:53:31,920 --> 00:53:33,119
+remember whether the page has more
+
+1274
+00:53:33,119 --> 00:53:34,640
+references and then release locks and
+
+1275
+00:53:34,640 --> 00:53:35,599
+then return
+
+1276
+00:53:35,599 --> 00:53:37,359
+so i'm going to make a temporary
+
+1277
+00:53:37,359 --> 00:53:40,829
+variable which has the
+
+1278
+00:53:40,839 --> 00:53:43,119
+um
+
+1279
+00:53:43,119 --> 00:53:46,790
+and release
+
+1280
+00:53:46,800 --> 00:53:49,760
+then say if uh there's still references
+
+1281
+00:53:49,760 --> 00:53:51,760
+this page let's just return and not free
+
+1282
+00:53:51,760 --> 00:53:52,960
+it
+
+1283
+00:53:52,960 --> 00:53:54,720
+and only if the reference count dropped
+
+1284
+00:53:54,720 --> 00:53:57,359
+to zero do we free it
+
+1285
+00:53:57,359 --> 00:53:59,920
+any questions can you explain again why
+
+1286
+00:53:59,920 --> 00:54:02,559
+you have to acquire the k-member
+
+1287
+00:54:02,559 --> 00:54:05,599
+during this process why you have to
+
+1288
+00:54:05,599 --> 00:54:08,160
+acquire it at all uh yeah uh when you're
+
+1289
+00:54:08,160 --> 00:54:10,720
+doing the page number calculations and
+
+1290
+00:54:10,720 --> 00:54:14,470
+it's this line
+
+1291
+00:54:14,480 --> 00:54:17,200
+um really is this line and the next line
+
+1292
+00:54:17,200 --> 00:54:19,119
+that are the problem the issue is that
+
+1293
+00:54:19,119 --> 00:54:22,160
+on this page we now is
+
+1294
+00:54:22,160 --> 00:54:23,839
+likely has more than one reference to it
+
+1295
+00:54:23,839 --> 00:54:25,839
+and so if two processes with a reference
+
+1296
+00:54:25,839 --> 00:54:26,559
+to the same
+
+1297
+00:54:26,559 --> 00:54:28,319
+with a page table entry pointed at the
+
+1298
+00:54:28,319 --> 00:54:30,559
+same page if they both exit at the same
+
+1299
+00:54:30,559 --> 00:54:32,160
+time on different cores
+
+1300
+00:54:32,160 --> 00:54:33,920
+they're both going to call k free for
+
+1301
+00:54:33,920 --> 00:54:38,079
+the same page at the same time
+
+1302
+00:54:38,079 --> 00:54:40,880
+yeah could could you just create a new
+
+1303
+00:54:40,880 --> 00:54:41,280
+lock
+
+1304
+00:54:41,280 --> 00:54:43,839
+for the reference count variable and use
+
+1305
+00:54:43,839 --> 00:54:44,799
+that as well
+
+1306
+00:54:44,799 --> 00:54:48,630
+yes
+
+1307
+00:54:48,640 --> 00:54:52,480
+yes yeah basically everybody you know
+
+1308
+00:54:52,480 --> 00:54:54,319
+all code that manipulates these counts
+
+1309
+00:54:54,319 --> 00:54:56,000
+needs to use the same lock but
+
+1310
+00:54:56,000 --> 00:55:00,950
+i don't think it matters what lock it is
+
+1311
+00:55:00,960 --> 00:55:02,640
+okay so this takes care of decrement
+
+1312
+00:55:02,640 --> 00:55:04,480
+most of the decrements we care about
+
+1313
+00:55:04,480 --> 00:55:05,920
+every time a page is free we're really
+
+1314
+00:55:05,920 --> 00:55:06,799
+going to you know
+
+1315
+00:55:06,799 --> 00:55:08,160
+only free it if the reference count is
+
+1316
+00:55:08,160 --> 00:55:11,280
+fallen to zero we also need to
+
+1317
+00:55:11,280 --> 00:55:13,520
+increment the reference count where do
+
+1318
+00:55:13,520 --> 00:55:22,230
+we need to increment the reference count
+
+1319
+00:55:22,240 --> 00:55:23,599
+well because i know we're going to need
+
+1320
+00:55:23,599 --> 00:55:26,799
+to do it and write the function that
+
+1321
+00:55:26,799 --> 00:55:39,829
+anybody can call um
+
+1322
+00:55:39,839 --> 00:55:43,200
+um again i want to panic if something is
+
+1323
+00:55:43,200 --> 00:55:45,920
+weird so if the address is wacky
+
+1324
+00:55:45,920 --> 00:55:49,280
+i certainly don't want to
+
+1325
+00:55:49,280 --> 00:55:52,789
+go beyond the end of the array
+
+1326
+00:55:52,799 --> 00:55:54,799
+or we if we don't want to increment the
+
+1327
+00:55:54,799 --> 00:55:56,160
+reference count of a page whose
+
+1328
+00:55:56,160 --> 00:55:59,200
+reference counts currently zero
+
+1329
+00:55:59,200 --> 00:56:04,309
+that's also an error
+
+1330
+00:56:04,319 --> 00:56:05,599
+i'm just putting these in there because
+
+1331
+00:56:05,599 --> 00:56:07,680
+i know from experience with my code
+
+1332
+00:56:07,680 --> 00:56:09,680
+that this is exactly the kind of place
+
+1333
+00:56:09,680 --> 00:56:25,589
+i'm going to have a bug in
+
+1334
+00:56:25,599 --> 00:56:28,839
+all right where should i call incorrect
+
+1335
+00:56:28,839 --> 00:56:30,799
+from
+
+1336
+00:56:30,799 --> 00:56:34,400
+you have view vm copy when you yeah
+
+1337
+00:56:34,400 --> 00:56:36,640
+yeah yeah i think uvm's copy is the only
+
+1338
+00:56:36,640 --> 00:56:38,319
+place that uh
+
+1339
+00:56:38,319 --> 00:56:46,630
+makes another reference to a page
+
+1340
+00:56:46,640 --> 00:56:48,319
+all right gosh what am i going to put
+
+1341
+00:56:48,319 --> 00:56:49,599
+this well it almost doesn't really
+
+1342
+00:56:49,599 --> 00:56:50,559
+matter
+
+1343
+00:56:50,559 --> 00:56:53,440
+um all right we're making another
+
+1344
+00:56:53,440 --> 00:56:54,960
+reference to pa
+
+1345
+00:56:54,960 --> 00:57:01,750
+so we want to say ink ref pa
+
+1346
+00:57:01,760 --> 00:57:05,280
+and we're likely to run into trouble
+
+1347
+00:57:05,280 --> 00:57:06,799
+from the compiler if we don't put a
+
+1348
+00:57:06,799 --> 00:57:09,200
+definition for it in
+
+1349
+00:57:09,200 --> 00:57:12,640
+traps.h whatever
+
+1350
+00:57:12,640 --> 00:57:18,390
+okay
+
+1351
+00:57:18,400 --> 00:57:39,109
+all right let's see
+
+1352
+00:57:39,119 --> 00:57:43,280
+well that was pretty quick um
+
+1353
+00:57:43,280 --> 00:57:46,640
+all right what's k free ref up kfree is
+
+1354
+00:57:46,640 --> 00:57:47,920
+unhappy
+
+1355
+00:57:47,920 --> 00:57:51,040
+um okay well
+
+1356
+00:57:51,040 --> 00:57:52,960
+here's the time we don't know it's very
+
+1357
+00:57:52,960 --> 00:57:54,559
+early in the boot process which is maybe
+
+1358
+00:57:54,559 --> 00:57:55,359
+a hinted
+
+1359
+00:57:55,359 --> 00:57:58,720
+as to what's going wrong if anybody has
+
+1360
+00:57:58,720 --> 00:58:01,510
+any
+
+1361
+00:58:01,520 --> 00:58:02,720
+guesses i'd be happy to hear them
+
+1362
+00:58:02,720 --> 00:58:04,319
+meanwhile i'll just fire up the debugger
+
+1363
+00:58:04,319 --> 00:58:06,640
+to try to get back trees
+
+1364
+00:58:06,640 --> 00:58:09,760
+it is during knit because you're trying
+
+1365
+00:58:09,760 --> 00:58:10,480
+to put
+
+1366
+00:58:10,480 --> 00:58:13,520
+things into the linked list and you
+
+1367
+00:58:13,520 --> 00:58:16,400
+haven't allocated yet
+
+1368
+00:58:16,400 --> 00:58:19,680
+so you um in when you're
+
+1369
+00:58:19,680 --> 00:58:22,240
+trying to load everything into the link
+
+1370
+00:58:22,240 --> 00:58:23,040
+list
+
+1371
+00:58:23,040 --> 00:58:26,480
+you haven't called klog before that
+
+1372
+00:58:26,480 --> 00:58:29,599
+yeah that's exactly right so
+
+1373
+00:58:29,599 --> 00:58:31,599
+let's just see that in action here okay
+
+1374
+00:58:31,599 --> 00:58:34,319
+i got the panic i type where
+
+1375
+00:58:34,319 --> 00:58:37,200
+and it's in uh there's kfree being
+
+1376
+00:58:37,200 --> 00:58:38,559
+called and panicked and it's been called
+
+1377
+00:58:38,559 --> 00:58:39,920
+from free range right at the beginning
+
+1378
+00:58:39,920 --> 00:58:41,680
+when we're initializing
+
+1379
+00:58:41,680 --> 00:58:44,400
+uh the free list indeed uh so there's
+
+1380
+00:58:44,400 --> 00:58:46,240
+something to be fixed in
+
+1381
+00:58:46,240 --> 00:58:49,200
+free range um the problem is i'm calling
+
+1382
+00:58:49,200 --> 00:58:49,839
+key for k
+
+1383
+00:58:49,839 --> 00:58:51,520
+free as as you said i'm calling k free
+
+1384
+00:58:51,520 --> 00:58:52,720
+but of course all the reference counts
+
+1385
+00:58:52,720 --> 00:58:53,520
+are zero and k
+
+1386
+00:58:53,520 --> 00:58:55,040
+free panic so the reference count is
+
+1387
+00:58:55,040 --> 00:58:56,880
+zero uh so i'll just
+
+1388
+00:58:56,880 --> 00:59:01,040
+um i'll just
+
+1389
+00:59:01,040 --> 00:59:10,950
+uh hack this to be
+
+1390
+00:59:10,960 --> 00:59:20,230
+how about that
+
+1391
+00:59:20,240 --> 00:59:24,240
+oh okay we managed to boot now um
+
+1392
+00:59:24,240 --> 00:59:30,150
+but i wonder if we're done let's see
+
+1393
+00:59:30,160 --> 00:59:31,760
+okay so let's let's run the cow test
+
+1394
+00:59:31,760 --> 00:59:34,230
+again
+
+1395
+00:59:34,240 --> 00:59:37,040
+ah at least we passed this simple test
+
+1396
+00:59:37,040 --> 00:59:38,079
+so we passed
+
+1397
+00:59:38,079 --> 00:59:41,440
+the simple tests which is great um
+
+1398
+00:59:41,440 --> 00:59:44,720
+and we passed one time through the three
+
+1399
+00:59:44,720 --> 00:59:45,599
+tests
+
+1400
+00:59:45,599 --> 00:59:48,720
+but we didn't we didn't make it through
+
+1401
+00:59:48,720 --> 00:59:50,079
+the second time to the
+
+1402
+00:59:50,079 --> 00:59:53,200
+three test and the three tests
+
+1403
+00:59:53,200 --> 00:59:55,599
+triggered uh the print statement that i
+
+1404
+00:59:55,599 --> 00:59:56,799
+added to drop
+
+1405
+00:59:56,799 --> 01:00:00,480
+trap which said cow chaolak failed
+
+1406
+01:00:00,480 --> 01:00:02,880
+which only would print it if we're out
+
+1407
+01:00:02,880 --> 01:00:04,960
+of memory
+
+1408
+01:00:04,960 --> 01:00:09,430
+so we're out of memory um
+
+1409
+01:00:09,440 --> 01:00:17,190
+why are we out of memory
+
+1410
+01:00:17,200 --> 01:00:19,520
+so we've updated reference counts every
+
+1411
+01:00:19,520 --> 01:00:20,240
+time we've
+
+1412
+01:00:20,240 --> 01:00:24,000
+allocated but we haven't
+
+1413
+01:00:24,000 --> 01:00:26,000
+decremented counts whenever we've tried
+
+1414
+01:00:26,000 --> 01:00:27,599
+to free right
+
+1415
+01:00:27,599 --> 01:00:31,750
+so where should i add a uh
+
+1416
+01:00:31,760 --> 01:00:34,000
+well with your current approach i think
+
+1417
+01:00:34,000 --> 01:00:34,960
+uh
+
+1418
+01:00:34,960 --> 01:00:37,280
+pa1 that reference count needs to get
+
+1419
+01:00:37,280 --> 01:00:38,960
+decremented so we would need to k
+
+1420
+01:00:38,960 --> 01:00:42,000
+free it yeah exactly so the i think
+
+1421
+01:00:42,000 --> 01:00:43,520
+somebody actually possibly you brought
+
+1422
+01:00:43,520 --> 01:00:44,559
+this up
+
+1423
+01:00:44,559 --> 01:00:48,160
+um 45 minutes ago
+
+1424
+01:00:48,160 --> 01:00:51,599
+let's see let's free pa1
+
+1425
+01:00:51,599 --> 01:00:55,359
+not pa2 okay and so now what
+
+1426
+01:00:55,359 --> 01:00:57,920
+k free means now is don't is not free
+
+1427
+01:00:57,920 --> 01:00:58,880
+this page
+
+1428
+01:00:58,880 --> 01:01:00,960
+it's what k free means is decrement the
+
+1429
+01:01:00,960 --> 01:01:02,400
+ref count on this page
+
+1430
+01:01:02,400 --> 01:01:04,319
+and free it if it's zero and so if we're
+
+1431
+01:01:04,319 --> 01:01:05,680
+in a simple situation where there was
+
+1432
+01:01:05,680 --> 01:01:07,119
+just one fork
+
+1433
+01:01:07,119 --> 01:01:08,839
+and so there were two references to the
+
+1434
+01:01:08,839 --> 01:01:10,880
+page um
+
+1435
+01:01:10,880 --> 01:01:12,559
+and we've taken a right fault and made a
+
+1436
+01:01:12,559 --> 01:01:14,640
+copy where now all k free
+
+1437
+01:01:14,640 --> 01:01:15,920
+is going to do is decrement the account
+
+1438
+01:01:15,920 --> 01:01:17,760
+to be one and now the other process
+
+1439
+01:01:17,760 --> 01:01:20,000
+could use the page we're not actually
+
+1440
+01:01:20,000 --> 01:01:23,030
+going to free it
+
+1441
+01:01:23,040 --> 01:01:27,349
+okay so hopefully now
+
+1442
+01:01:27,359 --> 01:01:35,190
+we'll uh
+
+1443
+01:01:35,200 --> 01:01:42,150
+not run out of memory in countest
+
+1444
+01:01:42,160 --> 01:01:44,160
+i love it okay we made it through the
+
+1445
+01:01:44,160 --> 01:01:45,839
+three tests
+
+1446
+01:01:45,839 --> 01:01:51,349
+without running out of memory
+
+1447
+01:01:51,359 --> 01:01:54,799
+all right but we're not done
+
+1448
+01:01:54,799 --> 01:01:58,470
+sadly we have this interesting error
+
+1449
+01:01:58,470 --> 01:02:01,039
+[Music]
+
+1450
+01:02:01,039 --> 01:02:03,599
+in the file test let's take a look at
+
+1451
+01:02:03,599 --> 01:02:04,839
+the file
+
+1452
+01:02:04,839 --> 01:02:11,670
+test
+
+1453
+01:02:11,680 --> 01:02:14,400
+all right so here's the file test and it
+
+1454
+01:02:14,400 --> 01:02:16,000
+says right on the comment for the test
+
+1455
+01:02:16,000 --> 01:02:16,559
+that it's
+
+1456
+01:02:16,559 --> 01:02:21,039
+investigating copy out so good hint of
+
+1457
+01:02:21,039 --> 01:02:23,839
+where our problem is going to be the
+
+1458
+01:02:23,839 --> 01:02:24,720
+thing that actually
+
+1459
+01:02:24,720 --> 01:02:28,000
+failed is i mean you have to use your
+
+1460
+01:02:28,000 --> 01:02:30,640
+imagination a little bit but
+
+1461
+01:02:30,640 --> 01:02:32,240
+the error message seems to be this one
+
+1462
+01:02:32,240 --> 01:02:34,319
+printed from two different processes
+
+1463
+01:02:34,319 --> 01:02:37,349
+at the same time
+
+1464
+01:02:37,359 --> 01:02:39,280
+and indeed this is a loop this test is a
+
+1465
+01:02:39,280 --> 01:02:40,640
+loop um
+
+1466
+01:02:40,640 --> 01:02:43,839
+that for four iterations just forks and
+
+1467
+01:02:43,839 --> 01:02:45,200
+so it's going to produce
+
+1468
+01:02:45,200 --> 01:02:47,760
+four concurrent processes those error
+
+1469
+01:02:47,760 --> 01:02:48,400
+messages
+
+1470
+01:02:48,400 --> 01:02:51,039
+will be interleaved um so we need to
+
+1471
+01:02:51,039 --> 01:02:52,640
+know why that read failed if we want to
+
+1472
+01:02:52,640 --> 01:02:53,839
+understand what the bug is
+
+1473
+01:02:53,839 --> 01:02:56,160
+um we need to know why the read failed
+
+1474
+01:02:56,160 --> 01:02:57,520
+so the first step is maybe to figure out
+
+1475
+01:02:57,520 --> 01:02:59,039
+what the read actually returned all we
+
+1476
+01:02:59,039 --> 01:02:59,440
+know
+
+1477
+01:02:59,440 --> 01:03:03,029
+is that it
+
+1478
+01:03:03,039 --> 01:03:05,280
+returns something other than size of i
+
+1479
+01:03:05,280 --> 01:03:06,880
+but i don't know what it returns so i'm
+
+1480
+01:03:06,880 --> 01:03:08,640
+going to capture the
+
+1481
+01:03:08,640 --> 01:03:15,670
+return value
+
+1482
+01:03:15,680 --> 01:03:17,760
+and i'm going to print the return value
+
+1483
+01:03:17,760 --> 01:03:21,910
+so at least now
+
+1484
+01:03:21,920 --> 01:03:24,799
+oh i have a question sorry um it seems
+
+1485
+01:03:24,799 --> 01:03:25,520
+like
+
+1486
+01:03:25,520 --> 01:03:28,799
+three of the threads failed but
+
+1487
+01:03:28,799 --> 01:03:32,079
+one of them didn't and it's like it's
+
+1488
+01:03:32,079 --> 01:03:35,440
+running why is it not failing
+
+1489
+01:03:35,440 --> 01:03:37,599
+why did the third fret not fail the
+
+1490
+01:03:37,599 --> 01:03:38,559
+fourth
+
+1491
+01:03:38,559 --> 01:03:40,480
+why did the four like if you if you do
+
+1492
+01:03:40,480 --> 01:03:42,720
+cow test and then echo
+
+1493
+01:03:42,720 --> 01:03:44,640
+that other one is still going to be
+
+1494
+01:03:44,640 --> 01:03:45,920
+running and you're going to see
+
+1495
+01:03:45,920 --> 01:03:49,190
+more output
+
+1496
+01:03:49,200 --> 01:03:53,270
+yeah three field and one didn't um
+
+1497
+01:03:53,280 --> 01:03:56,240
+uh let's just finish investigating why
+
+1498
+01:03:56,240 --> 01:03:57,760
+any of them failed
+
+1499
+01:03:57,760 --> 01:04:00,720
+and then i can make a guess although i
+
+1500
+01:04:00,720 --> 01:04:02,160
+don't really know why
+
+1501
+01:04:02,160 --> 01:04:06,079
+one of them didn't fail okay so
+
+1502
+01:04:06,079 --> 01:04:07,280
+what's happening here is that read is
+
+1503
+01:04:07,280 --> 01:04:09,680
+returning minus one
+
+1504
+01:04:09,680 --> 01:04:12,960
+so why is read returning minus -1
+
+1505
+01:04:12,960 --> 01:04:15,680
+you might hypothesize that you know we
+
+1506
+01:04:15,680 --> 01:04:18,720
+were passing this buffer into read
+
+1507
+01:04:18,720 --> 01:04:21,200
+you might imagine that the you know read
+
+1508
+01:04:21,200 --> 01:04:23,200
+and read is needs to do something namely
+
+1509
+01:04:23,200 --> 01:04:26,720
+called copy out to copy file data into
+
+1510
+01:04:26,720 --> 01:04:27,280
+this
+
+1511
+01:04:27,280 --> 01:04:29,760
+into this buff buffer that we passed to
+
+1512
+01:04:29,760 --> 01:04:30,960
+read and maybe something's going wrong
+
+1513
+01:04:30,960 --> 01:04:32,480
+with that and its relationship to copy
+
+1514
+01:04:32,480 --> 01:04:33,440
+and write fork
+
+1515
+01:04:33,440 --> 01:04:38,950
+so let's take a look at read
+
+1516
+01:04:38,960 --> 01:04:41,200
+and see why it's failing try to track
+
+1517
+01:04:41,200 --> 01:04:43,670
+down
+
+1518
+01:04:43,680 --> 01:04:45,680
+why we just um all right so let's
+
+1519
+01:04:45,680 --> 01:04:47,839
+capture the what read all cis read does
+
+1520
+01:04:47,839 --> 01:04:48,400
+this this
+
+1521
+01:04:48,400 --> 01:04:50,880
+calls it calls file read after fetching
+
+1522
+01:04:50,880 --> 01:04:52,839
+a bunch of arguments
+
+1523
+01:04:52,839 --> 01:04:56,319
+um so we'll fix this
+
+1524
+01:04:56,319 --> 01:04:59,599
+to uh take us one step closer to
+
+1525
+01:04:59,599 --> 01:05:05,109
+understanding why things are going wrong
+
+1526
+01:05:05,119 --> 01:05:08,960
+and we're expecting cc to be
+
+1527
+01:05:08,960 --> 01:05:19,190
+minus one
+
+1528
+01:05:19,200 --> 01:05:23,039
+that's interesting we never saw cc minus
+
+1529
+01:05:23,039 --> 01:05:26,000
+equals minus one in fact the failure
+
+1530
+01:05:26,000 --> 01:05:27,359
+occurred
+
+1531
+01:05:27,359 --> 01:05:30,240
+uh if failure starts occurring here
+
+1532
+01:05:30,240 --> 01:05:31,440
+before we get
+
+1533
+01:05:31,440 --> 01:05:34,880
+any corresponding cc print
+
+1534
+01:05:34,880 --> 01:05:37,200
+print statements and it's not minus one
+
+1535
+01:05:37,200 --> 01:05:39,280
+at all it's four which is a non-failure
+
+1536
+01:05:39,280 --> 01:05:41,119
+value
+
+1537
+01:05:41,119 --> 01:05:44,079
+um so what that means is that something
+
+1538
+01:05:44,079 --> 01:05:46,799
+before the call to file read
+
+1539
+01:05:46,799 --> 01:05:49,839
+must have caused must have triggered
+
+1540
+01:05:49,839 --> 01:05:50,799
+this return
+
+1541
+01:05:50,799 --> 01:05:54,400
+so one of these functions here has
+
+1542
+01:05:54,400 --> 01:05:58,950
+caused read to return minus one
+
+1543
+01:05:58,960 --> 01:06:02,829
+please feel free to guess while i'm
+
+1544
+01:06:02,839 --> 01:06:04,000
+typing
+
+1545
+01:06:04,000 --> 01:06:05,680
+was a complete surprise to me by the way
+
+1546
+01:06:05,680 --> 01:06:07,200
+when i
+
+1547
+01:06:07,200 --> 01:06:10,400
+tracked it down oh i think the file is
+
+1548
+01:06:10,400 --> 01:06:12,000
+character
+
+1549
+01:06:12,000 --> 01:06:14,559
+yeah the file descriptor i saw what i
+
+1550
+01:06:14,559 --> 01:06:17,680
+expected was that file read was failing
+
+1551
+01:06:17,680 --> 01:06:20,799
+due to something in copy out not doing
+
+1552
+01:06:20,799 --> 01:06:22,480
+the right thing with copy on right
+
+1553
+01:06:22,480 --> 01:06:25,280
+pages but that is not at all where the
+
+1554
+01:06:25,280 --> 01:06:26,319
+failure is
+
+1555
+01:06:26,319 --> 01:06:29,280
+okay so if we want to find out like it's
+
+1556
+01:06:29,280 --> 01:06:31,440
+either arghfd or argent or arg adder
+
+1557
+01:06:31,440 --> 01:06:32,319
+that's failing
+
+1558
+01:06:32,319 --> 01:06:34,640
+let's start with argh d i'm just going
+
+1559
+01:06:34,640 --> 01:06:36,240
+to stick print statements in here to
+
+1560
+01:06:36,240 --> 01:06:40,470
+help me
+
+1561
+01:06:40,480 --> 01:06:41,920
+figure out which one of these failure
+
+1562
+01:06:41,920 --> 01:06:43,839
+cases is actually triggering triggering
+
+1563
+01:06:43,839 --> 01:06:45,440
+it's only two places it returns minus
+
+1564
+01:06:45,440 --> 01:06:47,359
+one
+
+1565
+01:06:47,359 --> 01:06:48,319
+and this one there's something wrong
+
+1566
+01:06:48,319 --> 01:06:52,309
+with the fd itself
+
+1567
+01:06:52,319 --> 01:06:53,200
+all right so we're going to get these
+
+1568
+01:06:53,200 --> 01:06:55,839
+print statements on cases where r give d
+
+1569
+01:06:55,839 --> 01:07:06,470
+returns minus one
+
+1570
+01:07:06,480 --> 01:07:10,079
+what does this mean fd
+
+1571
+01:07:10,079 --> 01:07:13,920
+all right so the that we expect these fd
+
+1572
+01:07:13,920 --> 01:07:14,880
+printouts to
+
+1573
+01:07:14,880 --> 01:07:16,960
+to occur just before the error so what
+
+1574
+01:07:16,960 --> 01:07:18,559
+we saw is fd9
+
+1575
+01:07:18,559 --> 01:07:22,640
+it was fd9 this causes the error
+
+1576
+01:07:22,640 --> 01:07:24,960
+so fd9 failed one of these three tests
+
+1577
+01:07:24,960 --> 01:07:26,480
+well we know it's not less than
+
+1578
+01:07:26,480 --> 01:07:28,559
+zero i happen to know it's not greater
+
+1579
+01:07:28,559 --> 01:07:29,599
+than equal to
+
+1580
+01:07:29,599 --> 01:07:32,559
+no file for number of open files and so
+
+1581
+01:07:32,559 --> 01:07:33,520
+that means that the o
+
+1582
+01:07:33,520 --> 01:07:36,559
+file array for nine
+
+1583
+01:07:36,559 --> 01:07:38,640
+files nine must have been zero that is
+
+1584
+01:07:38,640 --> 01:07:39,680
+in this process
+
+1585
+01:07:39,680 --> 01:07:43,750
+there is no file descriptor 9.
+
+1586
+01:07:43,760 --> 01:07:46,799
+so somehow copy on write
+
+1587
+01:07:46,799 --> 01:07:50,960
+test um this code
+
+1588
+01:07:50,960 --> 01:07:53,920
+and the copy on write test is passing an
+
+1589
+01:07:53,920 --> 01:07:56,559
+invalid file descriptor to read
+
+1590
+01:07:56,559 --> 01:07:59,280
+so this file descriptor is in it comes
+
+1591
+01:07:59,280 --> 01:08:00,640
+from fds
+
+1592
+01:08:00,640 --> 01:08:06,789
+fds comes from a call to pipe
+
+1593
+01:08:06,799 --> 01:08:08,480
+how could i usually pipe if it doesn't
+
+1594
+01:08:08,480 --> 01:08:09,839
+fail it leaves the file descriptor in
+
+1595
+01:08:09,839 --> 01:08:18,870
+the array so how could this go wrong
+
+1596
+01:08:18,880 --> 01:08:21,279
+oh we all know the answer has to be blah
+
+1597
+01:08:21,279 --> 01:08:22,080
+blah blah
+
+1598
+01:08:22,080 --> 01:08:25,759
+copy out
+
+1599
+01:08:25,759 --> 01:08:38,000
+so what's the missing piece
+
+1600
+01:08:38,000 --> 01:08:40,719
+i mean i i guess like one thing that
+
+1601
+01:08:40,719 --> 01:08:41,359
+helped me
+
+1602
+01:08:41,359 --> 01:08:43,440
+track this down is i realized at least
+
+1603
+01:08:43,440 --> 01:08:44,719
+first of all
+
+1604
+01:08:44,719 --> 01:08:47,759
+um fd should not be nine in every
+
+1605
+01:08:47,759 --> 01:08:48,480
+iteration
+
+1606
+01:08:48,480 --> 01:08:50,319
+nine is kind of the value that you would
+
+1607
+01:08:50,319 --> 01:08:52,400
+expect um
+
+1608
+01:08:52,400 --> 01:08:54,400
+kind of at on the last iteration that's
+
+1609
+01:08:54,400 --> 01:08:55,839
+kind of like the highest call
+
+1610
+01:08:55,839 --> 01:08:58,000
+to pipe yeah yeah they all got a nine
+
+1611
+01:08:58,000 --> 01:08:58,880
+you're right
+
+1612
+01:08:58,880 --> 01:09:00,960
+so something they're kind of touching
+
+1613
+01:09:00,960 --> 01:09:02,000
+each other's memory
+
+1614
+01:09:02,000 --> 01:09:06,000
+strange yeah that's exactly right so
+
+1615
+01:09:06,000 --> 01:09:08,400
+you know the fds pipe the way pipe
+
+1616
+01:09:08,400 --> 01:09:09,920
+returns the file descriptors is that it
+
+1617
+01:09:09,920 --> 01:09:10,400
+calls
+
+1618
+01:09:10,400 --> 01:09:14,239
+copy out to copy the file descriptor
+
+1619
+01:09:14,239 --> 01:09:15,679
+number that is allocated into the
+
+1620
+01:09:15,679 --> 01:09:17,839
+caller's address space well
+
+1621
+01:09:17,839 --> 01:09:20,400
+we're using copy and write fork here so
+
+1622
+01:09:20,400 --> 01:09:21,440
+if we're not careful
+
+1623
+01:09:21,440 --> 01:09:23,759
+so at least initially all the there's
+
+1624
+01:09:23,759 --> 01:09:25,359
+just one page and it's shared among all
+
+1625
+01:09:25,359 --> 01:09:26,480
+the processes
+
+1626
+01:09:26,480 --> 01:09:29,679
+so the first process that calls pipe
+
+1627
+01:09:29,679 --> 01:09:32,000
+if something goes wrong the pipe system
+
+1628
+01:09:32,000 --> 01:09:34,159
+call might conceivably
+
+1629
+01:09:34,159 --> 01:09:37,359
+write the shared page and
+
+1630
+01:09:37,359 --> 01:09:38,960
+that value that file descriptor will
+
+1631
+01:09:38,960 --> 01:09:40,880
+then be seen by all the processes
+
+1632
+01:09:40,880 --> 01:09:42,400
+instead of just the process that
+
+1633
+01:09:42,400 --> 01:09:46,550
+actually allocated the descriptor
+
+1634
+01:09:46,560 --> 01:09:48,799
+so everybody see this as a kind of at
+
+1635
+01:09:48,799 --> 01:09:53,910
+least hypothetical risk
+
+1636
+01:09:53,920 --> 01:09:56,159
+so so let's look at what try to imagine
+
+1637
+01:09:56,159 --> 01:09:57,280
+well so first
+
+1638
+01:09:57,280 --> 01:10:00,400
+let's look at um sysfile
+
+1639
+01:10:00,400 --> 01:10:03,679
+to see uh
+
+1640
+01:10:03,679 --> 01:10:06,709
+how pipe
+
+1641
+01:10:06,719 --> 01:10:10,000
+uh copies out the uh
+
+1642
+01:10:10,000 --> 01:10:13,120
+file descriptors it allocates and indeed
+
+1643
+01:10:13,120 --> 01:10:16,000
+down here are these two calls to uh
+
+1644
+01:10:16,000 --> 01:10:18,320
+copy out to copy the two elements of
+
+1645
+01:10:18,320 --> 01:10:19,679
+that pipe array
+
+1646
+01:10:19,679 --> 01:10:22,960
+so pipe is using copy out to copy the
+
+1647
+01:10:22,960 --> 01:10:24,800
+file descriptor numbers into the array
+
+1648
+01:10:24,800 --> 01:10:26,320
+in user space
+
+1649
+01:10:26,320 --> 01:10:31,440
+so what does copy app do
+
+1650
+01:10:31,440 --> 01:10:34,080
+well it looks up the virtual address to
+
+1651
+01:10:34,080 --> 01:10:37,120
+find a physical address
+
+1652
+01:10:37,120 --> 01:10:37,640
+and then
+
+1653
+01:10:37,640 --> 01:10:40,709
+[Music]
+
+1654
+01:10:40,719 --> 01:10:44,000
+it writes copies over that physical
+
+1655
+01:10:44,000 --> 01:10:47,280
+address and that's it so one thing it is
+
+1656
+01:10:47,280 --> 01:10:49,920
+not doing is checking for write
+
+1657
+01:10:49,920 --> 01:10:53,520
+permission doesn't look at ptew
+
+1658
+01:10:53,520 --> 01:10:55,760
+and so this page or this virtual address
+
+1659
+01:10:55,760 --> 01:10:57,199
+refers to a copy on right
+
+1660
+01:10:57,199 --> 01:11:00,560
+shared page copy out just has no idea it
+
+1661
+01:11:00,560 --> 01:11:00,880
+just
+
+1662
+01:11:00,880 --> 01:11:03,360
+goes ahead and writes it and so i mean
+
+1663
+01:11:03,360 --> 01:11:04,880
+indeed
+
+1664
+01:11:04,880 --> 01:11:06,640
+when pipe calls copy out it's going to
+
+1665
+01:11:06,640 --> 01:11:09,040
+be writing a shared page so that all of
+
+1666
+01:11:09,040 --> 01:11:10,840
+the forked processes see this
+
+1667
+01:11:10,840 --> 01:11:12,000
+modification
+
+1668
+01:11:12,000 --> 01:11:15,199
+not just the process the called pipe
+
+1669
+01:11:15,199 --> 01:11:17,440
+any questions about why this is
+
+1670
+01:11:17,440 --> 01:11:25,590
+happening
+
+1671
+01:11:25,600 --> 01:11:29,030
+okay
+
+1672
+01:11:29,040 --> 01:11:30,719
+all right so as you all know we need to
+
+1673
+01:11:30,719 --> 01:11:32,640
+modify copy out
+
+1674
+01:11:32,640 --> 01:11:34,800
+to since copy out is you know looking up
+
+1675
+01:11:34,800 --> 01:11:36,000
+a virtual address and
+
+1676
+01:11:36,000 --> 01:11:37,360
+translating into a physical address but
+
+1677
+01:11:37,360 --> 01:11:39,280
+it is not using the mmu
+
+1678
+01:11:39,280 --> 01:11:41,600
+so the mmu doesn't catch the right fault
+
+1679
+01:11:41,600 --> 01:11:42,640
+because the mmu's
+
+1680
+01:11:42,640 --> 01:11:46,320
+not involved walk adder looks at the
+
+1681
+01:11:46,320 --> 01:11:48,159
+page table itself instead of
+
+1682
+01:11:48,159 --> 01:11:50,560
+basically getting the mmu to look at the
+
+1683
+01:11:50,560 --> 01:11:52,840
+page table for it
+
+1684
+01:11:52,840 --> 01:11:57,360
+um okay so we need to modify
+
+1685
+01:11:57,360 --> 01:11:59,520
+copy out we don't want to call walk at
+
+1686
+01:11:59,520 --> 01:12:01,199
+or walk out or just produces a physical
+
+1687
+01:12:01,199 --> 01:12:01,760
+address
+
+1688
+01:12:01,760 --> 01:12:03,840
+we actually want the page table entry
+
+1689
+01:12:03,840 --> 01:12:04,960
+because we want to look at the
+
+1690
+01:12:04,960 --> 01:12:06,080
+permission bits
+
+1691
+01:12:06,080 --> 01:12:08,800
+to see if it's a copy and rate a write
+
+1692
+01:12:08,800 --> 01:12:10,000
+protected page
+
+1693
+01:12:10,000 --> 01:12:14,410
+so we're going to call walk instead
+
+1694
+01:12:14,420 --> 01:12:20,870
+[Music]
+
+1695
+01:12:20,880 --> 01:12:24,480
+we need to check all the usual errors
+
+1696
+01:12:24,480 --> 01:12:29,669
+so maybe there's no mapping at all
+
+1697
+01:12:29,679 --> 01:12:33,510
+maybe it's not a valid mapping
+
+1698
+01:12:33,520 --> 01:12:36,560
+or maybe it's a mapping that the user
+
+1699
+01:12:36,560 --> 01:12:38,800
+code is not allowed to use and in all
+
+1700
+01:12:38,800 --> 01:12:40,960
+those cases
+
+1701
+01:12:40,960 --> 01:12:42,080
+it's an error but this time we can
+
+1702
+01:12:42,080 --> 01:12:43,760
+actually return an error which we'll
+
+1703
+01:12:43,760 --> 01:12:45,600
+call just read to return -1 instead of
+
+1704
+01:12:45,600 --> 01:12:46,640
+killing the process
+
+1705
+01:12:46,640 --> 01:12:50,640
+that's nice
+
+1706
+01:12:50,640 --> 01:12:51,920
+next we need to know how to check
+
+1707
+01:12:51,920 --> 01:12:54,080
+whether it's a copy on right page
+
+1708
+01:12:54,080 --> 01:12:57,199
+any any ideas for how we can
+
+1709
+01:12:57,199 --> 01:13:00,960
+uh check whether we should apply copy
+
+1710
+01:13:00,960 --> 01:13:02,320
+whether we should do a copy
+
+1711
+01:13:02,320 --> 01:13:11,189
+at this point
+
+1712
+01:13:11,199 --> 01:13:12,719
+what's different about between copy and
+
+1713
+01:13:12,719 --> 01:13:14,400
+write pages and just sort of ordinary
+
+1714
+01:13:14,400 --> 01:13:18,080
+unshared pages
+
+1715
+01:13:18,080 --> 01:13:21,120
+would the reference count to be large
+
+1716
+01:13:21,120 --> 01:13:22,800
+ah that's a good point if the reference
+
+1717
+01:13:22,800 --> 01:13:26,790
+count was um
+
+1718
+01:13:26,800 --> 01:13:29,120
+greater than one that certainly be a
+
+1719
+01:13:29,120 --> 01:13:31,360
+very strong hint
+
+1720
+01:13:31,360 --> 01:13:34,640
+that's a copy of one right page but if
+
+1721
+01:13:34,640 --> 01:13:36,239
+the reference count is one
+
+1722
+01:13:36,239 --> 01:13:44,830
+does that mean it's not a copy and write
+
+1723
+01:13:44,840 --> 01:13:47,440
+page turns out if you fork and the child
+
+1724
+01:13:47,440 --> 01:13:48,880
+takes a copy on right fault
+
+1725
+01:13:48,880 --> 01:13:51,760
+and makes a copy that reduces the
+
+1726
+01:13:51,760 --> 01:13:53,520
+reference count to one
+
+1727
+01:13:53,520 --> 01:13:55,120
+but the page is still rate protected in
+
+1728
+01:13:55,120 --> 01:13:59,590
+the parent
+
+1729
+01:13:59,600 --> 01:14:02,960
+and actually probably we could get away
+
+1730
+01:14:02,960 --> 01:14:04,480
+with modifying in that case
+
+1731
+01:14:04,480 --> 01:14:07,679
+so i think we actually could check the
+
+1732
+01:14:07,679 --> 01:14:12,000
+reference count and only treat it as a
+
+1733
+01:14:12,000 --> 01:14:13,360
+copy and write page if the reference
+
+1734
+01:14:13,360 --> 01:14:15,040
+account is greater than zero but what
+
+1735
+01:14:15,040 --> 01:14:17,440
+i'm going to do is a different
+
+1736
+01:14:17,440 --> 01:14:20,560
+an even easier shortcut and say
+
+1737
+01:14:20,560 --> 01:14:23,520
+if the page is right protected the only
+
+1738
+01:14:23,520 --> 01:14:25,679
+way a page can be right protected
+
+1739
+01:14:25,679 --> 01:14:29,280
+and have the pteu bit set
+
+1740
+01:14:29,280 --> 01:14:31,600
+in this version of xv6 is if it's a copy
+
+1741
+01:14:31,600 --> 01:14:35,189
+on right page
+
+1742
+01:14:35,199 --> 01:14:36,880
+so this saves me a little bit of typing
+
+1743
+01:14:36,880 --> 01:14:38,800
+compared to checking the reference count
+
+1744
+01:14:38,800 --> 01:14:40,719
+we already wrote the code to deal with
+
+1745
+01:14:40,719 --> 01:14:46,149
+this in trap.c
+
+1746
+01:14:46,159 --> 01:14:48,480
+um so i'm just going to call that code
+
+1747
+01:14:48,480 --> 01:14:51,510
+from here
+
+1748
+01:14:51,520 --> 01:14:53,840
+now we still have to deal with the uh
+
+1749
+01:14:53,840 --> 01:14:58,950
+possible error return if it's a
+
+1750
+01:14:58,960 --> 01:15:11,910
+crazy address oh actually we don't
+
+1751
+01:15:11,920 --> 01:15:15,030
+all right
+
+1752
+01:15:15,040 --> 01:15:18,159
+all right so if the page is not writable
+
+1753
+01:15:18,159 --> 01:15:19,120
+we're just going to call
+
+1754
+01:15:19,120 --> 01:15:20,880
+copy and write fault and copy and right
+
+1755
+01:15:20,880 --> 01:15:22,320
+fold you know does the copy
+
+1756
+01:15:22,320 --> 01:15:25,840
+and it makes the page writable so
+
+1757
+01:15:25,840 --> 01:15:29,520
+i think we're um we're almost done at
+
+1758
+01:15:29,520 --> 01:15:30,400
+this point
+
+1759
+01:15:30,400 --> 01:15:34,239
+um however if copy if cow fault
+
+1760
+01:15:34,239 --> 01:15:41,669
+did make a
+
+1761
+01:15:41,679 --> 01:15:44,480
+and we gotta get rid of this if cow fall
+
+1762
+01:15:44,480 --> 01:15:45,120
+did
+
+1763
+01:15:45,120 --> 01:15:47,360
+make a copy it's gonna have modified the
+
+1764
+01:15:47,360 --> 01:15:49,360
+physical address in the page table entry
+
+1765
+01:15:49,360 --> 01:15:51,120
+so we have to pull that physical address
+
+1766
+01:15:51,120 --> 01:15:52,719
+out of the page table entry again in
+
+1767
+01:15:52,719 --> 01:15:54,000
+case it was changed
+
+1768
+01:15:54,000 --> 01:15:55,679
+i'm just going to do that since we have
+
+1769
+01:15:55,679 --> 01:15:59,189
+the
+
+1770
+01:15:59,199 --> 01:16:02,550
+page table entry right here
+
+1771
+01:16:02,560 --> 01:16:07,520
+and i think this is more or less enough
+
+1772
+01:16:07,520 --> 01:16:10,239
+so any any questions about the
+
+1773
+01:16:10,239 --> 01:16:11,679
+modification to
+
+1774
+01:16:11,679 --> 01:16:15,830
+copy out
+
+1775
+01:16:15,840 --> 01:16:18,560
+all right i got to uh make a global
+
+1776
+01:16:18,560 --> 01:16:36,870
+declaration for cow fault
+
+1777
+01:16:36,880 --> 01:16:43,830
+ah beautiful
+
+1778
+01:16:43,840 --> 01:16:46,480
+all right that's looking great um
+
+1779
+01:16:46,480 --> 01:16:57,669
+anybody happen to know if we're done
+
+1780
+01:16:57,679 --> 01:16:59,360
+we may or may not be we also have to
+
+1781
+01:16:59,360 --> 01:17:02,560
+pass user tests
+
+1782
+01:17:02,560 --> 01:17:06,630
+oh all right let me get rid of this
+
+1783
+01:17:06,640 --> 01:17:25,510
+these print statements
+
+1784
+01:17:25,520 --> 01:17:28,320
+i think the exec out test intentionally
+
+1785
+01:17:28,320 --> 01:17:33,189
+allocates a lot of memory
+
+1786
+01:17:33,199 --> 01:17:37,030
+all right any questions while we uh
+
+1787
+01:17:37,040 --> 01:17:42,870
+wait for the verdict from user tests
+
+1788
+01:17:42,880 --> 01:17:45,520
+aha okay user test was unhappy i think
+
+1789
+01:17:45,520 --> 01:17:47,120
+this is a familiar
+
+1790
+01:17:47,120 --> 01:17:49,199
+piece of damage which somebody has
+
+1791
+01:17:49,199 --> 01:17:50,800
+brought up already it's the
+
+1792
+01:17:50,800 --> 01:17:55,199
+um uh
+
+1793
+01:17:55,199 --> 01:17:57,600
+it's the panic and walk if the user
+
+1794
+01:17:57,600 --> 01:17:59,199
+process the user test actually
+
+1795
+01:17:59,199 --> 01:18:01,920
+i think does intentionally we'll take a
+
+1796
+01:18:01,920 --> 01:18:09,510
+look at user tests
+
+1797
+01:18:09,520 --> 01:18:14,149
+and it's the copy out test
+
+1798
+01:18:14,159 --> 01:18:16,000
+and it even says in the comment it
+
+1799
+01:18:16,000 --> 01:18:17,760
+passes ridiculous pointers to system
+
+1800
+01:18:17,760 --> 01:18:18,719
+calls
+
+1801
+01:18:18,719 --> 01:18:20,640
+all right so what we're faced with is
+
+1802
+01:18:20,640 --> 01:18:23,430
+copy out
+
+1803
+01:18:23,440 --> 01:18:25,120
+we pass in a ridiculous pointer it
+
+1804
+01:18:25,120 --> 01:18:27,040
+simply calls walk with that ridiculous
+
+1805
+01:18:27,040 --> 01:18:28,480
+pointer
+
+1806
+01:18:28,480 --> 01:18:31,199
+and walk panics if you give it a
+
+1807
+01:18:31,199 --> 01:18:32,159
+ridiculous pointer
+
+1808
+01:18:32,159 --> 01:18:36,800
+so as somebody mentioned
+
+1809
+01:18:36,800 --> 01:18:40,000
+we need to not call walk with
+
+1810
+01:18:40,000 --> 01:18:44,000
+ridiculous pointers what is it max va
+
+1811
+01:18:44,000 --> 01:18:47,440
+or something all right
+
+1812
+01:18:47,440 --> 01:18:50,640
+now of course we're totally entitled to
+
+1813
+01:18:50,640 --> 01:18:54,239
+return an error if a user process
+
+1814
+01:18:54,239 --> 01:18:59,990
+passes us how to balance a pointer
+
+1815
+01:19:00,000 --> 01:19:02,239
+all right i'm i'm just hoping it passes
+
+1816
+01:19:02,239 --> 01:19:04,950
+now
+
+1817
+01:19:04,960 --> 01:19:09,600
+i'm not aware of any other problems
+
+1818
+01:19:09,600 --> 01:19:16,390
+okay questions
+
+1819
+01:19:16,400 --> 01:19:19,760
+i guess my question is more broad
+
+1820
+01:19:19,760 --> 01:19:22,560
+like we saw when uh we were doing that
+
+1821
+01:19:22,560 --> 01:19:24,080
+with small steps
+
+1822
+01:19:24,080 --> 01:19:27,199
+we were getting random bugs
+
+1823
+01:19:27,199 --> 01:19:30,880
+at point at our step and if we're doing
+
+1824
+01:19:30,880 --> 01:19:31,760
+the lab
+
+1825
+01:19:31,760 --> 01:19:34,640
+from scratch then wouldn't it be
+
+1826
+01:19:34,640 --> 01:19:36,640
+confusing to get all of those
+
+1827
+01:19:36,640 --> 01:19:40,000
+weird bugs and
+
+1828
+01:19:40,000 --> 01:19:42,880
+how would how do you how do you know
+
+1829
+01:19:42,880 --> 01:19:44,400
+whether it's a bug with something you
+
+1830
+01:19:44,400 --> 01:19:45,520
+wrote or
+
+1831
+01:19:45,520 --> 01:19:47,440
+a bug because you didn't write the rest
+
+1832
+01:19:47,440 --> 01:19:49,760
+of it i'm afraid i cannot answer your
+
+1833
+01:19:49,760 --> 01:19:50,800
+question
+
+1834
+01:19:50,800 --> 01:19:54,080
+um the the sad truth about bugs
+
+1835
+01:19:54,080 --> 01:19:56,159
+particularly bugs caused by doing funny
+
+1836
+01:19:56,159 --> 01:19:57,520
+things to page tables
+
+1837
+01:19:57,520 --> 01:20:02,149
+inside the kernel is that every bug
+
+1838
+01:20:02,159 --> 01:20:04,800
+you know every bug is different and how
+
+1839
+01:20:04,800 --> 01:20:05,199
+you
+
+1840
+01:20:05,199 --> 01:20:06,800
+you know what turns out to be the
+
+1841
+01:20:06,800 --> 01:20:10,480
+winning strategy for tracking a bug down
+
+1842
+01:20:10,480 --> 01:20:12,480
+it just depends totally on the nature of
+
+1843
+01:20:12,480 --> 01:20:14,080
+the bug
+
+1844
+01:20:14,080 --> 01:20:17,920
+um you know my usual uh you know and
+
+1845
+01:20:17,920 --> 01:20:20,400
+i have some i have a sort of a
+
+1846
+01:20:20,400 --> 01:20:22,080
+collection of strategies that
+
+1847
+01:20:22,080 --> 01:20:24,960
+are sometimes helpful and sometimes not
+
+1848
+01:20:24,960 --> 01:20:26,639
+like i'm a huge believer in putting
+
+1849
+01:20:26,639 --> 01:20:28,480
+print statements into the code in order
+
+1850
+01:20:28,480 --> 01:20:30,159
+to gather information
+
+1851
+01:20:30,159 --> 01:20:34,800
+or to verify hypotheses um
+
+1852
+01:20:34,800 --> 01:20:36,400
+i'll often spend time just looking at
+
+1853
+01:20:36,400 --> 01:20:38,400
+the code just for the purpose of
+
+1854
+01:20:38,400 --> 01:20:40,080
+generating
+
+1855
+01:20:40,080 --> 01:20:41,760
+sort of brainstorming with myself to
+
+1856
+01:20:41,760 --> 01:20:43,199
+just try to generate you know
+
+1857
+01:20:43,199 --> 01:20:44,719
+things that could possibly be going
+
+1858
+01:20:44,719 --> 01:20:46,239
+wrong at this point
+
+1859
+01:20:46,239 --> 01:20:47,679
+and then put print statements in her
+
+1860
+01:20:47,679 --> 01:20:50,159
+panics or something to try to
+
+1861
+01:20:50,159 --> 01:20:53,920
+uh rule in or rule out various guesses
+
+1862
+01:20:53,920 --> 01:20:56,400
+at what the problem might be another
+
+1863
+01:20:56,400 --> 01:20:58,000
+possibility is that
+
+1864
+01:20:58,000 --> 01:20:59,520
+you know you've you've made some you
+
+1865
+01:20:59,520 --> 01:21:01,280
+know your code worked or didn't show
+
+1866
+01:21:01,280 --> 01:21:02,800
+this error or something
+
+1867
+01:21:02,800 --> 01:21:04,480
+you know half an hour ago and you made
+
+1868
+01:21:04,480 --> 01:21:06,159
+some changes and now you have some bug
+
+1869
+01:21:06,159 --> 01:21:09,360
+so another possibility is to if you can
+
+1870
+01:21:09,360 --> 01:21:11,120
+you know back up to a version of the
+
+1871
+01:21:11,120 --> 01:21:12,400
+code that didn't have the bug and sort
+
+1872
+01:21:12,400 --> 01:21:14,000
+of add your changes bit by bit
+
+1873
+01:21:14,000 --> 01:21:17,520
+until the bug shows up none of these are
+
+1874
+01:21:17,520 --> 01:21:20,239
+i don't know any strategy that always
+
+1875
+01:21:20,239 --> 01:21:21,679
+works or even works more than a fraction
+
+1876
+01:21:21,679 --> 01:21:25,270
+of the time
+
+1877
+01:21:25,280 --> 01:21:26,560
+but the truth is part of what you're
+
+1878
+01:21:26,560 --> 01:21:28,560
+learning in this class as well as
+
+1879
+01:21:28,560 --> 01:21:30,560
+learning about operating systems
+
+1880
+01:21:30,560 --> 01:21:32,639
+you know you're getting experience
+
+1881
+01:21:32,639 --> 01:21:37,830
+writing and debugging code
+
+1882
+01:21:37,840 --> 01:21:42,880
+sorry not to be more helpful
+
+1883
+01:21:42,880 --> 01:21:52,629
+other questions
+
+1884
+01:21:52,639 --> 01:21:55,760
+all right we're at that
+
+1885
+01:21:55,760 --> 01:22:00,550
+end of class time um
+
+1886
+01:22:00,560 --> 01:22:03,840
+i'm happy to talk more but
+
+1887
+01:22:03,840 --> 01:22:08,830
+we're done with the formal part of this
+
+1888
+01:22:08,840 --> 01:22:10,880
+class
+
+1889
+01:22:10,880 --> 01:22:13,440
+all right and just see you all on
+
+1890
+01:22:13,440 --> 01:22:15,280
+wednesday
+
+1891
+01:22:15,280 --> 01:22:16,639
+oh sorry i actually have another
+
+1892
+01:22:16,639 --> 01:22:18,560
+question when we were
+
+1893
+01:22:18,560 --> 01:22:21,920
+seeing our first um
+
+1894
+01:22:21,920 --> 01:22:25,840
+uh right fault we also saw
+
+1895
+01:22:25,840 --> 01:22:28,800
+after that for the shell illegal
+
+1896
+01:22:28,800 --> 01:22:30,159
+instruction fault
+
+1897
+01:22:30,159 --> 01:22:33,440
+and then something for the unit process
+
+1898
+01:22:33,440 --> 01:22:39,760
+what was that um
+
+1899
+01:22:39,760 --> 01:22:45,110
+um well
+
+1900
+01:22:45,120 --> 01:22:48,560
+um i don't have a theory
+
+1901
+01:22:48,560 --> 01:22:52,080
+the init process sh i don't think would
+
+1902
+01:22:52,080 --> 01:22:55,120
+share pages with anything
+
+1903
+01:22:55,120 --> 01:22:58,480
+i i just don't know i'm sorry we could
+
+1904
+01:22:58,480 --> 01:23:00,320
+uh
+
+1905
+01:23:00,320 --> 01:23:03,199
+um i would have to back up but this
+
+1906
+01:23:03,199 --> 01:23:04,560
+happened very early when i was doing the
+
+1907
+01:23:04,560 --> 01:23:05,199
+lab right
+
+1908
+01:23:05,199 --> 01:23:06,639
+we just had a copy of the page table
+
+1909
+01:23:06,639 --> 01:23:08,480
+nothing else yeah
+
+1910
+01:23:08,480 --> 01:23:11,600
+i think it was a uh like s-cos f
+
+1911
+01:23:11,600 --> 01:23:16,239
+for the shell and i think s-cos c
+
+1912
+01:23:16,239 --> 01:23:20,080
+for the init process
+
+1913
+01:23:20,080 --> 01:23:22,880
+maybe all right all right let me let's
+
+1914
+01:23:22,880 --> 01:23:23,360
+see
+
+1915
+01:23:23,360 --> 01:23:26,800
+if you really let's see let's see
+
+1916
+01:23:26,800 --> 01:23:32,149
+we can
+
+1917
+01:23:32,159 --> 01:23:40,070
+let's reconstruct um
+
+1918
+01:23:40,080 --> 01:23:46,830
+uh the lab from scratch so i'm gonna
+
+1919
+01:23:46,840 --> 01:24:00,830
+clone
+
+1920
+01:24:00,840 --> 01:24:07,750
+ugh
+
+1921
+01:24:07,760 --> 01:24:11,440
+okay at this point we had just made uh
+
+1922
+01:24:11,440 --> 01:24:15,280
+just made changes to uvm copyright
+
+1923
+01:24:15,280 --> 01:24:19,990
+um and so we were
+
+1924
+01:24:20,000 --> 01:24:21,440
+what are we not doing here we're not
+
+1925
+01:24:21,440 --> 01:24:23,920
+allocating and we're not doing a
+
+1926
+01:24:23,920 --> 01:24:28,310
+move
+
+1927
+01:24:28,320 --> 01:24:34,070
+but we are um
+
+1928
+01:24:34,080 --> 01:24:38,000
+uh we're gonna pass pa
+
+1929
+01:24:38,000 --> 01:24:41,360
+to map pages and well i think the very
+
+1930
+01:24:41,360 --> 01:24:43,760
+was the very first time i ran anything i
+
+1931
+01:24:43,760 --> 01:24:46,000
+think this was the state of play
+
+1932
+01:24:46,000 --> 01:24:55,430
+it was after we did the flags also okay
+
+1933
+01:24:55,440 --> 01:25:02,070
+all right so let's clear
+
+1934
+01:25:02,080 --> 01:25:11,669
+and
+
+1935
+01:25:11,679 --> 01:25:35,350
+does that look good
+
+1936
+01:25:35,360 --> 01:25:38,880
+all right we got a c well let's see
+
+1937
+01:25:38,880 --> 01:25:42,159
+c is instruction page fault oh this so
+
+1938
+01:25:42,159 --> 01:25:46,320
+okay so uh s calls to
+
+1939
+01:25:46,320 --> 01:25:49,040
+you know is you know we think uh shared
+
+1940
+01:25:49,040 --> 01:25:51,440
+and process id two ah man
+
+1941
+01:25:51,440 --> 01:26:00,709
+you're right is process id one
+
+1942
+01:26:00,719 --> 01:26:02,159
+i just don't have a theory for why
+
+1943
+01:26:02,159 --> 01:26:05,430
+process id one
+
+1944
+01:26:05,440 --> 01:26:08,560
+might run into trouble let's let's let's
+
+1945
+01:26:08,560 --> 01:26:14,229
+look at what an it does
+
+1946
+01:26:14,239 --> 01:26:33,430
+isn't it
+
+1947
+01:26:33,440 --> 01:26:39,510
+okay it execs the shell
+
+1948
+01:26:39,520 --> 01:26:42,719
+i don't know um
+
+1949
+01:26:42,719 --> 01:26:45,679
+you know okay oh here's an idea process
+
+1950
+01:26:45,679 --> 01:26:46,320
+id2
+
+1951
+01:26:46,320 --> 01:26:48,480
+is taking a fault and it's exited so you
+
+1952
+01:26:48,480 --> 01:26:49,679
+do report later
+
+1953
+01:26:49,679 --> 01:26:51,520
+like right yeah and so that means that
+
+1954
+01:26:51,520 --> 01:26:53,040
+this weight in a nit
+
+1955
+01:26:53,040 --> 01:26:56,080
+has returned yeah right and so it's
+
+1956
+01:26:56,080 --> 01:26:57,120
+going to go back around the loop and
+
+1957
+01:26:57,120 --> 01:26:58,880
+call fork again and so you know after a
+
+1958
+01:26:58,880 --> 01:26:59,520
+for
+
+1959
+01:26:59,520 --> 01:27:02,719
+we're now sharing and you know depending
+
+1960
+01:27:02,719 --> 01:27:05,120
+on all this damage code
+
+1961
+01:27:05,120 --> 01:27:09,280
+um okay i see
+
+1962
+01:27:09,280 --> 01:27:12,000
+okay yeah that's very confusing oh yeah
+
+1963
+01:27:12,000 --> 01:27:13,120
+these errors are just
+
+1964
+01:27:13,120 --> 01:27:15,360
+like complete bananas because we
+
+1965
+01:27:15,360 --> 01:27:17,760
+violated all sorts of
+
+1966
+01:27:17,760 --> 01:27:21,199
+intuitions about how things should work
+
+1967
+01:27:21,199 --> 01:27:25,669
+okay
+
