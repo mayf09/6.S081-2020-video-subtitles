@@ -1,3464 +1,4132 @@
 1
 00:00:01,900 --> 00:00:04,270
-好的，欢迎学习6.S081操作系统，我是罗伯特，我将和助教的弗朗斯、大卫和尼古拉斯一起讲课。
+好的，
 All right,
 
 2
 00:00:04,270 --> 00:00:08,770
+欢迎学习 6.S081 操作系统，
 welcome to 6.S081 operating systems,
 
 3
 00:00:08,770 --> 00:00:10,720
+我是 Robert ，我将和 Frans 一起执教，
 I'm Robert I'll be co-lecturing
 
 4
 00:00:10,720 --> 00:00:14,320
+另外， David 和 Nicolass 作为
 with Frans and David and Nicolaas
 
 5
 00:00:14,320 --> 00:00:16,180
+助教。
 of the TAs.
 
 6
 00:00:16,450 --> 00:00:18,850
-那么，嗯，请在变焦讲座的时候，问一些问题，你可以用音频打断我，或者在聊天窗口中输入一些东西。
-So, um please during the zoom lectures,
+在 zoom 讲座的时候，
+So, please during the zoom lectures,
 
 7
 00:00:18,850 --> 00:00:19,690
+随时可以提问，
 ask questions,
 
 8
 00:00:19,690 --> 00:00:21,460
+你可以讲话打断我，
 you can either interrupt me by
 
 9
 00:00:21,460 --> 00:00:24,280
+或者在聊天窗口中
 audio or enter something into
 
 10
 00:00:24,280 --> 00:00:25,740
+输入一些东西。
 the chat window.
 
 11
 00:00:25,840 --> 00:00:27,730
-嗯，会有一名工作人员为您查看并询问。
+我们会有一名工作人员查看
 Um, one of the staff will see and ask
 
 12
 00:00:27,730 --> 00:00:28,840
 question for you.
+并替你提问。
 
 13
 00:00:29,900 --> 00:00:31,430
-顺便说一句，我们会录下这些讲座，然后我们会把录音张贴出来，这样你们就可以复习了，或者对于这次来不了的人，他们仍然可以看到讲座。
+顺便说一下，我们会录下这些讲座，
 By the way we'll be recording these
 
 14
 00:00:31,430 --> 00:00:33,680
+然后把录音开放出来，
 lectures and then we'll post recordings later
 
 15
 00:00:33,680 --> 00:00:36,170
+这样你们可以复习，
 so you can review them or for
 
 16
 00:00:36,170 --> 00:00:38,180
 people who can't make this time so
+或者对于这次来不了的人，
 
 17
 00:00:38,180 --> 00:00:39,740
 they can nevertheless see lectures.
+他们仍然可以看到讲座。
 
 18
 00:00:40,710 --> 00:00:43,680
-好的，我想从列出课程的一些目标开始。那么第一个就是这个，了解一个操作系统的设计和实现。
+好的，首先我想列出
 All right, I want to start by
 
 19
 00:00:43,680 --> 00:00:44,850
+课程的一些目标。
 laying out some of the goals
 
 20
 00:00:44,850 --> 00:00:46,500
+那么，
 of the course. So,
 
 21
 00:00:46,750 --> 00:00:49,330
+第一个是，
 number one is to um,
 
 22
 00:00:49,330 --> 00:00:53,680
 understand a design and implementation
+理解操作系统的
 
 23
 00:00:53,680 --> 00:00:56,180
 of operating systems.
+设计和实现。
 
 24
 00:00:56,310 --> 00:00:58,120
-嗯，是的，设计是一种高层次的结构，而实现实际上是关于代码的样子，我们将花费大量的时间在这两个方面。
-Um, yeah,
+嗯，
+Um,
 
 25
 00:00:58,840 --> 00:01:01,210
+设计是一种高层次的结构，
 design is sort of high level structure
 
 26
 00:01:01,210 --> 00:01:03,550
+而实现实际上是代码
 and implementation is really about what the
+
 
 27
 00:01:03,550 --> 00:01:04,600
+看起来的样子，
 code looks like,
 
 28
 00:01:04,600 --> 00:01:06,740
+我们将花费大量的时间在这两个方面。
 and we'll spending a lot of time with both.
 
 29
 00:01:07,940 --> 00:01:11,840
-为了更深入地了解正在发生的事情，您将获得一个小型的实践经验。
+为了更深入地理解
 And in the interest of getting a
 
 30
 00:01:11,840 --> 00:01:13,640
 deep understanding of what's going on,
+这些怎么运行，
 
 31
 00:01:13,640 --> 00:01:18,280
-you'll get hands-on experience with a small.
+you'll get hands-on experience with a small
+你将获得实践经验，通过使用
 
 32
 00:01:18,420 --> 00:01:23,130
-嗯，一个小操作系统，<foreign language=“English”>xv6</foreign>操作系统。
-Um, a small operating system,
+一个小型操作系统，
+um, a small operating system,
 
 33
 00:01:23,130 --> 00:01:24,980
+xv6 操作系统。
 the xv6 operating system.
 
 34
 00:01:25,320 --> 00:01:27,420
-嗯，除了实际查看现有的操作系统之外，您还将在实验室中获得扩展操作系统、改进其行为和编写使用操作系统接口的系统软件(如果它能运行应用程序)的丰富经验。
+嗯，
 Um, and,
 
 35
 00:01:27,420 --> 00:01:29,010
+除了实际查看
 in addition to actually looking at an
 
 36
 00:01:29,010 --> 00:01:30,270
+现有的操作系统，
 existing operating system,
 
 37
 00:01:30,270 --> 00:01:33,270
+在实验室中，你还可以
 you'll be a in the labs
 
 38
 00:01:33,270 --> 00:01:35,070
+获得以下经验，扩展操作系统，
 get a bunch of experience extending
 
 39
 00:01:35,070 --> 00:01:37,410
+改进操作系统，
 the operating system modifying improving its
 
 40
 00:01:37,410 --> 00:01:41,100
+编写使用操作系统接口的
 behavior and writing system software that
 
 41
 00:01:41,100 --> 00:01:43,740
+系统软件，
 it uses the operating system interfaces,
 
 42
 00:01:43,740 --> 00:01:45,140
+在操作系统运行应用程序时。
 if it works an application.
 
 43
 00:01:45,320 --> 00:01:47,420
-嗯，那么，嗯，这就是你们在课程中要做的，嗯，嗯。
-Um, So,
+嗯，
+Um,
 
 44
 00:01:47,420 --> 00:01:48,560
-um, so this is what you're going to
+这就是你们
+so this is what you're going to
 
 45
 00:01:48,560 --> 00:01:49,730
-be doing in the course,
+在课程中要做的。
+be doing in the course.
 
 46
 00:01:49,730 --> 00:01:52,400
-um, um.
+Um,
 
 47
 00:01:52,980 --> 00:01:55,710
-我们对操作系统本身的用途和课程也很感兴趣。
+在课程中，我们对操作系统
 We're also interested in what the purpose
 
 48
 00:01:55,710 --> 00:01:57,360
+本身的用途
 of the operating system itself is as
 
 49
 00:01:57,360 --> 00:01:58,800
+也很感兴趣。
 well as the course.
 
 50
 00:02:00,980 --> 00:02:02,090
-因此，我有一系列的东西，嗯，你知道，有很多操作系统，不同的操作系统，它们通常有一套共同的用途.
+因此，
 So for that I have a
 
 51
 00:02:02,090 --> 00:02:04,040
+我有一系列
 sort of list of a couple
 
 52
 00:02:04,040 --> 00:02:05,540
+的东西，
 of things which,
 
 53
 00:02:05,540 --> 00:02:08,630
-um you know there's lots of operating system,
+你知道的，有很多操作系统，
+um, you know there's lots of operating system,
 
 54
 00:02:08,630 --> 00:02:10,550
+不同的操作系统，
 different operating systems out there,
 
 55
 00:02:10,550 --> 00:02:13,780
+它们通常有一套共同的用途.
 they typically have a common set of purposes.
 
 56
 00:02:15,150 --> 00:02:20,080
-嗯，其中一个就是抽象硬件，嗯，就是通常给你的一种起点，就是你买一台电脑，一台电脑有一个CPU和内存，但是这是一个非常低的水平。
+其中一个就是对硬件的抽象，
 Um, one of them is to abstract the hardware,
 
 57
 00:02:21,520 --> 00:02:23,770
+就是通常
 um, that is what you're given
 
 58
 00:02:23,770 --> 00:02:25,420
+你的起点，
 typically as a kind of starting point is
 
 59
 00:02:25,420 --> 00:02:26,170
+就是买一台电脑，
 you buy a computer,
 
 60
 00:02:26,170 --> 00:02:27,760
+一台电脑有 CPU 和内存，
 a computer has a CPU and memory
 
 61
 00:02:27,760 --> 00:02:29,880
+但是这是一个非常低的层级。
 but that's a very low level.
 
 62
 00:02:29,940 --> 00:02:31,770
-作为一组资源，拥有更高级别的接口和抽象是非常棒的，应用程序可以使用这些接口和抽象，例如为了方便和可移植性而使用进程或文件系统。
+作为一组资源，
 A set of resources,
 
 63
 00:02:31,770 --> 00:02:33,300
+拥有更高级别的接口
 it's fantastic to have a much higher
 
 64
 00:02:33,300 --> 00:02:36,780
+和抽象是非常棒的，
 level interfaces and abstractions that applications can
 
 65
 00:02:36,780 --> 00:02:40,740
+应用程序可以使用这些接口和抽象，
 use such as processes or file systems
 
 66
 00:02:40,740 --> 00:02:43,740
+例如为了方便和可移植性而使用进程或文件系统。
 both for convenience and for portability.
 
 67
 00:02:44,360 --> 00:02:47,180
-操作系统的另一个非常重要的任务是在许多应用程序中多路复用硬件。
+操作系统的另一个非常重要的任务是
 Another very important task of an operating
 
 68
 00:02:47,180 --> 00:02:49,960
+在许多应用程序中
 system is to multiplex the hardware
 
 69
 00:02:50,190 --> 00:02:52,000
+复用硬件。
 among many applications.
 
 70
 00:02:52,360 --> 00:02:55,120
-嗯，您可能正在运行文本编辑器和编译器，或者可能在您的操作系统上运行多个不同的数据库服务器或其他东西，能够让操作系统同时运行，或者所有的事情都在同一时间进行，而不会受到干扰，这是非常棒的。
+你可能正在运行文本编辑器和
 Um, you might be running a text editor,
 
 71
 00:02:55,120 --> 00:02:56,470
+编译器，
 and a compiler,
 
 72
 00:02:56,470 --> 00:02:58,180
+或者可能
 or maybe
 
 73
 00:02:58,280 --> 00:03:01,400
+在您的操作系统上运行
 a multiple different database servers or something
 
 74
 00:03:01,400 --> 00:03:02,420
+多个不同的数据库服务器或其他东西，
 on your operating system,
 
 75
 00:03:02,420 --> 00:03:03,830
+这非常棒，能够让
 it's fantastic to be able to have
 
 76
 00:03:03,830 --> 00:03:05,210
-the operating system run,
+操作系统
+the operating system run
 
 77
 00:03:05,210 --> 00:03:06,020
+同时运行，
 both of them at the same
 
 78
 00:03:06,020 --> 00:03:07,250
+或者所有的事情
 time or all the things are
 
 79
 00:03:07,250 --> 00:03:08,690
+都在同一时间进行，
 going on at the same time
 
 80
 00:03:08,690 --> 00:03:10,360
+而不会受到干扰。
 without having them interfere.
 
 81
 00:03:11,420 --> 00:03:15,230
-这通常被称为多路复用，因为操作系统中可能会同时发生很多事情，关键是它们不会无意中干扰，即使它们有bug，这就是所谓的隔离任务。
+这通常被称为多路复用，
 That's often called multiplexing, because
 
 82
 00:03:15,230 --> 00:03:15,980
+因为操作系统中
 there may be a lot of
 
 83
 00:03:15,980 --> 00:03:17,630
+可能会同时
 things happening in the operating system
 
 84
 00:03:17,630 --> 00:03:19,070
+发生很多事情，
 at the same time, it's critical
 
 85
 00:03:19,070 --> 00:03:21,770
+关键是即使有 bug ，
 that they not interfere unintentionally,
 
 86
 00:03:21,770 --> 00:03:24,500
+它们也不会无意中干扰，
 even if they have bugs and that's
 
 87
 00:03:24,500 --> 00:03:26,820
+这就是所谓的隔离任务。
 a task is called isolation.
 
 88
 00:03:27,120 --> 00:03:28,480
-认为，不同的活动不应该被允许干涉。另一方面，有时不同的活动可能会干扰、交互或协作，例如，如果我使用文本编辑器创建了一个文件，我希望我的编译器读取该文件，我们肯定希望允许这种共享。
-The idea that,
+不同的活动
+the idea that,
 
 89
 00:03:28,970 --> 00:03:32,270
+不应该
 a different activities should not be allowed
 
 90
 00:03:32,270 --> 00:03:33,620
+互相干涉。另一方面，
 to interfere. On the other hand,
 
 91
 00:03:33,620 --> 00:03:36,140
+有时不同的活动
 there are times when different activities would
 
 92
 00:03:36,140 --> 00:03:37,070
+可能需要互相干扰、
 like to interfere,
 
 93
 00:03:37,070 --> 00:03:38,870
+交互或协作，
 would like to interact or cooperate,
 
 94
 00:03:38,870 --> 00:03:40,550
+例如，如果我
 so for example if I create a
 
 95
 00:03:40,550 --> 00:03:42,230
+使用编辑器创建了一个文件，
 file with a text editor,
 
 96
 00:03:42,230 --> 00:03:43,790
+我希望编译器可以读取该文件，
 and I'd like my compiler to read
 
 97
 00:03:43,790 --> 00:03:45,830
+我们肯定希望
 the file and we definitely want to
 
 98
 00:03:45,830 --> 00:03:47,740
+允许这种共享。
 allow that kind of sharing.
 
 99
 00:03:47,860 --> 00:03:50,380
-嗯，所以我们想允许分享[分钟]，嗯。有点像用户所想的那样。
+所以我们想允许分享，
 Um, so we wanna allow sharing [minutes],
 
 100
 00:03:50,380 --> 00:03:55,120
-um. Sort of what the user has in mind.
+像用户想的那样。
+um，sort of what the user has in mind.
 
 101
 00:03:55,670 --> 00:03:57,230
-但是在很多情况下，用户不想分享，可能你登录了像雅典娜这样的分时机器，你不想让别人看你的文件，嗯，所以我们也需要分享，我们不想分享的时候，我们也不想分享。
+但是在很多情况下，
 But in many circumstances,
 
 102
 00:03:57,230 --> 00:03:59,360
+用户不想分享，
 user doesn't want sharing maybe
 
 103
 00:03:59,360 --> 00:04:00,800
+可能你登录了像 Athena 这样的
 you're logged into a time sharing
 
 104
 00:04:00,800 --> 00:04:02,300
+分时处理服务器，
 machine like Athena,
 
 105
 00:04:02,300 --> 00:04:03,500
+你不想别人看到
 and you don't want other people to
 
 106
 00:04:03,500 --> 00:04:04,760
+你的文件，
 read your files,
 
 107
 00:04:04,760 --> 00:04:06,380
+所以需要的时候，我们分享，
 um, so we also need as well sharing
 
 108
 00:04:06,380 --> 00:04:07,820
-we want to not share when we
+而不需要的时候，
+we want, to not share when we
 
 109
 00:04:07,820 --> 00:04:09,640
+我们不分享。
 don't want to um.
 
 110
 00:04:09,760 --> 00:04:11,740
-我们可以称其为安全或许可系统，即访问控制系统。
+我们可以称其为安全系统或
 Which we could call security or a
 
 111
 00:04:11,740 --> 00:04:15,400
+权限系统，即访问控制系统。
 permission system an access control system.
 
 112
 00:04:16,650 --> 00:04:18,360
-人们看重操作系统的另一件事是，如果您在一台计算机的硬件上花了很多钱，您希望您的应用程序能够获得硬件应该能够提供的全部性能。而且，很多都是应用程序编程，嗯。但是，嗯，不可避免的，不幸的是，其中一些问题是操作系统必须确保它提供的任何服务都不会阻碍应用程序获得高性能，所以你希望至少不要阻碍，甚至可能帮助应用程序实现良好的性能。
+人们看重操作系统的
 Another thing that people value in operating
 
 113
 00:04:18,360 --> 00:04:20,040
+另一个原因是，
 systems is if you spend a lot
 
 114
 00:04:20,040 --> 00:04:21,180
+如果你为一台计算机的硬件上花了很多钱，
 of money on the hardware on a
 
 115
 00:04:21,180 --> 00:04:23,190
+你希望应用程序
 computer you'd like your application to be
 
 116
 00:04:23,190 --> 00:04:24,750
+能够获得硬件
 able to get a sort of full
 
 117
 00:04:24,750 --> 00:04:27,600
+能够提供的全部性能。
 performance that a hardware ought to be
 
 118
 00:04:27,600 --> 00:04:30,440
+而且，
 able to provide. And,
 
 119
 00:04:30,650 --> 00:04:33,260
-A lot of that is just application programming,
+很多都是应用编程，
+a lot of that is just application programming,
 
 120
 00:04:33,260 --> 00:04:34,700
-um. But,
+但是，
+um, but,
 
 121
 00:04:34,700 --> 00:04:35,570
+不可避免的，
 um inevitably,
 
 122
 00:04:35,570 --> 00:04:37,760
+不幸的是，其中一些问题是
 unfortunately, some of it is the operating system
 
 123
 00:04:37,760 --> 00:04:41,240
+操作系统必须确保它提供的任何服务
 has to make sure that whatever services
 
 124
 00:04:41,240 --> 00:04:43,790
+都不会阻碍
 it provides don't get in the way
 
 125
 00:04:43,790 --> 00:04:46,250
+应用程序获得高性能，
 of applications getting high performance,
 
 126
 00:04:46,250 --> 00:04:47,510
+所以你希望至少
 so you want to at least not
 
 127
 00:04:47,510 --> 00:04:49,430
+不要阻碍，
 get in the way and maybe even
 
 128
 00:04:49,430 --> 00:04:51,540
+甚至可能帮助应用程序
 help applications achieve
 
 129
 00:04:51,650 --> 00:04:52,860
+获得良好的性能。
 good performance.
 
 130
-00:04:54,150 --> 00:04:56,570
-嗯，嗯，终于，嗯。
-Um, um,
-
-131
-00:04:56,570 --> 00:04:58,740
-finally, um.
+00:04:54,150 --> 00:04:58,740
+嗯，最终。
+Um, finally.
 
 132
 00:04:58,880 --> 00:05:01,460
-由于大多数操作系统必须支持广泛的不同应用程序，可能是运行文本编辑器的笔记本电脑，可能是运行游戏的笔记本电脑，可能是您的操作系统需要支持数据库服务器或云计算，通常因为操作系统的设计和构建成本相当高，所以人们使用相同的操作系统来执行许多不同的任务，例如Linux，我相信你们中的许多人都在运行相同的操作系统，例如，在我提到的所有情况下都会使用相同的操作系统，因此相同的操作系统确实必须能够支持一系列，嗯，通常是非常不同的用途。
+由于大多数操作系统必须支持
 With most operating systems have to support
 
 133
 00:05:01,460 --> 00:05:03,170
+广泛的不同应用程序，
 a wide range of different applications,
 
 134
 00:05:03,170 --> 00:05:05,990
+可能是笔记本电脑运行编辑器，
 maybe it's a laptop running a text editor,
 
 135
 00:05:05,990 --> 00:05:07,610
+可能是运行游戏，
 maybe it's running games,
 
 136
 00:05:07,610 --> 00:05:10,400
+可能是您的操作系统需要支持
 maybe your operating system needs to support
 
 137
 00:05:10,400 --> 00:05:12,860
+数据库服务器或云计算，
 database servers or cloud computation,
 
 138
 00:05:12,860 --> 00:05:15,950
+通常因为操作系统的设计和构建
 and usually because operating systems are quite
 
 139
 00:05:15,950 --> 00:05:19,280
+成本很高，
 expensive to design and build, people use
 
 140
 00:05:19,280 --> 00:05:21,110
+所以人们使用相同的操作系统来执行许多不同的任务，
 the same operating systems for many different
 
 141
 00:05:21,110 --> 00:05:22,250
+例如 Linux，
 tasks like Linux,
 
 142
 00:05:22,250 --> 00:05:23,720
+在我提到的所有情况下，我相信
 for example which I'm sure many of
 
 143
 00:05:23,720 --> 00:05:25,340
+你们中的许多人都在
 you are running a is used in
 
 144
 00:05:25,340 --> 00:05:27,170
+运行相同的操作系统，
 all of the situations I mentioned so
 
 145
 00:05:27,170 --> 00:05:28,520
+因此相同的操作系统
 the same operating system really has to
 
 146
 00:05:28,520 --> 00:05:31,380
+必须能够支持一系列，
 be able to support a range of,
 
 147
 00:05:31,430 --> 00:05:34,140
+通常是非常不同的用途。
 um, often quite different uses.
 
 148
 00:05:36,830 --> 00:05:38,180
-所以我们希望能够同时支持所有这些不同的目标。
+所以我们希望能够
 So we're hoping to be able
 
 149
 00:05:38,180 --> 00:05:40,430
+同时支持
 to support sort of all these
 
 150
 00:05:40,430 --> 00:05:42,740
+所有这些不同的目标。
 different goals simultaneously.
 
 151
 00:05:44,000 --> 00:05:45,170
-我们将在课程中听到更多关于他们所有人的信息。
+在课程中，我们将听到
 And we'll hear more about all of
 
 152
 00:05:45,170 --> 00:05:46,880
+更多关于这些的信息。
 them during the course.
 
 153
 00:05:47,810 --> 00:05:48,260
-好的，嗯，操作系统，所以几十年来人们设计出了一套设计思想，以一种相当好的方式来组织事情。
+好的，
 All right,
 
 154
 00:05:48,260 --> 00:05:49,790
+操作系统，
 um, operating systems,
 
 155
 00:05:49,790 --> 00:05:51,920
+几十年来人们总结出
 so people worked out a
 
 156
 00:05:51,920 --> 00:05:56,000
+一套设计思想，
 set of design ideas over the decades
 
 157
 00:05:56,000 --> 00:05:57,860
+它们以一种很好的方式
 have worked pretty well sort of ways
 
 158
 00:05:57,860 --> 00:05:59,240
+组织事情。
 of organizing things.
 
 159
 00:05:59,310 --> 00:06:01,320
-我要为你们展示一下，这是一种经典之作。
+我来给你们展示一下
 I'm going to lay out for you,
 
 160
 00:06:01,320 --> 00:06:03,460
+这种经典设计。
 this sort of classic.
 
 161
 00:06:05,890 --> 00:06:10,000
-这是一种组织上的标准交易。
-A organization sort of standard deal for um.
+这是这门课的的
+A organization sort of standard deal for, um,
 
 162
 00:06:10,600 --> 00:06:12,560
-嗯，这门课和，嗯，其实在很多操作系统上都是很常见的。
-Um, this course and,
+标准组织方式，
+this course and,
 
 163
 00:06:13,380 --> 00:06:15,960
+其实在很多操作系统上
 um, is actually quite common around
 
 164
 00:06:15,960 --> 00:06:17,100
+都是很常见的。
 for many operating systems.
 
 165
 00:06:17,100 --> 00:06:20,980
-所以这是一种操作系统内部组织或。
-So this is sort of OS internal organization or.
+这是一种操作系统内部组织，
+So this is sort of OS internal organization, or，
 
 166
 00:06:21,830 --> 00:06:24,380
-在我看来，这是一个电脑的盒子，有点像电脑。
+或者，在我看来，
 The way I think about it
 
 167
 00:06:24,380 --> 00:06:27,920
+用这个方形
 is in terms of a box
 
 168
 00:06:27,920 --> 00:06:29,810
+表示计算机，
 for the computer,
 
 169
 00:06:29,810 --> 00:06:31,600
-the computer sort of.
+计算机
+the computer sort of
 
 170
 00:06:32,260 --> 00:06:33,850
-附带了一堆硬件资源，我会把它们放在最下面，可能是它们的CPU和RAM，存储的磁盘，也可能是网络接口，这种硬件，那是最低的一层。
-Comes with a bunch of hardware resources,
+附带了一堆硬件，
+comes with a bunch of hardware resources,
 
 171
 00:06:33,850 --> 00:06:34,810
+我把它们放在下面，
 which I'll put at the bottom,
 
 172
 00:06:34,810 --> 00:06:38,440
+有 CPU 、内存、存储的磁盘，
 maybe their CPU and ram, disk for
 
 173
 00:06:38,440 --> 00:06:42,070
+网络接口，
 storage and maybe a network interface,
 
 174
 00:06:42,070 --> 00:06:43,240
+这些硬件，
 this sort of hardware,
 
 175
 00:06:43,240 --> 00:06:45,700
+是最低的一层。
 that's the lowest layer.
 
 176
 00:06:46,180 --> 00:06:47,830
-在顶部，你想要运行各种应用程序，也许是一个文本编辑器，我还没有用VI作为文本编辑器，如果你要运行C编译器CC，你知道，如果你要运行很多其他的东西，我们今天会讲很多关于Shell的东西，它是，嗯，命令行界面，所以我们有所有这些不同的程序在运行。
+在顶部，你想要
 So at the top you want to
 
 177
 00:06:47,830 --> 00:06:49,570
+运行各种应用程序，
 run various applications,
 
 178
 00:06:49,570 --> 00:06:51,640
-maybe a text editor I haven't use
+也许是一个文本编辑器，
+maybe a text editor I have use
 
 179
 00:06:51,640 --> 00:06:53,590
+我使用 VI ，
 VI as a text editor,
 
 180
 00:06:53,590 --> 00:06:56,770
+如果你要运行 C 编译器 CC，
 if you're going to run a C compiler CC,
 
 181
 00:06:56,770 --> 00:06:58,270
+如果你要运行很多其他的东西，
 you know if you run lots of
 
 182
 00:06:58,270 --> 00:06:59,680
+我们今天会讲很多
 other things we're gonna talk a lot
 
 183
 00:06:59,680 --> 00:07:02,040
+关于 Shell 的东西，
 today about the Shell which is the,
 
 184
 00:07:02,030 --> 00:07:04,410
+它是命令行界面，
 um, command line interface,
 
 185
 00:07:04,410 --> 00:07:05,670
+所以我们有所有这些不同的程序
 so we have all these different programs
 
 186
 00:07:05,670 --> 00:07:07,000
+在运行。
 that are running.
 
 187
 00:07:07,260 --> 00:07:09,570
-嗯，这是一种应用程序运行的世界，通常被称为用户空间。
+这里是应用程序运行的地方，
 Um, and this is the sort of world
 
 188
 00:07:09,570 --> 00:07:11,820
+通常被称为
 in which a applications run is usually
 
 189
 00:07:11,820 --> 00:07:13,420
+用户空间。
 called user space.
 
 190
 00:07:14,260 --> 00:07:16,330
-嗯，与此截然不同的是，只有一个项目。
+与此截然不同的是，
 Um, and as distinct from that there's
 
 191
 00:07:16,330 --> 00:07:18,540
-a single program.
+这里有一个程序，
+a single program,
 
 192
 00:07:19,440 --> 00:07:20,910
-一个特殊的程序，它一直在运行，叫做内核，内核是计算机资源的某种守护者，它是你第一次开机时打开的计算机，嗯，它只有一个维护数据，嗯。帮助管理这些进程和内核中的每一个也意味着需要大量的数据结构来帮助接口和，嗯，所有不同种类的硬件。
-A special program,
+一个特殊的程序，
+a special program,
 
 193
 00:07:20,910 --> 00:07:23,460
+它一直在运行，叫做内核，
 that's always running called the kernel and
 
 194
 00:07:23,460 --> 00:07:25,440
+内核是计算机资源的
 the kernel is sort of the guardian
 
 195
 00:07:25,440 --> 00:07:27,270
+守护者，
 of the resources of the computer,
 
 196
 00:07:27,270 --> 00:07:30,270
+它在你第一次开机时启动，
 it's what first boots up you turn on the computer,
 
 197
 00:07:30,270 --> 00:07:32,730
+只有一个，管理数据，
 um, there's just one of it maintains data,
 
 198
 00:07:32,730 --> 00:07:36,280
+帮助管理这些进程和
 um. To help manage each of these processes
 
 199
 00:07:36,280 --> 00:07:37,690
+内核也有大量的数据结构
 and the kernel also means lots of
 
 200
 00:07:37,690 --> 00:07:41,660
 data structures to help interface and,
+来帮助接口和
 
 201
 00:07:42,120 --> 00:07:44,520
 um, all the different kinds of hardware.
+所有不同种类的硬件。
 
 202
 00:07:45,020 --> 00:07:49,550
-嗯，这些用户程序需要使用，内核也内置了很多服务。
+这些用户程序需要使用服务，
 Um, these user programs need to use,
 
 203
 00:07:49,550 --> 00:07:50,990
+内核也内置了
 the kernel also has built in
 
 204
 00:07:50,990 --> 00:07:53,240
+很多服务。
 a bunch of services.
 
 205
 00:07:53,550 --> 00:07:54,090
-嗯，举个例子，通常有一个文件系统。
-Um so,
+嗯，
+Um，
 
 206
 00:07:54,090 --> 00:07:57,480
-for example a there's typically a file system.
+举个例子，通常有一个文件系统。
+for example a there's typically a file system
 
 207
 00:07:57,980 --> 00:08:00,890
-内核内的实现，它实现文件名、文件内容和目录等内容，并了解如何将文件存储在磁盘中，因此您的程序将与内核中的文件进行对话，而文件系统实现将与磁盘进行对话。
-Implementation inside the kernel that implements things
+在内核内实现，它实现了
+implementation inside the kernel that implements things
 
 208
 00:08:00,890 --> 00:08:03,980
+文件名、文件内容和
 like file names and file contents and
 
 209
 00:08:03,980 --> 00:08:07,190
+目录，并且了解如何
 directories and understands how to store the
 
 210
 00:08:07,190 --> 00:08:07,910
+将文件存储在磁盘中，
 files in the disk,
 
 211
 00:08:07,910 --> 00:08:09,410
+因此你的程序
 so your programs are going to talk
 
 212
 00:08:09,410 --> 00:08:11,420
+访问内核中的文件，
 to the files inside the kernel and
 
 213
 00:08:11,420 --> 00:08:13,440
+而文件系统
 file system implementations is going to
 
 214
 00:08:13,540 --> 00:08:14,760
+访问磁盘。
 talk to the disk.
 
 215
 00:08:15,410 --> 00:08:16,660
-在这门课上。
-In this course.
+在这门课上，
+In this course,
 
 216
 00:08:17,460 --> 00:08:19,800
-嗯，我们主要关注的是内核内部必须发生的所有事情，以及用户程序和内核之间的接口。
+我们主要关注的是
 Um, where we mostly focus on is all
 
 217
 00:08:19,800 --> 00:08:21,330
+内核内部发生的所有事情，
 the things that has to happen inside
 
 218
 00:08:21,330 --> 00:08:23,880
+以及用户程序和内核
 the kernel and on the interfaces
 
 219
 00:08:23,880 --> 00:08:26,060
+之间的接口。
 between user programs and the kernel.
 
 220
 00:08:27,490 --> 00:08:30,370
-以及软件的结构，这个在内核里面。
+还有内核里面的
 As well as the structure of the software,
 
 221
 00:08:30,370 --> 00:08:32,110
-um inside the kernel.
+软件结构。
+um, inside the kernel.
 
 222
 00:08:32,110 --> 00:08:33,340
-所以，嗯，我们非常关心内核中的这些服务。
-So um,
+所以，
+So,
 
 223
 00:08:33,430 --> 00:08:36,040
+我们非常关心内核中的
 we care a lot about these services
 
 224
 00:08:36,040 --> 00:08:38,560
+这些服务。
 inside the kernel.
 
 225
 00:08:38,610 --> 00:08:40,380
-其中之一是我提到的文件系统，还有对进程的管理，每个正在运行的程序都称为进程，它有自己的内存，例如，还有共享的CPU时间。因此，内核将进程作为内核服务进行管理。
+其中之一就是我提到的文件系统，
 One of them is a file system I mentioned,
 
 226
 00:08:40,380 --> 00:08:42,000
+还有
 there's also a
 
 227
 00:08:42,570 --> 00:08:44,400
+对进程的管理，
 management of processes,
 
 228
 00:08:44,400 --> 00:08:46,620
+每个正在运行的程序都称为进程，
 each of these running programs is called
 
 229
 00:08:46,620 --> 00:08:48,300
+它有
 the process and it has things like
 
 230
 00:08:48,300 --> 00:08:49,230
+自己的内存，
 its own memory,
 
 231
 00:08:49,230 --> 00:08:54,420
+还有共享的 CPU 时间。
 for example as well as a share of the CPU time. So,
 
 232
 00:08:54,760 --> 00:08:58,140
+因此，内核将进程作为内核服务
 a kernel manages processes
 
 233
 00:08:58,540 --> 00:09:00,250
+进行管理。
 as a kernel service.
 
 234
 00:09:01,300 --> 00:09:02,080
-嗯，嗯，内核负责内存的分配，不同的进程需要不同的内存量。
-Uh, um,
+嗯，
+Um,
 
 235
 00:09:02,080 --> 00:09:05,950
+内核负责内存的分配，
 kernel manages the allocation of the memory,
 
 236
 00:09:05,950 --> 00:09:07,390
+不同的进程需要
 the different processes need different
 
 237
 00:09:07,390 --> 00:09:08,080
+不同的内存量。
 amounts of memory.
 
 238
 00:09:08,080 --> 00:09:09,000
-内核多路复用和划分内存，在所有不同的进程之间分配内存。
+内核
 The kernel
 
 239
 00:09:10,970 --> 00:09:13,520
+复用和划分内存，
 multiplexes and divides up the memory
 
 240
 00:09:13,520 --> 00:09:14,940
+在所有不同的进程之间
 allocates the memory,
 
 241
 00:09:15,840 --> 00:09:18,200
+分配内存。
 um, among all the different processes.
 
 242
 00:09:22,240 --> 00:09:26,080
-嗯，正如我提到的内核对文件系统的影响，文件系统实际上分为三个逻辑部分或一堆逻辑部分，但现在我们可以从管理文件内容的角度来考虑它，也就是在文件内部，找出磁盘上的位置。
+正如我提到的内核对文件系统的影响，
 Um, the kernel as I mentioned a influence
 
 243
 00:09:26,080 --> 00:09:27,580
+文件系统实际上
 the file system, file system really comes
 
 244
 00:09:27,580 --> 00:09:30,190
+分为三个逻辑部分或
 into a three logical or a bunch
 
 245
 00:09:30,190 --> 00:09:31,030
+一堆逻辑部分，
 of logical parts,
 
 246
 00:09:31,030 --> 00:09:32,410
+但现在我们可以从
 but for now we can think of
 
 247
 00:09:32,410 --> 00:09:34,810
+管理文件内容的角度来考虑它，
 it in terms of managing file content,
 
 248
 00:09:34,810 --> 00:09:36,280
 that's inside files,
+也就是在文件内部，
 
 249
 00:09:36,280 --> 00:09:38,360
+找出在磁盘上的位置。
 figuring out where on disk.
 
 250
 00:09:39,080 --> 00:09:39,650
-每个文件的内容应该是活的，文件系统还在某种程度上分开管理一个名称空间，每个文件都有一个名称，目录有一个层次结构，每个目录中都有一堆文件，所有这些文件都是由文件系统管理的。
+每个文件的内容
 Each file's content
 
 251
 00:09:39,650 --> 00:09:41,750
+都是活的，文件系统
 ought to live, file system also somewhat
 
 252
 00:09:41,750 --> 00:09:44,150
+还在某种程度上分开管理一个命名空间，
 separately manages a name space that
 
 253
 00:09:44,150 --> 00:09:45,650
+每个文件都有一个名称，
 each file has a name and
 
 254
 00:09:45,650 --> 00:09:47,450
+有一个层级目录，
 there's a hierarchy of directories,
 
 255
 00:09:47,450 --> 00:09:49,940
+每个目录中都有一堆文件，
 every directory has a bunch of
 
 256
 00:09:49,940 --> 00:09:51,050
+所有这些文件都是
 files in it all that's managed
 
 257
 00:09:51,050 --> 00:09:53,640
+由文件系统管理的。
 by the file system.
 
 258
 00:09:54,030 --> 00:09:57,300
-嗯，通常会有某种安全安排，也许我们可以称之为访问控制。
+通常会有某种安全策略，
 Um, there's typically some sort of security arrangement,
 
 259
 00:09:57,300 --> 00:09:59,440
+也可以称为访问控制。
 maybe we'll call it access control.
 
 260
 00:10:01,750 --> 00:10:03,910
-内核决定，当给定进程想要读取时，使用一些资源，可能从磁盘读取一些东西，使用一些内存，内核内部的访问控制机制可以决定它是允许的，是不允许的，如果我们谈论像雅典娜系统这样的分时系统，这可能会变得非常复杂，你知道，这些进程中的每个进程都可能由不同的用户运行，并对其允许访问的内容应用不同的访问控制规则。
+内核决定，
 Which the kernel decides that when a
 
 261
 00:10:03,910 --> 00:10:06,580
+当给定进程想要读取，使用资源时，
 given process wants to read, use
 
 262
 00:10:06,580 --> 00:10:08,530
+可能从读取磁盘，
 some resource, maybe read something from the disk,
 
 263
 00:10:08,530 --> 00:10:09,430
+使用内存，
 use some memory,
 
 264
 00:10:09,430 --> 00:10:11,200
+内核内部的访问控制机制
 the access control machinery inside the
 
 265
 00:10:11,200 --> 00:10:12,490
+可以决定它
 kernel is what gets to decide
 
 266
 00:10:12,490 --> 00:10:13,570
+是允许
 yes it's allowed is that
 
 267
 00:10:13,570 --> 00:10:14,950
+或不允许，
 not allowed, that can get pretty
 
 268
 00:10:14,950 --> 00:10:16,570
+如果涉及到类似 Athena 系统这样的分时系统，
 complicated if we're talking about time
 
 269
 00:10:16,570 --> 00:10:18,910
+可能会变得非常复杂，
 sharing systems like Athena systems where
 
 270
 00:10:18,910 --> 00:10:20,290
+你知道，这些进程中的
 there's you know each of these
 
 271
 00:10:20,290 --> 00:10:21,730
+每个进程都可能
 processes may be run by a
 
 272
 00:10:21,730 --> 00:10:23,890
+由不同的用户运行，
 different user and have different access
 
 273
 00:10:23,890 --> 00:10:25,690
+并对其允许访问的内容
 control rules apply to what it's
 
 274
 00:10:25,690 --> 00:10:27,180
+使用不同的访问控制规则。
 allowed to get at.
 
 275
 00:10:28,830 --> 00:10:31,710
-在一个真正成熟的操作系统中，原来有很多很多其他的服务，你知道，不同的进程通常有某种方式相互通信，称为进程间通信，通常有一大堆与网络相关的软件，比如用于与网络通信的TCP/IP协议，嗯。通常会支持声卡，可能会有数百个不同磁盘和数百个不同网卡的驱动程序，所以在一个成熟的操作系统中，这里有大量的东西，这可能会在内核中运行数百万行代码。
+在一个成熟的操作系统中，
 And in a real full-blown operating system
 
 276
 00:10:31,710 --> 00:10:32,640
+有很多很多
 turns out to be many,
 
 277
 00:10:32,640 --> 00:10:34,050
+其他的服务，
 many other services,
 
 278
 00:10:34,050 --> 00:10:35,730
+你知道，不同的进程
 you know there's typically some way for
 
 279
 00:10:35,730 --> 00:10:37,650
+通常有某种方式相互通信，
 different processes to talk to each other
 
 280
 00:10:37,650 --> 00:10:40,200
+这称为进程间通信，
 called inter process communication,
 
 281
 00:10:40,200 --> 00:10:42,210
+通常有一大堆
 there's typically a whole bunch of software
 
 282
 00:10:42,210 --> 00:10:44,100
+与网络相关的软件，
 associated with the network things like the
 
 283
 00:10:44,100 --> 00:10:48,120
-TCP/IP protocols for talking the network,
+比如用于网络通信的 TCP/IP 协议。
+TCP/IP protocols for talking the network.
 
 284
 00:10:48,120 --> 00:10:52,480
-um. There's typically support for sound cards there
+通常也会支持声卡，
+Um, There's typically support for sound cards there
 
 285
 00:10:52,480 --> 00:10:54,400
+可能会有数百个不同磁盘和
 may be drivers for hundreds of different
 
 286
 00:10:54,400 --> 00:10:56,470
+数百个不同网卡的驱动程序，
 disk and hundreds of different network cards,
 
 287
 00:10:56,470 --> 00:10:58,690
-so in a full-blown operating system is
+所以在一个成熟的操作系统中，
+so， in a full-blown operating system is
 
 288
 00:10:58,690 --> 00:11:00,310
+这里有大量的东西，
 a huge amount of stuff here and
 
 289
 00:11:00,310 --> 00:11:01,900
+这可能会在内核中
 this may run to millions of lines
 
 290
 00:11:01,900 --> 00:11:04,120
+运行数百万行代码。
 of code inside the kernel.
 
 291
 00:11:05,300 --> 00:11:07,490
-这在某种程度上是对内核内部内容的快速概述，我们还对应用程序如何与内核交互以及该接口是什么样子感兴趣。
-So that's sort of a quick overview
+这是对内核内部内容的
+So, that's sort of a quick overview
 
 292
 00:11:07,490 --> 00:11:09,560
+概述，
 of whats inside the kernel,
 
 293
 00:11:09,560 --> 00:11:12,320
+我们还对
 we're also interested in how applications
 
 294
 00:11:12,320 --> 00:11:13,820
+应用程序与内核交互
 interact with the kernel and what
 
 295
 00:11:13,820 --> 00:11:16,320
+以及接口定义感兴趣。
 that interface looks like.
 
 296
 00:11:19,060 --> 00:11:20,520
-这个，一般的这个，所以这就是内核的API。
-The um,
+这个，
+The,
 
 297
 00:11:22,160 --> 00:11:24,140
+一般，
 a usual,
 
 298
 00:11:24,140 --> 00:11:27,860
+这就是内核的 API 。
 um, so this is the API for the kernel.
 
 299
 00:11:30,610 --> 00:11:32,500
-应用程序是如何进入内核的，通常是通过称为系统调用的东西来完成的，这些看起来像函数调用的东西，嗯，程序可以进行，但实际上是跳入内核，在内核中执行系统调用实现，我会在这节课的后半部分谈到这一点。现在，我只想让您了解一下应用程序源代码中几个不同的系统调用可能是什么样子。
+应用程序是如何进入内核，
 How applications get at the kernel,
 
 300
 00:11:32,500 --> 00:11:34,570
+通常是通过 系统调用 来完成的，
 a typically that's done with something called
 
 301
 00:11:34,570 --> 00:11:36,520
+这些看起来
 system calls and these are things that
 
 302
 00:11:36,520 --> 00:11:39,240
+像程序定义的函数调用，
 look like function calls that um
 
 303
 00:11:39,480 --> 00:11:42,300
+但实际上是跳入内核，
 programs can make, but actually jump into
 
 304
 00:11:42,300 --> 00:11:45,720
+在内核中执行
 the kernel and execute a system call
 
 305
 00:11:45,720 --> 00:11:47,430
+系统调用实现，
 implementation in the kernel,
 
 306
 00:11:47,430 --> 00:11:49,050
+在这节课的后半部分，
 I'll talk a bunch about that
 
 307
 00:11:49,050 --> 00:11:49,980
+谈到这些。
 in the latter part of this
 
 308
 00:11:49,980 --> 00:11:51,900
+现在，我只想
 lecture. For now just to give
 
 309
 00:11:51,900 --> 00:11:53,100
+让你初步了解一下，
 you a flavor here,
 
 310
 00:11:53,100 --> 00:11:54,960
+应用程序代码中
 what a couple of different system calls
 
 311
 00:11:54,960 --> 00:11:56,760
+几个不同的系统调用
 might look like in the source code
 
 312
 00:11:56,760 --> 00:11:58,180
+是什么样子。
 of an application.
 
 313
 00:12:00,310 --> 00:12:02,140
-一种可能是，如果您想要某个应用程序想要打开一个文件，它会调用open系统调用。
+一种可能是，
 One might be that if you want
 
 314
 00:12:02,140 --> 00:12:04,180
+如果一个应用程序想要打开文件，
 an application wants to open a file,
 
 315
 00:12:04,180 --> 00:12:07,000
+它会调用 open 系统调用。
 and it calls the open system call.
 
 316
 00:12:07,420 --> 00:12:09,400
-并告诉开放系统名为文件名，因此它可能想要打开一个名为“out”的文件以供写入，这里的下一个参数在本例中为1。我想写那个文件，所以这个看起来像函数调用的东西。
+把文件名传给
 And tells the open system called the
 
 317
 00:12:09,400 --> 00:12:10,720
+open 系统调用，
 name of the file,
 
 318
 00:12:10,720 --> 00:12:12,280
+可能想要打开
 so maybe it wants to open a
 
 319
 00:12:12,280 --> 00:12:14,830
+一个名为 out 的文件并写入，
 file for writing called "out" and the
 
 320
 00:12:14,830 --> 00:12:17,050
+本例中，
 next argument here saying 1
 
 321
 00:12:17,050 --> 00:12:17,920
+下一个参数是 1 。
 in this case. I want to
 
 322
 00:12:17,920 --> 00:12:19,000
+我想写那个文件，
 write that file,
 
 323
 00:12:19,000 --> 00:12:21,820
+所以这个看起来像函数调用。
 and so this thing that looks like a function call.
 
 324
 00:12:22,670 --> 00:12:24,620
-它打开系统调用，实际上是跳入内核的特殊代码，内核可以检索这些参数，执行一些实现打开的内核代码，可能会与磁盘对话，然后返回一个值，这就是这个文件描述符，因为fd代表文件描述符。
+open 系统调用，
 It opens the system calls actually special
 
 325
 00:12:24,620 --> 00:12:26,570
+实际上是跳入内核的特殊代码，
 code that jumps into the kernel and
 
 326
 00:12:26,570 --> 00:12:29,180
+内核获得这些参数，
 the kernel can retrieve these arguments executes
 
 327
 00:12:29,180 --> 00:12:30,680
+执行一些实现 open 的内核代码，
 some kernel code that implements open,
 
 328
 00:12:30,680 --> 00:12:32,150
+可能会访问磁盘，
 maybe talks to the disk,
 
 329
 00:12:32,150 --> 00:12:33,860
+然后返回一个值，
 and then returns a value and that's
 
 330
 00:12:33,860 --> 00:12:35,620
+这就是文件描述符，
 this file descriptor,
 
 331
 00:12:36,240 --> 00:12:38,610
+fd 表示文件描述符。
 as fd stands for file descriptor.
 
 332
 00:12:38,610 --> 00:12:40,200
-嗯，也就是程序可以作为句柄来引用这个打开的文件。
+程序可以
 Um, which is the program can
 
 333
 00:12:40,200 --> 00:12:42,150
+使用文件描述符
 then use as a handle to
 
 334
 00:12:42,150 --> 00:12:44,540
+来访问这个打开的文件。
 refer to this open file.
 
 335
 00:12:44,760 --> 00:12:47,160
-嗯，如果你想写一个文件，系统调用[DID]。
+如果你想写一个文件，
 Um, if you want to write to a file,
 
 336
 00:12:47,160 --> 00:12:49,340
-the system call [did].
+使用的
+the system call did,
 
 337
 00:12:49,400 --> 00:12:51,200
-为此，我们将其称为Write，您必须向它传递这些文件描述符中的一个，该描述符与OPEN返回的文件描述符中的一个文件描述符相同。
-To do that is called write,
+系统调用是 write ，
+to do that is called write,
 
 338
 00:12:51,200 --> 00:12:52,190
+你必须向它传递一个文件描述符，
 you have to pass it one
 
 339
 00:12:52,190 --> 00:12:53,720
+这个描述符与 open
 of these file descriptors the same as
 
 340
 00:12:53,720 --> 00:12:55,420
+返回的文件描述符相同。
 was returned by open.
 
 341
 00:12:55,700 --> 00:12:58,460
-嗯，这些是系统调用中传递的参数。
+这些是系统调用中
 Um, these are arguments that are passed in
 
 342
 00:12:58,460 --> 00:12:59,600
+传递的参数。
 the system call.
 
 343
 00:12:59,770 --> 00:13:01,960
-从程序到内核，你给它一个指针，指向一个字符缓冲区，这是一个简单的方法，在C编程语言中，这些例子是用双引号写的，那么，嗯，字符串，字符串的字节‘\n’是一个新行，第三个参数是字符数。
+从程序到内核，
 From the program into the kernel,
 
 344
 00:13:01,960 --> 00:13:03,740
+你给它一个指针，
 and you give it a pointer,
 
 345
 00:13:03,960 --> 00:13:06,300
+指向一个字符缓冲区，
 to a buffer of characters so an
 
 346
 00:13:06,300 --> 00:13:07,200
+在 C 语言中，
 easy way to do that in the
 
 347
 00:13:07,200 --> 00:13:08,310
+一个简单的方法是，
 C programming language,
 
 348
 00:13:08,310 --> 00:13:10,350
+这个例子
 which these examples are written by as
 
 349
 00:13:10,350 --> 00:13:12,080
+使用双引号，
 double quotes then,
 
 350
 00:13:12,340 --> 00:13:13,480
+然后是字符串，
 um, the string,
 
 351
 00:13:13,480 --> 00:13:15,670
+字符串中的 '\n'
 the bytes of the string '\n'
 
 352
 00:13:15,670 --> 00:13:17,830
+表示换行，
 is a new line and the third
 
 353
 00:13:17,830 --> 00:13:19,940
+第三个参数是字符数。
 argument is the count of characters.
 
 354
 00:13:20,160 --> 00:13:23,490
-嗯，如果你想写，这样才能真正得到重点，把这个地址传到内存里。
+如果你想写入，这里是重点，
 Um, if you want to write so this really gets point,
 
 355
 00:13:23,490 --> 00:13:25,620
+把内存里的这个地址传过去。
 pass this address in memory.
 
 356
 00:13:25,860 --> 00:13:26,850
-所以你是在告诉内核，看，请把这个地址的6个字节写到这个文件描述符引用的文件中。
+你在告诉内核，
 So you're telling the kernel, look,
 
 357
 00:13:26,850 --> 00:13:28,650
+请把这个地址的 6 个字节
 please write 6 bytes from this
 
 358
 00:13:28,650 --> 00:13:30,750
+写到这个文件描述符
 address to the file that this
 
 359
 00:13:30,750 --> 00:13:32,840
+关联的文件中。
 file descriptor refers to.
 
 360
 00:13:33,750 --> 00:13:36,270
-遇到的一个更令人兴奋的系统调用是分叉系统，调用分叉是创建新进程的系统调用。
+一个更有意思的系统调用是
 A much more exciting system call
 
 361
 00:13:36,270 --> 00:13:38,220
-the encounter is the fork system,
+fork 系统调用，
+the encounter is the fork system
 
 362
 00:13:38,220 --> 00:13:40,590
-call fork is the system call
+fork 可以
+call, fork is the system call
 
 363
 00:13:40,590 --> 00:13:42,560
-that creates a new process.
+创建一个新进程，
+that creates a new process,
 
 364
 00:13:42,620 --> 00:13:46,620
-嗯，返回实际上创建了一个与调用方相同的进程，fork返回标识符，进程标识符PID，嗯，新的进程比[那]复杂得多。
-Um, and returns actually creates a process that's
+返回创建一个
+um, and returns actually creates a process that's
 
 365
 00:13:46,620 --> 00:13:49,860
+与调用方相同的进程，
 identical to the caller and fork returns
 
 366
 00:13:49,860 --> 00:13:53,040
+fork 返回标识符，即进程标识符 pid ，
 the identifier the process identifier pid,
 
 367
 00:13:53,040 --> 00:13:56,370
+新进程比[那]
 um, new process is more
 
 368
 00:13:56,370 --> 00:13:57,920
+复杂得多。
 complicated than [that].
 
 369
 00:13:58,040 --> 00:13:59,440
-我们会听到更多关于这方面的消息。
+我们还会听到更多关于这方面的内容。
 We'll hear more about this.
 
 370
 00:14:00,740 --> 00:14:01,250
-同样，这些看起来都像函数调用，但系统调用很特殊，因为它们跳入内核。
+同样，
 So again,
 
 371
 00:14:01,250 --> 00:14:04,400
+这些看起来像函数调用，
 these are all look like function calls,
 
 372
 00:14:04,400 --> 00:14:05,870
+但是系统调用很特殊，
 but the system calls are special because
 
 373
 00:14:05,870 --> 00:14:07,240
+因为它们跳入内核。
 they jump into the kernel.
 
 374
 00:14:08,200 --> 00:14:09,790
-嗯，那是品味，我们稍后会看到更多。
+这是初步了解，
 Um, that's taste,
 
 375
 00:14:09,790 --> 00:14:10,960
+稍后我们会看到更多。
 we'll see more later.
 
 376
 00:14:15,800 --> 00:14:17,600
-这是一种快速的概述，我是一个想要的人。
+这是一个快速的概述。
 That is a sort of quick overview,
 
 377
 00:14:17,600 --> 00:14:20,380
-I'm a wanna.
+嗯。
+Um, I wanna.
 
 378
 00:14:20,530 --> 00:14:23,350
-只要提一下为什么我发现操作系统的操作学习，既是一个具有挑战性的，也是有趣的。
+再提一下为什么我发现
 Just mention why I find a operating
 
 379
 00:14:23,350 --> 00:14:25,220
+操作系统的学习，
 the study of operating systems,
 
 380
 00:14:25,300 --> 00:14:30,460
+既有挑战性，又十分有趣。
 to be both a challenging and interesting.
 
 381
 00:14:32,710 --> 00:14:34,620
-为什么你知道为什么它可能值得。
-Why you know why it's maybe worth.
+为什么它值得
+Why you know why it's maybe worth
 
 382
 00:14:35,360 --> 00:14:39,240
-嗯，在智力上值得在这方面学一门课。
-Um, intellectually worth taking a course in this area.
+得在这方面开一门课。
+um, intellectually worth taking a course in this area.
 
 383
 00:14:39,370 --> 00:14:40,900
-所以，这很难的一个原因是环境是不可原谅的，内核内的编程环境是不可原谅的，因为当你在编程时，当你修改内核或扩展内核编写新的操作系统内核时，你提供的是其他人认为已经存在的基础设施来运行他们的程序。
+这很难的一个原因是环境是难以应对的，
 So, one reason why it's hard is that
 
 384
 00:14:40,900 --> 00:14:44,980
+内核的编程环境是难以应对的，
 the environment is unforgiving, programming environment
 
 385
 00:14:44,980 --> 00:14:48,180
+因为当你在编程时，
 inside the kernels unforgiving, because you're,
 
 386
 00:14:50,570 --> 00:14:52,550
+当你修改内核或
 your when you're programming when you're modifying
 
 387
 00:14:52,550 --> 00:14:53,870
+扩展内核
 the kernel or extending the kernel of
 
 388
 00:14:53,870 --> 00:14:55,640
+编写新的操作系统内核时，
 writing a new operating system kernel,
 
 389
 00:14:55,640 --> 00:14:58,220
+你提供的是其他人
 you're providing the infrastructure that everybody
 
 390
 00:14:58,220 --> 00:15:00,080
+认为已经存在的基础设施
 else assumes is already present to
 
 391
 00:15:00,080 --> 00:15:01,460
+来运行他们的程序。
 run their programs.
 
 392
 00:15:01,640 --> 00:15:03,200
-然后其他每个人在编写普通应用程序时都会在他们的程序下安装一个操作系统，但当我们构建操作系统时，我们得到的是操作系统下的硬件，结果是更难处理。在这个课程当中呢，我们要用到一个叫<foreign language=“English”>QEMU</foreign>的硬件模拟器，嗯，你，这个。这模拟了一个CPU和一台计算机，这样做会好一点，但它仍然是一种困难的，嗯，环境编程。
+每个人在编写普通应用程序时
 And then everybody else gets an operating
 
 393
 00:15:03,200 --> 00:15:05,270
+在他们的程序下
 system under their program when they write
 
 394
 00:15:05,270 --> 00:15:06,500
+都有一个操作系统，
 ordinary application programs,
 
 395
 00:15:06,500 --> 00:15:08,990
+但当我们构建操作系统时，
 but when we build operating systems
 
 396
 00:15:08,990 --> 00:15:10,430
+操作系统下
 what we get is the hardware
 
 397
 00:15:10,430 --> 00:15:13,820
+直接是硬件，
 underneath our operating system which turns
 
 398
 00:15:13,820 --> 00:15:15,170
+结果是更难处理。
 out to be more difficult to
 
 399
 00:15:15,170 --> 00:15:16,310
+在这个课程当中，
 deal with. In this course,
 
 400
 00:15:16,310 --> 00:15:17,900
+我们
 we, um,
 
 401
 00:15:18,340 --> 00:15:20,890
+我们用到一个叫 QEMU 的硬件模拟器，
 we get to use a hardware simulator called QEMU,
 
 402
 00:15:20,890 --> 00:15:21,820
+你，
 um, you,
 
 403
 00:15:21,820 --> 00:15:25,970
+它模拟一个 CPU 和一台计算机，
 um. That simulates a CPU and a computer
 
 404
 00:15:25,970 --> 00:15:27,200
+这样做会好一点，
 and that makes a little bit better,
 
 405
 00:15:27,200 --> 00:15:29,690
-but it's still a kind of a difficult,
+但它仍然是困难的
+but it's still a kind of a difficult
 
 406
 00:15:29,690 --> 00:15:31,260
-um environment programming.
+环境编程。
+um, environment programming.
 
 407
 00:15:32,360 --> 00:15:33,470
-它既难又有趣的另一个原因是，如果你在设计和操作系统，你必须满足一系列的紧张。
+困难又有趣的
 Another reason why it's hard and
 
 408
 00:15:33,470 --> 00:15:35,720
+另一个原因是，
 interesting is because if you're designing
 
 409
 00:15:35,720 --> 00:15:36,620
-and operating system,
+如果你在设计操作系统，
+operating system,
 
 410
 00:15:36,620 --> 00:15:39,860
+就必须满足一系列矛盾。
 you have to satisfy a bunch of tensions.
 
 411
 00:15:39,980 --> 00:15:41,900
-嗯，这需要真正的设计思想，所以其中一个就是你希望你的操作系统既要有效率，又要有效率。
+这需要真正的设计思想，
 Um that require real design thought,
 
 412
 00:15:41,900 --> 00:15:44,030
+其中之一就是
 so one is that you'd like your
 
 413
 00:15:44,030 --> 00:15:46,480
+你希望你的操作系统要有效率。
 operating system to be both efficient.
 
 414
 00:15:46,720 --> 00:15:49,660
-嗯，这通常意味着它在接近硬件的低层次上运行，但是为了便于使用，而且因为现实生活中的人必须编写使用你的操作系统的程序，所以我们希望它也是一个正确的抽象高层。
+这通常意味着它在
 Um, which often means that it operates at
 
 415
 00:15:49,660 --> 00:15:51,640
+接近硬件的低层上运行，
 a low level close to the hardware,
 
 416
 00:15:51,640 --> 00:15:53,290
+但是为了便于使用，
 but for ease of use,
 
 417
 00:15:53,290 --> 00:15:55,030
+而且因为现实生活中的人
 and because real live people have to
 
 418
 00:15:55,030 --> 00:15:57,820
+必须使用你的操作系统编写程序，
 write programs that use your operating system,
 
 419
 00:15:57,820 --> 00:16:00,220
+所以我们希望它
 we'd like it also to be a
 
 420
 00:16:00,220 --> 00:16:02,360
+也是一个正确的高层次抽象。
 right abstract high-level.
 
 421
 00:16:02,660 --> 00:16:04,460
-一个可移植的接口，提供一个简单的抽象接口是一个巧妙的技巧。
+一个可移植的接口，
 A portable interfaces and it's a
 
 422
 00:16:04,460 --> 00:16:06,590
+提供一个简单的抽象接口
 neat trick to provide a abstract
 
 423
 00:16:06,590 --> 00:16:08,240
+需要巧妙的技巧。
 interfaces that are simple.
 
 424
 00:16:08,320 --> 00:16:11,320
-一台便携的，但也很有效率的。
+便携的，但也很有效率的。
 A portable but they are also efficient.
 
 425
 00:16:11,910 --> 00:16:14,820
-嗯，另外一个紧张就是我们要提供一个非常强大的操作系统服务，让操作系统可以承担很多的负担。
+另外一个矛盾就是
 Um, another tension is that we'd like to
 
 426
 00:16:14,820 --> 00:16:18,240
+我们要提供一个非常强大的操作系统服务，
 provide a very powerful operating system services
 
 427
 00:16:18,240 --> 00:16:20,190
+让操作系统可以承担
 so that the operating system can shoulder
 
 428
 00:16:20,190 --> 00:16:21,580
+很多负担。
 a lot of the burden.
 
 429
 00:16:21,680 --> 00:16:26,000
-我是一个像运行程序一样强大的操作系统服务。
-I'm a running programs like a powerful
+运行程序像
+Um, running programs like a powerful
 
 430
 00:16:26,070 --> 00:16:27,920
+强大的操作系统服务。
 operating system services.
 
 431
 00:16:28,630 --> 00:16:30,460
-嗯，但是我们也希望有简单的界面。
+但是
 Um, but,
 
 432
 00:16:30,860 --> 00:16:33,120
+我们也希望有简单的接口。
 we also want to have simple interfaces.
 
 433
 00:16:34,770 --> 00:16:36,960
-嗯，我们不想让程序员使用一个非常复杂、难以理解的界面，因为我不会理解它们，他们可能会发现很难使用。
+我们不想让程序员
 Um that we don't want a
 
 434
 00:16:36,960 --> 00:16:39,480
+使用一个非常复杂、难以理解的接口，
 tremendously complex hard to understand interfaces
 
 435
 00:16:39,480 --> 00:16:41,790
+因为
 for programmers to use because I'm
 
 436
 00:16:41,790 --> 00:16:42,600
+我不会去理解它们，
 not going to understand them,
 
 437
 00:16:42,600 --> 00:16:45,080
+他们可能会发现很难使用。
 and they may find it hard to use.
 
 438
 00:16:45,790 --> 00:16:48,400
-嗯，所以这是一个非常简单的API，所以可以提供一个简单的接口，里面有一个强大的机器一直在寻找。
+所以这是一个非常简单的 API ，
 Um, so this is really simple API,
 
 439
 00:16:48,400 --> 00:16:50,440
+可以提供
 and so this is possible to do
 
 440
 00:16:50,440 --> 00:16:53,440
+一个简单的接口，
 to provide a simple interfaces that have
 
 441
 00:16:53,440 --> 00:16:57,280
+里面有一个强大的机器，
 powerful a machinery inside them will always
 
 442
 00:16:57,280 --> 00:16:58,500
+这一直在寻找。
 be searching for.
 
 443
 00:16:58,700 --> 00:17:02,330
-简单的界面提供了强大的服务。
+简单的接口提供了
 Sort of simple interfaces provide
 
 444
 00:17:02,330 --> 00:17:04,760
+强大的服务。
 a powerful services.
 
 445
 00:17:04,760 --> 00:17:07,200
-嘿，抢劫犯，我们在聊天中有个问题。
+嗨， Robert ，有人提问。
 Hey, Robbery, we've got a question in the chat.
 
 446
 00:17:07,280 --> 00:17:09,830
-嗯，说系统调用跳入内核有什么独特/不同之处，即与跳转到另一个函数的标准函数调用相反。
+系统调用跳入内核
 Um, what is unique/different about saying
 
 447
 00:17:09,830 --> 00:17:12,200
+有什么独特/不同之处，
 system calls jump into the kernel i.e
 
 448
 00:17:12,200 --> 00:17:13,970
+与跳转到另一个函数的
 as opposed to a standard function call
 
 449
 00:17:13,970 --> 00:17:15,540
+标准函数调用相比。
 that jumps to another function.
 
 450
 00:17:15,660 --> 00:17:18,550
-恩。嗯，内核有内核是，嗯。一段始终驻留的代码具有特殊特权，因为它引导机器引导内核，内核具有特殊特权，它可以直接访问各种硬件，比如普通用户程序无法访问的磁盘设备，所以如果你进行一个普通函数调用。
-Um. Well,
+好的，
+Um, well,
 
 451
 00:17:18,550 --> 00:17:20,410
-the kernel has the kernels is,
+内核是
+the kernel has, the kernels is,
 
 452
 00:17:20,410 --> 00:17:23,840
-um. A piece of code that's always resident
+一段始终驻留的代码
+um, a piece of code that's always resident
 
 453
 00:17:23,840 --> 00:17:26,540
+并且具有特权，
 that has special privileges that were that
 
 454
 00:17:26,540 --> 00:17:29,060
+因为内核在机器启动时加载，
 because it booted the machine booted the
 
 455
 00:17:29,060 --> 00:17:32,600
+内核具有特权，
 kernel a kernel has special privileges,
 
 456
 00:17:32,600 --> 00:17:34,700
+它可以直接访问各种硬件，
 it can get directly at all kinds
 
 457
 00:17:34,700 --> 00:17:37,100
+比如普通用户程序
 of hardware like the disk device that
 
 458
 00:17:37,100 --> 00:17:38,270
+无法访问的磁盘设备，
 ordinary user programs,
 
 459
 00:17:38,270 --> 00:17:39,800
+所以如果你执行
 can't get at, so if you make
 
 460
 00:17:39,800 --> 00:17:42,100
-a an ordinary function call.
+一个普通函数调用。
+a an ordinary function call,
 
 461
 00:17:42,160 --> 00:17:46,440
-恩。你调用的函数没有获得任何关于硬件的特殊特权，而如果你对内核进行系统调用，它会谈论这是如何工作的，但这最终就像当系统调用跳到内核时，内核中的系统调用实现获得了所有这些特殊特权，这样它就可以修改各种敏感的和受保护的。
-Um. The function your calling doesn't get it
+你调用的函数没有
+um, the function your calling doesn't get it
 
 462
 00:17:46,440 --> 00:17:48,600
+获得任何关于硬件的特权，
 doesn't get any special privileges with respect
 
 463
 00:17:48,600 --> 00:17:50,070
+而如果你对内核
 to the hardware whereas if you make
 
 464
 00:17:50,070 --> 00:17:53,040
-a system call into the kernel will
+执行系统调用，
+a system call into the kernel, we'll
 
 465
 00:17:53,040 --> 00:17:54,000
+后面我们会详细谈论这是如何工作的，
 talk about how this works,
 
 466
 00:17:54,000 --> 00:17:57,000
+但这就像当系统调用
 but that ends up as when it
 
 467
 00:17:57,000 --> 00:17:58,590
+跳到内核时，
 jumps into when the system call jumps
 
 468
 00:17:58,590 --> 00:18:01,500
+内核中的系统调用实现
 into the kernel a system call implementation
 
 469
 00:18:01,500 --> 00:18:02,670
+获得了所有这些特权，
 in the kernel then gets all these
 
 470
 00:18:02,670 --> 00:18:06,360
+这样它就可以修改
 special privileges so that it can modify
 
 471
 00:18:06,360 --> 00:18:09,440
-all kinds of sensitive and protected.
+各种敏感的和受保护的
+all kinds of sensitive and protected,
 
 472
 00:18:09,730 --> 00:18:12,340
-硬件资源，例如直接访问硬盘。
-A hardware resources like for example getting
+硬件资源，
+um, hardware resources like for example getting
 
 473
 00:18:12,340 --> 00:18:14,320
+例如直接访问硬盘。
 directly at the hard disk.
 
 474
 00:18:15,730 --> 00:18:19,020
-嗯，我们稍后会看到更多关于这一切的细节。
+我们稍后会看到更多关于这一切的细节。
 Um, we'll see a lot more detail for all this shortly.
 
 475
 00:18:20,330 --> 00:18:22,310
-好的，我们想要的最后一个张力是，所有的操作系统都需要满足你的要求，你会给程序带来尽可能多的灵活性，你不想限制它们，所以你想要有很强的灵活性。
+好的，我们要说的最后一个矛盾是，
 Okay, so a final tension that we
 
 476
 00:18:22,310 --> 00:18:24,290
+所有的操作系统都需要满足你的要求，
 want that all operating systems need
 
 477
 00:18:24,290 --> 00:18:25,910
+你会给程序带来
 to satisfy your gonna give programs
 
 478
 00:18:25,910 --> 00:18:27,560
+尽可能多的灵活性，
 as much flexibility as you can
 
 479
 00:18:27,560 --> 00:18:28,970
+你不想限制它们，
 you don't want to constrain them,
 
 480
 00:18:28,970 --> 00:18:30,680
+所以你想要有很强的灵活性。
 so you want to have very flexible.
 
 481
 00:18:30,740 --> 00:18:33,750
-恩。接口，但是您确实需要在一定程度上约束程序，因为您绝对必须有一些安全概念。
+接口，
 Um. Interfaces,
 
 482
 00:18:33,750 --> 00:18:35,400
+但是确实需要在一定程度上约束程序，
 but you do need to constrain program
 
 483
 00:18:35,400 --> 00:18:37,200
+因为你绝对必须有
 somewhat because you absolutely have to have
 
 484
 00:18:37,200 --> 00:18:38,740
+一些安全概念。
 some notion of security.
 
 485
 00:18:38,880 --> 00:18:44,770
-[可以]。我们热爱程序，程序是完全自由的，但它不可能是完全的，不可能是真正的完全的，因为我们不想让程序直接进入硬件，或者干扰其他程序，或者某种程度上干扰操作系统本身的操作。
-[can]. We love for programs programs complete freedom
+我们喜欢程序，程序是很自由的，
+We love for programs programs complete freedom
 
 486
 00:18:44,770 --> 00:18:45,910
+但它不可能是完全的自由，
 but it can't be complete can't be
 
 487
 00:18:45,910 --> 00:18:48,490
+不可能真正的完全自由，
 really complete because we don't want programs
 
 488
 00:18:48,490 --> 00:18:49,960
+因为我们不想让程序直接访问硬件，
 to get directly at the hardware or
 
 489
 00:18:49,960 --> 00:18:53,170
+或者干扰其他程序，
 to interfere with other programs or a
 
 490
 00:18:53,170 --> 00:18:54,310
+或者某种程度上
 sort of be able to interfere with
 
 491
 00:18:54,310 --> 00:18:57,140
+干扰操作系统本身的操作。
 the operation of the operating system itself.
 
 492
 00:18:57,360 --> 00:18:58,410
-嗯，那么，这些就是你所知道的全部。
+那么，
 Um, so,
 
 493
 00:18:58,410 --> 00:19:00,820
+这些就是你需要知道的。
 these are all you know.
 
 494
 00:19:01,490 --> 00:19:02,810
-做好这项工作是可能的，我们将对此进行大量讨论，但是在这两个专栏中同时提供这两个属性总是有点令人费解。
+做好这项工作是可能的，
 It's possible to do a good job
 
 495
 00:19:02,810 --> 00:19:03,860
+我们将对此进行大量讨论，
 and we'll talk a lot about it
 
 496
 00:19:03,860 --> 00:19:05,120
+但是在这两列中
 but it's always a bit of a
 
 497
 00:19:05,120 --> 00:19:06,620
+同时提供这两个属性
 puzzle to provide sort of both of
 
 498
 00:19:06,620 --> 00:19:10,300
+总是有点令人费解的。
 these properties in both of these columns.
 
 499
 00:19:11,630 --> 00:19:13,730
-另一件让OS设计变得困难和有趣的事情是，操作系统提供了很多功能和服务，但它们实际上倾向于交互，有时会以奇怪的方式进行交互，这需要很多思考，所以即使是我给出的简单示例，嗯。
+另一个让操作系统设计
 Another thing that makes OS design hard
 
 500
 00:19:13,730 --> 00:19:16,040
+变得困难和有趣的事情是，
 and interesting is that operating systems provide
 
 501
 00:19:16,040 --> 00:19:17,030
+操作系统提供了很多功能和服务，
 a lot of features and a lot
 
 502
 00:19:17,030 --> 00:19:18,710
+但它们实际上倾向于交互，
 of services but they actually tend to
 
 503
 00:19:18,710 --> 00:19:21,770
+有时会以奇怪的方式进行交互，
 interact and sometimes in odd ways that
 
 504
 00:19:21,770 --> 00:19:23,540
+这需要很多思考，
 require a lot of thought so even
 
 505
 00:19:23,540 --> 00:19:25,960
-the simple examples I gave um.
+即使是我给出的简单示例。
+the simple examples I gave.
 
 506
 00:19:26,640 --> 00:19:27,780
-用open和fork，这两个实际上互动，如果是一个程序的话，嗯。使用open系统调用分配文件描述符，然后分配相同的程序fork。
-With open and fork,
+用 open 和 fork ，
+Um, with open and fork,
 
 507
 00:19:27,780 --> 00:19:30,180
+这两个交互，
 those two interact actually if a program,
 
 508
 00:19:30,180 --> 00:19:32,930
-um. Allocates a file descriptor with the
+实际上如果是一个程序使用 open 系统调用
+um, allocates a file descriptor with the
 
 509
 00:19:32,930 --> 00:19:34,700
+分配文件描述符，
 open system call,
 
 510
 00:19:34,700 --> 00:19:36,680
+然后分配相同的程序，
 and then that same program,
 
 511
 00:19:36,780 --> 00:19:38,760
-a fork.
+就是 fork 。
+um, fork.
 
 512
 00:19:39,610 --> 00:19:41,470
-嗯，fork的语义是，你创建了一个新进程，它是当前进程的副本，这个文件描述符，你打开了。
+fork 的语义是，
 Um, and the semantics of fork just
 
 513
 00:19:41,470 --> 00:19:42,760
+你创建了
 turned out to be that you
 
 514
 00:19:42,760 --> 00:19:44,050
+一个新进程，
 create a new process that's a
 
 515
 00:19:44,050 --> 00:19:45,730
+它是当前进程的副本，
 copy of the current process,
 
 516
 00:19:45,730 --> 00:19:46,990
+你打开了
 this file descriptor,
 
 517
 00:19:46,990 --> 00:19:48,820
+这个文件描述符
 you opened.
 
 518
 00:19:49,640 --> 00:19:51,290
-如果这真的是一个副本，这个文件描述符仍然必须在孩子中存在并可用，所以必须仔细考虑，这就是文件，打开的文件描述符以这种有趣的方式与fork交互，有人必须找出一个应该让孩子能够读到的文件描述符。
+这是一个副本，
 If that's truly to be a copy,
 
 519
 00:19:51,290 --> 00:19:53,660
+这个文件描述符
 this file descriptor still has to be
 
 520
 00:19:53,660 --> 00:19:56,920
+仍然在孩子中存在并可用，
 present and usable in the child and,
 
 521
 00:19:57,320 --> 00:19:58,370
+所以必须仔细考虑，
 and so that has to be thought
 
 522
 00:19:58,370 --> 00:19:59,660
+这就是文件，
 through that is the files,
 
 523
 00:19:59,660 --> 00:20:01,760
+打开的文件描述符
 the opened file descriptors interact with fork
 
 524
 00:20:01,760 --> 00:20:04,460
+以这种方式与 fork 交互，
 in this interesting way and somebody has
 
 525
 00:20:04,460 --> 00:20:06,380
+必须找到一个能让子进程
 to figure out a should the child
 
 526
 00:20:06,380 --> 00:20:07,900
+读到的文件描述符。
 be able to get at.
 
 527
 00:20:07,960 --> 00:20:10,270
-在调用fork之前创建的文件描述符，答案必须是肯定的，也就是我们将要查看的操作系统。
+在调用 fork 之前
 The file descriptors created before fork
 
 528
 00:20:10,270 --> 00:20:11,560
+创建的文件描述符，
 is called and the answer has
 
 529
 00:20:11,560 --> 00:20:12,580
+答案是肯定的，
 to be yes,
 
 530
 00:20:12,580 --> 00:20:14,500
+也就是我们要看的操作系统。
 the operating systems we're going to look at.
 
 531
 00:20:14,620 --> 00:20:18,390
-恩。好了，其他有趣的事情我已经提过了，操作系统必须满足各种各样的用途，就像数据库服务器和智能手机使用的相同的操作系统，例如操作系统。
+好的，
 Um. All right, so other things
 
 532
 00:20:18,390 --> 00:20:19,320
+其他有趣的事情
 that are turned out to
 
 533
 00:20:19,320 --> 00:20:21,210
+我已经提过了，
 be interesting I already mentioned
 
 534
 00:20:21,210 --> 00:20:22,860
+操作系统必须满足
 that operating systems have to
 
 535
 00:20:22,860 --> 00:20:24,090
+各种各样的用途，
 cater to a wide variety
 
 536
 00:20:24,090 --> 00:20:26,280
+就像数据库服务器
 of uses the same OS
 
 537
 00:20:26,280 --> 00:20:28,620
+和智能手机
 used both for database servers
 
 538
 00:20:28,620 --> 00:20:29,820
+使用相同的操作系统，
 and smartphones,
 
 539
 00:20:29,820 --> 00:20:33,280
-for example and operating systems.
+操作系统。
+for example. And operating systems,
+
 
 540
 00:20:33,410 --> 00:20:36,350
-随着时间的推移，你运行的硬件，你得到的硬件，但典型的计算机会发生变化，可能会得到超高速的固态硬盘存储，而不是机械硬盘驱动器。
-As time goes on the hardware
+随着时间的推移，
+as time goes on the hardware
 
 541
 00:20:36,350 --> 00:20:37,940
+你运行的硬件，
 that you run, hardware
 
 542
 00:20:37,940 --> 00:20:38,360
+你得到的硬件，
 you get,
 
 543
 00:20:38,360 --> 00:20:40,400
+典型的计算机会发生变化，
 but typical computers changes,
 
 544
 00:20:40,400 --> 00:20:43,190
+可能会得到超高速的固态硬盘存储，
 maybe get superfast ssd storage instead of
 
 545
 00:20:43,190 --> 00:20:44,270
+而不是机械硬盘。
 mechanical hard drive.
 
 546
 00:20:44,270 --> 00:20:45,280
-例如，大约15年前，多核计算机从稀有的奇特之物发展到无处不在，最近我们看到了数量级的加速和网络运行的速度，所以所有这些都需要重新思考。
+例如，
 For example,
 
 547
 00:20:45,360 --> 00:20:47,610
+大约 15 年前，
 about fifteen years ago multi
 
 548
 00:20:47,610 --> 00:20:50,370
+多核计算机
 core computers went from being rare
 
 549
 00:20:50,370 --> 00:20:54,750
+从稀有的发展到无处不在，
 curiosities to being pervasive and and
 
 550
 00:20:54,750 --> 00:20:56,700
+最近我们看到了数量级的提速和
 recently we've seen order of magnitude
 
 551
 00:20:56,700 --> 00:20:59,190
+网络运行的速度，
 speedups and how fast networks operate
 
 552
 00:20:59,190 --> 00:21:01,340
+所有这些都需要重新思考。
 and so all these require rethinks.
 
 553
 00:21:01,440 --> 00:21:02,970
-嗯，嗯，定期介绍操作系统是怎么设计的。
-Um, um,
+嗯，
+Um,
 
 554
 00:21:02,970 --> 00:21:05,560
+会定期介绍操作系统是怎么设计的。
 periodically of how operating systems are designed.
 
 555
 00:21:06,510 --> 00:21:10,500
-这些就是为什么你可能会选择这门课程的原因，还有一些更实际的原因，你可能会很高兴选修这门课程，一个是如果你对计算机内部发生的事情感兴趣，当你打开你的计算机时，嗯，这是一个很好的课程，嗯，这是一个很好的课程，类似地，如果你喜欢基础设施，也就是如果你喜欢建立一种其他程序可以使用的服务，那么这是一门很好的课程，如果你喜欢基础设施，也就是说，如果你喜欢构建一种其他程序可以使用的服务，那么这是一门很好的课程。
+这些就是
 Now so so those are those are
 
 556
 00:21:10,500 --> 00:21:12,090
+为什么你可能会选择这门课程的原因，
 sort of intellectually why you might take
 
 557
 00:21:12,090 --> 00:21:14,010
+还有一些更实际的原因，
 the course there's also some more practical
 
 558
 00:21:14,010 --> 00:21:16,320
+你可能会很高兴
 reasons why you might be glad to
 
 559
 00:21:16,320 --> 00:21:17,580
+选修这门课程，
 have taken this course,
 
 560
 00:21:17,580 --> 00:21:19,380
+一个是如果你对
 one is if you're interested in what
 
 561
 00:21:19,380 --> 00:21:20,730
+计算机内部发生的事情感兴趣，
 happens inside computers,
 
 562
 00:21:20,730 --> 00:21:22,410
+想知道并
 what goes on and saw under the
 
 563
 00:21:22,410 --> 00:21:24,390
+探寻计算机内部的秘密，
 hood a sort of in secret,
 
 564
 00:21:24,390 --> 00:21:25,710
+当你打开你的计算机时，
 when you turn on your computer,
 
 565
 00:21:25,710 --> 00:21:27,510
+这是一个很好的课程，
 um, this is a good course to take,
 
 566
 00:21:27,510 --> 00:21:29,430
+类似地，如果你喜欢基础设施，
 similarly if you like infrastructure that
 
 567
 00:21:29,430 --> 00:21:31,770
+也就是如果你喜欢
 is if if you enjoy building
 
 568
 00:21:31,770 --> 00:21:33,900
+建立一种其他程序
 a sort of services that other
 
 569
 00:21:33,900 --> 00:21:36,160
+可以使用的服务。
 programs can then use them.
 
 570
 00:21:36,510 --> 00:21:37,860
-当然，这基本上都是关于基础设施的，因为这就是操作系统。
+当然，这基本上都是
 This is of course essentially all
 
 571
 00:21:37,860 --> 00:21:40,020
+关于基础设施的，
 about infrastructure because that's that's what
 
 572
 00:21:40,020 --> 00:21:41,340
+因为这就是操作系统。
 operating systems are.
 
 573
 00:21:42,350 --> 00:21:43,250
-如果您需要花费大量时间来跟踪应用程序代码中的错误或跟踪安全问题，通常这涉及到了解操作系统内部发生了什么，因为最终是操作系统实施了很多安全措施，当出现问题时，是操作系统必须收拾残局，因此通常涉及到跟踪错误，最后是操作系统。聊天中还有两个问题，所以第一个问题是，对于应用程序开发人员来说，真正深入了解开发应用程序的操作系统有多重要，因为他们是否一定需要成为专家。
+如果你曾经
 If you ever need to
 
 574
 00:21:43,250 --> 00:21:44,000
+花费大量时间
 spend a lot of time
 
 575
 00:21:44,000 --> 00:21:46,160
+来跟踪应用程序代码中的 bug 或
 tracking down bugs in application
 
 576
 00:21:46,160 --> 00:21:47,870
+跟踪安全问题，
 code or tracking down security
 
 577
 00:21:47,870 --> 00:21:51,440
+通常这涉及到
 problems often that involves understanding
 
 578
 00:21:51,440 --> 00:21:52,490
+了解操作系统内部
 what was going on inside
 
 579
 00:21:52,490 --> 00:21:54,020
+发生了什么，
 the operating system because it's
 
 580
 00:21:54,020 --> 00:21:56,180
+因为最终是操作系统
 ultimately the operating system that
 
 581
 00:21:56,180 --> 00:21:57,710
+实施了很多安全措施，
 enforces a lot of security
 
 582
 00:21:57,710 --> 00:22:00,020
+当出现问题时，
 and when things go wrong,
 
 583
 00:22:00,020 --> 00:22:01,490
+是操作系统必须收拾残局，
 it's the operating system has to pick
 
 584
 00:22:01,490 --> 00:22:03,830
+因此通常涉及到
 up the pieces so that's often involved
 
 585
 00:22:03,830 --> 00:22:08,210
-in tracking down bugs, and finally. Two
+跟踪 bug ，最后是操作系统。
+in tracking down bugs, and finally.
 
 586
 00:22:08,210 --> 00:22:09,440
-more questions from the chat,
+有两个提问。
+Two more questions from the chat,
 
 587
 00:22:09,440 --> 00:22:11,210
+第一个问题是，
 so the first is how important
 
 588
 00:22:11,210 --> 00:22:12,740
+对于应用程序开发人员来说，
 is it for application developers to
 
 589
 00:22:12,740 --> 00:22:15,050
+真正深入了解开发应用程序的
 truly deeply understand the operating systems
 
 590
 00:22:15,050 --> 00:22:17,180
+操作系统有多重要，
 of developing their applications for do
 
 591
 00:22:17,180 --> 00:22:19,420
+他们是否需要成为专家。
 they necessarily need to be experts.
 
 592
 00:22:19,810 --> 00:22:21,370
-您不必是专家，但是如果您花费大量时间开发、维护和调试应用程序，您最终会对操作系统有很多了解，不管您是不是有意或无意，它就这样出现了，您经常被迫理解它。
+你不必是专家，
 You don't have to be an expert,
 
 593
 00:22:21,370 --> 00:22:23,530
+但是如果你花费大量时间
 but if you spend a lot of
 
 594
 00:22:23,530 --> 00:22:26,650
+开发、维护和调试应用程序，
 time developing and maintaining and debugging applications,
 
 595
 00:22:26,650 --> 00:22:29,080
+最终会对操作系统
 you'll eventually end up knowing a lot
 
 596
 00:22:29,080 --> 00:22:30,160
+有很多了解，
 about the operating system,
 
 597
 00:22:30,160 --> 00:22:31,420
+不管你
 whether you,
 
 598
 00:22:31,520 --> 00:22:33,240
+是不是有意或无意，
 whether you meant to or not just,
 
 599
 00:22:34,140 --> 00:22:36,390
+它就这样出现了，
 it just comes up and you're often
 
 600
 00:22:36,390 --> 00:22:37,840
+你经常被迫理解它。
 forced to understand.
 
 601
 00:22:38,100 --> 00:22:41,290
-恩。第二个问题是，像Python这样的高级编程语言是否直接使用系统调用？为了方便起见，劈开中有内置的包装器吗？
+第二个问题是，
 Um. And the second question is do
 
 602
 00:22:41,290 --> 00:22:44,230
+像 Python 这样的高级编程语言
 high-level programming languages like python use
 
 603
 00:22:44,230 --> 00:22:46,030
+是否直接使用系统调用，
 system calls directly are there built
 
 604
 00:22:46,030 --> 00:22:48,340
+为了方便，编写了内置的包装器。
 in slash wrappers for convenience.
 
 605
 00:22:48,710 --> 00:22:50,750
-很多高级语言在某种程度上是从系统调用中转移出来的，这是绝对正确的，所以嗯。
+很多高级语言
 A lot of high-level languages are sort
 
 606
 00:22:50,750 --> 00:22:53,540
+在某种程度上是从系统调用中转移出来的，
 of at one of move from system calls
 
 607
 00:22:53,540 --> 00:22:54,500
-that's absolutely true,
+这是正确的。
+that's absolutely true.
 
 608
 00:22:54,500 --> 00:22:56,360
-so um.
+所以，
+So, um,
 
 609
 00:22:56,600 --> 00:22:58,640
-部分原因是许多语言想要提供可移植的、可在许多不同操作系统上运行的可移植环境，因此它们不一定要致力于任何一种操作系统的特定系统调用。
-Partially because a lot of
+部分原因是
+partially because a lot of
 
 610
 00:22:58,640 --> 00:23:01,760
+许多语言想要提供可移植的，
 languages want to provide portable a
 
 611
 00:23:01,760 --> 00:23:03,410
+可以在
 portable environment that works on many
 
 612
 00:23:03,410 --> 00:23:04,760
+许多不同操作系统上运行，
 different operating systems so they can't
 
 613
 00:23:04,760 --> 00:23:07,280
+因此它们不一定要致力于
 necessarily commit to the specific system
 
 614
 00:23:07,280 --> 00:23:09,580
+任何一种操作系统的特定系统调用。
 calls of any one operating system.
 
 615
 00:23:09,980 --> 00:23:12,410
-嗯，所以我是答案，我想问题是，如果你使用蟒蛇，你就有点被隔绝了。
-Um, so I'm the answer,
+所以答案是，
+Um, so, the answer,
 
 616
 00:23:12,410 --> 00:23:13,490
+我想问题是，
 the question I think is if you
 
 617
 00:23:13,490 --> 00:23:16,460
+如果你使用 python ，多少与系统有点隔离。
 use python, you're somewhat insulated.
 
 618
 00:23:16,570 --> 00:23:18,790
-从不是系统调用接口，你知道Python内部当然会做，必须让系统调用来完成它的工作，嗯，当然，在Python和许多其他语言中，通常有一种方法可以直接进入系统调用，无论你运行的是什么操作系统。
+从不是系统调用接口，
 From not the system call interface,
 
 619
 00:23:18,790 --> 00:23:20,760
+你知道 Python 内部当然会做，
 you know internally of course python makes,
 
 620
 00:23:20,900 --> 00:23:23,060
+必须让系统调用来完成它的工作，
 has to make system calls get its work done,
 
 621
 00:23:23,060 --> 00:23:24,340
+嗯，
 um, and,
 
 622
 00:23:24,520 --> 00:23:26,380
+当然，在 Python 和许多其他语言中，
 certainly in python and many other languages,
 
 623
 00:23:26,380 --> 00:23:29,840
+通常有一种方法
 there is usually a way to get directly at
 
 624
 00:23:29,990 --> 00:23:32,330
+可以直接进入系统调用，无论
 the system calls whatever your operating system,
 
 625
 00:23:32,330 --> 00:23:34,060
+你运行的是什么操作系统。
 you're running on.
 
 626
 00:23:35,480 --> 00:23:37,280
-各位提问的朋友，你可以自由地跳进自己的身体，问一些你不需要通过聊天提出的问题。
+各位同学，
 And folks for questions, you can just
 
 627
 00:23:37,280 --> 00:23:38,540
+你可以自己提问，
 feel free to jump in yourself and
 
 628
 00:23:38,540 --> 00:23:39,650
+不一定需要
 ask questions you don't need to go
 
 629
 00:23:39,650 --> 00:23:40,880
+通过聊天提出问题。
 through the chat.
 
 630
 00:23:43,410 --> 00:23:45,260
-好的，嗯，好的，抱歉。现在我将花几分钟讨论6.S081的类结构，然后再切换回实际的技术内容。
+好的，
 Okay, Um,
 
 631
 00:23:46,020 --> 00:23:46,740
+好的，
 all right,
 
 632
 00:23:46,740 --> 00:23:51,700
+抱歉。现在我要花几分钟
 sorry. I'm going to spend a couple of
 
 633
 00:23:51,700 --> 00:23:56,230
+讨论 6.S081 的
 minutes now talking about class structure
 
 634
 00:23:56,230 --> 00:24:00,980
+课程结构，
 of 6.S081,
 
 635
 00:24:01,140 --> 00:24:05,430
+然后再回到的技术内容部分。
 before switching back to actual technical content.
 
 636
 00:24:05,430 --> 00:24:07,740
-有一个课程的网站，我现在不想写出来，但是你可以在谷歌上搜索6.S081找到。
+这有一个课程的网站，
 So there is a website for the
 
 637
 00:24:07,740 --> 00:24:09,210
+我现在不想写出来，
 course which I don't want to write
 
 638
 00:24:09,210 --> 00:24:10,890
+但是你可以
 out just now but it's you
 
 639
 00:24:10,890 --> 00:24:11,940
+在谷歌上搜索
 can find it by looking for
 
 640
 00:24:11,940 --> 00:24:13,900
+6.S081 找到它。
 6.S081 on Google.
 
 641
 00:24:14,280 --> 00:24:16,350
-而且这个网站，嗯，有一个课程表，它有课程表上的作业，里面有实验作业。
+而且这个网站，
 And the website,
 
 642
 00:24:16,350 --> 00:24:18,520
+有一个
 um, has
 
 643
 00:24:19,890 --> 00:24:23,740
+课程表，
 a schedule,
 
 644
 00:24:23,980 --> 00:24:26,320
+有课程表上的作业，
 it has the assignments on the schedule
 
 645
 00:24:26,320 --> 00:24:28,560
+还有有实验作业。
 that has the lab assignments.
 
 646
 00:24:28,740 --> 00:24:30,300
-嗯，它有关于课程结构的那种信息，比如它的评分政策。
+它也有关于课程结构
 Um, and it has the sort of
 
 647
 00:24:30,300 --> 00:24:32,370
+的其他信息，
 information about course structure like the
 
 648
 00:24:32,370 --> 00:24:33,900
+比如它的评分标准。
 grading policy on it.
 
 649
 00:24:34,240 --> 00:24:37,300
-嗯，你会想要跟踪广场的另一个重要资源。
-Um the other big resource you're gonna
+你会想要跟踪另一个
+Um, the other big resource you're gonna
 
 650
 00:24:37,300 --> 00:24:39,260
+重要资源是 piazza 。
 wanna keep track of piazza.
 
 651
 00:24:39,960 --> 00:24:40,710
-嗯，我猜，每个人都是通过广场来到这里的，嗯，但是还有嗯，所以我们定期用来做两件主要的事情，一是让人们能够就实验室作业提出问题，课程工作人员会试图回答这些问题，但你们也应该完全可以自由地回答彼此的问题。在广场上发生的另一件大事是，如果有公告，就会有关于球场的公告。
+我猜，
 Um I guess,
 
 652
 00:24:40,710 --> 00:24:42,090
+每个人都是通过 piazza
 everybody was here got here by way
 
 653
 00:24:42,090 --> 00:24:43,260
+来到这里的，
 piazza, um,
 
 654
 00:24:43,260 --> 00:24:45,960
+但是还有，
 but as well as um,
 
 655
 00:24:45,960 --> 00:24:48,150
+所以我们定期用来做两件主要的事情，
 so we used periodically for two main things,
 
 656
 00:24:48,150 --> 00:24:49,680
+一是让人们能够
 one is as a way of people
 
 657
 00:24:49,680 --> 00:24:51,270
+就实验室作业
 being able to ask questions about the
 
 658
 00:24:51,270 --> 00:24:53,200
+提出问题，
 lab assignments and,
 
 659
 00:24:53,420 --> 00:24:56,180
+工作人员会试着回答这些问题，
 a course staff will try to answer these questions,
 
 660
 00:24:56,180 --> 00:24:57,980
+但你们也完全可以自由地
 but you should feel absolutely free to
 
 661
 00:24:57,980 --> 00:25:00,740
+回答彼此的问题。
 answer each other's questions as well. And
 
 662
 00:25:00,740 --> 00:25:01,910
+在 piazza 上发生的另一件事是，
 the other big thing that happens on
 
 663
 00:25:01,910 --> 00:25:04,400
+如果有公告，
 piazza if there's announcements there's any announcements
 
 664
 00:25:04,400 --> 00:25:05,380
+就会发布在上面。
 about the course.
 
 665
 00:25:05,500 --> 00:25:07,720
-嗯，我们会把公告放在广场上，所以你应该关注广场上的公告，即使，嗯，你不是用它来做实验室帮助的。
+我们会把公告放在 piazza 上，
 Um, we'll put the announcement on piazza so
 
 666
 00:25:07,720 --> 00:25:09,100
+所以你应该关注
 you should keep an eye on piazza
 
 667
 00:25:09,100 --> 00:25:10,840
+piazza 上的公告，
 for announcements even if, um,
 
 668
 00:25:11,220 --> 00:25:12,760
+即使你不用它来寻找实验帮助。
 you're not using it for lab help.
 
 669
 00:25:13,580 --> 00:25:16,340
-嗯。这个这个课程的一个很大的部分当然就是这些讲座这个这个讲座会涉及到基本的理念和操作系统。
+这个
 Yeah. Um,
 
 670
 00:25:16,700 --> 00:25:17,000
-The um,
+这个
+the, um,
 
 671
 00:25:17,000 --> 00:25:18,560
+课程的一个很大的部分当然
 one of the big parts of course
 
 672
 00:25:18,560 --> 00:25:20,150
+就是这些讲座，
 is that these lectures,
 
 673
 00:25:20,150 --> 00:25:23,080
-um, um,
+嗯，
+um,
 
 674
 00:25:24,150 --> 00:25:27,420
+这个讲座会涉及到
 lectures will cover basic ideas
 
 675
 00:25:27,420 --> 00:25:28,800
+基本的理念和操作系统。
 and operating systems.
 
 676
 00:25:28,860 --> 00:25:31,200
-嗯，有些课程会详细研究xv6的代码，这是我们的小型教学操作系统，所以谈论它是如何工作的，我们会在课堂上看代码，并展示代码的执行，另外，在很多课程之前，我们会先做作业，阅读一本书中的作业，这本书描述了xv6是如何运行的，以及为什么它是这样设计的，另外，在很多课程之前，我们会先阅读一本书中的作业，这本书描述了xv6是如何运行的，为什么它是这样设计的。
+有些课程
 Um, some of the lectures will
 
 677
 00:25:31,200 --> 00:25:33,480
+会详细研究
 be devoted to detailed a
 
 678
 00:25:33,480 --> 00:25:35,580
+xv6 的代码，
 study of the code in
 
 679
 00:25:35,580 --> 00:25:36,660
+这是我们的
 xv6 which is
 
 680
 00:25:36,660 --> 00:25:39,420
+小型教学操作系统，
 our small teaching operating system
 
 681
 00:25:39,420 --> 00:25:40,800
+讨论它是如何工作的，
 and so talk about how
 
 682
 00:25:40,800 --> 00:25:41,910
+我们会在课堂上
 it works we'll look at
 
 683
 00:25:41,910 --> 00:25:43,140
+看代码，
 the code and show the
 
 684
 00:25:43,140 --> 00:25:45,810
+并演示代码的执行过程，
 code executing during lectures,
 
 685
 00:25:45,810 --> 00:25:47,370
+另外，在很多课程之前，
 and in addition before many of
 
 686
 00:25:47,370 --> 00:25:49,200
-the lectures will be assignments reading
+我们会先做作业，
+the lectures, we'll be assignments reading
 
 687
 00:25:49,200 --> 00:25:51,810
+阅读书中的作业，
 assignments from a book that sort
 
 688
 00:25:51,810 --> 00:25:54,600
+这本书描述了 xv6 是如何运行的，
 of describes how xv6 operates and
 
 689
 00:25:54,600 --> 00:25:56,220
+以及为什么它是这样设计的。
 why it's designed that way.
 
 690
 00:25:56,670 --> 00:25:57,990
-所以你在上课前做阅读，这样他们就听不懂课堂上的讨论，一些课程专门讲授背景知识，帮助你做实验。
+所以你应该在上课前做阅读，
 So you do the readings before the
 
 691
 00:25:57,990 --> 00:26:01,170
-class so they don't understand the discussion
+这样就能听懂
+class so they understand the discussion
 
 692
 00:26:01,170 --> 00:26:02,400
+课堂上的讨论，
 in the class,
 
 693
 00:26:02,400 --> 00:26:04,080
+一些课程专门讲授背景知识，
 some of the lectures are devoted to
 
 694
 00:26:04,080 --> 00:26:06,540
+帮助你做实验。
 background to help you do the labs.
 
 695
 00:26:06,660 --> 00:26:09,180
-嗯，没有解释C语言是如何工作的，RISC-V，也就是我们将要使用的微处理器。
-Um, no explanations about C works of how
+像 C 语言是如何工作的，
+Um, so like about C works of how
 
 696
 00:26:09,180 --> 00:26:11,940
+RISC-V，也就是我们要使用的
 the RISC-V, which is the microprocessor
 
 697
 00:26:11,940 --> 00:26:13,080
+微处理器。
 that we'll be using.
 
 698
 00:26:13,200 --> 00:26:16,620
-嗯，你们会发现这对理解如何做实验很有帮助，在课程接近尾声的时候，我们会花一些课，讨论一些操作系统论文，研究论文，和该领域的一些经典论文，你们会要求你们在讲课前阅读这些论文，然后我们会在课程中讨论这些论文。因为所有的讲座几乎都是所有的讲座，我们要求你在讲座的实际时间之前提交一个关于阅读的问题，嗯，关于讲座的问题。
+你们会发现这对理解
 Um that you'll find helpful in understanding
 
 699
 00:26:16,620 --> 00:26:18,210
+如何做实验很有帮助，
 how to do the labs and towards
 
 700
 00:26:18,210 --> 00:26:19,420
+在课程接近尾声的时候，
 the end of the course,
 
 701
 00:26:19,890 --> 00:26:22,710
+我们会用一些课，
 we'll spend some lectures discussing some
 
 702
 00:26:22,710 --> 00:26:25,080
+讨论一些操作系统论文，
 operating system papers,
 
 703
 00:26:25,080 --> 00:26:27,420
+研究论文，和该领域的一些经典论文，
 research papers and some classic papers in
 
 704
 00:26:27,420 --> 00:26:30,300
+会要求你们在讲课前
 the field which you will ask that
 
 705
 00:26:30,300 --> 00:26:31,470
+阅读这些论文，
 you read before the lecture and then
 
 706
 00:26:31,470 --> 00:26:33,630
+然后我们会在课程中讨论这些论文。
 we'll sort of talk about the papers
 
 707
 00:26:33,630 --> 00:26:36,090
+所有的讲座，
 during the lecture. For all the lectures
 
 708
 00:26:36,090 --> 00:26:37,290
+几乎所有的讲座，
 are almost all the lectures,
 
 709
 00:26:37,290 --> 00:26:39,150
+我们要求你在
 we ask that you submit a question
 
 710
 00:26:39,150 --> 00:26:40,320
+讲座之前，
 about the reading,
 
 711
 00:26:40,320 --> 00:26:44,190
+为讲座提交
 um for the lecture before the actual
 
 712
 00:26:44,190 --> 00:26:45,900
+一个关于说读文章的问题。
 time of the lecture which.
 
 713
 00:26:45,950 --> 00:26:47,270
-你们中的许多人或所有人都参加了这次讲座，谢谢你们，嗯，我们会阅读这些问题来帮助我们。
+你们中的许多人或所有人
 Many or all of you did for
 
 714
 00:26:47,270 --> 00:26:49,220
+都参加了这次讲座，谢谢你们，
 this lecture for which thank you,
 
 715
 00:26:49,220 --> 00:26:52,580
+我们会查看这些问题来帮助我们。
 um, and we will read those questions to help us.
 
 716
 00:26:52,970 --> 00:26:54,800
-指导我们谈论什么，我们会尽力回答尽可能多的问题，尽管很少有时间，不幸的是，我们没有时间回答所有的问题。
+指导我们讨论什么，
 Guide us about what to talk about
 
 717
 00:26:54,800 --> 00:26:57,020
+我们会尽力回答
 and we'll try to answer as many
 
 718
 00:26:57,020 --> 00:26:58,040
+尽可能多的问题，
 of the questions as we can,
 
 719
 00:26:58,040 --> 00:26:59,840
+尽管很少有时间，
 although there's rarely time,
 
 720
 00:26:59,840 --> 00:27:02,460
+不过，我们没有时间回答所有问题。
 unfortunately for us to answer all of them.
 
 721
 00:27:02,800 --> 00:27:05,980
-我是实验室课程的下一个重头戏。
-I'm the next big part of the course of the labs.
+课程的下一个重要部分是实验。
+Um, the next big part of the course of the labs.
 
 722
 00:27:06,400 --> 00:27:08,350
-几乎每周都有一个编程实验室，这个实验室的目的是帮助你亲身体验、实现和使用操作系统。
+几乎每周都有
 There's a programming lab do,
 
 723
 00:27:08,350 --> 00:27:12,490
+一个编程实验，
 um, almost every week and the point of
 
 724
 00:27:12,490 --> 00:27:13,510
+这个实验的目的是
 the labs is to help you get
 
 725
 00:27:13,510 --> 00:27:15,940
+帮助你亲身体验，
 hands on experience with,
 
 726
 00:27:16,110 --> 00:27:19,840
+实现和使用操作系统。
 implementing and using operating systems.
 
 727
 00:27:20,690 --> 00:27:24,170
-下周到期的一个实验实际上是关于如何编写应用程序，这些应用程序进行系统调用将会讨论的内容。
+下周到期的一个实验
 A lab that's due next week is
 
 728
 00:27:24,170 --> 00:27:27,440
+实际上是关于如何编写应用程序，
 actually about using about writing applications that
 
 729
 00:27:27,440 --> 00:27:29,120
+这些应用程序用到的系统调用
 make the call the system calls will
 
 730
 00:27:29,120 --> 00:27:30,240
+随后将会讨论。
 be talking about.
 
 731
 00:27:31,520 --> 00:27:33,080
-与此之后的大多数实验不同，您要么实现基本的操作系统功能，要么向xv6操作系统添加内核扩展，这是最后一个实验，也是实际添加网络堆栈和网络驱动程序的实验，以便能够通过网络连接到您运行的操作系统。
+与此之后的
 Whereas most of those labs after
 
 732
 00:27:33,080 --> 00:27:34,070
+大多数实验不同，
 that are involved,
 
 733
 00:27:34,070 --> 00:27:37,370
+要么实现基本的操作系统功能，
 you either implementing basic operating system
 
 734
 00:27:37,370 --> 00:27:38,860
+要么
 features or adding
 
 735
 00:27:39,020 --> 00:27:42,360
+向 xv6 操作系统
 a kernel extensions to the xv6
 
 736
 00:27:42,770 --> 00:27:44,780
+添加内核扩展，
 operating system,
 
 737
 00:27:44,780 --> 00:27:46,520
+最后一个实验，
 the very last lab and one in
 
 738
 00:27:46,520 --> 00:27:48,500
+是实际添加网络堆栈和
 which you actually add a network stack
 
 739
 00:27:48,500 --> 00:27:49,820
+网络驱动程序的实验，
 and a network driver so you'll be
 
 740
 00:27:49,820 --> 00:27:51,500
+以便能够通过网络连接
 able to connect in over the network
 
 741
 00:27:51,500 --> 00:27:53,540
+到你运行的操作系统。
 to the operating system that you run.
 
 742
 00:27:55,560 --> 00:27:56,310
-你应该，如果你对实验室有问题，他们会在助教会等待的办公时间。此外，你还可以把问题发布到Piazza上，而且通常你可以比在办公时间更快地从Piazza上得到有用的答案。
+你应该，
 You should,
 
 743
 00:27:56,310 --> 00:27:57,990
+如果你对实验有问题，
 if you have problems with the lab's
 
 744
 00:27:57,990 --> 00:28:00,740
+助教会在办公时间提供帮助。
 they'll be office hours that,
 
 745
 00:28:00,830 --> 00:28:03,260
+此外，
 TA will hold. In addition
 
 746
 00:28:03,260 --> 00:28:06,230
+你还可以把问题发布到 piazza 上，
 you can post questions to piazza
 
 747
 00:28:06,230 --> 00:28:07,610
+而且通常可以
 and very often you'll be able
 
 748
 00:28:07,610 --> 00:28:09,890
+比在办公时间更快地
 to get useful answers from piazza
 
 749
 00:28:09,890 --> 00:28:11,980
+得到有用的答案。
 more quickly than from office hours.
 
 750
 00:28:13,060 --> 00:28:16,000
-我们欢迎您讨论实验室，谈论实验室，讨论如何设计实验室解决方案，但是我们要求您不要看别人的解决方案。
+我们欢迎你讨论实验，
 We welcome you discussing the labs
 
 751
 00:28:16,000 --> 00:28:17,230
+谈论实验，
 talking about the labs talking about
 
 752
 00:28:17,230 --> 00:28:20,410
+讨论如何设计实验解决方案，
 how to design the lab solutions
 
 753
 00:28:20,410 --> 00:28:21,610
+但是我们要求不要
 but we ask you please do
 
 754
 00:28:21,610 --> 00:28:23,600
+看别人的解决方案。
 not look at other people's solutions.
 
 755
 00:28:23,680 --> 00:28:25,810
-故态复萌，请您编写的所有代码都应该是您自己的，并且您不应该共享代码或查看其他解决方案。
+重复一遍，你编写的所有代码
 Relapse, please all the code you write should
 
 756
 00:28:25,810 --> 00:28:27,850
+都应该是你自己的，并且你不应该
 be your own and you shouldn't share
 
 757
 00:28:27,850 --> 00:28:30,620
-code or a look at other solutions.
+共享代码或查看其他解决方案。
+code or look at other solutions.
 
 758
 00:28:32,740 --> 00:28:36,970
-打招呼。当然，嗯。今年我们主要由实验室决定，所以70%的成绩将是，嗯。嗯。
-Greeting. Of course,
+评分。当然，
+The grading. Of course,
 
 759
 00:28:36,970 --> 00:28:41,480
+今年我们主要由实验决定，
 um. We'll be mostly determined from the labs this year,
 
 760
 00:28:41,480 --> 00:28:44,120
+所以 70% 的成绩将是，
 so 70% of the grade will be,
 
 761
 00:28:44,120 --> 00:28:46,140
-um. Yeah.
+嗯，
+um,
 
 762
 00:28:46,620 --> 00:28:49,620
-嗯，根据你的实验室，你提交的是否通过测试，我们进行评分，我们运行的测试与我们提供给你的测试是相同的，所以如果你的实验室通过了我们给你的所有测试，你就有机会向你展示实验室的全部功劳。
+根据你的实验结果，
 Um, based on whether or not your lab,
 
 763
 00:28:49,620 --> 00:28:52,020
+你提交的是否通过测试，我们进行评分，
 you submit passes the tests and we for grading,
 
 764
 00:28:52,020 --> 00:28:54,210
+我们运行的测试与提供给你的测试是相同的，
 we run the same tests that we
 
 765
 00:28:54,210 --> 00:28:56,520
+所以如果你的实验
 supply you so if your lab passes
 
 766
 00:28:56,520 --> 00:28:57,810
+通过了我们给你的所有测试，
 all the tests that we give you
 
 767
 00:28:57,810 --> 00:28:58,920
+你就可以得到实验的
 the chance to show you that full
 
 768
 00:28:58,920 --> 00:29:00,260
+全部分数。
 credit for the lab.
 
 769
 00:29:00,500 --> 00:29:04,070
-20%的分数将来自实验室检查会议，你们每个人都将随机选择几个实验室，其中一个小组将与你们交谈，询问你们关于实施的问题，以确保嗯，你们真的了解正在发生的事情吗？
+20% 的分数
 A 20% of the grade is
 
 770
 00:29:04,070 --> 00:29:08,030
+来自实验检查会议，
 going to be from lab checkoff meetings
 
 771
 00:29:08,030 --> 00:29:09,500
+你们每个人都将
 for each of you will pick a
 
 772
 00:29:09,500 --> 00:29:11,660
+随机选择几个实验，
 couple of randomly selected labs and one
 
 773
 00:29:11,660 --> 00:29:13,280
+其中一个小组将与你们交谈，
 of the teams will talk to you
 
 774
 00:29:13,280 --> 00:29:14,990
+询问你们关于实现的问题，
 and ask you questions about your implementation
 
 775
 00:29:14,990 --> 00:29:17,180
+以确保你们真的
 just to make sure that um,
 
 776
 00:29:17,320 --> 00:29:19,620
+理解发生了什么。
 are you really understand what's going on.
 
 777
 00:29:20,180 --> 00:29:22,080
-这是实验室检查。
+这是实验检查。
 It's a lab check offs.
 
 778
 00:29:23,870 --> 00:29:26,600
-还剩10%。
+还剩 10% 。
 There's a 10% remaining.
 
 779
 00:29:28,040 --> 00:29:29,390
-很多(警察)有点像是或不是任何人或零类型的事情，或者他们会是，就像有人会得到这样的感觉吗？如果他们回答对了一些问题，但不是所有的问题都回答对了，那么分数。
-A lot of [cops] kind of
+很多，有点像
+A lot of, kind of
 
 780
 00:29:29,390 --> 00:29:31,790
+是或不是
 be like a yes or no
 
 781
 00:29:31,790 --> 00:29:33,290
+一或零的事，
 one or zero type of thing
 
 782
 00:29:33,290 --> 00:29:34,460
+或者他们会是，
 or would they be,
 
 783
 00:29:35,100 --> 00:29:38,250
+就像有人会得到，
 like could someone get like if they
 
 784
 00:29:38,250 --> 00:29:40,080
+比如如果他们回答对了一些问题，
 answered some of the questions right,
 
 785
 00:29:40,080 --> 00:29:41,580
+但不是所有的问题
 but not all the questions right when
 
 786
 00:29:41,580 --> 00:29:43,160
+都回答对了，
 they get in between,
 
 787
 00:29:43,570 --> 00:29:44,700
+那么分数是怎样的。
 so the grade.
 
 788
 00:29:45,060 --> 00:29:46,880
-你知道我还没有想清楚这件事。
+你知道，我还没有想过这件事。
 You know I haven't thought this through.
 
 789
 00:29:47,380 --> 00:29:50,320
-嗯，当然有部分学分的空间，但这不是一个，它不会是二进制的，它肯定是你可以获得部分学分。
+当然有部分学分的情况，
 Um, there's certainly room for partial credit
 
 790
 00:29:50,320 --> 00:29:52,480
-but it's not a it won't
+但这不是，
+but it's not, it won't
 
 791
 00:29:52,480 --> 00:29:55,090
+它不会是二进制的，
 be binary, it'll definitely be you
 
 792
 00:29:55,090 --> 00:29:56,540
+你肯定可以获得部分学分。
 can receive partial credit.
 
 793
 00:29:56,940 --> 00:30:01,390
-好吧。嗯，最后的10%将是由家庭作业和讲座和露天广场的参与推动的。
+好吧。最后的 10% 将是由
 Okay. Um, the last 10% is going to
 
 794
 00:30:01,390 --> 00:30:03,700
+家庭作业和
 be a driven by the homework and
 
 795
 00:30:03,700 --> 00:30:06,920
+讲座和 piazza 的参与决定的。
 participation during lecture and piazza.
 
 796
 00:30:07,480 --> 00:30:11,740
-恩。今年不会有考试或小测验。
+今年不会有考试或
 Um. There will be no exams or quizzes,
 
 797
 00:30:13,300 --> 00:30:14,520
+小测验。
 this year.
 
 798
 00:30:15,150 --> 00:30:16,560
-嗯，所以什么，这意味着大部分的，嗯，你知道90%的成绩是由实验室推动的，所以你应该这样做。
+所以，
 Um, and so what,
 
 799
 00:30:16,560 --> 00:30:18,480
+这意味着大部分的，
 that means is that most of the um,
 
 800
 00:30:18,480 --> 00:30:21,420
+你知道 90% 的成绩是
 you know 90% of the grade
 
 801
 00:30:21,420 --> 00:30:23,160
-is being driven by the lab
+由实验决定的。
+is being driven by the lab.
 
 802
 00:30:23,160 --> 00:30:24,780
-so you should.
+所以你应该
+So you should,
 
 803
 00:30:25,050 --> 00:30:26,730
-花很多时间在实验室里，嗯，确保你早点开始，有足够的时间完成它们，找出错误，以便获得满分。
-Spend a lot of time in the labs,
+花很多时间在实验上，
+spend a lot of time in the labs,
 
 804
 00:30:26,730 --> 00:30:29,610
+确保你早点开始，
 um, make sure that you start early
 
 805
 00:30:29,610 --> 00:30:31,710
+有足够的时间完成它们，
 and have enough time to complete
 
 806
 00:30:31,710 --> 00:30:33,930
+解决 bug ，
 them and work out bugs in
 
 807
 00:30:33,930 --> 00:30:35,400
+并获得满分。
 order to get full credit.
 
 808
 00:30:37,270 --> 00:30:38,770
-因此，这将是一门非常实用的面向软件的课程。
+因此，
 And you know as a result of
 
 809
 00:30:38,770 --> 00:30:40,000
+这将是一门非常实用的
 that this is going to be a
 
 810
 00:30:40,000 --> 00:30:43,660
+面向软件的课程。
 very kind of hands-on software oriented course.
 
 811
 00:30:44,580 --> 00:30:46,520
-关于课程机械的任何问题。
+还有关于
 Any questions about the
 
 812
 00:30:47,180 --> 00:30:49,000
+课程组织问题吗？
 machinery of the course.
 
 813
 00:30:53,760 --> 00:30:56,670
-嗯，我们在聊天中有几个问题，所以第一个是后勤问题，目前6.S081因为系统集中在[？]没有像往常一样列出来，以后有没有增加课程的计划。我认为，因为它不是AAGS，它是AUS，它不能用来满足安排要求，所以它不是研究生水平的课程。
+嗯，在聊天中有几个问题，
 Um, we've got a couple questions in chat,
 
 814
 00:30:56,670 --> 00:30:58,050
+第一个是组织管理的问题，
 so the first is a logistical
 
 815
 00:30:58,050 --> 00:31:00,450
+目前
 question, currently 6.S081
 
 816
 00:31:00,450 --> 00:31:01,650
+6.S081 没有像往常
 isn't listed as usual for the
 
 817
 00:31:01,650 --> 00:31:03,990
+一样列出来，在系统主修课程中，
 system's concentration in the [?],
 
 818
 00:31:03,990 --> 00:31:05,370
+以后有没有增加课程的计划。
 are there plans added to the list
 
 819
 00:31:05,370 --> 00:31:07,350
+我认为，
 of classes later. I think for that
 
 820
 00:31:07,350 --> 00:31:09,750
+因为它不是批准的高级研究生课程，
 because it's not an AAGS
 
 821
 00:31:09,750 --> 00:31:11,880
+它是高级本科课程，
 it's an AUS, it can't be
 
 822
 00:31:11,880 --> 00:31:13,590
+它不能满足安排要求，
 used to fulfill arrange requirements,
 
 823
 00:31:13,590 --> 00:31:15,700
+它不是研究生水平的课程。
 so it's not a graduate level class.
 
 824
 00:31:15,970 --> 00:31:17,060
-那么，嗯。
-So, um.
+那么，
+So, um,
 
 825
 00:31:19,270 --> 00:31:21,790
-然后我们有唯一的家庭作业来提交问题，看看日历，看起来是这样的。
-And then we have is the only
+然后我们有唯一的
+and then we have is the only
 
 826
 00:31:21,790 --> 00:31:23,410
+家庭作业来提交问题，
 homework to submit questions looking at the
 
 827
 00:31:23,410 --> 00:31:25,620
+看看日历。
 calendar that appears to be the case.
 
 828
@@ -3468,57 +4136,67 @@ Unless I'm forgetting something.
 
 829
 00:31:31,270 --> 00:31:32,110
-我想是这样的，是的。那么，嗯，像X百分制得A，Y百分制得B之类的分数会不会有界限。
+我想是这样的，
 I think that's the case,
 
 830
 00:31:32,110 --> 00:31:37,660
+是的。那么，有没有分数比例的情况，
 yes. So have, um, are there gonna
 
 831
 00:31:37,660 --> 00:31:39,670
+像百分之 X 得 A，
 be cutoffs for grades like X
 
 832
 00:31:39,670 --> 00:31:41,260
+百分之 Y 得 B
 percent gets an A, Y percent
 
 833
 00:31:41,260 --> 00:31:43,510
+的情况。
 gets a B etc.
 
 834
 00:31:43,510 --> 00:31:45,040
-不，不，嗯。嗯，你知道我们会试着给学生一个免费的估价。
+不，不，
 No no,
 
 835
 00:31:45,040 --> 00:31:48,210
-um. Um,
+嗯，
+um,
 
 836
 00:31:48,210 --> 00:31:49,680
+你知道我们努力
 you know we're going to try to
 
 837
 00:31:49,680 --> 00:31:53,100
+给学生自由。
 a free student estimate.
 
 838
 00:31:53,320 --> 00:31:56,950
-我的印象是你对材料理解得很好，嗯。并在此基础上给出一个等级，这样就不会有预先设定的分水岭。
+我的评价是
 I'm impression of how well you've
 
 839
 00:31:56,950 --> 00:31:58,090
+你对材料理解得好坏，
 understood the material,
 
 840
 00:31:58,090 --> 00:32:00,480
-um. And assign a grade based on that
+并在此基础上给出一个等级，
+um, and assign a grade based on that
 
 841
 00:32:00,480 --> 00:32:03,080
+不会有预先设定的比例。
 so there's no predetermined cutoffs.
 
 842
@@ -3533,519 +4211,617 @@ All right.
 
 844
 00:32:14,740 --> 00:32:17,140
-对于那些在聊天中询问注意力要求的人来说，我不是百分之百确定，嗯，但6.S081不是，它就像是班级获得正式数字之前的一个临时数字，所以它肯定不会出现在任何地方，如果你需要它来实现注意力集中，我想你最好的选择可能是填写一份请愿书，或者给像卡特里娜·库尔茨这样的人发电子邮件。
+对于在聊天中
 Just real quick for folks in the
 
 845
 00:32:17,140 --> 00:32:20,980
+询问主修要求
 chat asking about the
 
 846
 00:32:21,070 --> 00:32:23,530
+的人来说，
 concentration requirement, I'm not a hundred
 
 847
 00:32:23,530 --> 00:32:24,820
+我不是百分之百确定，
 percent certain, um,
 
 848
 00:32:24,820 --> 00:32:26,890
+但 6.S081 不是，
 but 6.S081 is not,
 
 849
 00:32:26,890 --> 00:32:28,570
+它就像是课程获得正式编号之前
 it's like a temporary number before the
 
 850
 00:32:28,570 --> 00:32:30,340
+的一个临时编号，
 class gets official one, so it
 
 851
 00:32:30,340 --> 00:32:33,280
+所以它不会出现在任何地方，
 certainly won't be listed anywhere,
 
 852
 00:32:33,280 --> 00:32:34,540
+如果你需要它来实现主修课程，
 if you need it to fulfill a
 
 853
 00:32:34,540 --> 00:32:36,010
+我想你最好的选择
 concentration, I think your best bet is
 
 854
 00:32:36,010 --> 00:32:37,720
+是填写一份请愿书，
 probably to fill out a petition or
 
 855
 00:32:37,720 --> 00:32:40,480
+给 Katrina Kurtz 他们发邮件。
 to email somebody like Katrina Kurtz.
 
 856
 00:32:40,780 --> 00:32:44,920
-要查看状态是什么，我们无法控制，不幸的是，您知道哪些类满足这些要求。这个类将使用什么语言，将用C语言编写。
+要查看状态是什么，我们无法控制，
 To see a what the status is, we don't control,
 
 857
 00:32:45,570 --> 00:32:48,180
+你知道的，哪些课程
 you know what what classes fill these
 
 858
 00:32:48,180 --> 00:32:49,260
+满足这些要求。
 kind of requirements,
 
 859
 00:32:49,260 --> 00:32:52,650
+这门课将使用什么语言，
 unfortunately. And for what language will be using
 
 860
 00:32:52,650 --> 00:32:55,180
+将使用 C 语言。
 the class will be in C.
 
 861
 00:32:55,490 --> 00:32:59,540
-是。好的，嗯。嗯。
-Yes. All right,
+好的，
+Yes, all right,
 
 862
 00:32:59,540 --> 00:33:01,380
-um. Yeah.
+嗯，
+um, Yeah,
 
 863
 00:33:02,400 --> 00:33:03,900
-好的，对于这堂课的睡觉，我想谈一下，嗯，什么系统调用看起来像应用程序，嗯，你知道，因为系统调用是操作系统提供的服务的接口，所以这些系统看起来是什么样子，应用程序从系统调用中期望什么，以及它们是如何运行的，所以了解接口是什么样子是值得的。
+好的，对于这堂课的剩下的时间，
 All right, for the rest of the lecture
 
 864
 00:33:03,900 --> 00:33:06,660
+我想谈一下，
 I want to talk about how, um,
 
 865
 00:33:06,660 --> 00:33:09,990
+什么系统调用看起来像应用程序，
 what system calls look like applications,
 
 866
 00:33:09,990 --> 00:33:13,660
+你知道，因为系统调用
 um, and you know since the system calls
 
 867
 00:33:13,660 --> 00:33:16,480
+是操作系统
 are the interface to the services that
 
 868
 00:33:16,480 --> 00:33:18,880
+提供服务的接口，
 the operating system provides is actually pretty
 
 869
 00:33:18,880 --> 00:33:21,010
+所以这些系统看起来是什么样子，
 important what those systems look like what
 
 870
 00:33:21,010 --> 00:33:23,740
+应用程序从系统调用中得到什么，
 applications expect from system calls and how
 
 871
 00:33:23,740 --> 00:33:26,170
+以及它们是如何运行的，
 they behave so it's worth understanding what
 
 872
 00:33:26,170 --> 00:33:28,280
+所以理解接口是什么样子是值得的。
 the interface looks like.
 
 873
 00:33:29,380 --> 00:33:31,090
-嗯，您将使用我们在第一个实验中谈到的系统调用。
+你将在第一个实验中
 Um, you'll be using the system calls we
 
 874
 00:33:31,090 --> 00:33:32,840
-talk about in the first lab.
+使用我们谈到的系统调用，
+talk about in the first lab,
 
 875
 00:33:32,960 --> 00:33:37,160
-嗯，并在后续的实验中扩展和完善这些系统调用的实现内部实现。
-Um, and extending and improving the implementation
+并在后续的实验中
+um, and extending and improving the implementation
 
 876
 00:33:37,160 --> 00:33:39,140
+扩展和完善这些系统调用
 internal implementation of these system calls
 
 877
 00:33:39,140 --> 00:33:40,460
+的内部实现。
 in subsequent labs.
 
 878
 00:33:40,960 --> 00:33:43,120
-我们要做的是展示一些简单的小程序示例。
+我们将演示一些程序
 What we're gonna do is show some
 
 879
 00:33:43,120 --> 00:33:47,260
+的简单示例。
 simple examples of little programs.
 
 880
 00:33:47,980 --> 00:33:51,760
-它调用系统调用，我将在xv6中为您运行它们。
+它调用系统调用，我将在 xv6 中为
 That call system calls and I'll run
 
 881
 00:33:51,760 --> 00:33:53,960
+运行它们。
 them in xv6 for you.
 
 882
 00:33:54,540 --> 00:33:56,370
-我将运行它们，xv6是一个，嗯，它是一个Unix，一个简化的类Unix操作系统Unix是一个旧的操作系统，至少对于许多当今的操作系统，比如Linux和OSX来说，它是一个智力基础，它是非常常用的。
+我将运行它们，
 I'm gonna run them,
 
 883
 00:33:56,370 --> 00:33:58,420
+xv6 是一个，
 the xv6 is a, um,
 
 884
 00:33:58,550 --> 00:33:58,910
+它是一个 unix ，
 it's a unix,
 
 885
 00:33:58,910 --> 00:34:01,250
+一个简化的类 unix 操作系统，
 a simplified unix-like operating system unix
 
 886
 00:34:01,250 --> 00:34:03,740
+unix 是一个古老的操作系统，
 is a old operating system that's at
 
 887
 00:34:03,740 --> 00:34:07,460
+至少作为许多当今的操作系统的基础，
 least intellectual basis for many present-day operating
 
 888
 00:34:07,460 --> 00:34:09,470
+比如 Linux 和 OS X 来说，
 systems such as Linux and OS X
 
 889
 00:34:09,470 --> 00:34:11,480
+它是使用非常广泛的。
 it's in very common use.
 
 890
 00:34:11,480 --> 00:34:18,140
-嗯，xv6我们的教学操作系统要简单得多，在某种程度上受到Unix的启发，具有相同的整体结构，但比任何真正的Unix操作系统都要简单得多。
+xv6 我们的教学操作系统
 Um, xv6 our teaching operating system is
 
 891
 00:34:18,140 --> 00:34:20,960
+要简单得多，在某种程度上受到 unix 的启发，
 much simpler and sort of inspired by
 
 892
 00:34:20,960 --> 00:34:23,390
+具有相同的整体结构，
 unix and has the same overall structure,
 
 893
 00:34:23,390 --> 00:34:26,540
+但比任何真正的 unix 操作系统
 but is dramatically simpler than any real
 
 894
 00:34:26,540 --> 00:34:28,180
+都要简单得多。
 unix operating system.
 
 895
 00:34:28,610 --> 00:34:33,120
-嗯，这很简单，希望，嗯，你知道，你可以在几周内阅读所有的源代码，也可以阅读这本书，当然是在本学期，以便了解xv6内部发生的所有事情。
+它很简单足够，
 Um, it's simple enough that hopefully,
 
 896
 00:34:33,120 --> 00:34:35,070
+你知道，
 um, you know it would
 
 897
 00:34:35,070 --> 00:34:36,600
+你可以在几周内
 be relatively straightforward
 
 898
 00:34:36,600 --> 00:34:38,550
+阅读所有的源代码，
 for you to read all the source code,
 
 899
 00:34:38,550 --> 00:34:40,080
+也可以阅读这本书，
 as well as read the book,
 
 900
 00:34:40,080 --> 00:34:41,910
+当然在本学期，
 in a couple of weeks certainly
 
 901
 00:34:41,910 --> 00:34:43,560
+以便了解
 during the semester in order to
 
 902
 00:34:43,560 --> 00:34:44,970
+xv6 内部发生
 kind of understand all of what
 
 903
 00:34:44,970 --> 00:34:47,200
+的所有事情。
 happens inside xv6.
 
 904
 00:34:47,680 --> 00:34:52,110
-嗯，xv6运行在Risc-V处理器上，Risc-V微处理器，这也是最近6.004微米的焦点所在的微处理器，所以你们中的许多人实际上可能对Risc-V指令集有相当多的了解。
+xv6 运行在 RISC-V 处理器上，
 Um, xv6 runs on the RISC-V
 
 905
 00:34:52,110 --> 00:34:55,320
+RISC-V 微处理器，
 processor, RISC-V microprocessor and this is
 
 906
 00:34:55,320 --> 00:34:57,690
+这也是最近 6.004 课程
 the same microprocessor that's the focus of
 
 907
 00:34:57,690 --> 00:34:59,700
+所使用的的微处理器，
 recent 6.004
 
 908
 00:34:59,800 --> 00:35:01,750
+所以你们中的许多人
 Um, so many of you may actually
 
 909
 00:35:01,750 --> 00:35:03,520
+实际上可能对 RISC-V 指令集
 know quite a bit about the
 
 910
 00:35:03,520 --> 00:35:05,240
+有相当多的了解。
 RISC-V instruction set.
 
 911
 00:35:05,780 --> 00:35:08,720
-嗯，理论上你可以在RISC-V计算机上运行xv6，人们就是这么做的。
+理论上你可以在 RISC-V 计算机上
 Um, in theory you could run xv6
 
 912
 00:35:08,720 --> 00:35:11,510
+运行 xv6 ，
 on top of a RISC-V computer
 
 913
 00:35:11,510 --> 00:35:13,370
+已经有人这么做了。
 and people done that.
 
 914
 00:35:13,370 --> 00:35:16,330
-嗯，但是我们要在qemu，嗯，机器仿真器下运行，把我们得到的写下来。
+但是我们要在 QEMU，
 Um, but we're going to run it under the QEMU,
 
 915
 00:35:16,330 --> 00:35:18,910
+机器仿真器下运行，
 um, machine emulator,
 
 916
 00:35:18,910 --> 00:35:20,680
+只需要把我们得到的写下来。
 just write this down we got.
 
 917
 00:35:20,810 --> 00:35:22,400
-我们的操作系统是xv6，嗯，运行在RISC-V上。
+我们的操作系统是 xv6 ，
 Our operating system is
 
 918
 00:35:22,400 --> 00:35:26,300
-xv6, um, runs on RISC-V.
+运行在 RISC-V
+xv6, um, runs on RISC-V
 
 919
 00:35:26,720 --> 00:35:30,350
-微处理器，而不仅仅是RISC-V微处理器，但我们假设周围有一定数量的硬件，如内存和磁盘。
-Microprocessor and not just RISC-V microprocessor,
+微处理器上，而且不仅是 RISC-V 微处理器，
+microprocessor and not just RISC-V microprocessor,
 
 920
 00:35:30,350 --> 00:35:31,790
+但我们假设周围有
 but we assume a certain amount
 
 921
 00:35:31,790 --> 00:35:34,670
+一定数量的硬件，
 of surrounding hardware like memory
 
 922
 00:35:34,670 --> 00:35:36,120
+比如内存和磁盘。
 and disk.
 
 923
 00:35:36,280 --> 00:35:39,520
-和控制台界面，让我们可以与之对话。
+还有 console 界面，让我们可以访问它。
 And console interface for us to talk to it.
 
 924
 00:35:39,520 --> 00:35:43,300
-嗯，我们实际上是在QEMU的机器模拟器下运行的。
+我们实际上是在 QEMU
 Um, We actually run under the QEMU
 
 925
 00:35:44,720 --> 00:35:46,980
+机器模拟器下运行的。
 machine simulator.
 
 926
 00:35:48,440 --> 00:35:50,210
-这是在Linux下运行的，所以实际上我就是你们所能做的一切。
+这是在 Linux 下运行的，
 So that which runs under Linux,
 
 927
 00:35:50,210 --> 00:35:52,800
-so I'm all you can actually.
+所以实际上这就是你们所能做的一切。
+so all you can actually.
 
 928
 00:35:53,400 --> 00:35:56,120
-在没有该硬件的情况下运行xv6。
+在没有硬件的情况下运行 xv6 。
 A run xv6 without having that hardware.
 
 929
 00:35:56,860 --> 00:36:01,260
-好了，现在切换到显示密码。
+好的，现在切换到演示代码。
 Okay so kind of switch to a show the code.
 
 930
 00:36:15,570 --> 00:36:16,050
-好的，那么，嗯，第一件事是我在我的笔记本电脑上安装了xv6，我要运行它，输入‘make qemu’，‘make qemu’，你会发现自己在实验中做了相当多的工作，嗯，它编译xv6它是用C编写的，所以它是用C编译器编译的，所以我可能会为你‘清理’一下，这样你就可以看到实际的编译，我可能会‘make QEMU’，它的效果是编译和构建xv6内核和所有用户
+好的，
 All right,
 
 931
 00:36:16,050 --> 00:36:22,660
+那么，第一件事是在我的笔记本上安装了 xv6 ，
 so, um, first thing is I've a setup xv6 on my laptop,
 
 932
 00:36:22,800 --> 00:36:25,440
+我要运行它，输入 'make qemu'，
 I'm going to run it type 'make qemu',
 
 933
 00:36:25,440 --> 00:36:25,740
+输入 'make qemu'，
 'make qemu',
 
 934
 00:36:25,740 --> 00:36:27,030
+你会发现自己在实验中
 you'll find yourself doing quite a
 
 935
 00:36:27,030 --> 00:36:28,320
+做了相当多的工作，
 bit during the labs,
 
 936
 00:36:28,320 --> 00:36:30,960
+它编译 xv6 它是用 C 编写的，
 um, which compiles xv6 it's written in C,
 
 937
 00:36:30,960 --> 00:36:32,440
+所以它用 C 编译器
 so it's compiled with
 
 938
 00:36:32,520 --> 00:36:33,990
+编译，
 C compiler,
 
 939
 00:36:33,990 --> 00:36:36,930
+我可能输入 'make clean' 清理一下，
 maybe I'll 'make clean' for you,
 
 940
 00:36:36,930 --> 00:36:39,000
+这样你就可以看到实际的编译过程，
 so you can see the actual compilation
 
 941
 00:36:39,000 --> 00:36:40,620
+我输入 'make qemu' ，
 and I might 'make qemu',
 
 942
 00:36:40,620 --> 00:36:43,170
+它的效果是编译和
 which has the effect of compiling and
 
 943
 00:36:43,170 --> 00:36:45,180
+构建 xv6 内核和
 building xv6 kernel and all the
 
 944
 00:36:45,180 --> 00:36:48,600
+所有用户程序，然后在
 user processes and then running them under
 
 945
 00:36:48,600 --> 00:36:50,300
+QEMU 模拟器上运行。
 the QEMU emulator.
 
 946
 00:36:51,860 --> 00:36:53,880
-在编译过程中花费一些时间，是的，现在我们启动并运行xv6和‘$’提示符，您看到的是shell，它是xv6的命令行界面，仿照Unix上的shell，也就是。
+在编译过程中会花费一些时间，
 Takes a moment around the compiles,
 
 947
 00:36:55,020 --> 00:36:58,220
+是的，现在我们启动并运行
 yeah, and now we're up and running
 
 948
 00:36:58,220 --> 00:36:59,990
+xv6 和 '$' 提示符，
 xv6 and the '$'
 
 949
 00:36:59,990 --> 00:37:02,570
+你看到的是 shell ，
 prompt you see as the shell which
 
 950
 00:37:02,570 --> 00:37:04,460
+它是 xv6 的命令行界面，
 is the command line interface,
 
 951
 00:37:04,460 --> 00:37:08,360
+仿照 unix上 的shell，
 um, to xv6, modeled after the shell on unix,
 
 952
 00:37:08,360 --> 00:37:09,160
-which is.
+也是
+which is,
 
 953
 00:37:09,420 --> 00:37:12,240
-嗯，如果你登录到雅典娜组织，它，嗯，就像雅典娜给你看的那个贝壳。
+如果你登录到 Athena 系统，
 um, if you log into Athena organization and
 
 954
 00:37:12,240 --> 00:37:14,880
+它就像 Athena 你看到的
 it's, um, it's like the shell that
 
 955
 00:37:14,880 --> 00:37:16,080
+那个 shell 。
 Athena shows you.
 
 956
 00:37:18,180 --> 00:37:20,580
-xv6本身很小，它附带了一些实用程序，例如，我将要运行的‘ls’程序，运行ls，它给了我一个所有文件和xv6的列表，其中只有24个，包括grep、kill和mkdir，rm，我们可能熟悉的Unix实用程序。
+xv6 本身很小，
 xv6 itself tiny and it comes with
 
 957
 00:37:20,580 --> 00:37:23,920
+它附带了一些实用程序，
 a small number of utility programs and
 
 958
 00:37:24,220 --> 00:37:26,110
+例如，我将要运行的 'ls' 程序，
 including for example the 'ls' program which
 
 959
 00:37:26,110 --> 00:37:28,390
+运行 ls ，它给我
 I'm about to run run ls and
 
 960
 00:37:28,390 --> 00:37:29,660
+一个所有文件
 it gives me a list of
 
 961
 00:37:30,210 --> 00:37:31,470
+的列表，
 all the files and xv6
 
 962
 00:37:31,470 --> 00:37:32,670
+xv6 只有二十多个文件，
 of which there are only about
 
 963
 00:37:32,670 --> 00:37:36,320
+包括 grep kill
 two dozen including things like grep and
 
 964
 00:37:36,410 --> 00:37:39,830
+mkdir 和 rm ，
 kill and mkdir, rm which
 
 965
 00:37:39,830 --> 00:37:41,210
+是我们熟悉的
 may be familiar to us,
 
 966
 00:37:41,210 --> 00:37:43,640
+unix 实用程序。
 um, as unix utilities.
 
 967
