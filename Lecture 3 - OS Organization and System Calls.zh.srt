@@ -1,7 +1,7 @@
 1
 00:00:07,270 --> 00:00:09,000
 我说话清楚吗？
-Yeah, am I loud and clear.
+Yeah, am I loud and clear？
 
 2
 00:00:09,710 --> 00:00:11,540
@@ -50,760 +50,913 @@ OS organization.
 
 11
 00:00:25,410 --> 00:00:28,950
-那么今天的一个话题呢是我想要触及的四件事。一个是隔离，您将看到这是驱动设计目标，对于操作系统组织，现在稍微谈一下内核和用户模式。
-And, a topics for today
+今天的话题
+And, topics for today
 
 12
 00:00:28,950 --> 00:00:30,840
+包括
 are, um,
 
 13
 00:00:32,200 --> 00:00:34,030
+四项内容。
 four things that I want to
 
 14
 00:00:34,030 --> 00:00:36,180
+一个是隔离，
 touch on. One is isolation,
 
 15
 00:00:36,440 --> 00:00:38,930
+这是由
 which you'll see is the driving
 
 16
 00:00:38,930 --> 00:00:40,160
-design goal,
+操作系统
+design goal
 
 17
 00:00:40,160 --> 00:00:41,360
-for OS organization,
+设计目标驱动的。
+for OS organization.
 
 18
 00:00:41,360 --> 00:00:43,070
-now talk a little bit about
+讲一下内核模式和
+Talk a little bit about
 
 19
 00:00:43,070 --> 00:00:45,600
+用户模式。
 kernel and user mode.
 
 20
 00:00:47,370 --> 00:00:49,350
-这是将内核与用户应用程序或操作系统与用户应用程序隔离的一种方式。
+这是将内核或
 That's a way of isolating the
 
 21
 00:00:49,350 --> 00:00:51,210
+操作系统与用户应用程序
 kernel from, or the operating system
 
 22
 00:00:51,210 --> 00:00:53,100
+隔离的一种方式。
 from a user applications.
 
 23
 00:00:53,380 --> 00:00:55,440
-嗯，他们会讨论系统调用，这是用户应用程序基本上过渡到内核的一种方式，所以他们可以请求服务，我们看一下它是如何在xv6中以简单的形式实例化的，这就是今天的重点。
-Um, they'll talk about system calls,
+然后，讨论系统调用，
+Then, we'll talk about system calls,
 
 24
 00:00:55,790 --> 00:00:58,430
+这是用户应用程序
 which is a way for user
 
 25
 00:00:58,430 --> 00:01:00,770
-applications to basically transition into the
+访问内核的一种方式，
+applications to basically, transition into the
 
 26
 00:01:00,770 --> 00:01:02,480
+使得应用程序可以访问内核服务。
 kernel, so they can ask
 
 27
 00:01:02,480 --> 00:01:04,010
-for services and we look a
+我们看一下
+for services. And we look a
 
 28
 00:01:04,010 --> 00:01:06,140
+它是如何在 xv6 中
 little bit how it always instantiated
 
 29
 00:01:06,140 --> 00:01:08,270
+以简单的形式
 in a simple form inside
 
 30
 00:01:08,270 --> 00:01:09,500
 of xv6,
+实例化的，
 
 31
 00:01:09,500 --> 00:01:10,970
+这就是
 so that is the point
 
 32
 00:01:10,970 --> 00:01:11,620
+今天的重点。
 for today.
 
 33
 00:01:12,160 --> 00:01:15,460
-嗯，你的意思是提醒你第一堂课之后我们在哪里。
-Um, and you're [saying] sort of
+你还记得，
+Um, and you still rethought of,
 
 34
 00:01:15,460 --> 00:01:18,610
-remind you a where we were
+回忆一下
+remind you, where we were
 
 35
 00:01:18,610 --> 00:01:21,060
+上节课的内容。
 after the first lecture.
 
 36
 00:01:21,290 --> 00:01:23,210
-嗯，你脑海中的画面，你脑海中应该有这样的画面，就是你知道有像贝壳一样的过程，像回声一样的过程。
+你脑海中的画面，
 Um, the picture in your head,
 
 37
 00:01:23,210 --> 00:01:24,080
+你脑海中应该有这样的画面，
 you should have in your head
 
 38
 00:01:24,080 --> 00:01:26,480
+像 shell echo
 is you know there are processes
 
 39
 00:01:26,480 --> 00:01:29,260
+这样的进程，
 like the shell, like echo.
 
 40
 00:01:29,590 --> 00:01:32,260
-嗯，不管你知道什么，找到你实现的任何实用程序，它们都是在操作系统之上运行的。
-Um, were you know whatever,
+或者其他，
+or, you know whatever,
 
 41
 00:01:34,280 --> 00:01:36,290
-Find whatever some of utilities
+比如 find ，
+find, you know, whatever utilities
 
 42
 00:01:36,290 --> 00:01:38,360
+无论你实现的任何程序，
 that you implement, they're running
 
 43
 00:01:38,360 --> 00:01:41,060
-on top of an operating system.
+它们都运行操作系统之上。
+on top of operating system.
 
 44
 00:01:42,520 --> 00:01:44,020
-你知道抽象的操作系统，你知道一些硬件资源。
+你知道操作系统
 And you know the operating system
 
 45
 00:01:44,020 --> 00:01:44,590
-of abstracts,
+是一种
+of abstracts
 
 46
 00:01:44,590 --> 00:01:45,070
-you know some of the
+对硬件资源
+you know, some of the
 
 47
 00:01:45,070 --> 00:01:46,540
-hardware resources.
+的抽象。
+hardware resources,
 
 48
 00:01:46,800 --> 00:01:47,040
-您知道，就像磁盘或CPU，基本上操作系统和shell之间的接口通常被称为系统调用接口，我们一直在研究的接口是Unix接口。
+你知道的，
 You know,
 
 49
 00:01:47,040 --> 00:01:49,320
+就像磁盘或 CPU 这种硬件。
 like a disk or CPU,
 
 50
 00:01:49,320 --> 00:01:51,060
-and you know basically the interface
+基本上
+And, you know basically the interface
 
 51
 00:01:51,060 --> 00:01:52,830
+操作系统和 shell 之间的接口
 between the operating systems and the
 
 52
 00:01:52,830 --> 00:01:54,330
+通常被称为
 shells are typically referred to as
 
 53
 00:01:54,330 --> 00:01:55,530
-a system call interface,
+系统调用接口，
+system call interface,
 
 54
 00:01:55,530 --> 00:01:56,880
+我们一直在研究的接口
 an interface that we've been looking
 
 55
 00:01:56,880 --> 00:01:59,200
+是 unix 接口。
 at is unix interface.
 
 56
 00:02:01,710 --> 00:02:03,720
-我们在这里看到的是，嗯，这大概就是您在实验1中使用的独特界面，嗯，我们一直处于您使用的实用实验室，您知道系统调用接口或Unix API来实际实现不同的应用程序集。
+我们看到的
 And here what we see,
 
 57
 00:02:03,720 --> 00:02:05,880
+是，
 um is,
 
 58
 00:02:05,880 --> 00:02:07,440
+在实验 1 中，
 um, so that was roughly you
 
 59
 00:02:07,440 --> 00:02:09,660
-know actually with that unique interface
+你已经差不多
+know actually with that unix interface
 
 60
 00:02:09,660 --> 00:02:11,250
+使用过
 you've been playing around in
 
 61
 00:02:11,250 --> 00:02:12,090
+unix 接口，
 lab 1, um,
 
 62
 00:02:12,090 --> 00:02:14,310
-we're in util lab you used,
+就是 util 实验中使用的，
+were in util lab you used,
 
 63
 00:02:14,310 --> 00:02:15,780
+系统调用接口或
 you know the system call interface
 
 64
 00:02:15,780 --> 00:02:17,670
+unix API 来实现
 or unix API to actually implement
 
 65
 00:02:17,670 --> 00:02:19,060
+不同的应用程序。
 different sets of applications.
 
 66
 00:02:19,480 --> 00:02:21,850
-所以实验1，一个有用的实验，主要集中在使用设计图片的这一部分，以及我们现在要在第一节课或后续的许多课中要做的事情，我们将真正了解界面是如何实际实现的。
+所以实验 1 ，一个有用的实验，
 And so lab 1, a useful
 
 67
 00:02:21,850 --> 00:02:24,580
-lab is mostly focused on using
+主要集中在
+lab, is mostly focused on using
 
 68
 00:02:24,580 --> 00:02:25,800
+这张图的
 you know this part
 
 69
 00:02:26,100 --> 00:02:27,810
+这一部分，
 of the design picture
 
 70
 00:02:27,810 --> 00:02:29,190
-here and what we're going
+我们现在要做的，
+here, and what we're going
 
 71
 00:02:29,190 --> 00:02:30,780
-to be doing now in
+在第一节课，
+to be doing now, in
 
 72
 00:02:30,780 --> 00:02:32,130
+这节课，
 this first lecture or this
 
 73
 00:02:32,130 --> 00:02:33,930
-lecture in many subsequent lectures,
+和后续的许多课中要做的，
+lecture and many subsequent lectures,
 
 74
 00:02:33,930 --> 00:02:35,910
+我们将真正了解
 we're gonna really look actually how
 
 75
 00:02:35,910 --> 00:02:38,020
+接口是如何实际实现的。
 the interface is actually implemented.
 
 76
 00:02:38,220 --> 00:02:39,300
-事实上，几乎整个学期都会把时间花在弄清楚如何实现接口上，所以这将是第一堂这种风格的课。
+事实上，
 And in fact almost all of
 
 77
 00:02:39,300 --> 00:02:41,370
+几乎整个学期都会
 the semester will be spending time
 
 78
 00:02:41,370 --> 00:02:43,380
-on a figuring out actually how
+把时间花在弄清楚
+on figuring out, actually, how
 
 79
 00:02:43,380 --> 00:02:45,060
+如何实现接口上，
 to implement interface and so this
 
 80
 00:02:45,060 --> 00:02:46,080
+这节课将是
 is going to be the first
 
 81
 00:02:46,080 --> 00:02:48,380
+这类课程的开始。
 lecture of that kind of style.
 
 82
 00:02:48,590 --> 00:02:49,640
-而且，嗯，不幸的是，嗯，你知道，你们中的很多人通过电子邮件问了很多很棒的问题。
+嗯，
 And, um,
 
 83
 00:02:49,640 --> 00:02:50,780
-unfortunately, um,
+幸运的是，
+fortunately, um,
 
 84
 00:02:50,780 --> 00:02:51,650
+你们中的很多人
 you know, a lot of you
 
 85
 00:02:51,650 --> 00:02:54,660
+通过电子邮件问了很多很棒的问题。
 asking really great questions over email.
 
 86
 00:02:54,740 --> 00:02:56,960
-嗯，或者在网站上提交了一个很棒的问题，嗯，我们不能马上在这种深入了解操作系统的第一次讲座中讲到很多细节，所以我们会触及不同的东西，但是很多事情会变得更加清楚，在接下来的讲座中，我们会更深入地探索。
+或者在网站上提交了
 Um, or submitted a great question
 
 87
 00:02:56,960 --> 00:02:57,920
+一个很棒的问题，
 to the website,
 
 88
 00:02:57,920 --> 00:02:59,900
+我们不会
 um, and we won't be able
 
 89
 00:02:59,900 --> 00:03:01,580
+直接讲很多细节，
 to go into great amount of
 
 90
 00:03:01,580 --> 00:03:02,780
+在这种
 detail immediately in this sort of
 
 91
 00:03:02,780 --> 00:03:04,640
+深入了解操作系统的
 first lecture that types an inside
 
 92
 00:03:04,640 --> 00:03:05,960
+第一次课程中，
 look of the operating system,
 
 93
 00:03:05,960 --> 00:03:06,980
+我们会触及
 so we're going to touch on
 
 94
 00:03:06,980 --> 00:03:07,820
+不同的东西，
 different things,
 
 95
 00:03:07,820 --> 00:03:09,320
+但是很多事情
 but many things will become
 
 96
 00:03:09,320 --> 00:03:10,640
-more clear,
+会在接下来的课程中，
+more clear
 
 97
 00:03:10,640 --> 00:03:12,110
+变得越来越清楚，
 in subsequent lectures,
 
 98
 00:03:12,110 --> 00:03:13,190
+我们会做更深入地
 we're going to explore in
 
 99
 00:03:13,190 --> 00:03:14,060
+探索。
 more depth.
 
 100
 00:03:14,520 --> 00:03:17,010
-嗯，但是不管怎样，如果有什么不清楚的地方，你可以打断一下，问一个问题。
+但是不管怎样，
 Um, but nevertheless, if there's
 
 101
 00:03:17,010 --> 00:03:18,180
+如果有什么东西不清楚，
 something unclear,
 
 102
 00:03:18,180 --> 00:03:19,860
+可以打断我，
 feel free to interrupt and ask
 
 103
 00:03:19,860 --> 00:03:20,920
+提出问题。
 a question.
 
 104
 00:03:22,020 --> 00:03:23,940
-也许在真正深入之前，让我先问你一个问题，然后满怀希望地得到这个问题和答案，然后问你从实用实验室学到的最有趣的事情是什么。首先，我会自己回答这个问题，嗯，在写完或做完实用程序实验室后，令我惊讶的一件事是，嗯，我比以前更频繁地使用‘xargs’，我有了另一种方法来做基本上和xargs相同的事情，一组命令，在实际做了xargs实验室之后，[虽然有]以这种方式使用它要方便得多。
+也许
 And maybe just to start off
 
 105
 00:03:23,940 --> 00:03:26,700
+在真正深入之前，
 before actually going any further,
 
 106
 00:03:26,700 --> 00:03:27,930
+让我先问你们一个问题，
 let me ask you a question
 
 107
 00:03:27,930 --> 00:03:29,760
+提问
 and sort of get the question
 
 108
 00:03:29,760 --> 00:03:30,210
+并回答，
 and answering
 
 109
 00:03:30,210 --> 00:03:32,490
+我要的问题是
 hopefully going, and ask you like
 
 110
 00:03:32,490 --> 00:03:34,350
+你从 util 实验
 what is the most interesting thing
 
 111
 00:03:34,350 --> 00:03:36,260
+学到的
 that you've learned from the
 
 112
 00:03:36,330 --> 00:03:38,490
+最有趣的事情是什么。
 util lab. And, I'll
 
 113
 00:03:38,490 --> 00:03:40,350
+首先，我会自己回答这个问题，
 start by answering that question myself,
 
 114
 00:03:40,350 --> 00:03:41,790
+在完成 util 实验后，
 um, one of the things that
 
 115
 00:03:41,790 --> 00:03:44,310
+令我惊讶的一件事是，
 surprise me after writing or doing
 
 116
 00:03:44,310 --> 00:03:46,640
+我比以前更频繁地
 the util lab is that, um,
 
 117
 00:03:46,770 --> 00:03:48,390
+使用 xargs ，
 I use 'xargs' a lot more
 
 118
 00:03:48,390 --> 00:03:49,680
+我有
 frequently than I used to, I
 
 119
 00:03:49,680 --> 00:03:51,480
+其他一些方法跟 xargs 做基本相同的事情，
 had another way of doing basically
 
 120
 00:03:51,480 --> 00:03:52,800
+一组命令，
 the same thing as xargs,
 
 121
 00:03:52,800 --> 00:03:56,790
-a set of commands and after
+在
+set of commands and after
 
 122
 00:03:56,790 --> 00:03:58,230
+做了 xargs 实验之后，
 actually doing the xargs lab,
 
 123
 00:03:58,230 --> 00:03:59,550
-[while there's] has much
+xargs 更方便
+xargs has much
 
 124
 00:03:59,550 --> 00:04:00,780
+以这种方式
 more convenient actually to use it
 
 125
 00:04:00,780 --> 00:04:01,380
+使用它。
 in that way.
 
 126
 00:04:01,380 --> 00:04:02,580
-从那时起，我的意思是xargs的一个更积极的用户，我只是想知道你们中的一些人的体验是什么，也许我会叫出几个名字，也许你们可以取消麦克风的静音回答，比方说，嗯，让我们来谈谈你们使用util lab的经历。
+从那时起，
 And so since then,
 
 127
 00:04:02,580 --> 00:04:04,440
-I mean a much more aggressive
+我成为一个使用 xargs 的
+I been much more aggressive
 
 128
 00:04:04,440 --> 00:04:06,660
-user of xargs and I'm
+更积极的用户。我只是
+user of xargs. And I'm
 
 129
 00:04:06,660 --> 00:04:10,590
+想知道
 just wondering what the experience has
 
 130
 00:04:10,590 --> 00:04:12,870
+你们的收获了什么，
 been for some of you, maybe
 
 131
 00:04:12,870 --> 00:04:14,700
+我会点名提问，
 I'll call out a few names
 
 132
 00:04:14,700 --> 00:04:16,680
+你们可以取消麦克风的静音来
 and maybe you can unmute your
 
 133
 00:04:16,680 --> 00:04:18,390
+回答问题。
 microphone answer, let's say,
 
 134
 00:04:18,390 --> 00:04:20,310
+让我们来谈谈
 um, let's say a little bit
 
 135
 00:04:20,310 --> 00:04:22,600
+你们关于 util 实验的经历。
 about your experience with util lab.
 
 136
 00:04:23,350 --> 00:04:25,450
-嗯，让我挑几个人，嗯，安德鲁·你。
+我来
 Um, so let me pick
 
 137
 00:04:25,450 --> 00:04:26,170
+挑几个人，
 some people,
 
 138
 00:04:26,170 --> 00:04:27,680
+嗯， Andrew You 。
 um, Andrew You.
 
 139
 00:04:33,100 --> 00:04:35,890
-安德鲁，你在网上听吗？嗯，对我来说最有趣的就是管道，学习如何写并发程序。
+Andrew ，听到了吗？
 Andrew, are you online listening?
 
 140
 00:04:35,890 --> 00:04:37,300
+嗯，对我来说最有趣的事
 um, the most interesting thing for
 
 141
 00:04:37,300 --> 00:04:38,780
+是管道，
 me was just the pipes,
 
 142
 00:04:39,060 --> 00:04:41,000
+学习如何写并发程序。
 learn how to write concurrent programs.
 
 143
 00:04:42,080 --> 00:04:43,640
-很好，你以前做过管道编程吗？不，我没有，我见过所有并发的东西，但我以前没有见过操作系统级别的管道。
+很好，你以前
 Good, have you done any sort
 
 144
 00:04:43,640 --> 00:04:45,170
+做过管道编程吗？
 of pipe programming before?
 
 145
 00:04:45,170 --> 00:04:46,550
+不，没有，
 No, I haven't, I've
 
 146
 00:04:46,550 --> 00:04:47,780
+我见过并发的东西，
 seen the all concurrent stuff,
 
 147
 00:04:47,780 --> 00:04:48,860
+但我以前没有见过
 but I haven't seen like OS
 
 148
 00:04:48,860 --> 00:04:50,240
+操作系统级别的管道。
 level pipes before.
 
 149
 00:04:51,660 --> 00:04:53,740
-伊丽莎白·威克斯怎么样。
-How about Elizabeth Weeks.
+Elizabeth Weeks ，你觉得怎么样？
+How about Elizabeth Weeks?
 
 150
 00:04:55,360 --> 00:04:57,130
-是的，我同意这一点，我也认为操作系统管道非常有趣，就像素数一样，嗯，这个例子特别酷，我需要关闭某些管道，就像，它们之间是否有某种关联。是的，是的，我记得你确实发现犯罪的类型比，A，你可能认为这每次都会让我感到惊讶，所以每次都会有一些棘手的问题。
+是的，我同意这一点，
 Yeah, I'd agree with that I
 
 151
 00:04:57,130 --> 00:04:59,470
+我也认为操作系统管道
 also thought that the OS pipes
 
 152
 00:04:59,470 --> 00:05:00,850
+非常有趣，
 are super interesting and like the
 
 153
 00:05:00,850 --> 00:05:02,180
+同时也喜欢质数实验，
 primes, um,
 
 154
 00:05:02,450 --> 00:05:05,150
+这个例子特别酷，
 example specifically was cool to kind
 
 155
 00:05:05,150 --> 00:05:06,500
+要考虑，
 of figure out and realize that
 
 156
 00:05:06,500 --> 00:05:08,000
+我需要关闭某些管道，
 I need to close certain pipes
 
 157
 00:05:08,000 --> 00:05:08,980
+就像，
 and just like, are they kind of
 
 158
 00:05:09,560 --> 00:05:12,440
+它们之间有某种关联。是的，是的，
 related to each other. Yeah, yeah I remember
 
 159
 00:05:12,440 --> 00:05:13,760
-you did find the types of
+我记得你
+you did find the pipes of
 
 160
 00:05:13,760 --> 00:05:15,020
-crimes are a little bit harder
+发现使用管道的质数
+primes are a little bit harder
 
 161
 00:05:15,020 --> 00:05:16,180
-than, a,
+比想象的要难，
+than,
 
 162
 00:05:16,450 --> 00:05:18,970
-you might have thought this surprises
+它每次都让我感到惊讶，
+you might thought, it surprises
 
 163
 00:05:18,970 --> 00:05:20,350
-me every time a little bit
+完成它，
+me every time, a little bit
 
 164
 00:05:20,350 --> 00:05:21,540
+需要一点技巧。
 tricky to get right.
 
 165
 00:05:23,340 --> 00:05:24,620
-杰西卡·舍。
+Jessica She.
 Jessica She.
 
 166
 00:05:26,320 --> 00:05:29,170
-我也认为质数练习是最有趣的。
+我也认为质数练习
 I also thought the primes exercise
 
 167
 00:05:29,170 --> 00:05:30,800
+是最有趣的。
 was most interesting.
 
 168
 00:05:33,080 --> 00:05:33,920
-是不是花了你很多时间，还是还不算太糟。
+是不是
 Did it take you a lot
 
 169
 00:05:33,920 --> 00:05:35,090
+花了你很多时间，
 of time or was it not
 
 170
 00:05:35,090 --> 00:05:35,920
+还是还不错。
 too bad.
 
 171
 00:05:36,610 --> 00:05:40,690
-嗯，在我意识到我最初的实现实际上不是并行的之后，我花了更多的时间，所以想一想，有什么不同是很有趣的。
+在我意识到，
 Um, it took me more time
 
 172
 00:05:40,690 --> 00:05:42,370
+我最初的实现不是并行的之后，
 after I realized my initial implementation
 
 173
 00:05:42,370 --> 00:05:44,110
+我花了更多的时间，
 wasn't actually concurrent so it's interesting
 
 174
 00:05:44,110 --> 00:05:45,280
+所以思考有什么不同
 to think about like,
 
 175
 00:05:45,520 --> 00:05:47,040
+是很有趣的。
 what the differences are there.
 
 176
 00:05:47,750 --> 00:05:50,580
-好吧，罗伯特·墨菲怎么样。
-Okay, how about Robert Murphy.
+好的， Robert Murphy ？
+Okay, how about Robert Murphy?
 
 177
 00:05:53,970 --> 00:05:56,180
-是的，我认为，我的经验是，我发现用原来的方式编程真的很有挑战性，它是这样设置的，所以我实际上创建了一系列围绕着东西的助手函数，所以我猜这就是我所做的。
+我认为，
 Yeah, I think that, the,
 
 178
 00:05:56,660 --> 00:05:59,720
+我的体验是，
 my experience was really just, I
 
 179
 00:05:59,720 --> 00:06:01,730
+我发现用原始的方式编程
 found it really challenging to program
 
 180
 00:06:01,730 --> 00:06:03,680
+真的很有挑战性，
 in the original way,
 
 181
 00:06:03,680 --> 00:06:04,370
+它们很初级，
 it was set up so I
 
 182
 00:06:04,370 --> 00:06:05,660
+所以我实际上创建了一系列
 actually created a bunch of helper
 
 183
 00:06:05,660 --> 00:06:07,400
+围绕它们的帮助函数，
 functions that wrapped around things,
 
 184
 00:06:08,290 --> 00:06:09,580
+这就是
 So that's I guess what
 
 185
 00:06:09,580 --> 00:06:10,120
+我所做的。
 I did.
 
 186
 00:06:13,730 --> 00:06:15,530
-好的，有任何想法的人都有任何智慧。
+好的，还有人
 Ok, any idea who have sort of
 
 187
 00:06:15,530 --> 00:06:17,760
-any piece of wisdom.
+有什么好想法吗？
+any piece of wisdom?
 
 188
 00:06:18,000 --> 00:06:20,730
-阿曼达，说吧。我有点喜欢它，并且发现令人惊讶的是劈开很酷，标准输入和标准输出本身就是0和1的经文。
+Amanda ，说吧。
 Amanda, go ahead. I kind
 
 189
 00:06:20,730 --> 00:06:21,540
+我喜欢
 of liked it and found it
 
 190
 00:06:21,540 --> 00:06:24,630
-surprising slash cool that stdin
+并且发现它很酷，
+surprising such cool, that stdin
 
 191
 00:06:24,630 --> 00:06:26,730
-and stdout are just filed
+标准输入和标准输出
+and stdout are just file
 
 192
 00:06:26,730 --> 00:06:28,740
-scriptures themselves 0 and 1.
+用文件描述符 0 1 来表示。
+descriptors themselves 0 and 1.
 
 193
 00:06:28,830 --> 00:06:29,780
@@ -812,1483 +965,1782 @@ Yeah yeah.
 
 194
 00:06:30,140 --> 00:06:31,250
-很好，嗯，至少在普通的C库中，xv6一点都没有对你隐藏这一点，这有点包裹在，嗯，在一个接口中，但是，xv6没有为你隐藏它，但是最终它确实归结为只知道文件描述符0，1和2，我猜是标准错误的。
+很好，
 Good,
 
 195
 00:06:31,250 --> 00:06:33,050
+xv6 完全没有
 yeah xv6 doesn't hide that from
 
 196
 00:06:33,050 --> 00:06:33,740
+隐藏这个，
 you at all,
 
 197
 00:06:33,740 --> 00:06:35,540
+至少在
 um, at least in a normal C
 
 198
 00:06:35,540 --> 00:06:36,230
+C 标准库中，
 library,
 
 199
 00:06:36,230 --> 00:06:37,160
+它对接口
 that's a little bit wrapped up
 
 200
 00:06:37,160 --> 00:06:37,880
-in a,
+做了
+in,
 
 201
 00:06:38,000 --> 00:06:40,280
+一些封装，
 um, in an interface,
 
 202
 00:06:40,280 --> 00:06:42,650
+但是， xv6 没有隐藏它，
 but, um xv6 doesn't hide it for you,
 
 203
 00:06:42,650 --> 00:06:43,520
+而是最终它
 but in the end it boils
 
 204
 00:06:43,520 --> 00:06:45,200
+确实归结为
 down indeed to know just file
 
 205
 00:06:45,200 --> 00:06:46,760
+文件描述符 0 1 和 2 ，
 descriptor 0 1 and 2 I
 
 206
 00:06:46,760 --> 00:06:47,840
+2 是标准错误。
 guess for standard error.
 
 207
 00:06:53,900 --> 00:06:55,190
-很好，亚历山大。嗯，我想，嗯，还有一件让我吃惊的事情，也来自于素数问题。
+很好， Alexander 。嗯，我想，
 Good, Alexander. Um, I guess,
 
 208
 00:06:55,190 --> 00:06:57,320
+让我感觉
 um, one thing I was surprised
 
 209
 00:06:57,320 --> 00:06:59,120
+惊讶的，
 about was also from the
 
 210
 00:06:59,120 --> 00:07:01,300
-primes problem.
+也是质数问题。
+prime problem.
 
 211
 00:07:02,920 --> 00:07:04,600
-我有一个花了几个小时的错误，问题是我没有意识到，实际上每当你打开管道，然后就像调用fork，那么基本上它们在管道的末端之前，因为那个管道有点像是既通向子进程，又通向父进程的进程。
+有一个 bug
 I had this bug that I
 
 212
 00:07:04,600 --> 00:07:06,910
+我花了几个小时的时间，
 spent hours on and the thing
 
 213
 00:07:06,910 --> 00:07:08,500
+这个 bug 是我没有意识到，
 was that I didn't realize that
 
 214
 00:07:08,500 --> 00:07:11,380
+每当你打开
 actually they were whenever you were
 
 215
 00:07:14,050 --> 00:07:15,970
+一个管道，
 opening a pipe and then for
 
 216
 00:07:15,970 --> 00:07:18,670
+然后调用 fork ，
 like calling fork then basically they
 
 217
 00:07:18,670 --> 00:07:20,060
-were before,
+那么这个管道
+were be four
 
 218
 00:07:20,260 --> 00:07:22,600
-um, ends to the pipe because
+就有了 4 个末端，
+ends to the pipe, because
 
 219
 00:07:22,600 --> 00:07:24,760
+因为那个管道
 that pipe is kind of a
 
 220
 00:07:24,760 --> 00:07:26,740
+既通向子进程，
 goes both to the child process
 
 221
 00:07:26,740 --> 00:07:28,760
-and the process the parent process.
+又通向父进程，
+and the process the parent process,
 
 222
 00:07:29,080 --> 00:07:30,550
-但是我只关闭了其中的两个。
-And but I was only closing
+但是我只关闭了
+but I was only closing
 
 223
 00:07:30,550 --> 00:07:32,640
+其中的两个。
 two of those.
 
 224
 00:07:33,010 --> 00:07:33,490
-所以，是的，这是一个非常普遍的问题。
+是的，
 So, yeah,
 
 225
 00:07:33,490 --> 00:07:36,940
+这是一个非常普遍的问题。
 that was a common, common problem.
 
 226
 00:07:36,940 --> 00:07:38,140
-这是有道理的，但出于某些原因，特别是教科书上说，当你分叉时，所有打开的文件描述符都会被复制，但我没有考虑到这一点。是的，很难，我的意思是，在那个界面里有很多细节，你知道唯一真正熟悉它的方法，体验它。
-It made sense,
+这是有道理的，
+It made sense
 
 227
 00:07:38,140 --> 00:07:39,280
+但因为某些原因，
 but for some reason,
 
 228
 00:07:39,280 --> 00:07:42,190
+特别是教科书上写到，
 because especially the textbook says that
 
 229
 00:07:42,190 --> 00:07:44,920
+当你使用 fork ，
 when you fork, all of
 
 230
 00:07:44,920 --> 00:07:47,340
+所有打开的文件描述符都会被复制，
 the open file descriptors get copied,
 
 231
 00:07:47,440 --> 00:07:49,960
+但我没有考虑到这一点。是的，
 but I didn't think about it that. Yeah,
 
 232
 00:07:49,960 --> 00:07:50,620
+很难，我的意思是，
 it's hard to I mean
 
 233
 00:07:50,620 --> 00:07:51,370
+在那个接口中
 there's a lot of details
 
 234
 00:07:51,370 --> 00:07:52,000
+有很多细节，
 in that interface,
 
 235
 00:07:52,000 --> 00:07:52,840
+唯一真正
 and you know the only way
 
 236
 00:07:52,840 --> 00:07:54,460
+熟悉它的方法，
 to get actually really familiar with
 
 237
 00:07:54,460 --> 00:07:56,200
+是用它来编程，
 actually the program with it,
 
 238
 00:07:56,940 --> 00:07:58,320
+实际使用它。
 experience it.
 
 239
 00:07:58,880 --> 00:07:59,750
-很好，我希望你喜欢这个实验，嗯，当然我也希望你喜欢后面的实验，所以今天的课程，从某种意义上说，部分是为了帮助你开始使用SysCall实验室，如果你还没有开始，那么你可以自由地打断并提出问题。
+很好，
 Good good,
 
 240
 00:07:59,750 --> 00:08:00,770
+我希望你喜欢
 well, I hope you enjoyed
 
 241
 00:08:00,770 --> 00:08:01,400
+这个实验，
 the lab,
 
 242
 00:08:01,400 --> 00:08:02,360
+嗯，
 um, and,
 
 243
 00:08:02,360 --> 00:08:03,290
+当然我也希望
 of course I hope you enjoy
 
 244
 00:08:03,290 --> 00:08:04,640
+你喜欢后面的实验，
 the subsequent labs too,
 
 245
 00:08:04,640 --> 00:08:05,600
+所以今天的课程，
 so the lecture for today,
 
 246
 00:08:05,600 --> 00:08:06,800
+从某种意义上说，
 in some sense is really you
 
 247
 00:08:06,800 --> 00:08:08,510
+部分内容是为了帮助你
 know partially to help you to
 
 248
 00:08:08,510 --> 00:08:12,230
+开始 syscall 实验，
 get going on the syscall lab,
 
 249
 00:08:12,230 --> 00:08:13,790
-if you haven't already started and
+如果你还没有开始。
+if you haven't already started. And
 
 250
 00:08:13,790 --> 00:08:14,480
+再说一次，
 so again,
 
 251
 00:08:14,480 --> 00:08:15,980
+你可以随时打断我
 you feel free to interrupt
 
 252
 00:08:15,980 --> 00:08:16,980
+并提出问题。
 and ask questions.
 
 253
 00:08:17,550 --> 00:08:18,780
-好的，我想做的第一件事是，稍微谈一下隔离，嗯，你知道为什么它很重要，为什么我们可能会关心，你知道基本的故事是合理简单的，你知道我们有多个应用程序，在这里，我们得到了shell，我们找到了回声，它会很棒[正确]，如果你的shell中有一个bug，或者你的primes程序中的例子，这实际上不会影响任何其他应用程序，特别是如果它影响了shell，例如，如果它影响到shell，因为可能是您用来实际杀死的shell，这将是非常[正确的]，如果你的shell中有bug或者primes程序中的示例，这实际上不会影响任何其他应用程序，特别是如果它影响了shell，因为可能是您用来实际杀死的shell
+好的，我想做的
 Okay, so the first thing I
 
 254
 00:08:18,780 --> 00:08:21,720
+第一件事是，
 want to do is,
 
 255
 00:08:22,000 --> 00:08:23,500
+讲一下
 talk a little bit
 
 256
 00:08:23,500 --> 00:08:25,210
+隔离，
 about isolation,
 
 257
 00:08:25,210 --> 00:08:26,770
+你知道为什么它很重要，
 um, and you know why it's
 
 258
 00:08:26,770 --> 00:08:29,290
+为什么我们会关心，
 important and why we might care,
 
 259
 00:08:29,290 --> 00:08:30,820
+基本的描述是
 you know the basic stories are
 
 260
 00:08:30,820 --> 00:08:32,050
+很简单的，
 reasonable simple,
 
 261
 00:08:32,050 --> 00:08:33,490
+你知道我们有多个应用程序，
 you know we have multiple applications,
 
 262
 00:08:33,490 --> 00:08:34,420
-here, we got the shell,
+我们有 shell ，
+we got the shell,
 
 263
 00:08:34,420 --> 00:08:36,130
-the echo we find and it'll
+echo find ，
+the echo find and it'll
 
 264
 00:08:36,130 --> 00:08:37,060
-be great [correct],
+它必须正确，
+be great correct,
 
 265
 00:08:37,060 --> 00:08:37,990
+如果你的 shell 中有一个bug，
 if you had a bug in
 
 266
 00:08:37,990 --> 00:08:39,550
+或者你的
 the shell or example in your
 
 267
 00:08:39,550 --> 00:08:40,720
-primes program,
+prime 程序，
+prime program,
 
 268
 00:08:40,720 --> 00:08:42,250
+这不会影响
 that actually didn't affect any
 
 269
 00:08:42,250 --> 00:08:43,450
+任何其他应用程序，
 of the other applications,
 
 270
 00:08:43,450 --> 00:08:44,740
+特别是如果影响了 shell
 particularly it would be bad, for
 
 271
 00:08:44,740 --> 00:08:46,030
+会有很坏的结果，
 example if it affected the shell
 
 272
 00:08:46,030 --> 00:08:47,620
+因为当事情变坏时，
 because probably the shell you're using
 
 273
 00:08:47,620 --> 00:08:49,240
+shell 可能
 to actually kill the program,
 
 274
 00:08:49,240 --> 00:08:50,420
+会终止这个程序。
 if something goes bad.
 
 275
 00:08:50,960 --> 00:08:53,240
-因此，您需要在这些不同的应用程序之间进行某种程度上的强隔离。
+因此，你需要在这些不同的应用程序之间
 So you want sort of strong isolation
 
 276
 00:08:53,240 --> 00:08:55,480
+进行某种程度上的强隔离。
 between these different applications.
 
 277
 00:08:55,870 --> 00:08:58,000
-A类似地，你知道操作系统在某种程度上是所有应用程序的仆人，嗯，现在你会希望情况是这样的，如果你知道你在你的某个实用程序中制造了一个错误，实际上操作系统不会崩溃，除非你把一些奇怪的参数传递给操作系统，否则你应该是操作系统处理得很好的情况。
-A similarly you know the OS
+类似地，你知道
+Similarly you know the OS
 
 278
 00:08:58,000 --> 00:08:59,470
+操作系统为
 is sort of a servant for
 
 279
 00:08:59,470 --> 00:09:00,730
+所有应用程序服务，
 all the applications,
 
 280
 00:09:00,730 --> 00:09:01,960
+你会希望情况
 um, and you would like it
 
 281
 00:09:01,960 --> 00:09:02,920
-to be the case now you
+是这样的，
+to be the case, you
 
 282
 00:09:02,920 --> 00:09:04,660
-know if you know you make
+如果你在某个 util 程序中
+know, if, you know you make
 
 283
 00:09:04,660 --> 00:09:05,710
+存在一个 bug ，
 a bug in one of your
 
 284
 00:09:05,710 --> 00:09:07,270
+实际上操作系统不会崩溃，
 util programs, that actually the operating
 
 285
 00:09:07,270 --> 00:09:09,280
+除非
 system doesn't crash, until you pass some
 
 286
 00:09:09,280 --> 00:09:11,590
+你把一些奇怪的参数传递给操作系统，
 strange argument to the operating system,
 
 287
 00:09:11,590 --> 00:09:12,670
+否则操作系统会
 you should be the case that
 
 288
 00:09:12,670 --> 00:09:14,440
+处理得很好。
 the operating system handles that well.
 
 289
 00:09:14,720 --> 00:09:15,920
-因此，我们再次希望在那里，嗯，应用程序和操作系统本身之间进行强有力的隔离。
+因此，我们希望，
 And so again we would like
 
 290
 00:09:15,920 --> 00:09:16,520
+应用程序和
 to be there,
 
 291
 00:09:16,520 --> 00:09:19,540
+操作系统之间
 strong isolation between,
 
 292
 00:09:19,730 --> 00:09:22,910
+进行
 um, the applications and the operating
 
 293
 00:09:22,910 --> 00:09:23,900
+强隔离。
 system itself.
 
 294
 00:09:24,400 --> 00:09:25,960
-嗯，稍微考虑一下这个问题的一种方式是问我们自己一个问题，你知道如果实际上没有操作系统会发生什么，所以你知道考虑一些草人设计，设计，没有操作系统。
+思考这个问题的
 Um, and one way to think
 
 295
 00:09:25,960 --> 00:09:26,920
-about this a little bit is
+一种方式是，
+about this, a little bit is
 
 296
 00:09:26,920 --> 00:09:28,450
-to say is ask ourselves the
+问我们
+to say, is ask ourselves the
 
 297
 00:09:28,450 --> 00:09:30,520
+自己一个问题，
 question you know what would happen
 
 298
 00:09:30,520 --> 00:09:32,830
-if there's actually no operating system
+如果没有操作系统会发生什么，
+if there's actually no operating system,
 
 299
 00:09:32,830 --> 00:09:34,480
+所以考虑一些
 so you know consider some
 
 300
 00:09:34,480 --> 00:09:36,300
-Strawman design, design,
+strawman 设计，
+strawman design, design,
 
 301
 00:09:41,670 --> 00:09:43,120
+它没有操作系统。
 there is no operating system.
 
 302
 00:09:45,400 --> 00:09:46,390
-或者你可以把它想象成操作系统是[]，仅仅是一个库，你知道从Python的角度考虑，可能只是导入操作系统，然后导入操作系统基本上会在你的应用程序中加载整个操作系统，这就是你使用的编程接口。
+或者你可以把
 Or you could think about it
 
 303
 00:09:46,390 --> 00:09:47,890
+它想象成操作系统是 [] ，
 as the operating system is [],
 
 304
 00:09:47,890 --> 00:09:49,420
+仅仅是一个库，
 just being a library,
 
 305
 00:09:49,420 --> 00:09:50,440
+你知道类似从
 you know sort of thinking about
 
 306
 00:09:50,440 --> 00:09:52,120
+python 的角度考虑，
 in terms of python,
 
 307
 00:09:52,120 --> 00:09:53,860
+可能只是导入操作系统，
 maybe just import OS,
 
 308
 00:09:53,860 --> 00:09:55,360
+导入操作系统就是
 and import OS basically loads
 
 309
 00:09:55,360 --> 00:09:57,130
+会在你的应用程序中
 the whole operating system inside
 
 310
 00:09:57,130 --> 00:09:58,870
+加载整个操作系统，
 of your application and that's
 
 311
 00:09:58,870 --> 00:09:59,980
+然后这就是
 then the programming interface,
 
 312
 00:09:59,980 --> 00:10:01,180
+你使用的编程接口。
 you use.
 
 313
 00:10:01,720 --> 00:10:02,770
-所以你可以这样想，假设我们这里有shell，你知道，它可能包括操作系统的库，现在我们可能有一些其他的应用程序回应。
+所以
 And so you think about
 
 314
 00:10:02,770 --> 00:10:04,150
+你可以这样想，
 that sort of way of
 
 315
 00:10:04,150 --> 00:10:05,230
+假设
 thinking so let's say we
 
 316
 00:10:05,230 --> 00:10:06,460
+我们有 shell ，
 have shell here,
 
 317
 00:10:06,460 --> 00:10:06,670
+你知道，
 you know,
 
 318
 00:10:06,670 --> 00:10:09,790
+它可能包括
 maybe it includes the library for
 
 319
 00:10:09,790 --> 00:10:11,830
-the OS and now maybe we
+操作系统的库，可能有一些
+the OS and maybe we
 
 320
 00:10:11,830 --> 00:10:14,000
+其他的应用程序 echo 。
 have some other application echo.
 
 321
 00:10:14,490 --> 00:10:16,260
-嗯，然后基本上你知道这些应用程序。
+然后你知道
 Um, and then basically you know
 
 322
 00:10:16,260 --> 00:10:18,080
-these applications.
+这些应用程序，
+these applications,
 
 323
 00:10:18,180 --> 00:10:20,520
-如果真的没有操作系统，就会直接与硬件交互。
-If there's no operating system really,
+如果没有操作系统，
+if there's no operating system really,
 
 324
 00:10:20,520 --> 00:10:22,720
+它们就会直接与硬件交互。
 would directly interact with the hardware.
 
 325
 00:10:23,200 --> 00:10:23,920
-例如，你知道他们实际上会看到，你知道有一个CPU核心，还有另一个CPU核心。
+例如，
 For example,
 
 326
 00:10:23,920 --> 00:10:25,360
+它们实际上会看到，
 you know they would actually see
 
 327
 00:10:25,360 --> 00:10:26,860
+这有一个 CPU 内核，
 you know there's a CPU core
 
 328
 00:10:26,860 --> 00:10:28,600
+这还有另一个 CPU 内核。
 there's another CPU core.
 
 329
 00:10:28,840 --> 00:10:30,340
-嗯，你知道，也许有一个磁盘，然后我们直接与磁盘块交互，也许还有内存，它们直接与机器的内存交互。
+你知道，
 Um, and you know maybe there's
 
 330
 00:10:30,340 --> 00:10:31,780
+这有一个磁盘，
 a disk and then we interact
 
 331
 00:10:31,780 --> 00:10:33,070
+然后我们直接与磁盘块交互，
 directly with the disk blocks, and
 
 332
 00:10:33,070 --> 00:10:34,450
+还有内存，
 maybe there's memory and they were
 
 333
 00:10:34,450 --> 00:10:35,860
+然后它们直接与
 directly interact with the memory of
 
 334
 00:10:35,860 --> 00:10:36,600
+机器的内存交互。
 the machine.
 
 335
 00:10:37,380 --> 00:10:39,090
-嗯，所以基本上应用程序和硬件之间没有层，基本上应用程序和硬件之间没有抽象层，而且事实证明，这不是一个很好的设计，嗯，用于隔离。
+所以应用程序和
 Um, and so there's no layer
 
 336
 00:10:39,090 --> 00:10:41,730
+硬件之间没有中间层，
 between, no abstraction layer between basically
 
 337
 00:10:41,730 --> 00:10:42,780
+没有抽象层，
 the applications
 
 338
 00:10:42,780 --> 00:10:45,480
+而且
 and the hardware, and it
 
 339
 00:10:45,480 --> 00:10:47,040
+事实证明
 turns out that it's just not
 
 340
 00:10:47,040 --> 00:10:48,420
+在隔离方面，
 such a great design,
 
 341
 00:10:48,420 --> 00:10:51,100
+这不是一个好设计。
 um, for isolation.
 
 342
 00:10:51,540 --> 00:10:52,860
-您可以看到隔离是如何被打破的，例如，假设您知道其中一个目标，操作系统运行多个应用程序。
+你可以看到
 And you can see how isolation
 
 343
 00:10:52,860 --> 00:10:54,000
+隔离是如何被打破的，
 might be broken,
 
 344
 00:10:54,000 --> 00:10:56,070
+例如，
 let's assume for example that you
 
 345
 00:10:56,070 --> 00:10:57,240
-know one of the goal,
+你知道操作系统
+know one of the goal of
 
 346
 00:10:57,240 --> 00:10:58,890
+的一个目标
 operating system is run
 
 347
 00:10:58,890 --> 00:11:00,320
+就是运行多个应用程序。
 multiple applications.
 
 348
 00:11:00,330 --> 00:11:01,020
-所以，一定会有这样的情况，它偶尔会从一个应用程序切换到另一个应用程序，比方说硬件只有一个CPU，所以我们运行外壳程序，比如说一个CPU，但是它们周期性地在其他应用程序中应该能够运行。
+所以，
 And so,
 
 349
 00:11:01,020 --> 00:11:02,100
+一定会有这样的情况，
 there has to be the case
 
 350
 00:11:02,100 --> 00:11:03,270
+每隔一段时间，
 that once in a while,
 
 351
 00:11:03,270 --> 00:11:05,010
+它会从一个应用程序切换到
 it will switch from one application
 
 352
 00:11:05,010 --> 00:11:05,910
+另一个应用程序，
 to another application,
 
 353
 00:11:05,910 --> 00:11:07,320
+假设硬件只有一个 CPU ，
 let's say the hardware has only
 
 354
 00:11:07,320 --> 00:11:09,660
+我们运行
 one CPU and so we're running
 
 355
 00:11:09,660 --> 00:11:11,490
+shell 程序，
 the shell say about one CPU,
 
 356
 00:11:11,490 --> 00:11:12,720
+但是
 but they are periodically in
 
 357
 00:11:12,720 --> 00:11:13,890
+其他应用程序应该
 other applications should be able
 
 358
 00:11:13,890 --> 00:11:14,720
+能够周期性运行。
 to run to.
 
 359
 00:11:15,520 --> 00:11:17,470
-嗯，我们没有操作系统可以为我们做，那么外壳程序基本上不得不放弃，你知道偶尔会有CPU。
+如果没有操作系统
 Well, we have no operating system
 
 360
 00:11:17,470 --> 00:11:18,670
+为我们做这些，
 to do for us,
 
 361
 00:11:18,670 --> 00:11:20,140
+那么 shell 程序
 then the shell basically has to
 
 362
 00:11:20,140 --> 00:11:20,650
+必须
 give up,
 
 363
 00:11:20,650 --> 00:11:21,600
+每隔一段时间
 you know the
 
 364
 00:11:21,630 --> 00:11:23,080
+主动放弃 CPU 。
 CPU once in a while.
 
 365
 00:11:24,220 --> 00:11:25,060
-做个好人，说我跑了一段时间，你就有机会跑了，这就是所谓的合作日程安排。
+像是一个好人，
 And sort of be a nice
 
 366
 00:11:25,060 --> 00:11:27,190
+懂得我已经运行了
 person, and say well I've run
 
 367
 00:11:27,190 --> 00:11:28,360
+一段时间，
 for a little while, you get
 
 368
 00:11:28,360 --> 00:11:29,560
-a chance to run and there's
+现在你有机会运行了，
+chance to run and there's
 
 369
 00:11:29,560 --> 00:11:31,420
+这就是所谓的协作式调度。
 something just called cooperative scheduling.
 
 370
 00:11:31,840 --> 00:11:33,550
-嗯，但是它不是很适合隔离，比如说，如果外壳中的某个函数有一个无限循环，那么它实际上永远不会放弃CPU。
+但是它不是
 Um, but it's not so great
 
 371
 00:11:33,550 --> 00:11:34,540
+很适合隔离，
 for isolation,
 
 372
 00:11:34,540 --> 00:11:35,140
+例如，
 for example,
 
 373
 00:11:35,140 --> 00:11:37,150
+如果 shell 中的某个函数
 what if some function in the
 
 374
 00:11:37,150 --> 00:11:38,920
+有一个无限循环，
 shell has an infinite loop,
 
 375
 00:11:38,920 --> 00:11:40,690
+那么它实际上
 and therefore it will never actually
 
 376
 00:11:40,690 --> 00:11:41,720
+永远不会放弃 CPU 。
 give up the CPU.
 
 377
 00:11:41,880 --> 00:11:42,210
-然后，其他任何应用程序都不能运行，可能包括想要停止或终止外壳的应用程序。
+然后，
 And then,
 
 378
 00:11:42,210 --> 00:11:44,310
+其他任何应用程序都不能运行，
 no other applications could run
 
 379
 00:11:44,310 --> 00:11:46,110
+包括想要停止或终止
 including maybe the application that would
 
 380
 00:11:46,110 --> 00:11:48,140
+shell 的应用程序。
 like stop or kill the shell.
 
 381
 00:11:48,580 --> 00:11:49,300
-所以，嗯，我们基本上没有得到任何形式的强制多路复用。
+所以，
 And so,
 
 382
 00:11:49,300 --> 00:11:50,860
+我们没有得到
 um, we basically don't get
 
 383
 00:11:50,860 --> 00:11:51,940
+任何形式的
 any sort of form of
 
 384
 00:11:51,940 --> 00:11:53,680
+强制复用。
 enforced multiplexing.
 
 385
 00:11:54,090 --> 00:11:55,350
-这是我们想要的，在这种情况下，无论应用程序做什么，它都会偶尔被迫放弃CPU，这就是其他应用程序会上升的情况。
+这才是我们想要的，
 That's something that we'd like to
 
 386
 00:11:55,350 --> 00:11:57,420
+在这种情况下，
 have, where no matter what the
 
 387
 00:11:57,420 --> 00:11:59,640
+无论应用程序做什么，
 application does, it will be forced
 
 388
 00:11:59,640 --> 00:12:00,810
+它都会偶尔
 to give up the CPU once
 
 389
 00:12:00,810 --> 00:12:01,500
+被迫放弃 CPU ，
 in a while,
 
 390
 00:12:01,500 --> 00:12:03,540
+这时其他应用程序可以运行。
 that's what other applications go up.
 
 391
 00:12:04,760 --> 00:12:06,260
-类似地，如果你考虑一下这个戏剧性的事件和设计，你知道我们有一个物理内存，我在这里画了一张图，所以应用程序位于硬件的顶部，但你知道有物理内存，基本上在代码中检测到这些应用程序的数据实际上位于物理内存中，这是一个巨大的内存。
+类似地，
 Similarly, if you think about this
 
 392
 00:12:06,260 --> 00:12:08,660
-drama and design, you know
+考虑这个 strawman 设计，
+strawman design, you know
 
 393
 00:12:08,660 --> 00:12:10,820
+我们有一个物理内存，
 we have there's a physical memory
 
 394
 00:12:10,820 --> 00:12:12,260
+我在这里
 right and all I drew a
 
 395
 00:12:12,260 --> 00:12:13,250
+画了一张图，
 picture here,
 
 396
 00:12:13,250 --> 00:12:14,390
+应用程序位于
 so the application sitting on the
 
 397
 00:12:14,390 --> 00:12:15,350
+硬件的上一层，
 top of the hardware,
 
 398
 00:12:15,350 --> 00:12:17,630
+但你知道有物理内存，
 but you know there's physical memory
 
 399
 00:12:17,630 --> 00:12:19,700
-and basically detects in the code
+代码文本和
+and basically text in the code
 
 400
 00:12:19,700 --> 00:12:21,290
+应用程序数据
 and the data for these applications
 
 401
 00:12:21,290 --> 00:12:22,910
+实际上位于物理内存中，
 actually sits in the physical memory,
 
 402
 00:12:22,910 --> 00:12:24,000
-it's a huge memory.
+这是一个常用的内存。
+it's a usual memory.
 
 403
 00:12:24,730 --> 00:12:27,190
-这可能是外壳使用的物理内存部分，这可能是ECHO应用程序使用的物理内存的一部分。
+这可能是
 And here's maybe you know the
 
 404
 00:12:27,190 --> 00:12:28,120
+shell 使用的
 part of physical memory,
 
 405
 00:12:28,120 --> 00:12:29,620
+物理内存部分，
 that's used by the shell,
 
 406
 00:12:29,620 --> 00:12:30,700
+这可能是 echo
 here's maybe a part of
 
 407
 00:12:30,700 --> 00:12:32,050
+使用的
 a physical memory that's used
 
 408
 00:12:32,050 --> 00:12:34,040
+物理内存部分。
 by echo application.
 
 409
 00:12:34,760 --> 00:12:36,890
-所以你会再次看到这里所看到的，如果你想简单地像这样，嗯，那里肯定知道这两个人之间的界限。
+所以你会再次看到
 And so you're going to again
 
 410
 00:12:36,890 --> 00:12:37,760
+这里所看到的，
 what was see here,
 
 411
 00:12:37,760 --> 00:12:39,860
+如果你想简单地
 if you'd like simply simplistically
 
 412
 00:12:39,860 --> 00:12:40,670
+像这样，
 like this,
 
 413
 00:12:40,670 --> 00:12:44,150
-um, there sure know a boundary
+在它们之间
+um, there sure no boundary
 
 414
 00:12:44,150 --> 00:12:45,960
+没有明确的界限。
 between these two guys.
 
 415
 00:12:46,150 --> 00:12:46,810
-例如，如果echo通过location进行存储，则该示例属于位置为1000的类似shell的位置，并在那里写入值。
+例如，
 For example,
 
 416
 00:12:46,810 --> 00:12:48,480
+如果 echo
 if echo
 
 417
 00:12:49,110 --> 00:12:51,900
-stores through location, the example belongs
+访问这个位置，
+store to location, the example belongs
 
 418
 00:12:51,900 --> 00:12:54,540
+这个位于 1000 的属于 shell 的位置，
 to shell like location at 1000
 
 419
 00:12:54,540 --> 00:12:56,240
+并在那里写入值。
 and writes value there.
 
 420
 00:12:56,410 --> 00:12:56,620
-您知道，无论“x”是什么，它只会覆盖外壳内存的物理内存。
+您知道，
 You know,
 
 421
 00:12:56,620 --> 00:12:58,540
+无论什么，比如 "x" ，
 whatever "x", then it will
 
 422
 00:12:58,540 --> 00:13:00,310
+它会覆盖属于 shell 的
 just overwrite the physical memory of
 
 423
 00:13:00,310 --> 00:13:02,080
+物理内存。
 the shell memory.
 
 424
 00:13:02,380 --> 00:13:03,280
-所以你知道这是非常不受欢迎的，因为然后一个bug，你知道ECHO实际上可能会渗透到外壳中，你知道调试这类东西会非常棘手，所以这基本上再一次，给我们带来了不太强的隔离。
+你知道这是
 And so that you know be
 
 425
 00:13:03,280 --> 00:13:05,410
-pretty undesirable, because then a bug,
+非常错误的，因为有了一个 bug ，
+pretty undesirable, because there's a bug,
 
 426
 00:13:05,410 --> 00:13:07,030
+你知道 echo 实际上
 you know echo could actually percolate
 
 427
 00:13:07,030 --> 00:13:08,740
+可能会渗透到 shell 中，
 into the shell and you know
 
 428
 00:13:08,740 --> 00:13:09,790
+调试这类东西会
 it's gonna be very tricky to
 
 429
 00:13:09,790 --> 00:13:10,900
+非常困难，
 debug that kind of stuff, and
 
 430
 00:13:10,900 --> 00:13:12,550
+所以这再一次，
 so this basically again, gives us
 
 431
 00:13:12,550 --> 00:13:14,840
+给我们的没有强隔离。
 like no strong isolation.
 
 432
 00:13:15,350 --> 00:13:16,800
-我们喜欢的是内存隔离，这样一个应用程序就不能覆盖另一个应用程序的内存。
+我们喜欢的是
 What we like is
 
 433
 00:13:17,600 --> 00:13:19,700
+有内存隔离，
 to have a memory isolation,
 
 434
 00:13:19,700 --> 00:13:22,430
+这样一个应用程序就不能
 so that one application cannot overwrite
 
 435
 00:13:22,430 --> 00:13:25,500
+覆盖另一个应用程序的内存。
 means, memory of another application.
 
 436
 00:13:26,190 --> 00:13:28,100
-嗯，所以你知道，一个原因，你知道，我的意思是，可能真正拥有操作系统的主要原因基本上是为了同时加强多路复用，加强你知道的，强内存隔离。
+嗯，
 Um,
 
 437
 00:13:28,640 --> 00:13:30,410
+所以你知道，
 and so you know,
 
 438
 00:13:30,410 --> 00:13:32,510
+一个原因，
 one reason, you know I mean, probably the
 
 439
 00:13:32,510 --> 00:13:33,890
+一个需要操作系统的
 main reason to actually have an
 
 440
 00:13:33,890 --> 00:13:36,380
+主要原因可能是
 operating system is basically to enforce
 
 441
 00:13:36,380 --> 00:13:39,860
+在复用的同时，
 both multiplexing, enforce you know,
 
 442
 00:13:39,860 --> 00:13:41,380
+具有强内存隔离。
 strong memory isolation.
 
 443
 00:13:41,520 --> 00:13:42,390
-如果您没有操作系统，并且应用程序直接与硬件交互，这将很难实现。
+如果你没有
 If you didn't have an
 
 444
 00:13:42,390 --> 00:13:43,800
+操作系统，
 operating system and the applications are
 
 445
 00:13:43,800 --> 00:13:45,690
+并且应用程序直接与硬件交互，
 directly interacting with the hardware that
 
 446
 00:13:45,690 --> 00:13:47,200
+这将很难实现。
 would be very hard to achieve.
 
 447
 00:13:48,050 --> 00:13:50,390
-因此，这种将操作系统设计为库的设计并不是非常常见的设计，您可能会看到一些实时系统中，应用程序基本上相互信任，但在大多数其他操作系统中，您知道有一个操作系统真正强制实施这种隔离。
+因此，这种将操作系统
 So this design of basically operating
 
 448
 00:13:50,390 --> 00:13:52,040
+设计成库的设计
 system as a library is not
 
 449
 00:13:52,040 --> 00:13:53,120
+并不是非常常见的设计，
 a very common design,
 
 450
 00:13:53,120 --> 00:13:54,440
+你可能会在一些实时系统中，
 you may see things some real-time
 
 451
 00:13:54,440 --> 00:13:56,960
+应用程序之间相互信任的情况下看到，
 systems where basically applications trust each
 
 452
 00:13:56,960 --> 00:13:59,030
+但在大多数其他
 other, but in most other
 
 453
 00:13:59,030 --> 00:14:00,110
+操作系统中，
 operating systems,
 
 454
 00:14:00,110 --> 00:14:01,400
+有一个操作系统
 you know there's an operating system
 
 455
 00:14:01,400 --> 00:14:02,810
+来强制
 that really enforce you know that
 
 456
 00:14:02,810 --> 00:14:03,980
+实施这种隔离。
 kind of isolation.
 
 457
 00:14:05,460 --> 00:14:06,960
-因此，如果我们现在稍微看一下，从这个角度来看Unix接口。
+因此，
 So if we look a little
 
 458
 00:14:06,960 --> 00:14:09,000
+如果我们从这个角度
 bit now, at the unix interface
 
 459
 00:14:09,000 --> 00:14:10,300
+来看 unix 接口。
 from this perspective.
 
 460
 00:14:14,350 --> 00:14:16,120
-然后我们看到界面实际上是经过精心设计的。
+我们看到接口
 Then we see that the interface
 
 461
 00:14:16,120 --> 00:14:18,100
+实际上是经过精心设计的。
 actually is carefully designed.
 
 462
 00:14:18,650 --> 00:14:21,410
-因此，就物理内存而言，在多路复用方面实现强制UM隔离实际上是可行的，其实现方式是接口基本上抽象硬件、硬件资源。
+因此，在复用方面，
 So that actually is feasible to
 
 463
 00:14:21,410 --> 00:14:23,900
-implement that enforced
+在物理内存方面，
+implement that enforced,
 
 464
 00:14:23,940 --> 00:14:26,760
-um, isolation in terms of multiplexing
+实现强制隔离
+um, isolation in terms of multiplexing,
 
 465
 00:14:26,760 --> 00:14:28,500
-in terms of physical memory
+实际上是可行的，
+in terms of physical memory,
 
 466
 00:14:28,500 --> 00:14:30,030
+其实现方式是
 and the way that is done
 
 467
 00:14:30,030 --> 00:14:32,100
+接口对
 is that the interface basically
 
 468
 00:14:32,100 --> 00:14:34,160
+硬件做了抽象，
 abstracts the hardware,
 
 469
 00:14:37,370 --> 00:14:38,860
+硬件资源。
 hardware resources.
 
 470
 00:14:40,940 --> 00:14:42,350
-在某种程度上，这使得实际做或不做更容易。它使得嗯，如果你知道这种强烈的隔离是可能的。
+在某种程度上，
 In a way that then it
 
 471
 00:14:42,350 --> 00:14:44,390
+这使得实际做或
 makes it easy to actually do
 
 472
 00:14:44,390 --> 00:14:45,800
+不做更容易。它使得，
 or not easier. It makes it
 
 473
 00:14:45,800 --> 00:14:47,360
+提供这种强隔离
 possible to um,
 
 474
 00:14:47,360 --> 00:14:49,680
+是可能的。
 provide you know this strong isolation.
 
 475
 00:14:50,280 --> 00:14:51,930
-嗯，你知道，也许你应该给你举一些例子，嗯，我们已经看过的过程，就像是由fork创建的东西。
+你知道，
 Um, and you know maybe you
 
 476
 00:14:51,930 --> 00:14:53,280
+举一些例子，
 should give you some examples,
 
 477
 00:14:53,280 --> 00:14:55,980
+我们已经
 um, so processes we've seen
 
 478
 00:14:55,980 --> 00:14:56,790
+看过的进程，像是
 that like things that are
 
 479
 00:14:56,790 --> 00:14:58,120
+由 fork 创建的。
 created by fork.
 
 480
 00:14:59,760 --> 00:15:01,650
-你知道它们不是字面意义上的CPU，对吧，我的意思是，它们对应的是允许你运行计算的CPU。
+你知道，它们不是字面意义上的 CPU ，
 You know they're not literally a
 
 481
 00:15:01,650 --> 00:15:05,100
-CPU right, I mean, they correspond to what
+它们对应的是
+CPU, I mean, they correspond to what
 
 482
 00:15:05,100 --> 00:15:06,510
+允许运行计算
 cpus that allows you to
 
 483
 00:15:06,510 --> 00:15:07,820
+的 CPU 。
 run computation.
 
 484
 00:15:07,910 --> 00:15:08,630
-但是你知道，因为你知道他们是申请者，所以不能直接与这个CPU交互，而只是为了这个进程抽象，即幕后的内核，你可以在进程之间切换。
+但是，
 But you know,
 
 485
 00:15:08,630 --> 00:15:10,520
+它们不能直接与
 because you know they're the applicants
 
 486
 00:15:10,520 --> 00:15:12,530
+这个 CPU 交互，
 cannot directly interact with this CPU,
 
 487
 00:15:12,530 --> 00:15:14,630
+而只是进程抽象，
 but only for this process abstraction,
 
 488
 00:15:14,630 --> 00:15:17,090
-the kernel behind the scenes you
+幕后的内核
+the kernel behind the scenes
 
 489
 00:15:17,090 --> 00:15:18,940
+可以在进程之间切换。
 can switch between processes.
 
 490
 00:15:20,300 --> 00:15:22,640
-因此，该操作不是使用直接CPU来操作或提供给应用程序，而是提供提取到CPU本身的进程，因此实际上操作系统是多路复用的，多个应用程序之间只有一个CPU或多个CPU。
+因此，该操作不是
 So instead of having direct CPU
 
 491
 00:15:22,640 --> 00:15:25,040
+直接使用 CPU 来操作或
 used to manipulate or given to
 
 492
 00:15:25,040 --> 00:15:25,940
+提供给应用程序，
 the application,
 
 493
 00:15:25,940 --> 00:15:28,550
-the operation provides processes that extract
+而是提供
+the operation provides processes, that extract
 
 494
 00:15:28,550 --> 00:15:30,230
+可以在 CPU 运行的进程，
 away to the CPU itself,
 
 495
 00:15:30,230 --> 00:15:31,850
+因此实际上操作系统
 so that actually the operating system
 
 496
 00:15:31,850 --> 00:15:34,280
+是复用的，多个应用程序运行在
 multiplex, and one CPU or multiple
 
 497
 00:15:34,280 --> 00:15:36,220
+一个 CPU 或多个 CPU 上。
 cpus among multiple applications.
 
 498
 00:15:37,200 --> 00:15:38,900
-同样，如果您考虑EXEC，则EXEC提供内存映像。
+同样，如果考虑 exec ，
 Similarly, if you think about exec,
 
 499
 00:15:39,970 --> 00:15:42,360
+则 exec 提供的是内存镜像。
 exec provides a memory image.
 
 500
 00:15:42,970 --> 00:15:45,550
-嗯，还有嗯。
+嗯，还有。
 Um, and um.
 
 501
 00:15:45,550 --> 00:15:46,150
-阿曼达，是的，来吧，问你的问题。
+阿曼达，
 Amanda, yeah,
 
 502
 00:15:46,150 --> 00:15:46,720
+来吧，
 go ahead,
 
 503
 00:15:46,720 --> 00:15:47,780
+问你的问题。
 ask your question.
 
 504
 00:15:47,930 --> 00:15:49,610
-关于进程有一个问题，有点像抽象CPU。
+关于进程有一个问题，
 One question about processes,
 
 505
 00:15:49,610 --> 00:15:53,270
+进程有点像 CPU 的抽象。
 sort of like abstracting the CPU.
 
 506
 00:15:53,270 --> 00:15:54,400
-一个进程使用CPU的一部分，而另一个进程使用该CPU的更多、不同的部分或不同的CPU，如果它是多核或类似的话。
+是不是
 Is that
 
 507
 00:15:55,070 --> 00:15:57,290
+一个进程使用
 one process uses part of the
 
 508
 00:15:57,290 --> 00:16:00,620
-CPU and another process uses, a
+CPU 的一部分，
+CPU and another process uses,
 
 509
 00:16:00,620 --> 00:16:02,240
-more, a different part of that
+而另一个进程使用该 CPU 的更多或
+more, different part of that
 
 510
 00:16:02,240 --> 00:16:03,770
+不同的部分，或者
 CPU or a different CPU,
 
 511
 00:16:03,770 --> 00:16:05,570
+如果是多核的话，
 if it's a multi-core
 
 512
 00:16:05,570 --> 00:16:06,360
+另一个进程使用不同的 CPU 。
 or like.
 
 513
 00:16:06,450 --> 00:16:07,800
-您说的进程而不是CPU是什么意思？是的，好的，我的意思是将一个CPU抽象成一个进程，所以好的，我们在实验室中使用的RISC-V核心或RISC-V处理器实际上是四个核心。
+你说的进程
 What do you mean by processes
 
 514
 00:16:07,800 --> 00:16:09,030
+而不是 CPU 是什么意思？
 instead of the CPU?
 
 515
 00:16:09,030 --> 00:16:10,830
+好的，我的意思是将
 Yeah, okay so I really mean
 
 516
 00:16:10,830 --> 00:16:13,380
+一个 CPU 抽象成一个进程，
 one CPU abstracted away into a
 
 517
 00:16:13,380 --> 00:16:14,550
+所以，
 process, so okay so, the way
 
 518
 00:16:14,550 --> 00:16:16,110
+可以这样想这个问题，
 to think about it is
 
 519
 00:16:16,110 --> 00:16:19,110
+我们在实验中使用的
 RISC-V core or RISC-V processor that
 
 520
 00:16:19,110 --> 00:16:21,300
+RISC-V 内核或处理器
 we're using in the lab is
 
 521
 00:16:21,300 --> 00:16:22,580
+实际上有四个核心。
 actually four cores.
 
 522
 00:16:22,930 --> 00:16:24,190
-嗯，所以你可以同时或者并行运行四个进程，每个核一个进程。
+所以你可以同时或者
 Um, and so you can run
 
 523
 00:16:24,190 --> 00:16:27,040
+并行运行四个进程，
 four processes concurrently or in parallel,
 
 524
 00:16:27,040 --> 00:16:28,880
+每个核一个进程。
 one process on each core.
 
 525
 00:16:29,260 --> 00:16:30,670
-假设操作系统有8个应用程序或7个应用程序，它将需要一些核心和多路复用，不同进程之间的时间多路复用。
+假设操作系统
 And what the operating system does
 
 526
 00:16:30,670 --> 00:16:31,810
+有 8 或 7 个
 is let's say you have eight
 
 527
 00:16:31,810 --> 00:16:33,790
+应用程序，
 applications or seven applications,
 
 528
 00:16:33,790 --> 00:16:35,320
+它将需要一些内核和复用，
 it will take some core and
 
 529
 00:16:35,320 --> 00:16:37,870
+不同进程之间
 multiplexes, time multiplexes between
 
 530
 00:16:37,870 --> 00:16:38,590
+对 CPU 的时间复用。
 different processes.
 
 531
 00:16:38,590 --> 00:16:40,390
-例如，它将运行一个应用程序进程100毫秒，然后停止，将该进程从CPU或内核卸载，加载下一个应用程序，或运行100毫秒的下一个进程，它只是强制不能运行任何应用程序或进程不能运行超过100毫秒。
+例如，它运行
 So for example it will run
 
 532
 00:16:40,390 --> 00:16:42,840
+一个应用程序进程 100 毫秒，
 you one app process for 100 milliseconds,
 
 533
 00:16:42,990 --> 00:16:45,900
+然后停止，
 then stop, unload that process out
 
 534
 00:16:45,900 --> 00:16:47,430
+将该进程
 of the CPU or out of
 
 535
 00:16:47,430 --> 00:16:48,390
+从 CPU 或内核卸载，
 the core,
 
 536
 00:16:48,390 --> 00:16:49,770
+加载下一个应用程序，
 loading the next
 
 537
 00:16:49,770 --> 00:16:52,530
+运行
 application, or next process that runs
 
 538
 00:16:52,530 --> 00:16:54,270
+下一个进程 100 毫秒，
 out for 100 milliseconds, and
 
 539
 00:16:54,270 --> 00:16:56,040
+它强制
 it just enforces that no application
 
 540
 00:16:56,040 --> 00:16:57,120
+没有任何应用程序或进程
 can run or no process can
 
 541
 00:16:57,120 --> 00:16:58,050
+运行超过 100 毫秒。
 run longer than 100 milliseconds.
 
 542
 00:16:59,260 --> 00:17:00,640
-我们将在几节课中具体了解这是如何做到的，但这是某种程度上的基本思想。
+我们将在几节课中
 We'll see exactly how this was
 
 543
 00:17:00,640 --> 00:17:02,080
+具体了解这是如何做到的，
 done in a couple lectures, but
 
 544
 00:17:02,080 --> 00:17:03,420
+但这是基本思想。
 that's sort of the basic idea.
 
 545
 00:17:04,200 --> 00:17:06,630
-好的，但是多个进程不能同时使用同一个CPU。
+好的，但是多个进程不能
 Okay, but multiple processes cannot use
 
 546
 00:17:06,630 --> 00:17:08,010
+同时使用同一个CPU。
 the same CPU at the same time.
 
 547
 00:17:08,010 --> 00:17:11,310
-不，这是时间复用，你先跑一段时间，然后再跑一段时间。
+是的，这是时间复用，
 No, it's time multiplexing, you're running
 
 548
 00:17:11,310 --> 00:17:12,330
+你先运行一段时间，
 for a while then you're run
 
 549
 00:17:12,330 --> 00:17:13,520
+然后下一个再运行一段时间。
 the next one for a while.
 
 550
@@ -2298,404 +2750,488 @@ Alright, thank you.
 
 551
 00:17:16,130 --> 00:17:17,150
-好的，那么，嗯，考虑exec的一种方式是，它实际上抽象了内存。
+好的，那么，
 Okay, so um,
 
 552
 00:17:17,150 --> 00:17:18,590
+考虑 exec 的一种方式是，
 one way to think about exec
 
 553
 00:17:18,590 --> 00:17:22,760
+它实际上是对内存的抽象。
 is that actually abstracts memory.
 
 554
 00:17:28,400 --> 00:17:29,330
-例如，如果您考虑一下，嗯，您知道的exec系统调用采用一个文件名，您知道，该文件中基本上是存储在其文本中的程序的内存映像，因此它是中的全局数据，构成了应用程序的内存。
+例如，
 So, for example if you
 
 555
 00:17:29,330 --> 00:17:30,170
+考虑一下，
 think about,
 
 556
 00:17:30,170 --> 00:17:32,180
+exec 系统调用
 um, the exec system call you
 
 557
 00:17:32,180 --> 00:17:33,260
+使用一个文件名，
 know takes a file name,
 
 558
 00:17:33,260 --> 00:17:34,760
+你知道，该文件中
 you know and in that file
 
 559
 00:17:34,760 --> 00:17:36,620
+是存储在
 is basically the memory image
 
 560
 00:17:36,670 --> 00:17:38,230
+文本中的程序的
 of a program stored in
 
 561
 00:17:38,230 --> 00:17:39,310
+内存镜像，
 its text,
 
 562
 00:17:39,310 --> 00:17:41,920
+因此它是
 so it's global data
 
 563
 00:17:41,920 --> 00:17:44,410
+全局数据，
 in and that forms the
 
 564
 00:17:44,410 --> 00:17:47,200
+构成了应用程序的内存。
 memory of the application.
 
 565
 00:17:47,230 --> 00:17:49,120
-现在，应用程序可以增加其内存，例如，通过调用‘sbrk’，通过扩展其数据段来扩展到那里，但它实际上对物理内存没有直接影响，您知道，您可以只问我想要，您知道，寻址物理内存，1k到2k。
-Now the application can grow
+应用程序可以
+The application can grow
 
 566
 00:17:49,120 --> 00:17:49,660
+增加其内存，
 its memory,
 
 567
 00:17:49,660 --> 00:17:50,740
+例如，通过调用 sbrk ，
 for example by calling 'sbrk',
 
 568
 00:17:50,740 --> 00:17:53,710
+通过扩展其数据段，
 extend there by extending
 
 569
 00:17:53,710 --> 00:17:55,810
+但它
 its data segment but it
 
 570
 00:17:55,810 --> 00:17:56,890
+实际上对物理内存
 doesn't really have a direct
 
 571
 00:17:56,890 --> 00:17:58,210
+没有直接影响，
 aspects to physical memory,
 
 572
 00:17:58,210 --> 00:17:59,770
+你知道，你可以
 you know you can just ask
 
 573
 00:17:59,770 --> 00:18:01,740
+访问
 I want, you know,
 
 574
 00:18:02,150 --> 00:18:04,040
+物理内存地址，
 addresses physical memory,
 
 575
 00:18:04,040 --> 00:18:06,140
-1k to 2k.
+1000 到 2000 。
+1000 to 2000.
 
 576
 00:18:06,140 --> 00:18:07,670
-没有办法做到这一点，同样，你也没有办法做到这一点，因为操作系统的意思是想要提供内存隔离，因此控制在应用程序和物理硬件之间进行中介的是什么。
+没有办法做到这一点，
 There's no way of getting at
 
 577
 00:18:07,670 --> 00:18:09,050
+同样，
 that, and again the reason there's
 
 578
 00:18:09,050 --> 00:18:10,070
+你也没有办法做到这一点，
 no way that you can get
 
 579
 00:18:10,070 --> 00:18:11,540
+因为操作系统
 at that is because the operating
 
 580
 00:18:11,540 --> 00:18:13,190
+提供了内存隔离，
 system means to wants to provide
 
 581
 00:18:13,190 --> 00:18:15,020
+控制了
 memory isolation and therefore what's being
 
 582
 00:18:15,020 --> 00:18:18,740
+在应用程序和
 controlled to intermediate between the
 
 583
 00:18:18,740 --> 00:18:20,600
+物理硬件之间的交互。
 applications and the physical hardware.
 
 584
 00:18:20,720 --> 00:18:21,920
-exec是一种系统调用，可以捕获或显示不能直接访问内存。这方面的另一个示例类似于文件。
+exec 是
 And exec is a sort of
 
 585
 00:18:21,920 --> 00:18:23,600
+一种系统调用，
 system call that you know
 
 586
 00:18:23,600 --> 00:18:26,060
+可以捕获或显示 TODO:
 capture or shows that there's no
 
 587
 00:18:26,060 --> 00:18:28,380
+不能直接访问内存。
 direct access to
 
 588
 00:18:28,540 --> 00:18:30,640
+这方面的另一个例子
 memory. Another example of this is
 
 589
 00:18:30,640 --> 00:18:31,600
+是文件。
 like files.
 
 590
 00:18:33,190 --> 00:18:34,600
-这些文件基本上都是抽象出来的。
+文件基本上都是
 Files basically abstract away
 
 591
 00:18:34,600 --> 00:18:35,600
+抽象出来的。 TODO:
 this walks.
 
 592
 00:18:41,660 --> 00:18:43,850
-而不是读或写连接到您计算机的磁盘的磁盘块，嗯，这在UNIX中实际上是不允许的，您知道与存储系统交互的唯一方式是通过文件，您可以读取或写入文件，提供方便的抽象，您可以命名文件等，但是这样操作系统本身就可以实际决定如何将这些文件映射到磁盘块，并确保，例如，挡路只出现在一个文件中，并且您知道用户a实际上不能操纵来读写其文件
+比起读写
 Instead of reading or writing
 
 593
 00:18:43,850 --> 00:18:46,220
+计算机磁盘的
 the disk blocks of the disk,
 
 594
 00:18:46,220 --> 00:18:47,960
+磁盘块，
 that's attached to your computer,
 
 595
 00:18:47,960 --> 00:18:49,520
+实际上，在 unix 中是
 um, that actually just not allowed
 
 596
 00:18:49,520 --> 00:18:50,750
+不允许的，
 in unix, you know the only
 
 597
 00:18:50,750 --> 00:18:52,730
+与存储系统交互的唯一方式
 way to interact with the storage
 
 598
 00:18:52,730 --> 00:18:54,110
+是通过文件，
 system is through files,
 
 599
 00:18:54,110 --> 00:18:54,920
+可以读取或写入文件，
 and you can read or write
 
 600
 00:18:54,920 --> 00:18:56,900
+提供方便的抽象，
 files, provide a convenient abstraction,
 
 601
 00:18:56,900 --> 00:18:58,280
+可以命名文件，
 you can name files,
 
 602
 00:18:58,280 --> 00:18:59,540
+等等，
 etc etc,
 
 603
 00:18:59,540 --> 00:19:01,160
+操作系统就可以
 but then the operating system in
 
 604
 00:19:01,160 --> 00:19:02,990
+决定如何将这些文件
 itself can actually decide how to
 
 605
 00:19:02,990 --> 00:19:05,270
+映射到磁盘块，
 map those files to a disk
 
 606
 00:19:05,270 --> 00:19:06,950
+并且确保，例如，
 blocks and make sure, for example
 
 607
 00:19:06,950 --> 00:19:08,510
+块只出现在一个文件中，
 of this block only shows up
 
 608
 00:19:08,510 --> 00:19:09,770
+并且
 in one file and that you
 
 609
 00:19:09,770 --> 00:19:11,570
+用户 a 不能操作
 know user a cannot actually you
 
 610
 00:19:11,570 --> 00:19:13,880
+读写
 know manipulate to read, write
 
 611
 00:19:13,880 --> 00:19:16,400
+用户 b 的文件。
 the files of user b.
 
 612
 00:19:16,400 --> 00:19:18,140
-嗯，再说一次，你知道这个，你知道那种接口，文件抽象允许在甚至不同的用户和同一用户的不同进程之间进行那种强烈的隔离。
+再说一次，
 Um, and again you know this,
 
 613
 00:19:18,140 --> 00:19:20,090
+你知道那种接口，
 you know that sort of interface,
 
 614
 00:19:20,090 --> 00:19:22,280
+文件抽象
 that the file abstraction allows that
 
 615
 00:19:22,280 --> 00:19:24,680
+允许在不同的用户和
 sort of strong isolation between even
 
 616
 00:19:24,680 --> 00:19:27,320
+甚至同一用户的不同进程之间
 different users and different processes of
 
 617
 00:19:27,320 --> 00:19:28,220
+进行强隔离。
 the same user.
 
 618
 00:19:29,370 --> 00:19:30,630
-正如你所看到的，在某些方面，你知道系统调用接口，Unix接口，让你知道Util实验室的编程，似乎是经过精心设计的，以抽象研究的方式，所以你知道，操作系统，接口的实现实际上可以增加多个应用程序的资源，并提供强大的隔离。
+正如你所看到的，
 As you can see, that in
 
 619
 00:19:30,630 --> 00:19:32,010
+在某些方面，
 some ways you know the system
 
 620
 00:19:32,010 --> 00:19:32,640
+系统调用接口，
 call interface,
 
 621
 00:19:32,640 --> 00:19:33,600
+unix 接口，
 that unix interface,
 
 622
 00:19:33,600 --> 00:19:35,250
+你在 util 实验中用到的，
 giving programming with you know the
 
 623
 00:19:35,250 --> 00:19:36,750
+是经过
 util lab, seems to be sort
 
 624
 00:19:36,750 --> 00:19:39,060
+精心设计的，
 of carefully designed to abstract the
 
 625
 00:19:39,060 --> 00:19:40,830
+以抽象研究的方式， TODO:
 research in way, so that you
 
 626
 00:19:40,830 --> 00:19:41,940
+所以你知道，操作系统
 know, the operating system,
 
 627
 00:19:41,940 --> 00:19:43,710
+接口的实现
 the implementation of the interface can
 
 628
 00:19:43,710 --> 00:19:46,440
+可以让多个应用程序复用资源，
 actually multiply the resource of multiple
 
 629
 00:19:46,440 --> 00:19:49,740
+并提供强大的隔离。
 applications and provide strong, strong isolation.
 
 630
 00:19:54,120 --> 00:19:55,480
-有什么问题吗。
-Any questions about that.
+对这个，有什么问题吗？
+Any questions about that?
 
 631
 00:19:56,040 --> 00:19:56,580
-我们在聊天中有一个问题，那就是更复杂的内核是否会尝试重新调度同一内核上的进程，以减少缓存未命中。
+在聊天中有一个问题，
 We have a question in
 
 632
 00:19:56,580 --> 00:19:57,810
+那就是
 the chat, that says do
 
 633
 00:19:57,810 --> 00:19:59,130
+更复杂的内核
 more complex kernel try to
 
 634
 00:19:59,130 --> 00:20:00,810
+是否会尝试重新调度同一内核上的进程，
 reschedule processes on the same
 
 635
 00:20:00,810 --> 00:20:02,660
+以减少缓存未命中。
 core to reduce cache misses.
 
 636
 00:20:02,640 --> 00:20:03,930
-哦，是的，是的，有一种叫做缓存亲和力的东西，嗯，嗯，你知道现代操作系统中的这种转换非常复杂，实际上你知道试图避免缓存未命中，诸如此类的事情，并优化性能。
+是的，
 Oh yeah,
 
 637
 00:20:03,930 --> 00:20:06,630
+有一种叫做缓存亲和性的东西，
 yeah there's something called cache affinity,
 
 638
 00:20:06,630 --> 00:20:07,890
+嗯，
 um, um,
 
 639
 00:20:07,890 --> 00:20:09,960
+你知道现代操作系统中
 you know this conversion in modern
 
 640
 00:20:09,960 --> 00:20:12,600
+的这种转换非常复杂，
 operating systems are very sophisticated, and
 
 641
 00:20:12,600 --> 00:20:13,800
+实际上你知道努力
 indeed you know trying to avoid
 
 642
 00:20:13,800 --> 00:20:15,420
+避免缓存未命中，类似的事情
 cache misses, and things like that
 
 643
 00:20:15,420 --> 00:20:17,180
+来优化性能。
 and to optimize the performance.
 
 644
 00:20:17,580 --> 00:20:19,110
-你们将在本学期晚些时候看到其中的一些，在那里你们将谈论高绩效的人的网络。
+你们将在本学期
 And you will see some of
 
 645
 00:20:19,110 --> 00:20:20,820
+晚些时候看到其中的一些，
 them much later in the semester
 
 646
 00:20:20,820 --> 00:20:21,600
+在那里你们将谈论
 where you are going to be
 
 647
 00:20:21,600 --> 00:20:23,960
-talking about high performers networking.
+高性能网络。
+talking about high performence networking.
 
 648
 00:20:24,140 --> 00:20:25,680
@@ -2704,1138 +3240,1362 @@ We'll show up there.
 
 649
 00:20:26,280 --> 00:20:28,560
-Chat的另一个问题是，在xv6中，我们可以看到操作系统是如何多路复用的吗？有几堆相关的文件，但pro.c可能是最相关的一个，嗯，这将是两三周后的演讲主题。
+聊天中的另一个问题，
 Another question from chat, where in
 
 650
 00:20:28,560 --> 00:20:29,580
+在 xv6 中，我们可以看到
 xv6, can we see how
 
 651
 00:20:29,580 --> 00:20:34,680
+操作系统是如何对进程复用的吗？
 the OS multiplex processes?
 
 652
 00:20:34,680 --> 00:20:35,850
+有几个相关的文件，
 There's a couple piles of files that
 
 653
 00:20:35,850 --> 00:20:37,320
+但 pro.c
 are relevant but proc.c
 
 654
 00:20:37,320 --> 00:20:38,820
+可能是最相关的一个，
 is probably the most relevant one,
 
 655
 00:20:38,820 --> 00:20:40,620
+这将是
 um, this will be a topic
 
 656
 00:20:40,620 --> 00:20:42,060
+两三周后的
 of lecture in like two or
 
 657
 00:20:42,060 --> 00:20:42,820
+课程主题。
 three weeks.
 
 658
 00:20:43,060 --> 00:20:43,960
-我们将非常详细地展示多路复用是如何发生的。
+我们将
 And we're going to go in
 
 659
 00:20:43,960 --> 00:20:45,190
+非常详细地展示
 great amount of detail and show
 
 660
 00:20:45,190 --> 00:20:47,060
+复用是如何发生的。
 exactly how the multiplex happens.
 
 661
 00:20:48,420 --> 00:20:49,200
-所以，考虑这些讲座的一种方式是，稍微介绍一下很多不同的作品，嗯，你知道，因为我们必须从某个地方开始。
+所以，考虑这些课程
 So one way to think about
 
 662
 00:20:49,200 --> 00:20:49,980
+是对操作系统
 these lectures a little bit of
 
 663
 00:20:49,980 --> 00:20:50,910
+很多不同部分
 an introduction to a lot of
 
 664
 00:20:50,910 --> 00:20:52,440
+的简介， TODO:
 different pieces and,
 
 665
 00:20:52,440 --> 00:20:53,490
+你知道，因为我们必须
 um, you know because we've got
 
 666
 00:20:53,490 --> 00:20:54,460
+从某个地方开始。
 to start somewhere.
 
 667
 00:20:57,850 --> 00:20:59,440
-那么，嗯，我们回到我刚才展示的这张图片，我们有这个，嗯，外壳在运行回声，或者不运行，那张图片，这张图片。
+那么，
 So, um,
 
 668
 00:20:59,440 --> 00:21:01,330
+我们回到
 we go back into this picture
 
 669
 00:21:01,330 --> 00:21:03,160
+刚才展示的
 here that I showed a little
 
 670
 00:21:03,160 --> 00:21:04,660
+这张图片，
 while ago we have this,
 
 671
 00:21:04,660 --> 00:21:06,760
+shell 运行，
 um, shell running the echo running
 
 672
 00:21:06,760 --> 00:21:07,270
+echo 运行
 or not,
 
 673
 00:21:07,270 --> 00:21:07,840
+不是那张图片，
 that picture,
 
 674
 00:21:07,840 --> 00:21:08,580
+是这张图片。
 this picture.
 
 675
 00:21:08,810 --> 00:21:09,860
-在这边，我们有操作系统，我们让应用程序运行，有一件事我们应该担心这个词，操作系统应该是，嗯，它应该是防御性的。
+在这边，
 Here on this side,
 
 676
 00:21:09,860 --> 00:21:10,910
+我们有操作系统，
 we've got the operating system,
 
 677
 00:21:10,910 --> 00:21:13,190
+我们让应用程序运行，
 we get the applications running and
 
 678
 00:21:13,190 --> 00:21:14,480
+有一件事我们应该担心， TODO:
 one thing we should be worried
 
 679
 00:21:14,480 --> 00:21:15,980
-about this word that the operating
+操作系统
+about this [word] that the operating
 
 680
 00:21:15,980 --> 00:21:17,360
+应该是，
 system should be,
 
 681
 00:21:19,080 --> 00:21:20,600
+它应该是防御性的。
 um, it should be defensive.
 
 682
 00:21:23,190 --> 00:21:24,630
-这是一种重要的，你知道的心态，你必须习惯一个用户做内核开发，嗯，操作系统必须确保，你知道的一切都能正常工作，所以，嗯，它必须进行设置，这样你就知道应用程序不会使操作系统崩溃。
+这是一种重要的，
 This is sort of an important,
 
 683
 00:21:24,630 --> 00:21:26,220
+思维模式，
 a mindset you know that you
 
 684
 00:21:26,220 --> 00:21:27,720
+你必须习惯
 have to get used to one
 
 685
 00:21:27,720 --> 00:21:29,550
+做内核开发，
 user doing kernel development,
 
 686
 00:21:29,550 --> 00:21:31,830
+操作系统必须确保，
 um, the operating system has to
 
 687
 00:21:31,830 --> 00:21:34,710
+你知道的一切
 ensure, everything you know everything
 
 688
 00:21:34,710 --> 00:21:36,180
+都能正常工作，
 works out and so,
 
 689
 00:21:36,180 --> 00:21:37,530
+所以，
 um, it has to set
 
 690
 00:21:37,530 --> 00:21:38,520
+它必须进行设置，
 up things up so that
 
 691
 00:21:38,520 --> 00:21:39,960
+这样应用程序不会
 you know an app cannot
 
 692
 00:21:39,960 --> 00:21:41,500
+使操作系统崩溃。
 crash the operating system.
 
 693
 00:21:45,660 --> 00:21:46,860
-这将是太糟糕了，如果一个应用程序，无论是意外的或恶意的过路人都是狡猾的鼓动坏参数的操作系统和操作系统将损坏，这基本上意味着拒绝服务器为每一个其他的应用程序。
+这会很糟糕，
 It would be too bad, if
 
 694
 00:21:46,860 --> 00:21:49,050
+如果一个应用程序，
 an application, at either by
 
 695
 00:21:49,050 --> 00:21:51,630
+无论是意外的或
 accident or maliciously passers are tricky
 
 696
 00:21:51,630 --> 00:21:53,730
+恶意的传递错误参数给操作系统
 heartened bad argument to the operating
 
 697
 00:21:53,730 --> 00:21:55,530
+操作系统将会崩溃，
 system and the operating system would
 
 698
 00:21:55,530 --> 00:21:57,240
+这意味着服务器 TODO:
 corruption that basically means for denial
 
 699
 00:21:57,240 --> 00:21:59,480
+拒绝每一个其他的应用程序。
 servers for every other application.
 
 700
 00:21:59,710 --> 00:22:01,300
-嗯，所以操作系统的编写方式必须能够处理和处理恶意应用程序。
+所以操作系统的
 Um, so the operating system has
 
 701
 00:22:01,300 --> 00:22:02,290
+编写方式
 to be written in a way
 
 702
 00:22:02,290 --> 00:22:04,300
+必须能够处理和解决
 that it can deal and handle
 
 703
 00:22:04,300 --> 00:22:05,920
+恶意应用程序。
 malicious applications.
 
 704
 00:22:06,220 --> 00:22:07,330
-嗯，特别是另外一个顾虑是，应用应该不能，不能突破它的孤立。
+特别是
 Um, in particular,
 
 705
 00:22:07,330 --> 00:22:09,190
+另一个考虑是，
 another concern is that the application
 
 706
 00:22:09,190 --> 00:22:10,420
+应用程序应该不能，
 should not be able,
 
 707
 00:22:10,720 --> 00:22:14,120
+不能突破隔离。
 cannot break out of its isolation.
 
 708
 00:22:21,230 --> 00:22:21,590
-我的意思是，应用程序可能绝对是恶意的，可能是攻击者编写的，攻击者可能想要突破应用程序，例如，控制内核，一旦你控制了内核，你就可以做任何事情，因为内核控制了所有的硬件资源。
+我的意思是，
 I mean,
 
 709
 00:22:21,590 --> 00:22:23,990
+应用程序可能是恶意的，
 the application might be definitely malicious,
 
 710
 00:22:23,990 --> 00:22:27,230
+可能是攻击者编写的，
 maybe written by an attacker and
 
 711
 00:22:27,230 --> 00:22:29,030
+攻击者可能想要
 the attacker probably would like to
 
 712
 00:22:29,030 --> 00:22:31,340
+突破应用程序，例如，
 break out of the application, for example
 
 713
 00:22:31,340 --> 00:22:32,990
+控制内核，
 and take control over the kernel,
 
 714
 00:22:32,990 --> 00:22:34,040
+一旦控制了
 and once you have control over
 
 715
 00:22:34,040 --> 00:22:34,550
+内核，
 the kernel,
 
 716
 00:22:34,550 --> 00:22:36,260
+你就可以做任何事情，
 then you can do anything because
 
 717
 00:22:36,260 --> 00:22:37,610
+因为内核控制了
 the kernel is in control of
 
 718
 00:22:37,610 --> 00:22:39,040
+所有的硬件资源。
 all the hardware resources.
 
 719
 00:22:39,330 --> 00:22:40,470
-所以操作系统必须能够来，必须写成防御性的，嗯，你知道的，以避免这类事情。
+所以操作系统
 And so the operating system has
 
 720
 00:22:40,470 --> 00:22:41,280
+必须能够，
 to be able to come has
 
 721
 00:22:41,280 --> 00:22:42,780
+必须写成防御性的，
 to be written defensively,
 
 722
 00:22:42,780 --> 00:22:45,030
+以避免
 um, you know to avoid
 
 723
 00:22:45,030 --> 00:22:46,120
+这类事情。
 those kinds of things.
 
 724
 00:22:46,660 --> 00:22:47,770
-现在，如果这被证明是非常棘手的，嗯，实际上在Linux中，仍然有周期性的错误，你知道内核错误，或者实际上允许应用程序被利用或突破这个隔离域并获得控制的错误。
-Now, if this turns out
+这被证明，
+You know, if this turns out
 
 725
 00:22:47,770 --> 00:22:49,240
+要正确实现是
 to be very tricky to
 
 726
 00:22:49,240 --> 00:22:50,410
+非常棘手的，
 actually get right,
 
 727
 00:22:50,410 --> 00:22:51,010
+嗯，
 um,
 
 728
 00:22:51,010 --> 00:22:52,240
+实际上在 linux 中，
 in fact in Linux,
 
 729
 00:22:52,240 --> 00:22:53,560
+仍然有
 there still
 
 730
 00:22:53,610 --> 00:22:54,720
+周期性的 bug ，
 periodic bugs,
 
 731
 00:22:54,720 --> 00:22:56,280
+你知道内核 bug ，
 you know kernel bugs or bugs
 
 732
 00:22:56,280 --> 00:22:58,770
+或者允许应用程序利用或
 that actually allow an applications exploited
 
 733
 00:22:58,770 --> 00:23:00,810
+突破这个隔离
 or to break out of this
 
 734
 00:23:00,810 --> 00:23:03,560
+并获得控制的 bug 。
 isolation domain and take control.
 
 735
 00:23:03,980 --> 00:23:05,720
-嗯，但这只是一个持续的问题，我们想尽可能做好这项工作。
+但这是一个
 Um, but it's just a continuous
 
 736
 00:23:05,720 --> 00:23:07,010
+持续的问题，
 concern and we'd like to do
 
 737
 00:23:07,010 --> 00:23:08,360
+我们想尽可能做好这项工作。
 a good job as possible.
 
 738
 00:23:08,800 --> 00:23:09,910
-当你开发一个应用程序可能是恶意的内核时，这就是你必须要有的心态。
+这就是你要有的
 And this is the mindset
 
 739
 00:23:09,910 --> 00:23:10,960
+思维模式，
 you have to have, when
 
 740
 00:23:10,960 --> 00:23:12,280
+当你开发内核，
 you're developing a kernel that
 
 741
 00:23:12,280 --> 00:23:14,800
+可能运行
 actually applications are,
 
 742
 00:23:14,860 --> 00:23:16,620
+恶意应用程序的时候。
 um, perhaps malicious.
 
 743
 00:23:17,250 --> 00:23:19,620
-现在，这意味着，这意味着应用程序和操作系统之间必须是强隔离的。
-Now, this means, that means it
+这意味着，
+You know, this means, that means it
 
 744
 00:23:19,620 --> 00:23:21,720
+应用程序和
 has to be strong isolation,
 
 745
 00:23:26,630 --> 00:23:28,200
+操作系统之间
 between the apps
 
 746
 00:23:31,500 --> 00:23:32,560
+必须是强隔离的。
 and OS.
 
 747
 00:23:34,470 --> 00:23:36,090
-如果操作系统需要防御性，并且需要处于可以防御性的位置，那么在应用程序之间必须有一堵坚固的墙，这样操作系统才能真正执行它想要执行的任何策略。
+如果操作系统
 If the OS you know, needs
 
 748
 00:23:36,090 --> 00:23:38,040
+需要防御性，
 to be defensive and needs to
 
 749
 00:23:38,040 --> 00:23:38,910
+并且需要处于可以防御的位置，
 be in position that can
 
 750
 00:23:38,910 --> 00:23:40,290
+那么
 be defensive, there has to be
 
 751
 00:23:40,290 --> 00:23:42,240
+在应用程序之间必须有一堵坚固的墙，
 a strong wall between the applications
 
 752
 00:23:42,240 --> 00:23:43,380
+这样操作系统
 so that the operating system can
 
 753
 00:23:43,380 --> 00:23:45,960
+才能真正执行
 actually enforce whatever policies it wants
 
 754
 00:23:45,960 --> 00:23:46,780
+它想要执行的任何策略。
 to enforce.
 
 755
 00:23:47,550 --> 00:23:49,500
-这通常是这样做的，实现这种强隔离的典型方法是使用硬件支持。
+这通常是这样做的，
 And this is typically done, the
 
 756
 00:23:49,500 --> 00:23:51,450
+实现这种强隔离的一般方法是
 typical approach to achieving this strong
 
 757
 00:23:51,450 --> 00:23:54,200
+使用硬件支持。
 isolation is using hardware support.
 
 758
 00:23:57,880 --> 00:23:58,630
-我们在这节课中稍微了解了一下，但是我们会在后面的课中更详细地讲到这一点。和两部分系列硬件支持，一个是所谓的用户内核模式，“/kernel模式”。
+我们在这节课中
 And we get a little bit
 
 759
 00:23:58,630 --> 00:23:59,860
+稍微了解了一下，
 of flavor of that in this
 
 760
 00:23:59,860 --> 00:24:00,880
+但是我们会在
 lecture, but we'll come back to
 
 761
 00:24:00,880 --> 00:24:02,170
+后面的课中更详细地
 in much more detail in subsequent
 
 762
 00:24:02,170 --> 00:24:03,700
+讲到这一点。
 lectures. And two,
 
 763
 00:24:03,780 --> 00:24:06,330
+有两种硬件支持，
 two part series hardware support,
 
 764
 00:24:06,330 --> 00:24:08,370
+一个是所谓的
 one is something that's called user
 
 765
 00:24:08,370 --> 00:24:09,360
+用户内核模式，
 kernel mode,
 
 766
 00:24:10,290 --> 00:24:11,700
+"/kernel模式"。
 "/kernel mode".
 
 767
 00:24:12,500 --> 00:24:14,120
-在RISC-V中称为管理模式，但这是一回事。
+在 RISC-V 中称为管理模式，
 In RISC-V is called supervisor
 
 768
 00:24:14,120 --> 00:24:15,780
+但是是一回事。
 mode, but it's the same thing.
 
 769
 00:24:16,260 --> 00:24:18,300
-嗯，在页表中，虚拟内存。
+在页表中， TODO:
 Um, in page tables,
 
 770
 00:24:18,300 --> 00:24:19,380
+虚拟内存。
 virtual memory.
 
 771
 00:24:24,230 --> 00:24:27,170
-所以所有处理器，某种系列处理器，嗯，旨在运行操作系统和多个应用程序的处理器，都支持用户内核模式和虚拟内存，您知道这可能表现为实现方式略有不同，但物理上所有处理器都有，嗯，我们在这一类中使用的RISC-V处理器也有这种支持。
+所以所有处理器，
 So all processors, sort of
 
 772
 00:24:27,170 --> 00:24:28,460
+某种系列处理器，
 series processors,
 
 773
 00:24:28,460 --> 00:24:30,620
+旨在运行操作系统和
 um that are intended to run
 
 774
 00:24:30,620 --> 00:24:33,170
+多个应用程序的处理器，
 an operating system multiple applications,
 
 775
 00:24:33,170 --> 00:24:35,930
+都支持用户内核模式和
 have support for user kernel mode
 
 776
 00:24:35,930 --> 00:24:36,680
+虚拟内存，
 and virtual memory,
 
 777
 00:24:36,680 --> 00:24:38,180
+这可能表现为
 you know it might be manifested
 
 778
 00:24:38,180 --> 00:24:39,890
+实现方式略有不同，
 were implemented in a slightly different
 
 779
 00:24:39,890 --> 00:24:42,440
+但物理上所有处理器都有，
 ways but physical all processors have,
 
 780
 00:24:43,180 --> 00:24:45,130
+我们使用的
 um, and RISC-V processor
 
 781
 00:24:45,130 --> 00:24:47,260
+RISC-V 处理器
 that we're using in this class
 
 782
 00:24:47,260 --> 00:24:48,980
+也有这种支持。
 has that support too.
 
 783
 00:24:49,450 --> 00:24:50,470
-所以让我简单地说一下，我要先谈一下用户模式和内核模式，然后我们再谈一下虚拟内存的问题。
+所以让我简单地说一下，
 So let me talk a little
 
 784
 00:24:50,470 --> 00:24:51,310
+我要先谈一下
 bit, I'm going to talk a
 
 785
 00:24:51,310 --> 00:24:52,600
+用户模式和
 little bit about user mode,
 
 786
 00:24:52,600 --> 00:24:53,770
-kernel mode first and then
+内核模式，
+kernel mode first, and then
 
 787
 00:24:53,770 --> 00:24:54,370
+然后我们再谈一下
 we'll talk a little bit
 
 788
 00:24:54,370 --> 00:24:55,440
+虚拟内存。
 about virtual memory.
 
 789
 00:24:55,680 --> 00:24:57,660
-嗯，而且大多是最高级别的。
+而且大多是
 Um, and mostly at the highest
 
 790
 00:24:57,660 --> 00:24:59,360
+从高层级讨论的。
 level possible.
 
 791
 00:24:59,500 --> 00:25:00,400
-因为有很多重要的细节，但我不能在这节课中讲到这些。
+因为有很多
 Because there's a lot of
 
 792
 00:25:00,400 --> 00:25:01,330
+重要的细节，
 important details,
 
 793
 00:25:01,330 --> 00:25:02,080
+但我不能
 but I won't be able to
 
 794
 00:25:02,080 --> 00:25:03,320
+在这节课中包含这些。
 cover those in this lecture.
 
 795
 00:25:04,840 --> 00:25:06,070
-因此，让我们首先讨论一下用户内核模式。
+让我们首先讨论一下
 So let's first talk about user
 
 796
 00:25:06,070 --> 00:25:07,000
+用户内核模式。
 kernel mode.
 
 797
 00:25:14,600 --> 00:25:16,100
-基本上它的意思是处理器有两种操作模式，一种是用户模式，另一种是内核模式。
+它的意思是
 And basically what it means is
 
 798
 00:25:16,100 --> 00:25:17,960
+处理器有
 that the processor has two modes
 
 799
 00:25:17,960 --> 00:25:19,100
+两种操作模式，
 of operation,
 
 800
 00:25:19,100 --> 00:25:20,660
+一种是用户模式，
 one is user mode and the
 
 801
 00:25:20,660 --> 00:25:21,900
+另一种是内核模式。
 other one is kernel mode.
 
 802
 00:25:22,360 --> 00:25:24,780
-在内核模式下运行时，CPU可以执行特权指令。
+在内核模式下运行时，
 And when running in kernel mode,
 
 803
 00:25:25,430 --> 00:25:28,640
+CPU 可以执行特权指令。
 the CPU can execute privileged instructions.
 
 804
 00:25:35,500 --> 00:25:37,330
-回到第二个出局。
+回到第二个出局。 TODO:
 Come back to the second out.
 
 805
 00:25:37,330 --> 00:25:39,260
-在用户模式下运行时，CPU只能在非特权指令中执行。
+在用户模式下运行时，
 When running in user mode,
 
 806
 00:25:39,700 --> 00:25:41,860
+CPU 只能执行
 CPU can only execute in
 
 807
 00:25:41,860 --> 00:25:43,240
+非特权指令。
 unprivileged instructions.
 
 808
 00:25:49,980 --> 00:25:51,120
-改进结构，你很熟悉的结构，想想‘加’，‘减’，把两个寄存器加在一起，你知道减法来寄存器，所以这是你的基本过程调用，你的JR，所有这类东西分支，这些都是嗯，没有特权的指令，任何用户应用程序都被允许执行。
+改进结构， TODO:
 And improve the structure,
 
 809
 00:25:51,120 --> 00:25:52,680
+你很熟悉的结构，
 the structure you're well familiar with
 
 810
 00:25:52,680 --> 00:25:53,010
+你知道，
 you know,
 
 811
 00:25:53,010 --> 00:25:55,860
+比如 add sub ，
 think about like 'add' 'sub', adding
 
 812
 00:25:55,860 --> 00:25:57,480
+把两个寄存器加在一起，
 to two registers together,
 
 813
 00:25:57,480 --> 00:25:58,860
+对寄存器做减法，
 you know subtracting to register
 
 814
 00:25:58,860 --> 00:26:00,120
+所以这是你的
 so it's your basic you
 
 815
 00:26:00,120 --> 00:26:02,200
+基本过程调用，
 know procedure calls,
 
 816
 00:26:02,270 --> 00:26:03,470
+你的 jr ，
 your jr,
 
 817
 00:26:03,470 --> 00:26:05,300
+所有这类东西分支，
 all that kind of stuff branches,
 
 818
 00:26:05,300 --> 00:26:06,620
+这些都是
 those are all
 
 819
 00:26:07,430 --> 00:26:09,410
+没有特权的指令，
 um, unprivileged instructions that any
 
 820
 00:26:09,410 --> 00:26:11,300
+任何用户应用程序都允许执行。
 user application is allowed to execute.
 
 821
 00:26:12,030 --> 00:26:15,030
-特权结构基本上是直接操作硬件的结构，您知道设置保护之类的东西，例如设置页表寄存器。
+特权结构基本上是
 Privileged structures are structures that basically
 
 822
 00:26:15,030 --> 00:26:18,180
+直接操作
 are involved in manipulating the
 
 823
 00:26:18,180 --> 00:26:19,230
+硬件的结构，
 hardware directly,
 
 824
 00:26:19,230 --> 00:26:21,330
+您知道设置保护
 you know setting up protections and
 
 825
 00:26:21,330 --> 00:26:21,900
+之类的东西，
 things like that,
 
 826
 00:26:21,900 --> 00:26:22,890
+例如设置
 so for example setting up a
 
 827
 00:26:22,890 --> 00:26:24,260
+页表寄存器。
 page table register.
 
 828
 00:26:27,450 --> 00:26:28,800
-我们稍后会谈到，嗯，你知道，设置禁用时钟中断。
+我们稍后会谈到，
 Which we'll talk about later,
 
 829
 00:26:28,800 --> 00:26:30,240
+嗯，
 um were,
 
 830
 00:26:31,840 --> 00:26:33,760
+设置
 you know, setting the disabling
 
 831
 00:26:33,760 --> 00:26:34,920
+禁用时钟中断。
 clock interrupts.
 
 832
 00:26:39,320 --> 00:26:40,100
-所以在处理器上有各种类型的状态，操作系统打算使用这些状态，您完全知道，嗯，这种状态是针对特权指令完成的。
+所以在处理器上
 So there are all kinds of
 
 833
 00:26:40,100 --> 00:26:42,110
+有各种类型的状态，
 sort of state on the processor
 
 834
 00:26:42,110 --> 00:26:43,760
+操作系统
 that the operating system intended to
 
 835
 00:26:43,760 --> 00:26:46,340
+使用这些状态，
 use and manipulating that state you
 
 836
 00:26:46,340 --> 00:26:47,450
+你知道，
 know completely,
 
 837
 00:26:47,450 --> 00:26:49,840
+这种状态是针对特权指令完成的。
 um, is done for privileged instructions.
 
 838
 00:26:50,360 --> 00:26:50,630
-因此，例如当用户应用程序试图实际执行特权指令时。
+因此，
 And so,
 
 839
 00:26:50,630 --> 00:26:51,560
+例如当用户应用程序
 for example when a user
 
 840
 00:26:51,560 --> 00:26:53,720
+试图执行
 application tries to actually execute
 
 841
 00:26:53,720 --> 00:26:55,020
+特权指令时。
 a privilege instruction.
 
 842
 00:26:55,250 --> 00:26:57,320
-那么进程规则将不会执行，因为如果个人指令用户模式是不允许的，基本上这将导致控制从用户模式转移到内核模式，这样操作系统就可以实际控制，也许我会因为行为不端而杀死应用程序。
+进程规则将不会执行，
 Then the process rules won't
 
 843
 00:26:57,320 --> 00:26:59,810
+因为如果个人指令 TODO:
 execute because if personal instruction user
 
 844
 00:26:59,810 --> 00:27:01,700
+用户模式是不允许的，
 mode is disallowed and basically
 
 845
 00:27:01,700 --> 00:27:03,980
+这将导致控制
 that will result in the transfer
 
 846
 00:27:03,980 --> 00:27:06,170
+从用户模式转移到
 control from user space from user
 
 847
 00:27:06,170 --> 00:27:07,250
+内核模式，
 mode to kernel mode so that
 
 848
 00:27:07,250 --> 00:27:08,540
+这样操作系统就可以
 then the operating system can actually
 
 849
 00:27:08,540 --> 00:27:09,650
+实际控制，也许会因为行为不端
 take control and maybe if I
 
 850
 00:27:09,650 --> 00:27:12,040
+而停止应用程序。
 kill the application because of misbehaving.
 
 851
 00:27:12,960 --> 00:27:14,670
-为了理解一下，嗯，这两个指令和特权和非特权指令之间的区别。
+为了理解
 To get a little bit
 
 852
 00:27:14,670 --> 00:27:15,720
+这个，
 of sense,
 
 853
 00:27:15,720 --> 00:27:17,280
+特权指令和
 um, the difference between the two
 
 854
 00:27:17,280 --> 00:27:19,280
+非特权指令之间的区别。
 and privilege and imprivilege instructions.
 
 855
 00:27:19,380 --> 00:27:21,720
-嗯，让我把显示屏切换到第二个。
+嗯，让我把显示屏 TODO:
 Um, let me switch display
 
 856
 00:27:21,720 --> 00:27:22,780
+切换到第二个。
 for second.
 
 857
 00:27:22,860 --> 00:27:24,480
-在右侧，您必须显示的是一个文档，您知道RISC-V。
+在右侧，
 And here on the right side,
 
 858
 00:27:24,480 --> 00:27:26,010
+你必须显示的
 you have to display is
 
 859
 00:27:26,010 --> 00:27:26,760
+是一个文档，
 a document,
 
 860
 00:27:26,760 --> 00:27:28,680
-you know the RISC-V.
+这是 RISC-V
+you know the RISC-V
 
 861
 00:27:28,890 --> 00:27:32,400
-特权体系结构文档，该文档包含所有特权说明，它是从网站链接的。
-Privilege architecture document and that document
+特权结构文档，该文档
+privilege architecture document and that document
 
 862
 00:27:32,400 --> 00:27:34,110
+包含所有特权指令，
 contains all the privilege instructions,
 
 863
 00:27:34,110 --> 00:27:35,860
+它是从网站链接来的。
 it's linked from the website.
 
 864
 00:27:35,940 --> 00:27:39,360
-嗯，在偏好页面下，在接下来的几周或几乎几个月内，你会看到所有这些特权指令，你知道，所有这些特权指令都显示在这里，事实上，它们中的许多都会出现，其中一些希望在下一节课中出现，并提供更多的细节。
+在 perferences 页面下，
 Um, under the preferences page and
 
 865
 00:27:39,360 --> 00:27:41,730
+在接下来的几周或
 in the next couple of weeks
 
 866
 00:27:41,730 --> 00:27:44,070
-or almost months now,
+几乎一个月内，
+or almost months,
 
 867
 00:27:44,070 --> 00:27:45,630
+你会看到
 you will be playing around you
 
 868
 00:27:45,630 --> 00:27:47,280
+所有这些特权指令，
 know all these privileged instructions,
 
 869
 00:27:47,280 --> 00:27:48,420
+你知道，
 you know,
 
 870
 00:27:48,420 --> 00:27:50,130
+所有特权指令都显示在这里，
 are shown here and in
 
 871
 00:27:50,130 --> 00:27:52,170
+事实上，它们中的许多都会出现，
 fact many of them will show
 
 872
 00:27:52,170 --> 00:27:53,520
+其中一些
 up and some of them want
 
 873
 00:27:53,520 --> 00:27:54,360
+会在下一节课中出现，
 to show up in the next
 
 874
 00:27:54,360 --> 00:27:56,040
+并提供更多的细节。
 lecture in a great mount of detail.
 
 875
 00:27:56,280 --> 00:27:57,900
-嗯，但是用户认为这是因为有些特权指令是用户应用程序不能执行的，并且只能在内核模式下执行。
+但是用户认为
 Um, but users think about this
 
 876
 00:27:57,900 --> 00:28:00,210
+这是特权指令是
 as there are privilege instructions that
 
 877
 00:28:00,210 --> 00:28:01,470
+用户应用程序不能执行的，
 user applications should not be able
 
 878
 00:28:01,470 --> 00:28:03,330
+只能
 to execute and those can only
 
 879
 00:28:03,330 --> 00:28:04,660
+在内核模式下执行。
 be executed in kernel mode.
 
 880
 00:28:05,810 --> 00:28:08,240
-这是强隔离硬件支持的一个方面。
+这是强隔离
 So that's one aspect of you
 
 881
 00:28:08,240 --> 00:28:09,710
+一个方面，
 know this sort of hardware support
 
 882
 00:28:09,710 --> 00:28:11,000
+由硬件支持。
 for strong isolation.
 
 883
 00:28:11,340 --> 00:28:12,270
-嗯，是的，阿曼达，去吧。
+是的，
 Um, yeah,
 
 884
 00:28:12,270 --> 00:28:12,570
+Amanda ，说出你的问题。
 Amanda, go head.
 
 885
 00:28:13,750 --> 00:28:15,820
-我只想问一个简短的问题，比如，嗯，我脑海中的想象是，如果内核模式允许其他人不喜欢什么，谁在运行该代码并检查其内核模式，他们如何知道它是否处于内核模式，比如标志或其他什么。
+我想问一个简短的问题，
 Just a quick question like,
 
 886
 00:28:15,820 --> 00:28:17,800
+比如，
 um, the what I'm imagining
 
 887
 00:28:17,800 --> 00:28:18,760
+我脑海中的想象是，
 in my head is something
 
 888
 00:28:18,760 --> 00:28:20,950
+如果内核模式允许
 like if kernel mode allow
 
 889
 00:28:20,950 --> 00:28:22,780
+或不允许那个，
 else don't like what,
 
 890
 00:28:22,780 --> 00:28:24,910
+那么是谁在运行该代码
 who is running that code and
 
 891
 00:28:24,910 --> 00:28:26,200
+并检查其是否是内核模式，
 checking if its kernel mode,
 
 892
 00:28:26,200 --> 00:28:27,250
+它们如何知道
 how do they know if it's
 
 893
 00:28:27,250 --> 00:28:28,960
+它是否处于内核模式，
 in kernel mode like a flag
 
 894
 00:28:28,960 --> 00:28:29,800
+比如标志或其他什么。
 or something.
 
 895
 00:28:29,900 --> 00:28:31,970
-是的，基本上是标记处理器，从字面上看，处理器中有位，那只是用户模式，1表示，通常1是用户模式，0是内核模式。
+是的，基本上是标记处理器，
 Yes, basically flagging the processor,
 
 896
 00:28:31,970 --> 00:28:33,920
+字面上，处理器中
 literally there are a bit
 
 897
 00:28:33,920 --> 00:28:34,850
+有一个位来表示，
 in the processor,
 
 898
 00:28:34,850 --> 00:28:36,350
+那就是
 that's just you know user
 
 899
 00:28:36,350 --> 00:28:36,830
+用户模式
 mode,
 
 900
 00:28:36,830 --> 00:28:38,540
+用 1 表示，
 1 is saying,
 
 901
 00:28:38,640 --> 00:28:40,650
+通常 1 是用户模式，
 typically 1 is user mode,
 
 902
 00:28:40,650 --> 00:28:41,980
+0 是内核模式。
 0 is kernel mode.
 
 903
 00:28:42,360 --> 00:28:43,920
-因此，当处理器解码指令时，如果操作码是特权指令并且位被设置为1，则查看操作码，并且将拒绝执行该指令。
+因此，
 And so when the processor decodes
 
 904
 00:28:43,920 --> 00:28:45,060
+当处理器解码指令时，
 an instruction,
 
 905
 00:28:45,060 --> 00:28:46,410
+查看操作码，
 looks at the op code
 
 906
 00:28:46,410 --> 00:28:47,490
+如果操作码
 if the op code is a
 
 907
 00:28:47,490 --> 00:28:50,190
+是特权指令
 privilege instruction and the bit is
 
 908
 00:28:50,190 --> 00:28:51,840
+并且位被设置为 1 ，则拒绝
 set to 1 and will deny
 
 909
 00:28:51,840 --> 00:28:53,200
+执行该指令。
 executing that instruction.
 
 910
 00:28:54,420 --> 00:28:56,880
-你知道除以零，你是不被允许这么做的。
+你知道，除以零的操作，
 You know divided by zero, you're not
 
 911
 00:28:56,880 --> 00:28:57,840
+就是不被允许。
 allowed to do that.
 
 912
 00:28:58,130 --> 00:28:59,780
-好的，但是如果那个位以某种方式改变了，你只能覆盖那个位，那么这是唯一可以控制的，那么你认为覆盖位的指令是什么，特权指导者的非特权指令。
+好的，但是如果那个位 TODO:
 Okay, but if that bit
 
 913
 00:28:59,780 --> 00:29:01,130
+以某种方式改变了，
 has changed in some way
 
 914
 00:29:01,130 --> 00:29:02,390
+你只能覆盖那个位，
 you were just able to
 
 915
 00:29:02,390 --> 00:29:04,610
+那么
 overwrite that bit then that's
 
 916
 00:29:04,610 --> 00:29:06,170
+这是唯一可以控制的，
 the only thing controlling yeah,
 
 917
 00:29:06,170 --> 00:29:07,430
+那么你认为
 so what do you think
 
 918
 00:29:07,430 --> 00:29:09,020
+覆盖位的指令
 what the instruction that overwrites
 
 919
 00:29:09,020 --> 00:29:10,220
+是什么，
 a bit is that
 
 920
 00:29:10,220 --> 00:29:12,440
+特权指导者的非特权指令。
 privilege instructor unprivileged instruction.
 
 921
@@ -3845,35 +4605,42 @@ Is there a question.
 
 922
 00:29:22,970 --> 00:29:25,820
-清除设置该位的指令必须是特权指令，因为用户应用程序应该不能将该位设置为内核模式，正确后才能实际运行所有类型的特权指令。
+清除设置该位的指令
 Clear the instruction that sets the
 
 923
 00:29:25,820 --> 00:29:27,800
+必须是特权指令，
 bit must be privilege instruction because
 
 924
 00:29:27,800 --> 00:29:29,420
+因为用户应用程序
 the user application should not be
 
 925
 00:29:29,420 --> 00:29:30,470
+不能将该位设置为
 able to set the bit to
 
 926
 00:29:30,470 --> 00:29:31,070
-kernel mode,
+内核模式。
+kernel mode.
 
 927
 00:29:31,070 --> 00:29:32,450
-correct and then be able
+正确，然后才能
+Correct and then be able
 
 928
 00:29:32,450 --> 00:29:34,310
+运行所有类型的
 to actually run all kinds
 
 929
 00:29:34,310 --> 00:29:35,420
+特权指令。
 of privilege instructions.
 
 930
@@ -3883,767 +4650,912 @@ And so that data is protected.
 
 931
 00:29:39,210 --> 00:29:40,180
-这有意义吗。
-Does that make sense.
+你理解了吗？
+Does that make sense?
 
 932
 00:29:40,780 --> 00:29:41,980
-好的，好的。
+好的。
 Okay, yeah.
 
 933
 00:29:44,130 --> 00:29:45,300
-嗯，好的，那么嗯，那就是用户内核模式，或者至少你知道俯视图用户内核模式，结果是RISC-V有很多你问到的第三种模式，叫做机器模式。
+嗯，好的，
 Um, OK good,
 
 934
 00:29:45,300 --> 00:29:46,140
+那么，
 so um,
 
 935
 00:29:46,140 --> 00:29:47,220
+那就是用户内核模式，
 so that's user kernel mode
 
 936
 00:29:47,220 --> 00:29:48,270
+或者至少你知道
 or at least you know the
 
 937
 00:29:48,270 --> 00:29:50,160
+用户内核模式的大概，
 top view user kernel mode,
 
 938
 00:29:50,160 --> 00:29:51,360
+结果是 RISC-V
 turns out to RISC-V
 
 939
 00:29:51,360 --> 00:29:52,800
+有很多人问到的
 has a number of you
 
 940
 00:29:52,800 --> 00:29:54,270
+第三种模式，
 asked about have a third
 
 941
 00:29:54,270 --> 00:29:55,800
+叫做机器模式。
 mode called machine mode.
 
 942
 00:29:55,920 --> 00:29:57,630
-嗯，我们基本上会忽略这一点，所以我很肯定地说，基本上这是一个亮点，因为基本上是三个级别的特权，而不是两个级别的特权。
+我们基本上会忽略这一点，
 Um, we're mostly going to ignore
 
 943
 00:29:57,630 --> 00:29:59,160
+我很肯定地说，
 that and so I'm very much
 
 944
 00:29:59,160 --> 00:30:00,990
+基本上这是一个亮点， TODO:
 say about it basically it's one
 
 945
 00:30:00,990 --> 00:30:02,430
+因为基本上是
 more light because basically three levels
 
 946
 00:30:02,430 --> 00:30:03,960
+三个级别的特权，
 of privileges instead of two levels
 
 947
 00:30:03,960 --> 00:30:04,860
+替代两个级别的特权。
 of privileges.
 
 948
 00:30:05,290 --> 00:30:06,400
-阿米尔，说吧。
+Amir ，说吧。
 Amir, go ahead.
 
 949
 00:30:07,770 --> 00:30:09,660
-好的，所以我想知道在安全方面，如果所有的用户代码都通过内核，那么其意图是安全的，但是有没有办法让这个计算机的用户完全绕过操作系统呢？
+好的，我想知道
 Alright, so I'm wondering with respect
 
 950
 00:30:09,660 --> 00:30:10,440
+在安全方面，
 to security,
 
 951
 00:30:10,440 --> 00:30:13,020
+如果所有的用户代码
 if all user code does go
 
 952
 00:30:13,020 --> 00:30:13,650
+都通过内核，
 through the kernel,
 
 953
 00:30:13,650 --> 00:30:14,700
+那么其意图
 the intent is that things
 
 954
 00:30:14,700 --> 00:30:15,630
+是安全的，
 are secure,
 
 955
 00:30:15,630 --> 00:30:17,760
+但是有没有一种方式
 but is there a way for
 
 956
 00:30:17,880 --> 00:30:19,380
+让计算机的用户
 um, a user of the
 
 957
 00:30:19,380 --> 00:30:22,950
+完全绕过
 computer to completely go around
 
 958
 00:30:22,950 --> 00:30:24,380
+操作系统呢？
 the operating system.
 
 959
 00:30:25,180 --> 00:30:26,620
-不，不是真的，至少你知道如果做得不小心的话。
+不，不完全是，
 No, not really,
 
 960
 00:30:26,620 --> 00:30:28,540
+至少你知道，
 at least you know if done
 
 961
 00:30:28,540 --> 00:30:30,000
+如果做得不小心的话。
 carefully not.
 
 962
 00:30:32,700 --> 00:30:34,170
-如果可能的话，就像您知道的那样，有些程序可能会有额外的特权。
+如果可能的话，
 And if possible like you know
 
 963
 00:30:34,170 --> 00:30:35,250
+就像那样，
 that might be the case that
 
 964
 00:30:35,250 --> 00:30:37,360
+有些程序可能会有额外的特权。
 some programs have additional privileges.
 
 965
 00:30:37,540 --> 00:30:39,010
-嗯，操作系统会尊重的。
+操作系统会
 Um, that the operating system
 
 966
 00:30:39,010 --> 00:30:40,780
+重视的。
 will respect.
 
 967
 00:30:41,020 --> 00:30:42,520
-嗯，但是这些特权并不是给每个用户的，你知道，只有root用户才有某些特权，允许您进行安全敏感的操作。
+但是这些特权并不是
 Um, but those privileges are not
 
 968
 00:30:42,520 --> 00:30:44,440
+给每个用户的，你知道，
 given to every user, you know, only
 
 969
 00:30:44,440 --> 00:30:46,120
+只有 root 用户才有
 root user has certain
 
 970
 00:30:46,120 --> 00:30:48,370
+某些特权，允许你进行
 privileges that allow you to do
 
 971
 00:30:48,370 --> 00:30:50,320
+对安全敏感的操作。
 security sensitive operations.
 
 972
 00:30:50,860 --> 00:30:53,860
-那么BIOS呢？BIOS发生在操作系统之前还是之后。是的，所以BIOS基本上是电脑附带的一个软件，嗯，那是先启动的，BIOS基本上是启动的，操作系统，嗯，所以BIOS是一段值得信任的代码。
+那么BIOS呢？
 What about BIOS, does BIOS
 
 973
 00:30:53,860 --> 00:30:56,530
+BIOS 发生在操作系统之前还是之后。
 happened before OS or after. Yeah,
 
 974
 00:30:56,530 --> 00:30:59,800
+是的，所以 BIOS 是
 so the BIOS is a piece
 
 975
 00:30:59,800 --> 00:31:01,600
+计算机附带
 of software that basically comes
 
 976
 00:31:01,600 --> 00:31:02,980
+的一个软件，
 with the computer,
 
 977
 00:31:02,980 --> 00:31:04,090
+嗯，
 um and um,
 
 978
 00:31:04,090 --> 00:31:06,280
+那是先启动的，
 that's booted first and the BIOS
 
 979
 00:31:06,280 --> 00:31:06,820
+BIOS 引导
 basically boots,
 
 980
 00:31:06,820 --> 00:31:08,050
+操作系统，
 the operating system,
 
 981
 00:31:08,050 --> 00:31:09,280
+嗯，所以 BIOS 是一段
 um, so the BIOS is a
 
 982
 00:31:09,280 --> 00:31:11,080
+可信任的代码。
 trusted piece of code.
 
 983
 00:31:11,450 --> 00:31:12,950
-最好是正确的，最好不是恶意的。
+最好是正确的，
 And better be correct and better
 
 984
 00:31:12,950 --> 00:31:14,360
+最好不是恶意的。
 be not malicious.
 
 985
 00:31:16,940 --> 00:31:17,510
-诺亚，说吧。
+Noah ，
 Noah,
 
 986
 00:31:17,510 --> 00:31:18,200
+说吧。
 go ahead.
 
 987
 00:31:19,310 --> 00:31:19,970
-嗯，是的，所以你提到了设置UM的指令，内核模式位是特权指令，用户程序怎么可能，然后你知道，能够像你本质上拥有内核一样，执行任何内核指令，如果就像访问内核模式的指令本身就是一条特权指令，我猜好像马上就有一个屏障，让用户程序改变这一位。
+嗯，是的，
 Um, yeah,
 
 988
 00:31:19,970 --> 00:31:21,800
+所以
 so you mentioned that the
 
 989
 00:31:21,800 --> 00:31:23,690
+你提到了
 you know the instruction to
 
 990
 00:31:23,690 --> 00:31:24,920
+设置
 set the um,
 
 991
 00:31:24,920 --> 00:31:26,180
+内核模式位是
 the kernel mode bit is a
 
 992
 00:31:26,180 --> 00:31:27,590
+特权指令，
 privileged instruction,
 
 993
 00:31:27,590 --> 00:31:29,690
+用户程序 TODO:
 how would a user program ever,
 
 994
 00:31:29,690 --> 00:31:31,010
+怎么能像
 then be able to you
 
 995
 00:31:31,010 --> 00:31:33,650
+完全拥有
 know get like you essentially
 
 996
 00:31:33,650 --> 00:31:34,460
+内核一样，
 have the kernel,
 
 997
 00:31:34,460 --> 00:31:35,990
+执行任何内核指令，
 execute any kernel instructions,
 
 998
 00:31:35,990 --> 00:31:38,270
-if like the very instructions to
+如果就像访问内核模式
+if like the [very] instructions to
 
 999
 00:31:38,270 --> 00:31:40,160
+的指令本身
 access kernel mode is itself a
 
 1000
 00:31:40,160 --> 00:31:41,480
+就是一条特权指令，
 privileged instruction I guess it seems
 
 1001
 00:31:41,480 --> 00:31:43,490
+我想应该有一个屏障，
 like there's immediately a barrier for
 
 1002
 00:31:43,490 --> 00:31:45,940
+让用户程序改变这一位。
 user program ever changing that bit.
 
 1003
 00:31:45,990 --> 00:31:48,630
-是的，是的，这就是我们想要的方式，这是正确的，嗯，所以可以这样想，这并不完全是RISC-V上的工作方式，但是如果你在用户空间执行特权指令，就会尝试执行特权指令。
+是的，这是正确的，
 Yeah yeah that's correct and that's
 
 1004
 00:31:48,630 --> 00:31:49,500
+这就是我们想要的方式，
 exactly the way we want,
 
 1005
 00:31:49,500 --> 00:31:50,370
+这是正确的，
 that's correct,
 
 1006
 00:31:50,370 --> 00:31:51,660
+所以可以
 um, so one way to think
 
 1007
 00:31:51,660 --> 00:31:52,140
+这样想，
 about it,
 
 1008
 00:31:52,140 --> 00:31:53,370
+这并不完全是
 and this is not exactly how
 
 1009
 00:31:53,370 --> 00:31:54,750
+RISC-V 上的工作方式，
 it works on the RISC-V,
 
 1010
 00:31:54,750 --> 00:31:57,060
+但是如果你在用户空间
 but if you execute a privilege
 
 1011
 00:31:57,060 --> 00:31:58,560
+执行特权指令，
 instruction in user space will try
 
 1012
 00:31:58,560 --> 00:31:59,880
+就会尝试
 to execute a privileged
 
 1013
 00:31:59,880 --> 00:32:01,280
+执行特权指令……
 instruction...
 
 1014
 00:33:08,220 --> 00:33:08,760
-我回来了，对不起，我看起来就像我的变焦客户在我身上崩溃了一样。
+我回来了，
 I'm back,
 
 1015
 00:33:08,760 --> 00:33:10,590
+不好意思，
 sorry about that I look like
 
 1016
 00:33:10,590 --> 00:33:15,380
+看起来我的 zoom 客户端崩溃了。
 my zoom client crashed on me.
 
 1017
 00:33:17,500 --> 00:33:18,670
-我为此道歉，我真的不知道为什么，但它确实发生了。
+再次道歉，
 I apologize for that I don't
 
 1018
 00:33:18,670 --> 00:33:19,930
+我不知道为什么，
 really know why,
 
 1019
 00:33:19,930 --> 00:33:21,080
+但它确实发生了。
 but it did.
 
 1020
 00:33:25,620 --> 00:33:27,060
-大家能再听到我说话吗。
-Can everybody hear me again.
+大家能听到我说话吗？
+Can everybody hear me again?
 
 1021
 00:33:27,860 --> 00:33:28,910
-是的，你很好，一切都很好，好的。
+是的，你很好，
 Yep, you're good,
 
 1022
 00:33:28,910 --> 00:33:29,660
+一切都很好，
 all good,
 
 1023
 00:33:29,660 --> 00:33:30,440
+好的。
 all right.
 
 1024
 00:33:31,460 --> 00:33:36,740
-好吧，有个虫子，好的，嗯，那么回到嗯。
+好吧，某个地方有个 bug ，好的，
 Well there's somewhere a bug, okay,
 
 1025
 00:33:36,740 --> 00:33:40,080
-um, so back to um.
+那么回到，
+um, so back to, um,
 
 1026
 00:33:42,080 --> 00:33:44,000
-回到几乎所有CPU都提供的第二个硬件支持，CPU提供虚拟内存。
-Back to a second piece
+回到
+back to a second piece
 
 1027
 00:33:44,000 --> 00:33:45,710
+几乎所有 CPU 都
 of hardware support which
 
 1028
 00:33:45,710 --> 00:33:47,750
+提供的第二个硬件支持，
 almost all CPU provide,
 
 1029
 00:33:47,750 --> 00:33:49,440
+CPU 提供
 whith CPU's
 
 1030
 00:33:49,980 --> 00:33:51,500
+虚拟内存。
 provide virtual memory.
 
 1031
 00:34:02,870 --> 00:34:03,860
-我将在周三更详细地谈到这一点，但基本上这个过程有一些东西，你知道吗，它被称为页表。
+我将在周三
 I'm going to talk about this
 
 1032
 00:34:03,860 --> 00:34:07,130
+更详细地谈到这一点，
 on wednesday in much more detail
 
 1033
 00:34:07,130 --> 00:34:09,200
+但基本上这个过程
 but basically the process has something
 
 1034
 00:34:09,200 --> 00:34:09,650
+有一些东西，
 you know what,
 
 1035
 00:34:09,650 --> 00:34:11,060
+被称为页表。
 it's called page table.
 
 1036
 00:34:12,180 --> 00:34:13,440
-您已经看到了这一点，我认为6.004页表基本上将虚拟地址映射到物理地址。
+你已经看到了这一点，
 And you've seen this a little
 
 1037
 00:34:13,440 --> 00:34:15,270
+我认为 6.004
 bit I think 6.004 the
 
 1038
 00:34:15,270 --> 00:34:15,930
+页表
 page table,
 
 1039
 00:34:15,930 --> 00:34:18,220
+基本上是将虚拟地址
 basically maps virtual addresses
 
 1040
 00:34:21,550 --> 00:34:23,000
+映射到物理地址。
 to physical addresses.
 
 1041
 00:34:25,380 --> 00:34:26,550
-其基本思想是给每个进程提供自己的页表。
+其基本思想是
 And the basic idea is to
 
 1042
 00:34:26,550 --> 00:34:27,920
+给每个进程
 give every process,
 
 1043
 00:34:28,680 --> 00:34:30,080
+提供自己的页表。
 its own page table.
 
 1044
 00:34:34,330 --> 00:34:36,740
-这样，进程实际上只能使用，而只允许访问该页表中实际显示的那块物理内存。
+这样，
 In this way,
 
 1045
 00:34:38,130 --> 00:34:39,990
+进程实际上只能使用，
 the process can actually only use
 
 1046
 00:34:39,990 --> 00:34:41,520
+只允许访问
 whereas only allowed to access that
 
 1047
 00:34:41,520 --> 00:34:42,990
+该页表中显示的
 piece of physical memory that actually
 
 1048
 00:34:42,990 --> 00:34:44,640
+那块物理内存。
 shows up in this page table.
 
 1049
 00:34:44,670 --> 00:34:45,570
-所以如果你设置操作系统设置页表的方式，嗯，每个进程都有不相交的物理内存，那么一个进程甚至不能访问其他进程的物理内存，因为它甚至不是页表，所以甚至没有办法创建一个地址或者写下一个允许一个进程访问其他进程的物理内存的地址。
+所以如果你设置，
 And so if you set up
 
 1050
 00:34:45,570 --> 00:34:46,710
+操作系统
 if the operating system sets
 
 1051
 00:34:46,710 --> 00:34:47,700
+设置页表的
 the page tables up in a
 
 1052
 00:34:47,700 --> 00:34:49,560
+方式，
 way that um,
 
 1053
 00:34:49,560 --> 00:34:51,630
+每个进程都有不相交的
 every process has disjoint
 
 1054
 00:34:51,630 --> 00:34:52,560
+物理内存，
 physical memory,
 
 1055
 00:34:52,560 --> 00:34:54,390
+那么一个进程不能访问
 then a process can't even access
 
 1056
 00:34:54,390 --> 00:34:56,160
+其他进程的物理内存，
 somebody else's physical memory because it's
 
 1057
 00:34:56,160 --> 00:34:57,540
+因为它甚至不是页表，
 not even it's page tables,
 
 1058
 00:34:57,540 --> 00:34:58,860
+所以甚至没有办法
 so there's no way even
 
 1059
 00:34:58,860 --> 00:35:00,030
+创建一个地址或者
 to create an address or
 
 1060
 00:35:00,030 --> 00:35:01,590
+写入一个允许一个进程
 write down an address that
 
 1061
 00:35:01,590 --> 00:35:02,700
+访问其他进程的
 will allow a process to
 
 1062
 00:35:02,700 --> 00:35:05,260
+物理内存的地址。
 access somebody else's physical memory.
 
 1063
 00:35:05,380 --> 00:35:06,610
-所以这给了我们很强的记忆隔离。
+所以这给了我们
 And so this gives us strong
 
 1064
 00:35:06,610 --> 00:35:07,800
+强内存隔离。
 memory isolation.
 
 1065
 00:35:09,950 --> 00:35:12,770
-基本上，页表定义了一个关于内存的视图，每个应用程序、每个用户进程都有自己的内存视图，彼此独立。
+基本上，页表定义了
 Basically page table defines a view
 
 1066
 00:35:12,770 --> 00:35:13,580
+一个关于内存的视图，
 on memory,
 
 1067
 00:35:13,580 --> 00:35:15,530
+每个应用程序，
 and every application,
 
 1068
 00:35:15,530 --> 00:35:17,120
+每个用户进程都有
 every user process has its own
 
 1069
 00:35:17,120 --> 00:35:18,420
+自己的内存视图，
 view of memory,
 
 1070
 00:35:18,470 --> 00:35:19,820
+彼此独立。
 independent of each other.
 
 1071
 00:35:20,220 --> 00:35:21,780
-这给了我们非常强的记忆隔离。
+这给了我们非常强的
 And this gives us very strong
 
 1072
 00:35:21,780 --> 00:35:23,220
+内存隔离。
 memory isolation.
 
 1073
 00:35:24,310 --> 00:35:25,690
-现在我们能做的是，如果我们能以这种方式思考一点，那么我们就能更早地重新画出这幅图，因为我们是这样思考的，所以你就有了这个方框。
+现在我们能做的是，
 And so now what we can
 
 1074
 00:35:25,690 --> 00:35:26,350
+如果我们能以这种方式
 do if we can think a
 
 1075
 00:35:26,350 --> 00:35:27,670
+思考一点，
 little bit in this way,
 
 1076
 00:35:27,670 --> 00:35:30,430
+那么我们就能更早地
 then we can redraw the picture
 
 1077
 00:35:30,430 --> 00:35:32,290
+重新画出这幅图，
 a little bit earlier and because
 
 1078
 00:35:32,290 --> 00:35:33,400
+因为我们是这样思考的，
 we're thinking about these as follows,
 
 1079
 00:35:33,400 --> 00:35:34,680
+所以你就有了这个方框。
 you have the box.
 
 1080
 00:35:35,600 --> 00:35:37,220
-是的，ls坐在那个盒子里，还有另一个盒子，当Echo坐在那个盒子里的时候。
+是的， ls 在
 Yeah and ls sits in
 
 1081
 00:35:37,220 --> 00:35:38,720
+那个盒子里，
 that box and there's
 
 1082
 00:35:38,720 --> 00:35:40,160
+还有另一个盒子，
 another box,
 
 1083
 00:35:41,190 --> 00:35:42,920
+echo 在那个盒子里。
 when echo sits in that box.
 
 1084
 00:35:43,730 --> 00:35:45,230
-在一个盒子里，基本上有一个地址虚拟地址范围，从0开始，到某个数字的幂，不管是什么数字。嗯，在RISC-V中，我们将在周三讨论，同样，您也知道ECHO的地址范围是2^x。
+在一个盒子里，
 In a box basically has an
 
 1085
 00:35:45,230 --> 00:35:47,000
+基本上有一个地址虚拟地址，
 address virtual address range starting from
 
 1086
 00:35:47,000 --> 00:35:49,160
+范围从 0 开始，
 0 to whatever some number
 
 1087
 00:35:49,160 --> 00:35:50,720
+到某个数字的幂。
 to the power whatever
 
 1088
 00:35:50,780 --> 00:35:53,420
+在 RISC-V 中，
 number is. Um, in RISC-V, which
 
 1089
 00:35:53,420 --> 00:35:55,700
+我们将在周三讨论，
 we'll talk about on Wednesday and
 
 1090
 00:35:55,700 --> 00:35:57,590
+同时，echo
 similarly you know the address range
 
 1091
 00:35:57,590 --> 00:35:59,750
+的地址范围是类似
 for echo is something whatever
 
 1092
 00:35:59,750 --> 00:36:01,580
+2^x 这样的。
 same to 2^x.
 
 1093
 00:36:02,070 --> 00:36:04,200
-因此ls的内存位置为0，echo的位置类似于0，并且用户完全分开，如果操作系统将这些虚拟地址0映射到不同的物理地址，那么基本上ls不能访问echo的内存，echo也不能访问ls的内存。
+因此 ls 的
 And so ls has in
 
 1094
 00:36:04,200 --> 00:36:06,150
+内存位置包含 0 ，
 memory location 0, echo has a
 
 1095
 00:36:06,150 --> 00:36:07,770
+echo 的位置包含 0 ，
 location like a 0, and users
 
 1096
 00:36:07,770 --> 00:36:08,910
+并且用户完全分开，
 completely separated,
 
 1097
 00:36:08,910 --> 00:36:10,470
+如果操作系统将
 and if the operating system maps
 
 1098
 00:36:10,470 --> 00:36:12,150
+这些虚拟地址 0 映射到
 those virtual addresses 0 to different
 
 1099
 00:36:12,150 --> 00:36:14,700
+不同的物理地址，
 pieces of physical addresses then basically
 
 1100
 00:36:14,700 --> 00:36:16,500
+那么 ls 不能访问 echo 的内存，
 ls cannot access echo's memory and
 
 1101
 00:36:16,500 --> 00:36:18,560
+echo 也不能访问 ls 的内存。
 echo cannot access ls's memory.
 
 1102
 00:36:19,040 --> 00:36:21,140
-嗯，类似的，你知道的内核实际上位于它的下面。
+类似的，你知道，内核实际上
 Um, similarly the kernel actually you
 
 1103
 00:36:21,140 --> 00:36:22,380
+位于它的下面。
 know sits below it.
 
 1104
 00:36:22,560 --> 00:36:23,910
-它也有自己的，至少在xv6中有自己的地址范围。
+它也有自己的，
 It also has its own, at
 
 1105
 00:36:23,910 --> 00:36:25,530
+至少在 xv6 中，
 least in xv6, has its own
 
 1106
 00:36:25,530 --> 00:36:26,600
+有自己的地址范围。
 address range.
 
 1107
 00:36:26,590 --> 00:36:28,660
-嗯，独立于应用程序。
+独立于应用程序。
 Um, independent of the applications.
 
 1108
 00:36:29,080 --> 00:36:30,370
-我们可以考虑用户内核模式，就像坐在两者之间，你知道边界，你知道实际运行的东西。
+我们可以考虑
 And we could think about the
 
 1109
 00:36:30,370 --> 00:36:31,660
+用户内核模式，
 user kernel mode,
 
 1110
 00:36:31,660 --> 00:36:33,430
+位于两者之间，
 sort of sitting in between you
 
 1111
 00:36:33,430 --> 00:36:34,360
+你知道边界，
 know the boundary,
 
 1112
 00:36:34,360 --> 00:36:36,620
+你知道实际运行的东西。
 you know things that actually run.
 
 1113
@@ -4653,350 +5565,417 @@ In user space running user mode.
 
 1114
 00:36:41,020 --> 00:36:41,800
-以及位于运行内核模式的内核中的内容。
+以及位于内核空间
 And things that sit in the
 
 1115
 00:36:41,800 --> 00:36:43,420
+运行内核模式。
 kernel running kernel mode.
 
 1116
 00:36:47,580 --> 00:36:48,840
-这是你实际上应该知道的OS的图片，你知道，坐在那里，你知道，坐在内核模式下，所以这是你应该在你的脑海中看到的图片。
+这是你应该知道的
 And that's sort of the picture
 
 1117
 00:36:48,840 --> 00:36:50,460
+操作系统的图片，
 that you should actually know OS, you
 
 1118
 00:36:50,460 --> 00:36:51,450
+你知道，
 know sits there you know,
 
 1119
 00:36:51,450 --> 00:36:52,260
+在内核模式下，
 sitting in kernel mode,
 
 1120
 00:36:52,260 --> 00:36:53,580
+所以这是你应该在
 so this is the picture,
 
 1121
 00:36:53,580 --> 00:36:55,820
+脑海中看到的图片。
 you should have in your head.
 
 1122
 00:36:56,570 --> 00:36:58,190
-现在，正如到目前为止所描述的，这张图片有点太严格了，你知道我们基本上是把所有的东西都放在一个盒子里，但是没有办法让一个盒子把控制权转移到另一个盒子。
+正如到目前为止
 Now, as described so far
 
 1123
 00:36:58,190 --> 00:36:58,880
+所描述的，
 this picture is a little
 
 1124
 00:36:58,880 --> 00:36:59,840
+这张图片有点太严格了，
 bit too strict,
 
 1125
 00:36:59,840 --> 00:37:01,070
+你知道我们
 you know we have a basically
 
 1126
 00:37:01,070 --> 00:37:02,480
+把所有的东西都放在一个盒子里，
 put everything in a box but
 
 1127
 00:37:02,480 --> 00:37:03,710
+但是没有办法让一个盒子把控制权
 there's no way for one box
 
 1128
 00:37:03,710 --> 00:37:05,640
+转移到另一个盒子。
 to transfer control to another box.
 
 1129
 00:37:05,840 --> 00:37:07,670
-很清楚需要做什么，因为你的例子可能想要调用，你知道，read，read系统调用。
+很显然，需要这些，
 Clearly what needs to happen, because
 
 1130
 00:37:07,670 --> 00:37:09,410
+因为比如 ls 可能想要
 your example ls, you know probably want
 
 1131
 00:37:09,410 --> 00:37:10,300
+调用，
 to call,
 
 1132
 00:37:10,400 --> 00:37:11,810
+你知道 read, read
 you know, read, the read
 
 1133
 00:37:11,810 --> 00:37:12,800
+系统调用。
 system call.
 
 1134
 00:37:13,260 --> 00:37:15,630
-或者编写系统调用，或者您知道的，shell想要称为fork或exec的任何东西。
+或者 write 系统调用，
 Or write system call or maybe
 
 1135
 00:37:15,630 --> 00:37:15,960
+或者你知道的，
 you know,
 
 1136
 00:37:15,960 --> 00:37:17,370
+shell 想要调用 fork 或
 whatever the shell want to call
 
 1137
 00:37:17,370 --> 00:37:18,900
+exec 的任何东西。
 fork or exec.
 
 1138
 00:37:18,950 --> 00:37:19,190
-因此，必须有一种方法让应用程序或用户应用程序以协调的方式将控制权转移到内核，这样内核才能真正提供服务。
+因此，
 And so,
 
 1139
 00:37:19,190 --> 00:37:20,450
+必须有一种方法
 there has to be a way
 
 1140
 00:37:20,450 --> 00:37:22,970
+让应用程序或用户应用程序
 for an application or user application
 
 1141
 00:37:22,970 --> 00:37:25,100
+以协调的方式将控制权
 to transfer control in a coordinated
 
 1142
 00:37:25,100 --> 00:37:27,920
+转移到内核，
 manner to the kernel,
 
 1143
 00:37:27,920 --> 00:37:29,030
+这样内核才能真正
 so the kernel can actually
 
 1144
 00:37:29,030 --> 00:37:30,160
+提供服务。
 provide services.
 
 1145
 00:37:30,940 --> 00:37:32,800
-嗯，那么这个基本上还有一个方案，除了这个，嗯，我到目前为止讲到的两个硬件支持，到目前为止讲到的是一种有控制的进入内核的方式。
+嗯，那么
 Um, and so,
 
 1146
 00:37:32,800 --> 00:37:34,540
+这个还有一个方案，
 um there's a plan basically in
 
 1147
 00:37:34,540 --> 00:37:35,410
+除了这个，
 addition to this,
 
 1148
 00:37:35,410 --> 00:37:36,700
+我到目前为止
 um, two pieces of hardware support
 
 1149
 00:37:36,700 --> 00:37:38,860
+讲到的两个硬件支持，
 I talked so far, talked about
 
 1150
 00:37:38,860 --> 00:37:40,920
+到目前为止讲到的是
 so far is a way
 
 1151
 00:37:41,000 --> 00:37:43,070
+一种有控制的
 of a controlled way of entering
 
 1152
 00:37:43,070 --> 00:37:43,860
+进入内核的方式。
 the kernel.
 
 1153
 00:37:49,440 --> 00:37:51,390
-原来其实RISC-V有一个指令，嗯，这个叫eCall指令。
+其实 RISC-V
 It turns out actually RISC-V,
 
 1154
 00:37:51,390 --> 00:37:53,400
+有一个指令，
 there is an instruction,
 
 1155
 00:37:53,400 --> 00:37:54,690
+这个叫做
 um, for this,
 
 1156
 00:37:54,690 --> 00:37:56,680
+ecall 指令。
 it's called the 'ecall' instruction.
 
 1157
 00:37:58,000 --> 00:37:59,020
-和eCall指令，它接受一个参数，一个数字。
+ecall 指令，
 And ecall instruction,
 
 1158
 00:37:59,020 --> 00:38:01,100
+它接受一个参数，一个数字。
 it takes one argument, a number.
 
 1159
 00:38:02,200 --> 00:38:04,090
-因此，当一个想要将控制权转移到内核的用户应用程序基本上调用eCall指令时，它想要调用的数字是2、3或4、5，而这个数字基本上就是系统调用号。
+因此，当一个应用程序
 And so when a user application
 
 1160
 00:38:04,090 --> 00:38:05,620
+想要将控制权转移到
 that wants to transfer control
 
 1161
 00:38:05,620 --> 00:38:07,480
+内核，它应该
 into the kernel basically called the
 
 1162
 00:38:07,480 --> 00:38:09,610
+调用 ecall 指令，
 ecall instruction with numbers like two
 
 1163
 00:38:09,610 --> 00:38:11,110
+使用数字 2 3 或 4 5 ，
 or three or four five and
 
 1164
 00:38:11,110 --> 00:38:12,850
+这个数字就是
 that number basically is the system
 
 1165
 00:38:12,850 --> 00:38:13,740
+这个应用程序想要调用的
 call number,
 
 1166
 00:38:14,950 --> 00:38:16,720
+系统调用的编号。
 that the application wants to invoke.
 
 1167
 00:38:21,740 --> 00:38:23,480
-然后基本上，我们将在xv6中看到，在内核中特定的点或特定位置进入内核，我的意思是后面的一些讲座，嗯，你知道基本上只有一个系统调用入口点。
+然后，
 And then basically what that does
 
 1168
 00:38:23,480 --> 00:38:25,040
+在 xv6 中我们看到，
 and actually enters the kernel at
 
 1169
 00:38:25,040 --> 00:38:28,340
+它在内核中
 a particular point or particular
 
 1170
 00:38:28,340 --> 00:38:31,700
+特定的点或
 location in the kernel that's controlled by
 
 1171
 00:38:31,700 --> 00:38:33,680
+特定位置
 the kernel as we'll see
 
 1172
 00:38:33,680 --> 00:38:34,460
+进入内核，
 in xv6,
 
 1173
 00:38:34,460 --> 00:38:36,560
+我的意思是在后面的一些课程里，
 I mean some later lectures,
 
 1174
 00:38:36,560 --> 00:38:38,240
+你知道只有
 um, you know there's basically a
 
 1175
 00:38:38,240 --> 00:38:41,060
+一个系统调用入口点。
 single system call entry point.
 
 1176
 00:38:41,090 --> 00:38:42,680
-而且，嗯，每次应用程序调用eCall时，您都知道应用程序进入内核的那个特定点。
+而且，
 And, um,
 
 1177
 00:38:42,680 --> 00:38:44,360
+每次应用程序调用 ecall 时，
 and every time an application calls
 
 1178
 00:38:44,360 --> 00:38:46,070
+都知道应用程序
 ecall, you know the application
 
 1179
 00:38:46,070 --> 00:38:47,820
+进入内核的那个特定点。
 enters the kernel that particular point.
 
 1180
 00:38:48,590 --> 00:38:49,310
-所以，一种，嗯，一种方式来考虑这个问题，如果你有叉子。
+所以，一种，
 So, one,
 
 1181
 00:38:49,310 --> 00:38:51,020
+一种方式来
 um, one way to think
 
 1182
 00:38:51,020 --> 00:38:52,370
+考虑这个问题，
 about this is that if
 
 1183
 00:38:52,370 --> 00:38:53,420
+如果你使用 fork 。
 you have fork.
 
 1184
 00:38:53,900 --> 00:38:54,710
-你知道fork，你知道在用户空间调用，例如shell或者你的primes程序叫做fork，好吧，不管什么调用fork都不会直接调用操作系统，内核中相应的函数，相反你知道它做什么，它实际上叫做eCall。
+你知道 fork ，
 You know fork,
 
 1185
 00:38:54,710 --> 00:38:57,260
+在用户空间调用，
 you know call in user space,
 
 1186
 00:38:57,260 --> 00:38:58,580
+例如 shell 或者
 for example the shell or your
 
 1187
 00:38:58,580 --> 00:39:01,310
-primes program called fork, well whatever
+你的质数程序调用 fork ，
+prime program called fork, will whatever
 
 1188
 00:39:01,310 --> 00:39:02,870
+不管什么调用 fork
 calls fork doesn't really call
 
 1189
 00:39:02,870 --> 00:39:04,550
+都不会直接调用操作系统，
 the operating system directly,
 
 1190
 00:39:04,550 --> 00:39:06,680
+内核中相应的函数，
 the corresponding function in the kernel,
 
 1191
 00:39:06,680 --> 00:39:08,570
+而是
 instead you know what it does
 
 1192
 00:39:08,570 --> 00:39:10,200
+实际上调用 ecall 。
 it actually calls the ecall.
 
 1193
 00:39:11,710 --> 00:39:13,930
-你知道这个叉子的号码。
+你知道 fork
 With you know this number
 
 1194
 00:39:13,930 --> 00:39:15,000
+的编号。
 for fork.
 
 1195
 00:39:17,080 --> 00:39:18,940
-然后它实际上会跳入内核。
+然后它会
 And then that actually jumps into
 
 1196
 00:39:18,940 --> 00:39:19,920
+跳转到内核。
 the kernel.
 
 1197
@@ -5006,514 +5985,613 @@ So this is a kernel transition.
 
 1198
 00:39:23,060 --> 00:39:24,530
-这是用户端，这是内核端，然后在内核端，你知道在syscall.c中有一个名为syscall的函数，然后基本上每个系统调用都会在那个特定的系统结束，调用函数和系统调用会查看这个数字，然后决定在寄存器中传递的大量操作，我认为它是0。
+这是用户端，
 And here's the user side, here's
 
 1199
 00:39:24,530 --> 00:39:27,020
-a kernel side, and then on
+这是内核端，
+kernel side, and then on
 
 1200
 00:39:27,020 --> 00:39:28,190
+然后在内核端，
 the kernel side,
 
 1201
 00:39:28,190 --> 00:39:29,390
+你知道在 syscall.c 中
 you know there's a function called
 
 1202
 00:39:29,390 --> 00:39:31,760
+有一个名为 syscall 的函数，
 syscall in syscall.c and
 
 1203
 00:39:31,760 --> 00:39:34,010
+然后每个系统调用都会在
 then basically every system call will
 
 1204
 00:39:34,010 --> 00:39:35,510
-end up at that particular system,
+那个特定的系统调用函数结束，
+end up at that particular system
 
 1205
 00:39:35,510 --> 00:39:37,250
-call function and the system call
+系统调用
+call function, and the system call
 
 1206
 00:39:37,250 --> 00:39:38,630
+会查看这个数字，
 will look at the number and
 
 1207
 00:39:38,630 --> 00:39:40,070
+然后决定在寄存器中
 then decide and the numerous action
 
 1208
 00:39:40,070 --> 00:39:41,540
+传递的大量操作，
 passed in register I think it's
 
 1209
 00:39:41,540 --> 00:39:42,460
+我想它是 a0 。
 a0.
 
 1210
 00:39:42,680 --> 00:39:44,660
-嗯，去看看那个寄存器，看看a0，看看数字是多少，然后，比如调用fork系统调用。
+嗯，去看看
 Um, and just go and
 
 1211
 00:39:44,660 --> 00:39:45,860
+那个寄存器，
 look at that register look
 
 1212
 00:39:45,860 --> 00:39:47,300
+看看 a0 ，
 at a0, see what the
 
 1213
 00:39:47,300 --> 00:39:48,230
+看看数字是多少，
 number is and then,
 
 1214
 00:39:48,230 --> 00:39:49,310
+比如调用 fork
 for example called the fork
 
 1215
 00:39:49,310 --> 00:39:50,120
+系统调用。
 system call.
 
 1216
 00:39:52,670 --> 00:39:54,140
-嗯，为了明确一下，这是用户和内核之间的硬边界，所以用户不能调用，您知道这个分支直接，您知道用户应用程序实际调用系统调用分支的唯一方式实际上是通过这个eCall指令。
+为了明确一下，
 Um, and so just to make
 
 1217
 00:39:54,140 --> 00:39:55,610
+这是用户和内核之间的
 clear so this is this hard
 
 1218
 00:39:55,610 --> 00:39:57,590
+硬边界，
 boundary between the user and kernel,
 
 1219
 00:39:57,590 --> 00:40:00,400
+所以用户不能调用，
 so the user cannot call,
 
 1220
 00:40:00,600 --> 00:40:03,210
+你知道这个 fork 直接，
 you know this fork directly,
 
 1221
 00:40:03,210 --> 00:40:04,920
+你知道用户应用程序
 you know the only way user
 
 1222
 00:40:04,920 --> 00:40:07,320
+实际调用系统调用 fork
 application can actually invoke the system
 
 1223
 00:40:07,320 --> 00:40:09,150
+的唯一方式是通过
 call fork is actually through this
 
 1224
 00:40:09,150 --> 00:40:10,320
+这个 ecall 指令。
 ecall instruction.
 
 1225
 00:40:12,600 --> 00:40:14,440
-那么我们有另一个，嗯，如果我们有另一个，嗯，另一个系统调用，比方说写。
+我们还有另一个，
 And so we have another, um,
 
 1226
 00:40:18,830 --> 00:40:20,580
+如果我们有另一个，
 if we have another, um,
 
 1227
 00:40:22,400 --> 00:40:23,870
+另一个系统调用，
 another system call let's
 
 1228
 00:40:23,870 --> 00:40:24,920
+比如 write 。
 say write.
 
 1229
 00:40:27,730 --> 00:40:28,810
-它做了一些类似的事情，你知道Write系统调用不能调用你知道的Write，你知道代码直接进入内核，相反，嗯，它所做的，它叫什么，这些小包装器叫什么，系统调用停止，它会调用eCall。
+它做了一些类似的事情，
 It does something similar,
 
 1230
 00:40:28,810 --> 00:40:30,790
+你知道 write 系统调用
 you know the write system
 
 1231
 00:40:30,790 --> 00:40:32,410
+不能直接调用
 call cannot call you know the
 
 1232
 00:40:32,410 --> 00:40:34,450
+内核中的
 write, you know code directly into
 
 1233
 00:40:34,450 --> 00:40:35,080
+write 代码，
 the kernel,
 
 1234
 00:40:35,080 --> 00:40:36,910
+相反，它所做的，
 instead, um what it does,
 
 1235
 00:40:36,910 --> 00:40:39,250
+它调用
 it calls what's these little wrappers
 
 1236
 00:40:39,250 --> 00:40:40,000
+小包装器， TODO:
 are called,
 
 1237
 00:40:41,090 --> 00:40:42,530
+系统调用停止，
 system call stops it will call
 
 1238
 00:40:42,530 --> 00:40:43,400
+它会调用 ecall。
 ecall.
 
 1239
 00:40:44,560 --> 00:40:46,030
-以及一个名为write的函数，它实际执行eCall指令，参数为syscall write，以指示write系统调用，然后再次将控制权转移给syscall。
+以及一个名为 write 的函数，
 And function called write that actually
 
 1240
 00:40:46,030 --> 00:40:48,610
+它实际执行 ecall 指令，
 executes ecall instruction with the argument
 
 1241
 00:40:48,610 --> 00:40:49,210
+参数为系统调用 write ，
 you know syscall write,
 
 1242
 00:40:50,430 --> 00:40:52,530
+以指示 write 系统调用，
 to indicate the write system call,
 
 1243
 00:40:52,530 --> 00:40:54,510
+然后再次将控制权
 and then again transfer control to
 
 1244
 00:40:54,510 --> 00:40:55,460
+转移给 syscall 。
 syscall.
 
 1245
 00:40:55,600 --> 00:40:57,400
-然后syscall，嗯，实际上可以[一个视图多路复用]到write系统调用中。
+然后 syscall ，
 And then syscall,
 
 1246
 00:40:57,400 --> 00:41:00,430
+可以[一个视图多路复用] TODO:
 um, can actually [a view multiplex]
 
 1247
 00:41:00,430 --> 00:41:01,720
+到 write 系统调用中。
 into the write system call.
 
 1248
 00:41:01,850 --> 00:41:03,170
-有两个问题，请继续提问。
+有两个问题，
 There are two questions,
 
 1249
 00:41:03,170 --> 00:41:04,140
+请继续提问。
 please go ahead.
 
 1250
 00:41:09,410 --> 00:41:10,820
-所以，我想我的手都举起来了。
+所以，我想我们
 So, I think my hands up
 
 1251
 00:41:10,820 --> 00:41:11,520
+都举手了。
 both.
 
 1252
 00:41:12,710 --> 00:41:15,020
-好的，我可以先走一步。
+好的，我可以先提问。
 Okay I can go ahead.
 
 1253
 00:41:15,640 --> 00:41:17,560
-哦，我的问题是，嗯，内核如何或在哪里检查，嗯，比方说分叉或写，是否允许或不允许。
+我的问题是，
 Oh, the question I had was,
 
 1254
 00:41:17,560 --> 00:41:19,870
+内核如何或
 um, how does or where does
 
 1255
 00:41:19,870 --> 00:41:21,600
+在哪里检查，
 the kernel check,
 
 1256
 00:41:21,830 --> 00:41:23,510
+嗯，
 um, for,
 
 1257
 00:41:23,510 --> 00:41:25,850
+比如 fork 或 write ，
 for example fork or write, if
 
 1258
 00:41:25,850 --> 00:41:27,180
+是否允许或不允许。
 it is allowed or not.
 
 1259
 00:41:27,510 --> 00:41:28,560
-嗯，现在，您只是传入，就像您知道您只是在调用eCall和系统调用号，但是内核基本上在哪里决定这个应用程序是否应该能够调用这个特定的内核syscall。
+嗯，现在，
 Um, right now,
 
 1260
 00:41:28,560 --> 00:41:29,880
+你只是传入，
 you're just passing in, like you
 
 1261
 00:41:29,880 --> 00:41:31,620
+就像你只是在调用 ecall 和
 know you're just calling ecall
 
 1262
 00:41:31,620 --> 00:41:33,060
+系统调用号，
 and the system call number,
 
 1263
 00:41:33,060 --> 00:41:34,950
+但是内核决定
 but where does the kernel
 
 1264
 00:41:34,950 --> 00:41:37,140
+这个应用程序
 basically decide whether this application
 
 1265
 00:41:37,140 --> 00:41:38,730
+是否应该能够调用
 should be able to invoke
 
 1266
 00:41:38,730 --> 00:41:41,300
+这个特定的内核系统调用。
 this particular kernel syscall.
 
 1267
 00:41:41,420 --> 00:41:42,710
-是的，所以这是一个很好的问题，原则上你知道在内核方面是正确的，当我们实际使用派生调用运行的时候。
+是的，这是一个好问题，
 Yeah, so a great question,
 
 1268
 00:41:42,710 --> 00:41:44,540
+原则上，你知道
 so in principle you know on
 
 1269
 00:41:44,540 --> 00:41:46,010
+在内核方面是正确的，
 the kernel side correct, when we
 
 1270
 00:41:46,010 --> 00:41:47,880
+当我们使用 fork 调用运行的时候。
 actually use fork call runs.
 
 1271
 00:41:48,230 --> 00:41:49,310
-嗯，它可以实现它想要的任何安全检查，你可以查看系统调用的参数，然后决定实际上是否应该允许应用程序执行系统调用分叉。
+它可以实现它想要的
 Um, it can implement any
 
 1272
 00:41:49,310 --> 00:41:49,910
+任何安全检查，
 secure check
 
 1273
 00:41:49,910 --> 00:41:51,170
+你可以查看系统调用的参数，
 it wants, you could look at
 
 1274
 00:41:51,170 --> 00:41:53,390
+然后决定
 the arguments if the system call
 
 1275
 00:41:53,390 --> 00:41:55,130
+是否应该
 and decide whether actually the application
 
 1276
 00:41:55,130 --> 00:41:56,660
+允许应用程序
 should all be allowed to execute
 
 1277
 00:41:56,660 --> 00:41:57,920
+执行系统调用 fork 。
 the system call fork.
 
 1278
 00:41:57,950 --> 00:42:00,200
-现在，在用户中，或者在Unix中，或者任何应用程序中，都可以实际调用fork，但是让我们假设它是Take Write。
+在用户中，或者在 unix 中，
 Now in user or in unix
 
 1279
 00:42:00,200 --> 00:42:01,520
+或者任何应用程序中，都可以调用 fork ，
 or any application can actually call
 
 1280
 00:42:01,520 --> 00:42:03,860
+但是让我们假设 write 。
 fork but let's say take write.
 
 1281
 00:42:03,960 --> 00:42:04,740
-你知道写，你需要检查一个写的植入是否需要检查，实际传递到写中的地址是否真的是用户应用程序的一部分。
+你知道， write ，
 You know write,
 
 1282
 00:42:04,740 --> 00:42:06,840
-you need to check whether a
+你需要检查 write 的
+you need to check whether
 
 1283
 00:42:06,840 --> 00:42:08,280
+实现是否需要检查，
 the implantation of write needs to
 
 1284
 00:42:08,280 --> 00:42:09,840
+传递给 write
 check, whether the address that is
 
 1285
 00:42:09,840 --> 00:42:13,110
+的地址
 actually passed into write, actually is
 
 1286
 00:42:13,110 --> 00:42:15,260
+是否是用户应用程序的一部分。
 part of the user applications.
 
 1287
 00:42:15,480 --> 00:42:16,650
-嗯，所以你知道内核从其他地方写入数据是不正确的，它实际上不属于应用程序。
+所以
 Um, and so that you
 
 1288
 00:42:16,650 --> 00:42:17,580
+内核从其他地方写入数据
 know the kernel is not
 
 1289
 00:42:17,580 --> 00:42:21,390
+是不正确的，
 correct to writing a data
 
 1290
 00:42:21,390 --> 00:42:22,290
+它实际上
 from somewhere else, it actually
 
 1291
 00:42:22,290 --> 00:42:23,880
+不属于应用程序。
 doesn't belong to the application.
 
 1292
 00:42:25,600 --> 00:42:26,350
-还有更多的暗示，你知道的。请问一下。
+还有更多的线索， TODO:
 There more
 
 1293
 00:42:27,490 --> 00:42:29,040
+你知道的。请提问。
 hints, you know. Please ask.
 
 1294
 00:42:30,280 --> 00:42:31,180
-嗯，是的，我有一个简短的问题，嗯，那么在用户应用程序恶意或无限循环的情况下，内核是如何从用户应用程序手中夺回控制权的。
+嗯，我有一个
 Um, yeah I had a
 
 1295
 00:42:31,180 --> 00:42:31,990
+简短的问题，
 quick question,
 
 1296
 00:42:31,990 --> 00:42:34,200
+在用户应用程序
 um, so how did the
 
 1297
 00:42:34,350 --> 00:42:36,360
+恶意或无限循环的情况下，
 kernel seize back control from a
 
 1298
 00:42:36,360 --> 00:42:38,700
+内核是如何
 user application in the case where
 
 1299
 00:42:38,700 --> 00:42:40,680
+从用户应用程序手中
 the user application is acting maliciously
 
 1300
 00:42:40,680 --> 00:42:42,400
+夺回控制权的。
 or in an infinite loop.
 
 1301
 00:42:42,660 --> 00:42:44,670
-是的，所以计划的方式，我们将在几周内再次详细讨论，嗯，内核实际上是编程的，硬件到一组定时器上。
+是的，方式是，计划是，
 Yeah, so the way the plan
 
 1302
 00:42:44,670 --> 00:42:46,110
+我们将
 for that and again we're going
 
 1303
 00:42:46,110 --> 00:42:46,770
+在几周内
 to talk about in much more
 
 1304
 00:42:46,770 --> 00:42:47,760
+再次详细讨论，
 detail in a couple weeks,
 
 1305
 00:42:47,760 --> 00:42:49,770
+内核实际上
 um is that the kernel
 
 1306
 00:42:49,770 --> 00:42:50,550
+是编程的，
 actually programs,
 
 1307
 00:42:50,550 --> 00:42:52,200
+使用硬件的
 the hardware to a set
 
 1308
 00:42:52,200 --> 00:42:53,060
+定时器。
 of timer.
 
 1309
 00:42:53,460 --> 00:42:56,160
-而在计时器关闭之后，嗯，这会导致从用户空间到内核模式的转换，在这一点上内核又回到了控制之中。
+而在计时器关闭之后，
 And after the timer goes off,
 
 1310
 00:42:56,160 --> 00:42:58,530
+会导致从用户空间到
 um, that will cause a transfer
 
 1311
 00:42:58,530 --> 00:42:59,970
+内核模式的转换，
 from user space to kernel mode,
 
 1312
 00:42:59,970 --> 00:43:00,960
+在这一点上内核又
 at that point the kernel is
 
 1313
 00:43:00,960 --> 00:43:02,200
+回到了控制之中。
 back in control.
 
 1314
 00:43:02,260 --> 00:43:04,090
-然后内核可以将CPU重新调度到另一个进程。
+然后内核可以将 CPU
 And then the kernel can reschedule
 
 1315
 00:43:04,090 --> 00:43:06,860
+重新调度到另一个进程。
 the CPU to another process.
 
 1316
 00:43:07,600 --> 00:43:10,120
-好的，有道理，谢谢。是的，我们会看到确切的细节，你知道，我们会在一段时间内看到的。
+好的，有道理，谢谢。是的，
 Okay makes sense, thank you. Yeah we'll
 
 1317
 00:43:10,120 --> 00:43:12,130
+我们会看到确切的细节，
 see the exact details you know
 
 1318
 00:43:12,130 --> 00:43:13,240
+我们会
 we'll see,
 
 1319
 00:43:13,240 --> 00:43:14,400
-um in a little while.
+在一段时间内看到。
+um, in a little while.
 
 1320
 00:43:15,200 --> 00:43:16,660
@@ -5522,264 +6600,317 @@ We have more questions.
 
 1321
 00:43:18,580 --> 00:43:19,750
-是的，所以这是一个更高层次的问题，但是是什么驱使操作系统实现的设计者使用像C这样的语言呢？
+是的，
 Yeah, so this is more of
 
 1322
 00:43:19,750 --> 00:43:20,800
+这是一个更高层次的问题，
 a high-level question,
 
 1323
 00:43:20,800 --> 00:43:24,220
+是什么驱使操作系统
 but what drives the designers of
 
 1324
 00:43:24,220 --> 00:43:27,010
+实现的设计者
 an operating systems implementation to use
 
 1325
 00:43:27,010 --> 00:43:28,440
-a language like C.
+使用像 C 这样的语言呢？
+a language like C?
 
 1326
 00:43:29,120 --> 00:43:30,440
-嗯，嗯，好的，很好的问题，嗯，C给了你很大的控制权，嗯，对硬件。
+嗯，
 Um, um,
 
 1327
 00:43:30,440 --> 00:43:32,330
+好的，很好的问题，
 okay, so great question,
 
 1328
 00:43:32,330 --> 00:43:35,120
+C 语言给了你
 um, C gives you a lot
 
 1329
 00:43:35,120 --> 00:43:35,960
+对于硬件的
 of control,
 
 1330
 00:43:35,960 --> 00:43:38,020
+很大的控制权。
 um over hardware.
 
 1331
 00:43:38,140 --> 00:43:39,220
-还有，嗯，那么，嗯，举个例子，你知道你需要对计时器芯片进行编程。
+还有，
 And, um,
 
 1332
 00:43:39,220 --> 00:43:40,780
+那么，
 so, um,
 
 1333
 00:43:40,780 --> 00:43:41,530
+举个例子，
 for example,
 
 1334
 00:43:41,530 --> 00:43:42,490
+你知道你需要
 you know you need to program
 
 1335
 00:43:42,490 --> 00:43:43,420
+对计时器芯片进行编程。
 the timer chip.
 
 1336
 00:43:43,560 --> 00:43:45,870
-嗯，在C语言中，这实际上很容易做到，因为你可以对任何硬件资源进行很多低级控制，部分原因是你可以将任何东西强制转换为任何东西，嗯，所以，如果你必须移动非常低级的编程，特别是与硬件交互，那么C语言基本上是非常方便的编程语言。
+在 C 语言中，
 Um, and um in C that
 
 1337
 00:43:45,870 --> 00:43:47,490
+这很容易做到，
 is actually easy to do,
 
 1338
 00:43:47,490 --> 00:43:48,570
+因为你可以对任何硬件资源
 because you get a lot of
 
 1339
 00:43:48,570 --> 00:43:51,660
+进行很多低级控制，
 low-level control over any hardware resource
 
 1340
 00:43:51,660 --> 00:43:53,800
+部分原因是你可以将任何东西
 and partly because you can cast
 
 1341
 00:43:53,860 --> 00:43:55,240
+强制转换为任何东西，
 anything to anything,
 
 1342
 00:43:55,240 --> 00:43:56,560
+所以，
 um, and,
 
 1343
 00:43:56,560 --> 00:43:58,750
+C 语言是非常
 um, so C is basically very convenient
 
 1344
 00:43:58,750 --> 00:43:59,650
+方便的语言，
 programming language,
 
 1345
 00:43:59,650 --> 00:44:00,280
+如果你必须
 if you have to move
 
 1346
 00:44:00,280 --> 00:44:02,260
+进行非常低级的编程，
 very low-level programming and particularly
 
 1347
 00:44:02,260 --> 00:44:03,500
+特别是与硬件交互。
 interacting with hardware.
 
 1348
 00:44:06,620 --> 00:44:07,640
-这并不意味着你不能用其他语言来做，嗯，但是这是历史上C语言成功的原因。
+这并不意味着
 It doesn't mean you can't do
 
 1349
 00:44:07,640 --> 00:44:08,720
+你不能用其他语言来做，
 it in other languages,
 
 1350
 00:44:08,720 --> 00:44:09,950
+但是这是历史上
 um, but this is historically the
 
 1351
 00:44:09,950 --> 00:44:11,980
+C 语言成功的原因。
 reason why C has been successful.
 
 1352
 00:44:12,940 --> 00:44:13,360
-我明白了，谢谢。为什么我认为像这些类型的应用程序这样的历史原因比C++流行得多，或者嗯，像大多数操作系统一样没有采用C++的还有其他原因吗？
+我明白了，
 I see,
 
 1353
 00:44:13,360 --> 00:44:16,510
+谢谢。为什么我看到
 thanks. Why I see so much
 
 1354
 00:44:16,510 --> 00:44:18,790
+像这些类型的应用程序
 more popular than c++
 
 1355
 00:44:18,790 --> 00:44:20,890
+这样的历史原因比 C++
 only for historic reasons in like
 
 1356
 00:44:20,890 --> 00:44:23,530
+流行得多，或者，
 these kinds of applications or um,
 
 1357
 00:44:23,530 --> 00:44:26,170
+大多数操作系统
 is there any other reason that
 
 1358
 00:44:26,170 --> 00:44:28,390
+没有采用 C++
 like, like most OS don't
 
 1359
 00:44:28,390 --> 00:44:30,240
+还有其他原因吗？
 have adopted C++.
 
 1360
 00:44:30,580 --> 00:44:31,750
-是的，所以大多数操作系统，我认为用C++编写的操作系统是完全可能的，可能是你知道的，你知道的大多数操作系统都不是用C++写的。
+是的，大多数操作系统，
 Yeah, so most operating system,
 
 1361
 00:44:31,750 --> 00:44:32,890
+我认为使用 C++
 there are I think operating
 
 1362
 00:44:32,890 --> 00:44:33,910
+编写操作系统
 systems written in C++
 
 1363
 00:44:33,910 --> 00:44:35,770
+是完全可能的，
 totally possible,
 
 1364
 00:44:35,770 --> 00:44:37,150
+可能是你知道的，
 probably the most ones that you
 
 1365
 00:44:37,150 --> 00:44:38,620
+你知道的大多数操作系统
 know, you know are not written
 
 1366
 00:44:38,620 --> 00:44:39,660
+都不是用C++写的。
 in C++.
 
 1367
 00:44:40,040 --> 00:44:41,930
-嗯，还有各种原因，你知道，Linux大部分是C或不是C++，我想部分原因是Linus就是不喜欢C++。
+还有各种原因，
 Um, and the various reasons for,
 
 1368
 00:44:41,930 --> 00:44:44,150
+你知道，linux 大部分
 you know, Linux is mostly
 
 1369
 00:44:44,150 --> 00:44:45,680
+是 C 而不是 C++ ，
 C or no C++
 
 1370
 00:44:45,680 --> 00:44:47,000
+我想部分原因是 Linus
 and I think partially because Linus
 
 1371
 00:44:47,000 --> 00:44:48,620
+不喜欢 C++ 。
 just doesn't like C++.
 
 1372
 00:44:54,660 --> 00:44:55,800
-还有其他问题吗。
-Any other questions.
+还有其他问题吗？
+Any other questions?
 
 1373
 00:45:04,300 --> 00:45:06,280
-好的，那么，在这个世界观中，你知道我们有一种方法可以通过系统调用或eCall指令将控制权转移到操作系统中，并且内核不负责实际实现函数，并确保检查参数之类的东西，以确保你知道这一点。
+好的，那么，
 Okay, so, so in this view
 
 1374
 00:45:06,280 --> 00:45:06,880
+在这个世界观中，
 of the world,
 
 1375
 00:45:06,880 --> 00:45:09,340
+你知道我们有一种方法
 were you know we have a
 
 1376
 00:45:09,340 --> 00:45:11,920
+可以通过系统调用或 ecall 指令
 way of transferring control into
 
 1377
 00:45:11,920 --> 00:45:14,140
+将控制权转移到
 the operating system using system calls
 
 1378
 00:45:14,140 --> 00:45:16,780
+操作系统中，
 or the ecall instruction and
 
 1379
 00:45:16,780 --> 00:45:18,760
+并且内核不负责 TODO:
 there's a kernel is not responsible
 
 1380
 00:45:18,760 --> 00:45:22,510
+实际实现函数，
 for implementing actually the actual functions
 
 1381
 00:45:22,510 --> 00:45:25,270
+并确保检查参数
 and ensuring checking arguments and
 
 1382
 00:45:25,270 --> 00:45:26,290
+之类的东西，
 things like that to make sure
 
 1383
 00:45:26,290 --> 00:45:27,580
+以确保你知道这一点。
 that you know that.
 
 1384
@@ -10512,4 +11643,3 @@ um, I'll sign off and I'll
 2504
 01:20:38,900 --> 01:20:40,060
 see you in Wednesday.
-
