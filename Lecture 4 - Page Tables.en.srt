@@ -1,0 +1,9899 @@
+1
+00:00:00,000 --> 00:00:02,640
+Sound check, can everybody hear me?
+
+2
+00:00:04,700 --> 00:00:08,060
+Yep, yep. Okay okay,
+
+3
+00:00:08,060 --> 00:00:09,920
+so welcome to the next lecture
+
+4
+00:00:09,920 --> 00:00:12,410
+in the 6.S081, wherever you
+
+5
+00:00:12,410 --> 00:00:14,380
+are, particular,
+
+6
+00:00:14,740 --> 00:00:15,640
+I hope that the folks on
+
+7
+00:00:15,640 --> 00:00:17,380
+the west coast or in Florida
+
+8
+00:00:17,380 --> 00:00:19,450
+and Alabama do OK, you know, all
+
+9
+00:00:19,450 --> 00:00:22,140
+the terrible circumstances there.
+
+10
+00:00:22,510 --> 00:00:24,880
+Um, so,
+
+11
+00:00:24,880 --> 00:00:26,350
+um, the topic for today,
+
+12
+00:00:26,350 --> 00:00:29,110
+is virtual memory, particularly we're
+
+13
+00:00:29,110 --> 00:00:30,580
+going to talk about page tables
+
+14
+00:00:30,580 --> 00:00:32,650
+we'll return to this topic
+
+15
+00:00:32,650 --> 00:00:33,340
+few times,
+
+16
+00:00:33,340 --> 00:00:34,390
+there will be multiple
+
+17
+00:00:34,390 --> 00:00:35,380
+[] lectures.
+
+18
+00:00:36,030 --> 00:00:37,920
+Maybe just start off and,
+
+19
+00:00:37,920 --> 00:00:39,690
+you know, get our question and answer
+
+20
+00:00:39,690 --> 00:00:40,680
+going again,
+
+21
+00:00:42,120 --> 00:00:43,320
+I would like to ask you
+
+22
+00:00:43,320 --> 00:00:43,830
+a little bit,
+
+23
+00:00:43,830 --> 00:00:45,930
+what do you remember from，
+
+24
+00:00:45,930 --> 00:00:47,910
+about virtual memory from 6.004
+
+25
+00:00:47,910 --> 00:00:50,400
+maybe from 6.033,
+
+26
+00:00:50,400 --> 00:00:51,660
+if you're taking that.
+
+27
+00:00:52,500 --> 00:00:53,970
+I'll tell you, my own sort
+
+28
+00:00:53,970 --> 00:00:55,320
+of view on virtual memory,
+
+29
+00:00:55,320 --> 00:00:56,580
+which is when I took it,
+
+30
+00:00:56,580 --> 00:00:57,780
+to first learned about it,
+
+31
+00:00:57,780 --> 00:00:58,500
+learned about it as
+
+32
+00:00:58,500 --> 00:00:59,850
+a student, I thought it
+
+33
+00:00:59,850 --> 00:01:01,110
+was pretty straightforward,
+
+34
+00:01:01,110 --> 00:01:01,680
+you know how hard could
+
+35
+00:01:01,680 --> 00:01:02,010
+it be,
+
+36
+00:01:02,010 --> 00:01:04,140
+it's a table that maps virtual
+
+37
+00:01:04,140 --> 00:01:05,700
+addresses to physical addresses.
+
+38
+00:01:05,870 --> 00:01:07,190
+You know, maybe a
+
+39
+00:01:07,190 --> 00:01:08,120
+little more complicated,
+
+40
+00:01:08,120 --> 00:01:09,680
+but you know not that
+
+41
+00:01:09,680 --> 00:01:11,300
+complicated, only when you start
+
+42
+00:01:11,300 --> 00:01:12,540
+programming with it.
+
+43
+00:01:12,600 --> 00:01:15,210
+I should really learn, virtual
+
+44
+00:01:15,210 --> 00:01:18,380
+memory is tricky and fascinating,
+
+45
+00:01:18,540 --> 00:01:20,880
+and very powerful.
+
+46
+00:01:21,380 --> 00:01:23,300
+So, hopefully in the
+
+47
+00:01:23,300 --> 00:01:25,100
+next couple of lectures, in
+
+48
+00:01:25,100 --> 00:01:26,060
+the next couple of labs,
+
+49
+00:01:26,060 --> 00:01:29,090
+you'll know appreciate
+
+50
+00:01:29,090 --> 00:01:30,820
+virtual memory from that perspective.
+
+51
+00:01:31,060 --> 00:01:32,230
+We will ask a couple
+
+52
+00:01:32,230 --> 00:01:34,000
+people here are online, you know
+
+53
+00:01:34,000 --> 00:01:36,010
+what do you remember about virtual
+
+54
+00:01:36,010 --> 00:01:38,860
+memory from either 6.004 or
+
+55
+00:01:38,860 --> 00:01:40,120
+6.033 taking it.
+
+56
+00:01:40,340 --> 00:01:41,510
+Again, I'm just gonna call some
+
+57
+00:01:41,510 --> 00:01:43,080
+names and you know,
+
+58
+00:01:43,600 --> 00:01:47,080
+share your memories. About the
+
+59
+00:01:47,080 --> 00:01:48,440
+Adela Yang.
+
+60
+00:01:53,360 --> 00:01:55,160
+Sorry, what's the question? What
+
+61
+00:01:55,160 --> 00:01:57,410
+do you remember about
+
+62
+00:01:57,410 --> 00:01:58,940
+virtual memory from maybe 6.004
+
+63
+00:01:58,940 --> 00:02:00,470
+or 6.033
+
+64
+00:02:00,470 --> 00:02:01,460
+if you have taken that.
+
+65
+00:02:02,020 --> 00:02:05,440
+It uses like, offset to save
+
+66
+00:02:05,440 --> 00:02:08,380
+on like, remembering virtual address
+
+67
+00:02:08,380 --> 00:02:10,300
+to physical address mappings.
+
+68
+00:02:11,640 --> 00:02:15,380
+OK, how about Abrams Caldera.
+
+69
+00:02:20,100 --> 00:02:21,840
+Abrams, are you online?
+
+70
+00:02:23,230 --> 00:02:24,970
+Yeah, my memory is that
+
+71
+00:02:24,970 --> 00:02:26,640
+it uses like,
+
+72
+00:02:26,940 --> 00:02:29,040
+it's a way of one protecting
+
+73
+00:02:29,040 --> 00:02:30,960
+the physical hardware by
+
+74
+00:02:30,960 --> 00:02:33,540
+kind of [] representation of
+
+75
+00:02:33,540 --> 00:02:35,310
+it and then you just
+
+76
+00:02:35,310 --> 00:02:38,020
+have some virtual address things like,
+
+77
+00:02:38,300 --> 00:02:41,750
+at least 44 bit, that map
+
+78
+00:02:41,750 --> 00:02:43,200
+some physical address,
+
+79
+00:02:43,530 --> 00:02:45,420
+that's usually I think 16
+
+80
+00:02:45,420 --> 00:02:47,620
+bits were in fact.
+
+81
+00:02:48,090 --> 00:02:53,540
+Okay, good, how about Bibic Pendant.
+
+82
+00:02:56,730 --> 00:02:58,080
+What I remember was,
+
+83
+00:02:58,080 --> 00:03:00,380
+um, you can have
+
+84
+00:03:00,840 --> 00:03:03,210
+each process has a separate
+
+85
+00:03:03,210 --> 00:03:04,260
+address space.
+
+86
+00:03:04,620 --> 00:03:05,820
+And,
+
+87
+00:03:06,210 --> 00:03:09,060
+the memory management unit or I
+
+88
+00:03:09,060 --> 00:03:10,470
+mean some other technique can be
+
+89
+00:03:10,470 --> 00:03:11,620
+used to map,
+
+90
+00:03:11,830 --> 00:03:13,960
+the virtual addresses of the
+
+91
+00:03:13,960 --> 00:03:15,370
+address space of each of the
+
+92
+00:03:15,370 --> 00:03:17,120
+processes to the physical,
+
+93
+00:03:17,340 --> 00:03:19,420
+physical address.
+
+94
+00:03:20,040 --> 00:03:23,910
+And the virtual address, the
+
+95
+00:03:23,910 --> 00:03:24,920
+lower bits
+
+96
+00:03:25,030 --> 00:03:25,930
+are kind of the same,
+
+97
+00:03:25,930 --> 00:03:26,530
+so that,
+
+98
+00:03:26,530 --> 00:03:29,640
+the the mapping is in blocks,
+
+99
+00:03:29,790 --> 00:03:32,100
+which helps with performance.
+
+100
+00:03:33,970 --> 00:03:35,540
+Wiseley Wu.
+
+101
+00:03:39,570 --> 00:03:42,630
+Yeah, I guess what I
+
+102
+00:03:42,630 --> 00:03:44,850
+remember most is that virtual address
+
+103
+00:03:44,850 --> 00:03:47,180
+allows us to,
+
+104
+00:03:47,750 --> 00:03:50,300
+yeah, protect physical addresses from
+
+105
+00:03:50,300 --> 00:03:51,580
+each process.
+
+106
+00:03:51,640 --> 00:03:54,070
+And we can use some clever
+
+107
+00:03:54,070 --> 00:03:56,080
+manipulation, so that the bits that
+
+108
+00:03:56,080 --> 00:03:57,730
+correspond to the physical address can
+
+109
+00:03:57,730 --> 00:03:59,920
+be used somehow in the virtual
+
+110
+00:03:59,920 --> 00:04:01,000
+addresses as well.
+
+111
+00:04:02,600 --> 00:04:05,460
+Wilson Spearmen.
+
+112
+00:04:09,040 --> 00:04:10,840
+Yeah, I remember it's really fundamental
+
+113
+00:04:10,840 --> 00:04:11,950
+to isolation,
+
+114
+00:04:11,950 --> 00:04:14,890
+because every process can basically pretend
+
+115
+00:04:14,890 --> 00:04:16,620
+that it has its own
+
+116
+00:04:16,760 --> 00:04:19,180
+sort of memory to use.
+
+117
+00:04:20,470 --> 00:04:22,270
+Good good well so clearly,
+
+118
+00:04:22,270 --> 00:04:23,830
+that's awesome,
+
+119
+00:04:23,830 --> 00:04:26,080
+the clear, two themes here
+
+120
+00:04:26,080 --> 00:04:28,210
+correct, one is you know
+
+121
+00:04:28,210 --> 00:04:30,400
+there's some form of mapping and
+
+122
+00:04:30,400 --> 00:04:31,900
+the mapping is helpful in sort
+
+123
+00:04:31,900 --> 00:04:33,670
+of achieving isolation,
+
+124
+00:04:33,670 --> 00:04:35,800
+this is exactly the reason, we're
+
+125
+00:04:35,800 --> 00:04:38,560
+talking about virtual memory isolation.
+
+126
+00:04:38,870 --> 00:04:39,620
+So, what
+
+127
+00:04:39,620 --> 00:04:41,570
+we'll see is that in
+
+128
+00:04:41,570 --> 00:04:43,580
+the next, in the next couple of lectures,
+
+129
+00:04:43,580 --> 00:04:44,840
+in particular, when we start programming
+
+130
+00:04:44,840 --> 00:04:45,950
+with virtual memory,
+
+131
+00:04:45,950 --> 00:04:48,680
+really get an in-depth understanding
+
+132
+00:04:48,680 --> 00:04:50,360
+of what its power is.
+
+133
+00:04:50,780 --> 00:04:52,250
+And, so to get a
+
+134
+00:04:52,250 --> 00:04:53,570
+sense, that you know, this is
+
+135
+00:04:53,570 --> 00:04:55,310
+the first lecture and mostly focusing
+
+136
+00:04:55,310 --> 00:04:59,390
+on the mechanisms for virtual memory,
+
+137
+00:04:59,390 --> 00:05:00,680
+and then later we can see
+
+138
+00:05:00,680 --> 00:05:02,030
+how we can use these mechanisms
+
+139
+00:05:02,030 --> 00:05:03,760
+to achieve, you know, cool tricks.
+
+140
+00:05:04,660 --> 00:05:06,220
+So the topic for today, or
+
+141
+00:05:06,220 --> 00:05:08,740
+agenda for today, the plan
+
+142
+00:05:08,740 --> 00:05:10,460
+is sort of three part.
+
+143
+00:05:10,800 --> 00:05:12,210
+First, I'm going to talk about the
+
+144
+00:05:12,210 --> 00:05:14,130
+address spaces, as some of you
+
+145
+00:05:14,130 --> 00:05:16,020
+mentioning in your.
+
+146
+00:05:16,320 --> 00:05:17,420
+Just what we need.
+
+147
+00:05:18,070 --> 00:05:19,840
+Just mentioned just briefly mentioned,
+
+148
+00:05:19,840 --> 00:05:22,420
+in response to the question,
+
+149
+00:05:22,420 --> 00:05:23,980
+I'm going to talk about the
+
+150
+00:05:23,980 --> 00:05:26,200
+paging hardware paging hardware.
+
+151
+00:05:27,020 --> 00:05:28,280
+And I'm going to focus of
+
+152
+00:05:28,280 --> 00:05:29,600
+course on the paging hardware of
+
+153
+00:05:29,600 --> 00:05:30,640
+the RISC-V.
+
+154
+00:05:32,020 --> 00:05:36,400
+But basically every processor, modern processor
+
+155
+00:05:36,400 --> 00:05:38,950
+has some form of paging hardware
+
+156
+00:05:38,950 --> 00:05:40,200
+sort of,
+
+157
+00:05:40,230 --> 00:05:41,640
+if you will, the
+
+158
+00:05:41,640 --> 00:05:44,310
+default mechanism for actually
+
+159
+00:05:44,310 --> 00:05:45,820
+supporting virtual memory.
+
+160
+00:05:46,250 --> 00:05:47,000
+And then,
+
+161
+00:05:47,000 --> 00:05:48,260
+the last part of
+
+162
+00:05:48,260 --> 00:05:49,610
+the lecture is going to
+
+163
+00:05:49,610 --> 00:05:52,100
+walk through some xv6
+
+164
+00:05:52,100 --> 00:05:54,240
+virtual memory code.
+
+165
+00:05:54,280 --> 00:06:00,770
+And, layout of kernel address space and
+
+166
+00:06:00,770 --> 00:06:02,000
+user address spaces.
+
+167
+00:06:02,730 --> 00:06:04,580
+So that's the main plan.
+
+168
+00:06:08,250 --> 00:06:09,660
+Okay, so,
+
+169
+00:06:09,660 --> 00:06:11,160
+if we answers, you know, []
+
+170
+00:06:11,160 --> 00:06:12,120
+you mentioned,
+
+171
+00:06:12,120 --> 00:06:14,370
+in response to this question,
+
+172
+00:06:14,370 --> 00:06:15,280
+you know,
+
+173
+00:06:15,370 --> 00:06:18,430
+one driving reason to have
+
+174
+00:06:18,430 --> 00:06:20,020
+virtual memory is because you can
+
+175
+00:06:20,020 --> 00:06:22,000
+use it to achieve isolation,
+
+176
+00:06:22,000 --> 00:06:22,840
+if you set up the page
+
+177
+00:06:22,840 --> 00:06:25,540
+tables correctly and program them correctly,
+
+178
+00:06:25,540 --> 00:06:26,710
+then you can in principle
+
+179
+00:06:26,710 --> 00:06:28,540
+achieve strong isolation.
+
+180
+00:06:29,020 --> 00:06:30,910
+And so this is to remind us again,
+
+181
+00:06:30,910 --> 00:06:31,960
+you know what we want with
+
+182
+00:06:31,960 --> 00:06:33,100
+from isolation,
+
+183
+00:06:33,100 --> 00:06:34,540
+let's say, you know a
+
+184
+00:06:34,540 --> 00:06:35,380
+standard picture,
+
+185
+00:06:35,380 --> 00:06:36,820
+we have some user applications
+
+186
+00:06:36,820 --> 00:06:37,920
+like shell,
+
+187
+00:06:37,950 --> 00:06:40,080
+you know cat, you know, all the util
+
+188
+00:06:40,080 --> 00:06:41,970
+things, that you've built in
+
+189
+00:06:41,970 --> 00:06:44,520
+lab one, and we have
+
+190
+00:06:44,630 --> 00:06:48,440
+the kernel, the kernel sitting below,
+
+191
+00:06:48,440 --> 00:06:49,790
+the operating system sitting in
+
+192
+00:06:49,790 --> 00:06:50,860
+kernel space.
+
+193
+00:06:51,320 --> 00:06:52,730
+And you know what we like
+
+194
+00:06:52,730 --> 00:06:55,100
+to do is sort of have
+
+195
+00:06:55,100 --> 00:06:57,880
+you know boxes around these
+
+196
+00:06:58,240 --> 00:07:00,850
+applications, so that they can't
+
+197
+00:07:00,850 --> 00:07:03,100
+really affect each other and similar
+
+198
+00:07:03,100 --> 00:07:06,010
+we want them to be completely
+
+199
+00:07:06,010 --> 00:07:07,930
+independent of the kernel,
+
+200
+00:07:07,930 --> 00:07:09,310
+the operating system, so that if
+
+201
+00:07:09,310 --> 00:07:11,620
+an application does something either accidentally
+
+202
+00:07:11,620 --> 00:07:13,600
+bad or maliciously bad,
+
+203
+00:07:13,600 --> 00:07:14,950
+that doesn't really affect the
+
+204
+00:07:14,950 --> 00:07:15,900
+operating system.
+
+205
+00:07:16,580 --> 00:07:19,010
+So that's our goal and the
+
+206
+00:07:19,010 --> 00:07:21,380
+particular aspect of the problem that
+
+207
+00:07:21,380 --> 00:07:23,360
+we want to focus on today
+
+208
+00:07:23,360 --> 00:07:25,220
+is the memory side of things,
+
+209
+00:07:25,220 --> 00:07:26,390
+so we really want to
+
+210
+00:07:26,390 --> 00:07:28,120
+focus on memory isolation.
+
+211
+00:07:29,920 --> 00:07:31,900
+And by default,
+
+212
+00:07:31,900 --> 00:07:33,430
+if we don't do anything,
+
+213
+00:07:33,430 --> 00:07:35,470
+we don't really have memory isolation,
+
+214
+00:07:35,470 --> 00:07:37,180
+because if you think about
+
+215
+00:07:37,180 --> 00:07:38,890
+it, there's going to be one
+
+216
+00:07:38,890 --> 00:07:40,480
+RISC-V board that I showed
+
+217
+00:07:40,480 --> 00:07:41,140
+you last week,
+
+218
+00:07:41,140 --> 00:07:42,730
+it has a memory,
+
+219
+00:07:42,730 --> 00:07:44,220
+a bunch of DRAM chips,
+
+220
+00:07:44,630 --> 00:07:46,490
+and the in the DRAM
+
+221
+00:07:46,490 --> 00:07:48,200
+chips, the code for
+
+222
+00:07:48,200 --> 00:07:49,460
+these applications
+
+223
+00:07:49,460 --> 00:07:53,060
+is stored, somewhere in memory
+
+224
+00:07:53,060 --> 00:07:55,820
+is the kernel, text data stack
+
+225
+00:07:55,820 --> 00:07:58,280
+everything, somewhere in memory used to
+
+226
+00:07:58,280 --> 00:07:59,740
+shell if the shell is running,
+
+227
+00:07:59,980 --> 00:08:02,680
+somewhere in memory the cat program.
+
+228
+00:08:04,640 --> 00:08:06,410
+So, there's one physical memory,
+
+229
+00:08:06,410 --> 00:08:09,170
+you know starting from zero to
+
+230
+00:08:09,170 --> 00:08:11,420
+big, big address,
+
+231
+00:08:11,420 --> 00:08:12,500
+depending how much memory we
+
+232
+00:08:12,500 --> 00:08:13,430
+have, really have in our
+
+233
+00:08:13,430 --> 00:08:15,020
+machine and in that physical
+
+234
+00:08:15,020 --> 00:08:17,140
+memory all these programs must be present.
+
+235
+00:08:17,230 --> 00:08:19,330
+Otherwise, you know, the processor
+
+236
+00:08:19,330 --> 00:08:21,340
+can't even execute their instructions.
+
+237
+00:08:22,420 --> 00:08:23,470
+This is what the risk, you
+
+238
+00:08:23,470 --> 00:08:25,300
+know clearly here is, that let's
+
+239
+00:08:25,300 --> 00:08:27,310
+say, let's make a little bit
+
+240
+00:08:27,310 --> 00:08:29,950
+simplistic, let's say the shell,
+
+241
+00:08:29,950 --> 00:08:31,300
+you know sits for
+
+242
+00:08:31,300 --> 00:08:33,620
+address 0 to address 200,
+
+243
+00:08:34,830 --> 00:08:36,920
+two thousand, 1000 to 2000.
+
+244
+00:08:37,720 --> 00:08:39,220
+And let's say you know,
+
+245
+00:08:39,220 --> 00:08:40,810
+you know whatever cat has a
+
+246
+00:08:40,810 --> 00:08:41,890
+programming error,
+
+247
+00:08:41,890 --> 00:08:47,060
+it loads, you know, in register a0.
+
+248
+00:08:47,770 --> 00:08:49,720
+Let's say, loads the 1000
+
+249
+00:08:49,720 --> 00:08:52,030
+address basically corresponding to the
+
+250
+00:08:52,030 --> 00:08:54,010
+start of the shell and then
+
+251
+00:08:54,010 --> 00:08:55,060
+you know by accident,
+
+252
+00:08:55,060 --> 00:08:57,580
+executes the instruction 'sd $7, (a0)'.
+
+253
+00:09:03,010 --> 00:09:04,210
+Which has the effect of that,
+
+254
+00:09:04,210 --> 00:09:05,980
+basically it writes the value 7
+
+255
+00:09:05,980 --> 00:09:08,230
+to the address 1000 and so
+
+256
+00:09:08,230 --> 00:09:10,240
+it would be scribbling over, you
+
+257
+00:09:10,240 --> 00:09:12,550
+know the basically the memory image,
+
+258
+00:09:12,550 --> 00:09:14,220
+that belongs to shell.
+
+259
+00:09:14,860 --> 00:09:15,130
+And so,
+
+260
+00:09:15,130 --> 00:09:17,590
+we're certainly not, certain
+
+261
+00:09:17,590 --> 00:09:20,380
+would break isolation, and be
+
+262
+00:09:20,380 --> 00:09:21,780
+quite undesirable.
+
+263
+00:09:22,400 --> 00:09:24,350
+And so we want something that
+
+264
+00:09:24,350 --> 00:09:26,510
+basically really separates these memories from
+
+265
+00:09:26,510 --> 00:09:27,860
+the different programs from each other,
+
+266
+00:09:27,860 --> 00:09:30,080
+so that things like that just cannot happen.
+
+267
+00:09:31,590 --> 00:09:33,450
+So one way, to do that,
+
+268
+00:09:33,450 --> 00:09:36,120
+is an idea that's you
+
+269
+00:09:36,120 --> 00:09:38,120
+know typically called address spaces.
+
+270
+00:09:44,500 --> 00:09:47,920
+And the basic idea is straightforward,
+
+271
+00:09:47,920 --> 00:09:49,300
+what we wanna do, is basically
+
+272
+00:09:49,300 --> 00:09:52,580
+give every application including the kernel,
+
+273
+00:09:52,670 --> 00:09:54,060
+its own address space.
+
+274
+00:09:55,080 --> 00:09:56,310
+And so we can think about
+
+275
+00:09:56,310 --> 00:09:58,260
+this like, we use cat running,
+
+276
+00:09:58,780 --> 00:09:59,800
+you know, it has an address
+
+277
+00:09:59,800 --> 00:10:01,870
+space starting at 0, you know
+
+278
+00:10:01,870 --> 00:10:04,390
+to whatever maximum value, you know
+
+279
+00:10:04,390 --> 00:10:06,430
+shell run has an address space, its
+
+280
+00:10:06,430 --> 00:10:07,330
+own address space,
+
+281
+00:10:07,330 --> 00:10:09,130
+also starting at address 0,
+
+282
+00:10:09,130 --> 00:10:11,530
+going to some value,
+
+283
+00:10:11,530 --> 00:10:12,490
+you know the kernel has
+
+284
+00:10:12,490 --> 00:10:13,780
+its own address space.
+
+285
+00:10:14,660 --> 00:10:15,680
+OS has its own
+
+286
+00:10:15,680 --> 00:10:16,680
+address space.
+
+287
+00:10:17,640 --> 00:10:18,750
+And so,
+
+288
+00:10:18,750 --> 00:10:20,340
+one example when cat you know
+
+289
+00:10:20,340 --> 00:10:21,900
+refers to, we go back to
+
+290
+00:10:21,900 --> 00:10:23,880
+our example of the previous slide
+
+291
+00:10:23,880 --> 00:10:25,320
+where we did,
+
+292
+00:10:25,470 --> 00:10:30,580
+whatever 'st 7, (a0)',
+
+293
+00:10:30,930 --> 00:10:34,740
+and let's say in a0, there's value 1000.
+
+294
+00:10:34,840 --> 00:10:36,400
+You know if cat execute
+
+295
+00:10:36,400 --> 00:10:37,540
+the instruction,
+
+296
+00:10:37,540 --> 00:10:39,130
+it will write to the address 1000,
+
+297
+00:10:40,420 --> 00:10:42,970
+but it is its own address 1000,
+
+298
+00:10:42,970 --> 00:10:43,690
+it's not,
+
+299
+00:10:43,690 --> 00:10:46,360
+the address of the 1000 of the shell.
+
+300
+00:10:46,390 --> 00:10:48,760
+So basically, every program runs with
+
+301
+00:10:48,760 --> 00:10:50,320
+its own address space, has its
+
+302
+00:10:50,320 --> 00:10:52,870
+own value and those addresses are
+
+303
+00:10:52,870 --> 00:10:54,160
+completely independent.
+
+304
+00:10:54,380 --> 00:10:56,120
+You know this notion of
+
+305
+00:10:56,120 --> 00:10:57,590
+different address spaces,
+
+306
+00:10:57,590 --> 00:10:59,540
+cat doesn't really have an ability to
+
+307
+00:10:59,540 --> 00:11:01,940
+even refer to an address, that
+
+308
+00:11:01,940 --> 00:11:03,680
+actually belongs to the shell.
+
+309
+00:11:04,900 --> 00:11:07,240
+And so that sort of the
+
+310
+00:11:07,240 --> 00:11:09,160
+game that were the end goal
+
+311
+00:11:09,160 --> 00:11:10,630
+that we'd like to achieve, because
+
+312
+00:11:10,630 --> 00:11:11,530
+it's going to provide us with
+
+313
+00:11:11,530 --> 00:11:13,690
+strong isolation, because you know it's
+
+314
+00:11:13,690 --> 00:11:15,010
+just not possible for cat to
+
+315
+00:11:15,010 --> 00:11:16,480
+refer to any other memory that
+
+316
+00:11:16,480 --> 00:11:18,100
+is not, you know, its own.
+
+317
+00:11:19,080 --> 00:11:20,790
+And so, our goal now basically
+
+318
+00:11:20,790 --> 00:11:22,980
+sort of figure out how to
+
+319
+00:11:22,980 --> 00:11:25,200
+multiplex if you will all these
+
+320
+00:11:25,200 --> 00:11:28,260
+different address bases on a single
+
+321
+00:11:28,260 --> 00:11:29,190
+physical memory,
+
+322
+00:11:29,190 --> 00:11:29,970
+because in the end,
+
+323
+00:11:29,970 --> 00:11:32,140
+we only have a bunch of DRAM chips.
+
+324
+00:11:32,240 --> 00:11:33,800
+were you know, ram
+
+325
+00:11:33,800 --> 00:11:35,720
+chips were the memories locate.
+
+326
+00:11:36,950 --> 00:11:42,010
+And so, um, and so I sort of plan.
+
+327
+00:11:42,010 --> 00:11:43,150
+Okay, yeah, Amiar,
+
+328
+00:11:43,150 --> 00:11:44,240
+you have a question, go ahead.
+
+329
+00:11:46,240 --> 00:11:47,380
+So I'm wondering,
+
+330
+00:11:47,380 --> 00:11:50,500
+in the configuration of the
+
+331
+00:11:50,500 --> 00:11:52,030
+physical hardware,
+
+332
+00:11:52,030 --> 00:11:54,550
+there's only so much space and
+
+333
+00:11:54,550 --> 00:11:56,590
+the virtual memory layout,
+
+334
+00:11:56,590 --> 00:11:59,230
+there's also a max virtual address,
+
+335
+00:11:59,230 --> 00:12:02,230
+by design is the virtual address
+
+336
+00:12:02,230 --> 00:12:04,180
+made to be small enough.
+
+337
+00:12:04,500 --> 00:12:06,930
+No, not necessarily,
+
+338
+00:12:06,930 --> 00:12:08,100
+you know the virtual address
+
+339
+00:12:08,100 --> 00:12:09,240
+space could be bigger than
+
+340
+00:12:09,240 --> 00:12:09,990
+the physical memory,
+
+341
+00:12:09,990 --> 00:12:11,160
+the physical memory could be bigger
+
+342
+00:12:11,160 --> 00:12:13,170
+than the virtual address space
+
+343
+00:12:13,170 --> 00:12:13,950
+and we'll see in a second
+
+344
+00:12:13,950 --> 00:12:15,240
+how it all can happen and
+
+345
+00:12:15,240 --> 00:12:17,040
+it's actually going to []
+
+346
+00:12:17,040 --> 00:12:19,560
+about, as we'll see with page tables,
+
+347
+00:12:19,560 --> 00:12:21,420
+that's extremely flexible.
+
+348
+00:12:22,120 --> 00:12:23,470
+So, is it, is it
+
+349
+00:12:23,470 --> 00:12:25,690
+possible that like the physical
+
+350
+00:12:25,690 --> 00:12:27,940
+memory gets exhausted,
+
+351
+00:12:28,250 --> 00:12:30,500
+because so many processes use
+
+352
+00:12:30,500 --> 00:12:31,940
+all their virtual space.
+
+353
+00:12:31,940 --> 00:12:34,790
+Yeah, that's certainly possible and we'll
+
+354
+00:12:34,790 --> 00:12:35,780
+see in the second, how,
+
+355
+00:12:35,780 --> 00:12:36,980
+for example you know you have
+
+356
+00:12:36,980 --> 00:12:38,750
+a bunch of big applications that
+
+357
+00:12:38,750 --> 00:12:40,340
+each have big page tables,
+
+358
+00:12:40,340 --> 00:12:41,510
+they allocate a lot of memory,
+
+359
+00:12:41,510 --> 00:12:42,350
+you know some point you run
+
+360
+00:12:42,350 --> 00:12:43,260
+out of memory.
+
+361
+00:12:43,810 --> 00:12:44,320
+I see,
+
+362
+00:12:44,320 --> 00:12:46,840
+thanks. And so where does this
+
+363
+00:12:46,840 --> 00:12:49,060
+show up xv6, anybody.
+
+364
+00:12:52,530 --> 00:12:54,100
+You, you sure,
+
+365
+00:12:54,430 --> 00:12:55,720
+touched on a little bit
+
+366
+00:12:55,720 --> 00:12:57,550
+in the syscall lab, that
+
+367
+00:12:57,550 --> 00:12:58,660
+you're currently doing,
+
+368
+00:13:01,330 --> 00:13:02,920
+where page is allocated.
+
+369
+00:13:08,670 --> 00:13:10,650
+Or, you do the syscall lab,
+
+370
+00:13:10,650 --> 00:13:11,940
+you finished it in one
+
+371
+00:13:11,940 --> 00:13:13,380
+part of the syscall lab,
+
+372
+00:13:13,380 --> 00:13:15,400
+printing how much free memory address.
+
+373
+00:13:17,730 --> 00:13:20,220
+Kalloc? Yeah, kalloc, right,
+
+374
+00:13:20,220 --> 00:13:22,340
+for kalloc, have a list of free pages,
+
+375
+00:13:22,420 --> 00:13:23,740
+if that list of free pages
+
+376
+00:13:23,740 --> 00:13:26,160
+is empty or runs out at some point.
+
+377
+00:13:26,150 --> 00:13:27,590
+Then, you know, kalloc is going
+
+378
+00:13:27,590 --> 00:13:29,750
+to return a null pointer, and
+
+379
+00:13:29,750 --> 00:13:31,880
+hopefully the operation system does something sensible,
+
+380
+00:13:31,880 --> 00:13:33,380
+that basically propagated back to the
+
+381
+00:13:33,380 --> 00:13:35,150
+user application saying like well, you
+
+382
+00:13:35,150 --> 00:13:36,530
+know no more memory for you
+
+383
+00:13:36,530 --> 00:13:38,960
+or no more memory in total, nobody.
+
+384
+00:13:43,120 --> 00:13:44,350
+Ok? Then just a job for OS
+
+385
+00:13:44,350 --> 00:13:46,480
+to handle those cases gracefully where
+
+386
+00:13:46,480 --> 00:13:48,700
+basically generally means propagating an error
+
+387
+00:13:48,700 --> 00:13:50,320
+message to user application.
+
+388
+00:13:57,280 --> 00:13:58,940
+Okay, good.
+
+389
+00:13:59,410 --> 00:14:00,820
+So how do you implement these
+
+390
+00:14:00,820 --> 00:14:01,780
+address spaces,
+
+391
+00:14:01,780 --> 00:14:03,640
+you know how basically multiplex
+
+392
+00:14:03,640 --> 00:14:05,050
+all these address spaces across a
+
+393
+00:14:05,050 --> 00:14:08,440
+single physical memory and the most
+
+394
+00:14:08,440 --> 00:14:10,480
+common approach and a very flexible
+
+395
+00:14:10,480 --> 00:14:12,840
+approach is to use pagetables.
+
+396
+00:14:17,360 --> 00:14:18,830
+The idea is,
+
+397
+00:14:18,830 --> 00:14:21,080
+this is a hard work support,
+
+398
+00:14:21,080 --> 00:14:23,540
+so this is implemented in hardware
+
+399
+00:14:23,540 --> 00:14:25,910
+by the processor or by a
+
+400
+00:14:25,910 --> 00:14:28,040
+unit called the memory management unit,
+
+401
+00:14:28,040 --> 00:14:29,390
+so the picture that you should
+
+402
+00:14:29,390 --> 00:14:32,360
+have your head is, you know, the CPU
+
+403
+00:14:32,730 --> 00:14:35,940
+that executes instructions, whatever are,
+
+404
+00:14:35,940 --> 00:14:40,440
+you know, are store instruction that
+
+405
+00:14:40,440 --> 00:14:47,180
+was you know 'sd $7, (a0)',
+
+406
+00:14:47,560 --> 00:14:48,790
+also executes those kind of
+
+407
+00:14:48,790 --> 00:14:51,010
+instructions and you know when
+
+408
+00:14:51,010 --> 00:14:51,970
+it executes one of their
+
+409
+00:14:51,970 --> 00:14:53,380
+store instruction, load instruction,
+
+410
+00:14:53,380 --> 00:14:54,850
+whatever anything that actually has
+
+411
+00:14:54,850 --> 00:14:55,780
+an address.
+
+412
+00:14:55,810 --> 00:14:57,610
+You know, that address we're going
+
+413
+00:14:57,610 --> 00:14:58,270
+to think about it as
+
+414
+00:14:58,270 --> 00:14:59,230
+a virtual address,
+
+415
+00:14:59,230 --> 00:15:00,370
+so it's not a physical address,
+
+416
+00:15:00,370 --> 00:15:01,560
+it's a virtual address.
+
+417
+00:15:02,100 --> 00:15:02,400
+And so,
+
+418
+00:15:02,400 --> 00:15:03,630
+for example the value in a0
+
+419
+00:15:03,630 --> 00:15:05,250
+that we're using here,
+
+420
+00:15:05,250 --> 00:15:08,400
+yeah, say that's 1000,
+
+421
+00:15:08,760 --> 00:15:11,160
+0x1000 data is a
+
+422
+00:15:11,160 --> 00:15:13,170
+virtual address and virtual addresses basically
+
+423
+00:15:13,170 --> 00:15:15,840
+routed through something what's called
+
+424
+00:15:15,840 --> 00:15:17,860
+the memory management unit,
+
+425
+00:15:21,180 --> 00:15:23,580
+and the memory manager unit
+
+426
+00:15:23,580 --> 00:15:26,380
+translates into a physical address.
+
+427
+00:15:27,680 --> 00:15:29,990
+And that physical address then was
+
+428
+00:15:29,990 --> 00:15:32,920
+actually used to index into memory.
+
+429
+00:15:33,120 --> 00:15:35,550
+And load whatever value or
+
+430
+00:15:35,550 --> 00:15:37,940
+store whatever value needs to be written there.
+
+431
+00:15:38,720 --> 00:15:40,460
+And so the CPU from
+
+432
+00:15:40,460 --> 00:15:41,630
+the CPU point of view,
+
+433
+00:15:41,630 --> 00:15:42,710
+it always issues,
+
+434
+00:15:42,710 --> 00:15:44,720
+every instruction that issues,
+
+435
+00:15:44,720 --> 00:15:46,940
+once the MMU use, enabled
+
+436
+00:15:46,940 --> 00:15:48,320
+our virtual addresses.
+
+437
+00:15:49,100 --> 00:15:51,080
+And to translate these virtual addresses
+
+438
+00:15:51,080 --> 00:15:52,850
+to physical addresses, basically,
+
+439
+00:15:52,850 --> 00:15:54,200
+MMU has a table.
+
+440
+00:15:55,080 --> 00:15:57,090
+And you know virtual address
+
+441
+00:15:57,090 --> 00:15:58,260
+on one side, physical address
+
+442
+00:15:58,260 --> 00:15:59,340
+on one side,
+
+443
+00:15:59,340 --> 00:16:01,650
+the other side, for example here is
+
+444
+00:16:01,650 --> 00:16:05,040
+our entry for 1000 and maybe
+
+445
+00:16:05,040 --> 00:16:07,340
+that maps to whatever,
+
+446
+00:16:07,860 --> 00:16:09,930
+you know, 0x whatever you're
+
+447
+00:16:09,930 --> 00:16:11,280
+making something up with like
+
+448
+00:16:11,280 --> 00:16:12,600
+something value,
+
+449
+00:16:13,020 --> 00:16:14,490
+somewhere in physical memory.
+
+450
+00:16:14,490 --> 00:16:16,200
+So this mapping between virtual and
+
+451
+00:16:16,200 --> 00:16:19,260
+physical, it's quite flexible.
+
+452
+00:16:19,880 --> 00:16:20,900
+And so on one side,
+
+453
+00:16:20,900 --> 00:16:21,830
+we have the virtual address
+
+454
+00:16:21,830 --> 00:16:22,460
+of the other side of
+
+455
+00:16:22,460 --> 00:16:23,580
+the physical addresses.
+
+456
+00:16:26,030 --> 00:16:28,580
+Typically, you know this mapping itself
+
+457
+00:16:28,580 --> 00:16:29,900
+is also stored in memory.
+
+458
+00:16:30,160 --> 00:16:31,660
+And so the CPU has some
+
+459
+00:16:31,660 --> 00:16:35,020
+register that basically points to,
+
+460
+00:16:35,090 --> 00:16:37,190
+that contains the physical
+
+461
+00:16:37,190 --> 00:16:40,480
+address of where the page table is stored
+
+462
+00:16:40,670 --> 00:16:42,650
+somewhere, in basically the page
+
+463
+00:16:42,650 --> 00:16:44,450
+table or just map somewhere stored
+
+464
+00:16:44,450 --> 00:16:45,620
+in physical memory.
+
+465
+00:16:45,770 --> 00:16:47,120
+Let's say, you know,
+
+466
+00:16:47,120 --> 00:16:49,620
+whatever, address 10,
+
+467
+00:16:49,860 --> 00:16:51,810
+basically this register which is
+
+468
+00:16:51,810 --> 00:16:54,560
+called on the RISC-V satp.
+
+469
+00:16:54,740 --> 00:16:57,770
+You know stores the address 10
+
+470
+00:16:57,770 --> 00:17:00,320
+and so, that the CPU
+
+471
+00:17:00,320 --> 00:17:01,940
+can tell the memory manager units
+
+472
+00:17:01,940 --> 00:17:05,210
+where to find, you know, basically the map
+
+473
+00:17:05,210 --> 00:17:07,640
+to actually translate virtual to
+
+474
+00:17:07,640 --> 00:17:08,700
+physical addresses.
+
+475
+00:17:10,020 --> 00:17:11,250
+And then the basic idea
+
+476
+00:17:11,250 --> 00:17:12,900
+is to give every application
+
+477
+00:17:12,900 --> 00:17:13,860
+it's own map.
+
+478
+00:17:14,320 --> 00:17:17,740
+So cat is going to have it's map.
+
+479
+00:17:19,110 --> 00:17:20,360
+So every map, it's own...
+
+480
+00:17:23,360 --> 00:17:27,400
+Yeah, [Big Ben], go ahead.
+
+481
+00:17:29,420 --> 00:17:31,790
+So the MMU,
+
+482
+00:17:31,790 --> 00:17:35,120
+you said it doesn't necessarily store
+
+483
+00:17:35,120 --> 00:17:36,140
+the mapping.
+
+484
+00:17:36,190 --> 00:17:38,590
+So does it just,
+
+485
+00:17:38,590 --> 00:17:40,480
+just do the translation like
+
+486
+00:17:40,480 --> 00:17:42,190
+it will read the memory
+
+487
+00:17:42,190 --> 00:17:43,480
+and do the translation,
+
+488
+00:17:43,480 --> 00:17:45,040
+but not necessarily
+
+489
+00:17:45,160 --> 00:17:46,870
+store the mappings.
+
+490
+00:17:46,870 --> 00:17:48,670
+That's exactly the right picture that
+
+491
+00:17:48,670 --> 00:17:49,800
+you should have your head.
+
+492
+00:17:52,960 --> 00:17:55,510
+But every map, okay, so the
+
+493
+00:17:55,510 --> 00:17:57,040
+map itself stored memory,
+
+494
+00:17:57,040 --> 00:17:58,900
+the MMU just basically walks or
+
+495
+00:17:58,900 --> 00:18:00,310
+looks into the map and we'll
+
+496
+00:18:00,310 --> 00:18:01,330
+see in a second, you know,
+
+497
+00:18:01,330 --> 00:18:02,770
+the map is slightly more complicated
+
+498
+00:18:02,770 --> 00:18:04,160
+than I just draw here.
+
+499
+00:18:05,340 --> 00:18:07,080
+So every app has
+
+500
+00:18:07,080 --> 00:18:10,740
+its own, its own map.
+
+501
+00:18:12,320 --> 00:18:14,450
+Right, and that map basically defines
+
+502
+00:18:14,450 --> 00:18:15,720
+its address space.
+
+503
+00:18:16,380 --> 00:18:18,270
+And so when with the CPU or
+
+504
+00:18:18,270 --> 00:18:19,860
+when the operating system switches the
+
+505
+00:18:19,860 --> 00:18:21,870
+CPU from one process from one
+
+506
+00:18:21,870 --> 00:18:23,610
+application to another application,
+
+507
+00:18:23,610 --> 00:18:25,380
+it also switches the content
+
+508
+00:18:25,380 --> 00:18:29,310
+of this satp register to store
+
+509
+00:18:29,310 --> 00:18:31,410
+the root of the map of
+
+510
+00:18:31,410 --> 00:18:32,740
+the appropriate process.
+
+511
+00:18:33,400 --> 00:18:34,660
+And so in that way,
+
+512
+00:18:34,660 --> 00:18:36,580
+basically you know multiple applications to
+
+513
+00:18:36,580 --> 00:18:37,420
+run on the
+
+514
+00:18:37,420 --> 00:18:38,770
+CPU, every time we switch
+
+515
+00:18:38,770 --> 00:18:40,030
+between from one application to the
+
+516
+00:18:40,030 --> 00:18:41,080
+next application,
+
+517
+00:18:41,080 --> 00:18:43,900
+we also switch the satp
+
+518
+00:18:43,900 --> 00:18:45,820
+register to point to the appropriate
+
+519
+00:18:45,820 --> 00:18:47,160
+map for that application.
+
+520
+00:18:47,420 --> 00:18:48,170
+And in that way,
+
+521
+00:18:48,170 --> 00:18:51,290
+basically, virtual addresses you know
+
+522
+00:18:51,290 --> 00:18:54,590
+for cat are translated differently,
+
+523
+00:18:54,590 --> 00:18:56,960
+than the virtual addresses for the
+
+524
+00:18:56,960 --> 00:18:58,280
+shell, because you know each one
+
+525
+00:18:58,280 --> 00:18:59,800
+of them has their own map.
+
+526
+00:19:02,380 --> 00:19:03,240
+That makes sense?
+
+527
+00:19:07,710 --> 00:19:10,170
+Okay, so we, this is the
+
+528
+00:19:10,170 --> 00:19:12,060
+basic plan and the way I've
+
+529
+00:19:12,060 --> 00:19:14,340
+drawn or gonna explain it so
+
+530
+00:19:14,340 --> 00:19:16,050
+far it's pretty naive,
+
+531
+00:19:16,050 --> 00:19:17,980
+and unreasonable.
+
+532
+00:19:18,230 --> 00:19:19,880
+Yeah, David, go ahead.
+
+533
+00:19:20,820 --> 00:19:21,450
+I'm sorry,
+
+534
+00:19:22,880 --> 00:19:25,610
+so, the you said the
+
+535
+00:19:25,610 --> 00:19:28,070
+satp register gets modified
+
+536
+00:19:28,070 --> 00:19:30,110
+for the process, I am guessing
+
+537
+00:19:30,110 --> 00:19:32,270
+the value of for
+
+538
+00:19:32,270 --> 00:19:34,680
+satp register for each process
+
+539
+00:19:34,730 --> 00:19:36,500
+is stored by the kernel.
+
+540
+00:19:36,500 --> 00:19:37,550
+Yes yes,
+
+541
+00:19:37,550 --> 00:19:39,230
+the kernel is writing satp register,
+
+542
+00:19:39,230 --> 00:19:41,510
+in fact writing or reading,
+
+543
+00:19:41,510 --> 00:19:44,030
+particular writing the satp register is
+
+544
+00:19:44,030 --> 00:19:45,300
+a privilege instruction.
+
+545
+00:19:45,830 --> 00:19:48,290
+So user application cannot just
+
+546
+00:19:48,290 --> 00:19:50,060
+update the page map register, and
+
+547
+00:19:50,060 --> 00:19:50,990
+say like I want to run
+
+548
+00:19:50,990 --> 00:19:52,320
+with this page map now.
+
+549
+00:19:52,460 --> 00:19:55,800
+Because, that would violate isolation.
+
+550
+00:19:56,070 --> 00:19:57,690
+So it's only the kernel, only
+
+551
+00:19:57,690 --> 00:19:58,980
+code in kernel mode can actually
+
+552
+00:19:58,980 --> 00:19:59,780
+update it.
+
+553
+00:20:01,100 --> 00:20:02,000
+I see.
+
+554
+00:20:03,730 --> 00:20:05,110
+Okay, so as I said this
+
+555
+00:20:05,110 --> 00:20:06,190
+picture is pretty naive,
+
+556
+00:20:06,190 --> 00:20:07,420
+you know one thing I
+
+557
+00:20:07,420 --> 00:20:08,860
+haven't really said anything about how
+
+558
+00:20:08,860 --> 00:20:10,440
+this actually map works.
+
+559
+00:20:10,750 --> 00:20:13,420
+And, you know the way I've
+
+560
+00:20:13,420 --> 00:20:15,250
+drawn out seems to indicate a
+
+561
+00:20:15,250 --> 00:20:17,350
+basically for every virtual address,
+
+562
+00:20:17,350 --> 00:20:18,720
+you have an entry in the map.
+
+563
+00:20:19,440 --> 00:20:21,450
+And if you do that,
+
+564
+00:20:21,450 --> 00:20:26,540
+how big would that be on RISC-V.
+
+565
+00:20:36,150 --> 00:20:37,470
+Anybody, how many addresses are there on
+
+566
+00:20:37,470 --> 00:20:38,910
+the RISC-V in principle, or
+
+567
+00:20:38,910 --> 00:20:40,650
+how big, how many addresses go
+
+568
+00:20:40,650 --> 00:20:41,860
+to registers store.
+
+569
+00:20:46,100 --> 00:20:48,560
+Registers are 64 bit wide,
+
+570
+00:20:48,560 --> 00:20:49,900
+so how many addresses.
+
+571
+00:20:53,830 --> 00:20:55,240
+Anybody, I know, so insulting your
+
+572
+00:20:55,240 --> 00:20:57,320
+intelligence by asking these questions about.
+
+573
+00:21:00,110 --> 00:21:00,980
+We have some answers in the
+
+574
+00:21:00,980 --> 00:21:02,600
+chat, like two to the 64.
+
+575
+00:21:02,600 --> 00:21:04,610
+I didn't see the chat, sorry,
+
+576
+00:21:04,610 --> 00:21:06,050
+yeah, two to 64. Lets see
+
+577
+00:21:06,050 --> 00:21:07,970
+if I can actually pop off the chip,
+
+578
+00:21:07,970 --> 00:21:08,980
+so I could see it.
+
+579
+00:21:13,460 --> 00:21:15,180
+Yeah, two to 64, thank you.
+
+580
+00:21:16,990 --> 00:21:20,280
+Alright, so this table would be gigantic.
+
+581
+00:21:20,420 --> 00:21:22,130
+In fact, we know
+
+582
+00:21:22,130 --> 00:21:23,540
+all memory would be consumed
+
+583
+00:21:23,540 --> 00:21:24,590
+by just having the table
+
+584
+00:21:24,590 --> 00:21:26,000
+so that seems unreasonable.
+
+585
+00:21:26,360 --> 00:21:27,590
+And so in fact you
+
+586
+00:21:27,590 --> 00:21:29,160
+know that's not how things work.
+
+587
+00:21:29,520 --> 00:21:30,510
+In fact, going to
+
+588
+00:21:30,510 --> 00:21:32,250
+in two steps, to actually, how
+
+589
+00:21:32,250 --> 00:21:33,820
+it actually works in RISC-V.
+
+590
+00:21:33,920 --> 00:21:36,800
+Step one is don't play
+
+591
+00:21:36,800 --> 00:21:40,040
+the game per address,
+
+592
+00:21:40,040 --> 00:21:41,720
+but do per page.
+
+593
+00:21:44,580 --> 00:21:45,900
+So you translate a page at
+
+594
+00:21:45,900 --> 00:21:47,880
+a time and a page
+
+595
+00:21:47,880 --> 00:21:50,380
+on RISC-V is 4 kilobytes.
+
+596
+00:21:51,860 --> 00:21:54,700
+Which is a four, 4096 bytes.
+
+597
+00:21:55,080 --> 00:21:56,430
+This is pretty common,
+
+598
+00:21:56,430 --> 00:21:58,830
+almost all processors, you know, use
+
+599
+00:21:58,830 --> 00:22:01,320
+roughly page size 4 kilobytes, or support
+
+600
+00:22:01,320 --> 00:22:02,780
+page size 4 kilobytes.
+
+601
+00:22:03,420 --> 00:22:05,070
+And so now again, translation works
+
+602
+00:22:05,070 --> 00:22:06,000
+slightly differently,
+
+603
+00:22:06,000 --> 00:22:08,300
+so if here, we have our virtual address.
+
+604
+00:22:09,360 --> 00:22:11,340
+Amazingly, we split it in two pieces,
+
+605
+00:22:11,340 --> 00:22:14,580
+an index and an offset.
+
+606
+00:22:15,300 --> 00:22:16,620
+And so the offset is basically
+
+607
+00:22:16,620 --> 00:22:18,240
+the byte within the page.
+
+608
+00:22:18,880 --> 00:22:20,170
+And so when we do,
+
+609
+00:22:20,170 --> 00:22:21,610
+when the MMU does
+
+610
+00:22:21,610 --> 00:22:23,820
+the translation it takes the index,
+
+611
+00:22:23,970 --> 00:22:27,240
+indexes into the map that
+
+612
+00:22:27,240 --> 00:22:29,100
+gives you some physical page number,
+
+613
+00:22:29,100 --> 00:22:31,280
+you know in memory.
+
+614
+00:22:31,480 --> 00:22:33,520
+The physical page number that
+
+615
+00:22:33,520 --> 00:22:37,460
+points to some physical page of 4096 bytes.
+
+616
+00:22:38,040 --> 00:22:39,870
+And then the offset part,
+
+617
+00:22:39,870 --> 00:22:42,810
+basically indexes into that physical page,
+
+618
+00:22:42,810 --> 00:22:45,400
+so, for example, the offset is, you know, 12.
+
+619
+00:22:45,770 --> 00:22:48,100
+then you know there are
+
+620
+00:22:48,690 --> 00:22:51,120
+the 12th entry of that
+
+621
+00:22:51,120 --> 00:22:53,680
+page is actually used.
+
+622
+00:22:54,110 --> 00:22:55,490
+A lot of people a lot
+
+623
+00:22:55,490 --> 00:22:57,590
+of you entered in the message
+
+624
+00:22:57,590 --> 00:23:00,300
+in the, in response to the question,
+
+625
+00:23:00,300 --> 00:23:02,340
+there's always some scheme of taking
+
+626
+00:23:02,340 --> 00:23:04,770
+an offset and adding that to
+
+627
+00:23:04,770 --> 00:23:09,340
+the base of the page to obtain the actual
+
+628
+00:23:09,500 --> 00:23:11,690
+memory, physical memory location, where
+
+629
+00:23:11,690 --> 00:23:15,480
+a value store, where value will be loaded too.
+
+630
+00:23:16,400 --> 00:23:17,510
+And one of the interesting things
+
+631
+00:23:17,510 --> 00:23:19,010
+about the RISC-V is and
+
+632
+00:23:19,010 --> 00:23:20,690
+this is in response to some
+
+633
+00:23:20,690 --> 00:23:21,320
+questions again,
+
+634
+00:23:21,320 --> 00:23:23,900
+somebody asked look the physical
+
+635
+00:23:24,110 --> 00:23:26,760
+or virtual addresses are 64 bits.
+
+636
+00:23:28,250 --> 00:23:29,630
+Which makes totally sense correct,
+
+637
+00:23:29,630 --> 00:23:31,520
+because the RISC-V is
+
+638
+00:23:31,520 --> 00:23:32,560
+64-bit register.
+
+639
+00:23:33,210 --> 00:23:35,280
+But in fact on the
+
+640
+00:23:35,280 --> 00:23:38,190
+RISC-V processor, that we're using,
+
+641
+00:23:38,190 --> 00:23:39,780
+not all of the 64 bits
+
+642
+00:23:39,780 --> 00:23:40,800
+actually used,
+
+643
+00:23:41,160 --> 00:23:43,890
+namely, the top 25 are
+
+644
+00:23:43,890 --> 00:23:45,220
+actually not used at all.
+
+645
+00:23:45,800 --> 00:23:47,630
+So that limits the
+
+646
+00:23:47,630 --> 00:23:49,520
+size of a virtual address, that
+
+647
+00:23:49,520 --> 00:23:50,900
+limits the size of a virtual
+
+648
+00:23:50,900 --> 00:23:53,360
+address space 2 to the power of 39,
+
+649
+00:23:54,980 --> 00:23:58,740
+which is roughly 512 gigabytes.
+
+650
+00:24:04,210 --> 00:24:06,310
+So, of course you
+
+651
+00:24:06,310 --> 00:24:08,560
+know later version of the
+
+652
+00:24:08,560 --> 00:24:10,360
+processor, might support bigger address spaces
+
+653
+00:24:10,360 --> 00:24:12,400
+and that is necessary and could then
+
+654
+00:24:14,080 --> 00:24:15,850
+be done, for example, some of those 25 bits
+
+655
+00:24:15,850 --> 00:24:18,310
+that are basically unused, could be used to
+
+656
+00:24:18,310 --> 00:24:21,640
+build bigger virtual address spaces.
+
+657
+00:24:22,390 --> 00:24:24,400
+So, and so in the index
+
+658
+00:24:24,400 --> 00:24:26,440
+and, you know, where 39 bits left,
+
+659
+00:24:26,440 --> 00:24:27,820
+you know as the virtual address
+
+660
+00:24:27,820 --> 00:24:29,830
+27, 27 bits are
+
+661
+00:24:29,830 --> 00:24:31,030
+index and we'll see you in
+
+662
+00:24:31,030 --> 00:24:33,100
+a second, why they are 27
+
+663
+00:24:33,480 --> 00:24:35,100
+are index and then
+
+664
+00:24:35,100 --> 00:24:37,580
+the 12 are offset.
+
+665
+00:24:38,280 --> 00:24:39,480
+And you know there has to
+
+666
+00:24:39,480 --> 00:24:40,890
+be 12, because 2 to the
+
+667
+00:24:40,890 --> 00:24:43,880
+power 12 is 4096.
+
+668
+00:24:46,590 --> 00:24:48,360
+So that's virtual addresses on the
+
+669
+00:24:48,360 --> 00:24:50,520
+RISC-V. Physical addresses as you
+
+670
+00:24:50,520 --> 00:24:52,350
+can see here are actually 56
+
+671
+00:24:52,350 --> 00:24:53,240
+bits wide.
+
+672
+00:24:57,940 --> 00:24:59,140
+So the physical memory,
+
+673
+00:24:59,140 --> 00:25:01,570
+can be bigger than the
+
+674
+00:25:01,570 --> 00:25:03,220
+single virtual address space.
+
+675
+00:25:03,880 --> 00:25:05,950
+But it's limited to 2 power to 56,
+
+676
+00:25:05,950 --> 00:25:07,870
+you know most boards probably, you know,
+
+677
+00:25:07,870 --> 00:25:09,190
+don't support 2 to the power
+
+678
+00:25:09,190 --> 00:25:11,710
+of 56 physical memory, because
+
+679
+00:25:11,710 --> 00:25:14,060
+a gigantic amount of physical memory.
+
+680
+00:25:14,090 --> 00:25:15,290
+But in principle the
+
+681
+00:25:15,290 --> 00:25:16,610
+board could, you know,
+
+682
+00:25:16,610 --> 00:25:18,500
+if you could manufacture it
+
+683
+00:25:18,500 --> 00:25:19,760
+support two to the power
+
+684
+00:25:19,760 --> 00:25:21,200
+of 56 physical memory.
+
+685
+00:25:22,020 --> 00:25:23,130
+And so in this scheme,
+
+686
+00:25:23,130 --> 00:25:25,620
+then 56 bit for
+
+687
+00:25:25,620 --> 00:25:27,330
+the physical address, 44 are basically
+
+688
+00:25:27,330 --> 00:25:28,440
+the physical page number,
+
+689
+00:25:28,440 --> 00:25:30,720
+the PPM, and 12 are the
+
+690
+00:25:30,720 --> 00:25:32,610
+offset that are inherited directly from
+
+691
+00:25:32,610 --> 00:25:34,660
+the virtual address.
+
+692
+00:25:36,840 --> 00:25:37,940
+Does that make sense.
+
+693
+00:25:40,560 --> 00:25:42,630
+So, um, you know stop for a second
+
+694
+00:25:42,630 --> 00:25:44,310
+here. So you collect your thoughts,
+
+695
+00:25:44,310 --> 00:25:45,390
+the only point I wanted to
+
+696
+00:25:45,390 --> 00:25:49,410
+make here is that this material is important,
+
+697
+00:25:49,410 --> 00:25:51,000
+so just ask questions,
+
+698
+00:25:51,000 --> 00:25:52,740
+the details matter,
+
+699
+00:25:52,740 --> 00:25:54,480
+and it will be a large
+
+700
+00:25:54,480 --> 00:25:55,560
+part of you,
+
+701
+00:25:55,560 --> 00:25:56,760
+you really need to understand all
+
+702
+00:25:56,760 --> 00:25:57,240
+this stuff,
+
+703
+00:25:57,240 --> 00:25:58,980
+to be able to basically
+
+704
+00:25:58,980 --> 00:26:01,740
+do lab, the next lab, the page table lab.
+
+705
+00:26:02,570 --> 00:26:03,770
+Yeah, Amiar, go ahead, please.
+
+706
+00:26:05,200 --> 00:26:06,220
+If you can go back
+
+707
+00:26:06,220 --> 00:26:09,080
+one slide, I have the screen is unclear.
+
+708
+00:26:10,740 --> 00:26:11,280
+Which one,
+
+709
+00:26:11,280 --> 00:26:13,860
+the page table slide? Yeah.
+
+710
+00:26:20,260 --> 00:26:22,200
+This one? Um, no.
+
+711
+00:26:22,680 --> 00:26:24,210
+The most recent one, but it
+
+712
+00:26:24,210 --> 00:26:25,320
+also doesn't really matter,
+
+713
+00:26:25,320 --> 00:26:26,790
+yeah, this is perfect,
+
+714
+00:26:26,790 --> 00:26:29,070
+thank you, so I'm wondering this
+
+715
+00:26:29,070 --> 00:26:33,330
+4096 byte range which we've called
+
+716
+00:26:33,330 --> 00:26:35,430
+a page, is that assigned as
+
+717
+00:26:35,430 --> 00:26:37,950
+a continuous chunk in memory.
+
+718
+00:26:37,950 --> 00:26:40,200
+Yes, that's a continuous physical,
+
+719
+00:26:40,200 --> 00:26:44,190
+continuous range of 4096 bytes
+
+720
+00:26:44,190 --> 00:26:45,340
+including memory.
+
+721
+00:26:46,510 --> 00:26:49,630
+I see, and then. You know, the map,
+
+722
+00:26:49,630 --> 00:26:53,440
+granularity of 4096 bytes.
+
+723
+00:26:53,440 --> 00:26:55,390
+Okay, and then 12, the
+
+724
+00:26:55,390 --> 00:26:58,630
+offset, like 2 to the 12 is 4096,
+
+725
+00:26:58,630 --> 00:27:00,760
+so that's sufficient to cover each
+
+726
+00:27:00,760 --> 00:27:03,880
+of the chunks? Yeah, each byte in the page.
+
+727
+00:27:04,770 --> 00:27:07,020
+And where does the 56 come
+
+728
+00:27:07,020 --> 00:27:09,120
+from, in the diagram, I could
+
+729
+00:27:09,120 --> 00:27:10,680
+follow up until then,
+
+730
+00:27:10,680 --> 00:27:11,640
+but I didn't get where
+
+731
+00:27:11,640 --> 00:27:13,530
+that came from.
+
+732
+00:27:13,530 --> 00:27:14,840
+The designers cook it up.
+
+733
+00:27:15,180 --> 00:27:16,800
+So the hardware designers decide
+
+734
+00:27:16,800 --> 00:27:17,940
+how big you know physical
+
+735
+00:27:17,940 --> 00:27:20,250
+addresses, basically for whatever board
+
+736
+00:27:20,250 --> 00:27:22,620
+they want to design,
+
+737
+00:27:22,620 --> 00:27:24,270
+and so the RISC-V
+
+738
+00:27:24,270 --> 00:27:26,850
+designers who decided at 56,
+
+739
+00:27:26,850 --> 00:27:28,050
+that physical addresses were a
+
+740
+00:27:28,050 --> 00:27:28,920
+good idea.
+
+741
+00:27:30,560 --> 00:27:32,240
+And usually the way they
+
+742
+00:27:32,240 --> 00:27:33,530
+come up with these numbers is
+
+743
+00:27:33,530 --> 00:27:35,260
+they look at technology trends.
+
+744
+00:27:35,500 --> 00:27:36,970
+And say like, well, we want
+
+745
+00:27:36,970 --> 00:27:37,990
+to be able for the next
+
+746
+00:27:37,990 --> 00:27:38,980
+sort of 5 years,
+
+747
+00:27:38,980 --> 00:27:40,870
+you know, we don't predict the physical
+
+748
+00:27:40,870 --> 00:27:42,340
+memory will be ever bigger than
+
+749
+00:27:42,340 --> 00:27:43,840
+2 to the power 56.
+
+750
+00:27:44,740 --> 00:27:45,940
+Probably they think it won't be
+
+751
+00:27:45,940 --> 00:27:47,590
+bigger than something much smaller,
+
+752
+00:27:47,590 --> 00:27:48,910
+but then you know give them
+
+753
+00:27:48,910 --> 00:27:50,650
+sort of leeway, you know,
+
+754
+00:27:50,650 --> 00:27:52,720
+in case you know their predictions wrong,
+
+755
+00:27:52,720 --> 00:27:55,220
+they pick a slightly bigger number.
+
+756
+00:27:56,720 --> 00:27:58,060
+Is that makes sense.
+
+757
+00:27:58,640 --> 00:28:00,440
+Yeah, thanks. Yeah, a lot of people
+
+758
+00:28:00,440 --> 00:28:01,790
+ask about this.
+
+759
+00:28:03,870 --> 00:28:05,340
+Anybody else, who raised a hand,
+
+760
+00:28:05,340 --> 00:28:06,210
+I think there's a bunch of
+
+761
+00:28:06,210 --> 00:28:08,610
+people asking questions and unfortunately my
+
+762
+00:28:08,610 --> 00:28:10,200
+zoom doesn't show its more than
+
+763
+00:28:10,200 --> 00:28:12,000
+two people raised hands just multiple
+
+764
+00:28:12,000 --> 00:28:13,260
+people are raising their hands.
+
+765
+00:28:13,720 --> 00:28:15,190
+So you please jump in, if
+
+766
+00:28:15,190 --> 00:28:16,040
+you have a question.
+
+767
+00:28:20,160 --> 00:28:23,730
+Okay. I have a question,
+
+768
+00:28:23,730 --> 00:28:27,150
+yeah, go ahead. So if the virtual
+
+769
+00:28:27,150 --> 00:28:30,060
+memory is up to 2 to the power of 27
+
+770
+00:28:30,060 --> 00:28:31,290
+and the physical memory is
+
+771
+00:28:31,290 --> 00:28:34,710
+up 2 to the power of 56, right,
+
+772
+00:28:34,710 --> 00:28:37,340
+so, we could have,
+
+773
+00:28:38,550 --> 00:28:41,070
+like we could have multiple processes
+
+774
+00:28:41,070 --> 00:28:42,630
+that could exhaust all their virtual
+
+775
+00:28:42,630 --> 00:28:43,920
+memories without
+
+776
+00:28:44,100 --> 00:28:46,140
+using up all the physical memory,
+
+777
+00:28:46,140 --> 00:28:47,820
+right? That's correct.
+
+778
+00:28:52,250 --> 00:28:53,280
+That's absolutely correct.
+
+779
+00:28:54,040 --> 00:28:56,170
+Okay. I have a question, too.
+
+780
+00:28:56,170 --> 00:28:58,060
+Yeah, go ahead.
+
+781
+00:28:58,190 --> 00:29:00,470
+So this 56 for the physical
+
+782
+00:29:00,470 --> 00:29:02,960
+address is that the,
+
+783
+00:29:03,240 --> 00:29:06,380
+the number of possible memory locations.
+
+784
+00:29:06,510 --> 00:29:07,680
+I don't think it's the
+
+785
+00:29:07,680 --> 00:29:11,140
+number of bits because the 64 bit machine.
+
+786
+00:29:11,170 --> 00:29:14,410
+That 56 could go up to 64,
+
+787
+00:29:14,410 --> 00:29:17,850
+but they just choose it to have just 56.
+
+788
+00:29:18,600 --> 00:29:19,350
+That's correct,
+
+789
+00:29:19,350 --> 00:29:20,280
+one way to think about it,
+
+790
+00:29:20,280 --> 00:29:21,120
+then they only have to run
+
+791
+00:29:21,120 --> 00:29:24,520
+56 wide on the board as opposed to 64.
+
+792
+00:29:25,530 --> 00:29:27,260
+I see, I see.
+
+793
+00:29:30,220 --> 00:29:32,530
+Okay. I also have a question,
+
+794
+00:29:32,530 --> 00:29:35,650
+um, so kind of, could you
+
+795
+00:29:35,650 --> 00:29:36,670
+go back one slide maybe. Yeah.
+
+796
+00:29:38,820 --> 00:29:42,570
+so from the CPU,
+
+797
+00:29:42,570 --> 00:29:44,700
+we go through the MMU and
+
+798
+00:29:44,700 --> 00:29:47,010
+then to the memory, but
+
+799
+00:29:47,010 --> 00:29:50,160
+where, where here is the distinction
+
+800
+00:29:50,160 --> 00:29:53,460
+for different processes, because like each
+
+801
+00:29:53,460 --> 00:29:56,040
+process, like process, like the shell
+
+802
+00:29:56,040 --> 00:30:00,450
+process has something at address like 0x1000,
+
+803
+00:30:00,450 --> 00:30:02,610
+and then the ls process
+
+804
+00:30:02,610 --> 00:30:06,090
+also has something at address 0x1000, so
+
+805
+00:30:06,090 --> 00:30:07,350
+we need to translate those to
+
+806
+00:30:07,350 --> 00:30:12,680
+different physical, so. Yeah, the satp register,
+
+807
+00:30:13,330 --> 00:30:15,580
+contains, the register who contains the
+
+808
+00:30:15,580 --> 00:30:17,760
+address of which map to use.
+
+809
+00:30:18,450 --> 00:30:20,580
+So ls runs with its own map,
+
+810
+00:30:20,580 --> 00:30:22,710
+you know cat with its own map.
+
+811
+00:30:22,710 --> 00:30:25,020
+OK, so each process will have
+
+812
+00:30:25,020 --> 00:30:27,580
+its completely own map. Yeah.
+
+813
+00:30:28,140 --> 00:30:29,700
+Makes sense, thank you.
+
+814
+00:30:29,700 --> 00:30:31,380
+In fact, there's a great a
+
+815
+00:30:31,380 --> 00:30:32,220
+way to the next,
+
+816
+00:30:33,300 --> 00:30:36,340
+point, so if every process has its own map.
+
+817
+00:30:36,870 --> 00:30:38,430
+You know how big is this
+
+818
+00:30:38,430 --> 00:30:40,380
+map, like that I've drawn here.
+
+819
+00:30:40,900 --> 00:30:42,220
+Well, that map is 2 to
+
+820
+00:30:42,220 --> 00:30:44,520
+the power 27 entries, correct,
+
+821
+00:30:46,460 --> 00:30:48,140
+and that's pretty big.
+
+822
+00:30:49,030 --> 00:30:50,500
+And I would fill physical
+
+823
+00:30:50,500 --> 00:30:51,910
+memory reasonable quickly,
+
+824
+00:30:51,910 --> 00:30:53,650
+if every process exactly how
+
+825
+00:30:53,650 --> 00:30:56,300
+to complete you know populated map.
+
+826
+00:30:56,560 --> 00:30:58,450
+And then there's gigantic, means that
+
+827
+00:30:58,450 --> 00:31:00,130
+every process is very big,
+
+828
+00:31:00,130 --> 00:31:01,420
+and so in fact this is
+
+829
+00:31:01,420 --> 00:31:03,700
+not the way hardware actually
+
+830
+00:31:03,700 --> 00:31:04,900
+stores page tables,
+
+831
+00:31:04,900 --> 00:31:06,040
+you can think about it
+
+832
+00:31:06,040 --> 00:31:07,690
+conceptually as an array,
+
+833
+00:31:07,690 --> 00:31:09,910
+you know going from zero to 2 power 27,
+
+834
+00:31:09,910 --> 00:31:11,840
+but actually is not what happens in practice.
+
+835
+00:31:12,120 --> 00:31:13,110
+In practice,
+
+836
+00:31:13,110 --> 00:31:15,750
+it's a multi-level structure that
+
+837
+00:31:15,750 --> 00:31:21,780
+here's actually the real RISC-V page table.
+
+838
+00:31:23,460 --> 00:31:25,820
+Structure and what the hardware implements.
+
+839
+00:31:26,820 --> 00:31:28,350
+And so what happens with the
+
+840
+00:31:28,350 --> 00:31:31,820
+27 bits that we started earlier, the index.
+
+841
+00:31:32,240 --> 00:31:35,810
+It's actually split in three
+
+842
+00:31:35,810 --> 00:31:37,860
+9 bit numbers.
+
+843
+00:31:38,220 --> 00:31:40,230
+And the first, the top nine
+
+844
+00:31:40,230 --> 00:31:42,660
+bits, are used to index into
+
+845
+00:31:42,660 --> 00:31:44,920
+the top level page table,
+
+846
+00:31:44,990 --> 00:31:46,700
+directory as they are called.
+
+847
+00:31:47,120 --> 00:31:48,410
+And so, then one directory,
+
+848
+00:31:48,410 --> 00:31:49,520
+you know one of these guys,
+
+849
+00:31:49,520 --> 00:31:53,640
+you know is 4096 bytes, 4096 bytes,
+
+850
+00:31:54,310 --> 00:31:55,800
+just like the page size.
+
+851
+00:31:56,150 --> 00:31:58,820
+A PTE entry, one of
+
+852
+00:31:58,820 --> 00:32:02,040
+the entries in the thing is 64 bytes,
+
+853
+00:32:03,520 --> 00:32:07,090
+64 bit, I mean, sorry, like the register
+
+854
+00:32:07,090 --> 00:32:08,680
+with so eight bytes.
+
+855
+00:32:09,000 --> 00:32:10,230
+And so there's going to mean
+
+856
+00:32:10,230 --> 00:32:12,080
+that you do 4096
+
+857
+00:32:12,710 --> 00:32:14,390
+divided by eight, means there are
+
+858
+00:32:14,390 --> 00:32:17,090
+512 entries in one of those
+
+859
+00:32:17,090 --> 00:32:18,300
+directory pages.
+
+860
+00:32:19,400 --> 00:32:20,810
+So basically what happens is
+
+861
+00:32:20,810 --> 00:32:23,360
+like the satp points to the top
+
+862
+00:32:23,480 --> 00:32:24,650
+root directory,
+
+863
+00:32:24,650 --> 00:32:25,940
+we take the top level 9
+
+864
+00:32:25,940 --> 00:32:29,040
+bits index into the page directory.
+
+865
+00:32:29,190 --> 00:32:30,060
+And now gives us a new
+
+866
+00:32:30,060 --> 00:32:31,340
+physical page number.
+
+867
+00:32:32,040 --> 00:32:33,330
+And that physical page number
+
+868
+00:32:33,330 --> 00:32:36,030
+is the page directory for the next level,
+
+869
+00:32:36,030 --> 00:32:36,870
+so when we use the
+
+870
+00:32:36,870 --> 00:32:40,200
+next level index,
+
+871
+00:32:39,200 --> 00:32:41,210
+to index into that page
+
+872
+00:32:41,210 --> 00:32:42,890
+directory and then you know
+
+873
+00:32:42,890 --> 00:32:43,670
+and so forth,
+
+874
+00:32:43,670 --> 00:32:44,600
+you know, we'd like to find
+
+875
+00:32:44,600 --> 00:32:46,490
+one we get the bottom level
+
+876
+00:32:46,490 --> 00:32:47,620
+page directory.
+
+877
+00:32:47,780 --> 00:32:49,760
+And that basically gives us the entry,
+
+878
+00:32:49,760 --> 00:32:51,560
+that maps the virtual address
+
+879
+00:32:51,560 --> 00:32:52,600
+to physical address.
+
+880
+00:32:55,680 --> 00:32:56,400
+So in some sense,
+
+881
+00:32:56,400 --> 00:32:58,170
+it's very similar to where I
+
+882
+00:32:58,170 --> 00:32:59,520
+showed in the previous slide except
+
+883
+00:32:59,520 --> 00:33:00,930
+they're basically the index happens in
+
+884
+00:33:00,930 --> 00:33:02,760
+three steps instead of one step.
+
+885
+00:33:02,870 --> 00:33:04,070
+And this is advantage,
+
+886
+00:33:04,070 --> 00:33:05,480
+the main advantage of this scheme
+
+887
+00:33:05,480 --> 00:33:07,760
+is that large parts of the
+
+888
+00:33:07,760 --> 00:33:09,470
+address space are not being used,
+
+889
+00:33:09,470 --> 00:33:10,310
+you don't have to have any
+
+890
+00:33:10,310 --> 00:33:11,880
+page table entries for that.
+
+891
+00:33:12,920 --> 00:33:13,550
+For example,
+
+892
+00:33:13,550 --> 00:33:14,570
+let's say you have a new
+
+893
+00:33:14,570 --> 00:33:15,660
+address space.
+
+894
+00:33:16,130 --> 00:33:18,470
+That has only one page like
+
+895
+00:33:18,470 --> 00:33:19,500
+the bottom page.
+
+896
+00:33:19,640 --> 00:33:21,500
+Yeah, 4096.
+
+897
+00:33:22,790 --> 00:33:24,410
+And no other pages in
+
+898
+00:33:24,410 --> 00:33:25,550
+the address space,
+
+899
+00:33:25,550 --> 00:33:27,860
+so only addresses 0 to 4095(6)
+
+900
+00:33:27,860 --> 00:33:29,340
+are actually mapped.
+
+901
+00:33:29,500 --> 00:33:30,880
+How many page table entry or
+
+902
+00:33:30,880 --> 00:33:32,200
+page table directories you need
+
+903
+00:33:32,200 --> 00:33:35,060
+to map that particular page.
+
+904
+00:33:39,280 --> 00:33:41,280
+Well, you need one of the top, correct.
+
+905
+00:33:41,790 --> 00:33:43,440
+And you need basically value in
+
+906
+00:33:43,440 --> 00:33:45,440
+that entry for zero,
+
+907
+00:33:46,520 --> 00:33:47,840
+the top level 9 bits,
+
+908
+00:33:47,840 --> 00:33:49,640
+you know zero, zero so you
+
+909
+00:33:49,640 --> 00:33:51,500
+need an entry for 0.
+
+910
+00:33:51,860 --> 00:33:53,420
+So that means you need one
+
+911
+00:33:53,420 --> 00:33:54,740
+middle level entry,
+
+912
+00:33:54,740 --> 00:33:56,510
+you know that basically corresponds
+
+913
+00:33:56,510 --> 00:33:57,170
+to the next,
+
+914
+00:33:57,170 --> 00:33:59,060
+you know nine 0 bits and
+
+915
+00:33:59,060 --> 00:34:00,500
+then one entry for the next
+
+916
+00:34:00,500 --> 00:34:01,480
+nine zero bits.
+
+917
+00:34:02,170 --> 00:34:04,300
+So basically we get away with
+
+918
+00:34:04,300 --> 00:34:07,160
+three page directories.
+
+919
+00:34:11,420 --> 00:34:12,770
+In our previous scheme on the
+
+920
+00:34:12,770 --> 00:34:14,120
+previous slide correct,
+
+921
+00:34:14,120 --> 00:34:15,080
+we have 2 to the power
+
+922
+00:34:15,080 --> 00:34:17,390
+27 entries and now we basically
+
+923
+00:34:17,390 --> 00:34:18,800
+have to have 3 times whatever
+
+924
+00:34:18,800 --> 00:34:20,580
+512 entries that we're done.
+
+925
+00:34:21,940 --> 00:34:24,970
+That's the main reason why
+
+926
+00:34:24,970 --> 00:34:26,620
+you know the actual hardware
+
+927
+00:34:26,620 --> 00:34:28,360
+has this hierarchical,
+
+928
+00:34:28,360 --> 00:34:31,060
+multi-level tree scheme.
+
+929
+00:34:32,570 --> 00:34:34,010
+Any questions about this, because it's
+
+930
+00:34:34,010 --> 00:34:34,920
+pretty important.
+
+931
+00:34:36,280 --> 00:34:37,520
+Samir, go ahead.
+
+932
+00:34:38,980 --> 00:34:44,050
+So my question is as since
+
+933
+00:34:44,050 --> 00:34:46,090
+the PPM number from each page
+
+934
+00:34:46,090 --> 00:34:48,100
+table is 44 bits.
+
+935
+00:34:48,430 --> 00:34:50,770
+And the second say the middle
+
+936
+00:34:50,770 --> 00:34:53,880
+table resides on the virtual memory.
+
+937
+00:34:53,950 --> 00:34:56,560
+Where do we get the missing 12 bits from.
+
+938
+00:34:57,290 --> 00:34:58,820
+Well, the final twelve bits okay
+
+939
+00:34:58,820 --> 00:35:00,260
+so good good good,
+
+940
+00:35:00,260 --> 00:35:02,740
+so you're saying these 44, correct.
+
+941
+00:35:02,940 --> 00:35:04,380
+Yes. What is going on with that,
+
+942
+00:35:04,380 --> 00:35:06,210
+while all page, all page directories
+
+943
+00:35:06,210 --> 00:35:07,480
+or page line,
+
+944
+00:35:08,170 --> 00:35:10,360
+and so they basically they're a
+
+945
+00:35:10,360 --> 00:35:11,920
+physical page number is 44 plus
+
+946
+00:35:11,920 --> 00:35:16,120
+twelve, twelve zero bits.
+
+947
+00:35:18,920 --> 00:35:20,180
+And so what actually happens if
+
+948
+00:35:20,180 --> 00:35:21,860
+we look at these PTE entries,
+
+949
+00:35:21,860 --> 00:35:23,990
+they all have the same sort of form,
+
+950
+00:35:23,990 --> 00:35:25,840
+if you look at one of these guys.
+
+951
+00:35:25,920 --> 00:35:26,880
+There are 44 bits,
+
+952
+00:35:26,880 --> 00:35:28,590
+there are 12 bits 0,
+
+953
+00:35:28,590 --> 00:35:30,060
+so that gives us a
+
+954
+00:35:30,060 --> 00:35:32,280
+44 plus 12 is 56, so
+
+955
+00:35:32,280 --> 00:35:33,660
+that gives us a physical address,
+
+956
+00:35:36,620 --> 00:35:39,860
+and so that means there's 64 bits,
+
+957
+00:35:39,860 --> 00:35:41,420
+there's actually some bits left
+
+958
+00:35:41,420 --> 00:35:42,470
+there not being used and
+
+959
+00:35:42,470 --> 00:35:43,850
+in fact the bottom 12
+
+960
+00:35:43,850 --> 00:35:45,020
+bits were basically or the
+
+961
+00:35:45,020 --> 00:35:47,030
+bottom 10 definitely bottom based
+
+962
+00:35:47,030 --> 00:35:48,320
+on not used at all, and
+
+963
+00:35:48,320 --> 00:35:50,210
+in fact the paging hardware
+
+964
+00:35:50,210 --> 00:35:52,490
+stores or stores a bunch
+
+965
+00:35:52,490 --> 00:35:54,950
+of flags that control the
+
+966
+00:35:54,950 --> 00:35:56,090
+translation and we'll talk about
+
+967
+00:35:56,090 --> 00:35:57,480
+those flags in the second.
+
+968
+00:35:57,730 --> 00:36:00,520
+And with their
+
+969
+00:36:00,520 --> 00:36:02,140
+to control the translation and
+
+970
+00:36:02,140 --> 00:36:03,520
+they're stored basically in the bottom
+
+971
+00:36:03,520 --> 00:36:04,860
+10 bits.
+
+972
+00:36:05,100 --> 00:36:06,780
+It also means that, you
+
+973
+00:36:06,780 --> 00:36:07,890
+know, if you add these two
+
+974
+00:36:07,890 --> 00:36:09,660
+up that's 54 bits,
+
+975
+00:36:09,660 --> 00:36:11,680
+basically there's 10 bits left.
+
+976
+00:36:11,920 --> 00:36:13,660
+There are unused, those 10 bits
+
+977
+00:36:13,660 --> 00:36:14,650
+are again,
+
+978
+00:36:14,650 --> 00:36:16,810
+you know for future growth,
+
+979
+00:36:16,810 --> 00:36:17,920
+so at some point we might
+
+980
+00:36:17,920 --> 00:36:18,850
+have a new type of
+
+981
+00:36:18,850 --> 00:36:20,800
+RISC-V processor, that will have a
+
+982
+00:36:20,800 --> 00:36:22,840
+slightly different structure page tables,
+
+983
+00:36:22,840 --> 00:36:24,460
+and it might actually have bigger
+
+984
+00:36:24,460 --> 00:36:25,930
+than 44 bits for the physical
+
+985
+00:36:25,930 --> 00:36:31,380
+page number. OK? Thank you.
+
+986
+00:36:31,380 --> 00:36:32,340
+In fact you can see
+
+987
+00:36:32,340 --> 00:36:33,090
+it here like if you
+
+988
+00:36:33,090 --> 00:36:33,990
+look at a single entry
+
+989
+00:36:33,990 --> 00:36:36,060
+direct that's drawn here,
+
+990
+00:36:36,060 --> 00:36:37,920
+you know they're basically.
+
+991
+00:36:38,490 --> 00:36:40,140
+10, 10 bits left, that
+
+992
+00:36:40,140 --> 00:36:41,200
+are not being used.
+
+993
+00:36:42,020 --> 00:36:44,240
+Okay, so let's look at the flags
+
+994
+00:36:44,240 --> 00:36:45,680
+for a second, because it's sort
+
+995
+00:36:45,680 --> 00:36:46,620
+of important.
+
+996
+00:36:46,940 --> 00:36:50,180
+so, every translation in the bottom 10
+
+997
+00:36:50,180 --> 00:36:51,170
+bits, there's a bunch of flag
+
+998
+00:36:51,170 --> 00:36:54,960
+stored and the first flag is valid.
+
+999
+00:36:55,540 --> 00:36:57,880
+If a valid bit set,
+
+1000
+00:36:57,880 --> 00:37:00,130
+that means this is a valid PTE,
+
+1001
+00:37:00,130 --> 00:37:02,220
+and you can use it for translation.
+
+1002
+00:37:03,180 --> 00:37:05,190
+And so, we're going to
+
+1003
+00:37:05,190 --> 00:37:06,630
+run my little example, that I
+
+1004
+00:37:06,630 --> 00:37:08,790
+used here, three page directories,
+
+1005
+00:37:08,790 --> 00:37:10,620
+when only entry 0 is used
+
+1006
+00:37:10,620 --> 00:37:12,390
+then only entey 0 will have
+
+1007
+00:37:12,390 --> 00:37:13,890
+valid bit set and none of
+
+1008
+00:37:13,890 --> 00:37:15,390
+the other 511 entries
+
+1009
+00:37:15,390 --> 00:37:17,220
+will not have valid bit set.
+
+1010
+00:37:18,600 --> 00:37:21,300
+And that basically tells MMU,
+
+1011
+00:37:21,300 --> 00:37:22,740
+well, you don't have to chase
+
+1012
+00:37:22,740 --> 00:37:25,590
+down this PTE, PTE just contains no
+
+1013
+00:37:25,590 --> 00:37:26,680
+valid information.
+
+1014
+00:37:27,820 --> 00:37:30,730
+Then "R" means you're allowed
+
+1015
+00:37:30,730 --> 00:37:32,590
+to read from that page, write
+
+1016
+00:37:32,590 --> 00:37:35,160
+means you're allowed to write to the page.
+
+1017
+00:37:35,240 --> 00:37:37,790
+Execute means you're allowed to execute
+
+1018
+00:37:37,790 --> 00:37:39,040
+instruction from it.
+
+1019
+00:37:39,330 --> 00:37:42,810
+User, means you know this page is
+
+1020
+00:37:42,810 --> 00:37:44,640
+also accessible by a process
+
+1021
+00:37:44,640 --> 00:37:46,440
+running in user space.
+
+1022
+00:37:47,340 --> 00:37:48,300
+And then the other bits you
+
+1023
+00:37:48,300 --> 00:37:49,140
+not that important,
+
+1024
+00:37:49,140 --> 00:37:49,740
+it will show up at
+
+1025
+00:37:49,740 --> 00:37:51,570
+some point, those are sort of five
+
+1026
+00:37:51,570 --> 00:37:52,920
+important bits.
+
+1027
+00:37:55,970 --> 00:37:57,040
+Does that make sense.
+
+1028
+00:38:01,740 --> 00:38:03,960
+Yeah, Nithya, I'd probably mispronouncing your
+
+1029
+00:38:03,960 --> 00:38:06,180
+name I apologize to you.
+
+1030
+00:38:06,850 --> 00:38:08,440
+That's, that's the representation,
+
+1031
+00:38:08,440 --> 00:38:09,340
+thank you,
+
+1032
+00:38:09,340 --> 00:38:11,860
+I had a quick question about,
+
+1033
+00:38:11,860 --> 00:38:13,810
+the three page table,
+
+1034
+00:38:13,810 --> 00:38:16,540
+so how are the addresses or
+
+1035
+00:38:16,540 --> 00:38:19,510
+like the PPN values combined to form
+
+1036
+00:38:19,510 --> 00:38:21,340
+the final physical address, I might
+
+1037
+00:38:21,340 --> 00:38:22,080
+miss that.
+
+1038
+00:38:22,350 --> 00:38:22,950
+Um, yeah,
+
+1039
+00:38:22,950 --> 00:38:24,330
+I may not say that said it
+
+1040
+00:38:24,330 --> 00:38:26,940
+very explicitly. So the first
+
+1041
+00:38:26,940 --> 00:38:29,340
+PPN correcting tops the page table,
+
+1042
+00:38:29,340 --> 00:38:30,720
+the first PPN in the top
+
+1043
+00:38:30,720 --> 00:38:32,200
+level page directory.
+
+1044
+00:38:32,300 --> 00:38:35,150
+And contains the physical address of
+
+1045
+00:38:35,150 --> 00:38:36,650
+the next level down.
+
+1046
+00:38:37,780 --> 00:38:39,820
+And one contains the one next
+
+1047
+00:38:39,820 --> 00:38:40,960
+level down and then in the
+
+1048
+00:38:40,960 --> 00:38:43,210
+final one we still have are
+
+1049
+00:38:43,210 --> 00:38:45,130
+[] 44 bits that contains then
+
+1050
+00:38:45,130 --> 00:38:47,110
+the actual physical address off the
+
+1051
+00:38:47,110 --> 00:38:48,460
+page that we're actually trying to
+
+1052
+00:38:48,460 --> 00:38:49,540
+translate to.
+
+1053
+00:38:50,150 --> 00:38:51,860
+OK, that makes sense, thank you.
+
+1054
+00:38:51,860 --> 00:38:53,750
+Okay, and one interesting question,
+
+1055
+00:38:53,750 --> 00:38:54,860
+just let us side note,
+
+1056
+00:38:54,860 --> 00:38:56,870
+before let me answer my
+
+1057
+00:38:56,870 --> 00:38:58,490
+own question before answering the
+
+1058
+00:38:58,490 --> 00:38:59,690
+two raised hands here,
+
+1059
+00:38:59,690 --> 00:39:02,030
+look back at this picture,
+
+1060
+00:39:02,030 --> 00:39:03,920
+why, why are the physical page
+
+1061
+00:39:03,920 --> 00:39:05,800
+numbers stored in these page directories.
+
+1062
+00:39:07,810 --> 00:39:09,960
+Why not a virtual address.
+
+1063
+00:39:11,520 --> 00:39:12,870
+Because we need to look it
+
+1064
+00:39:12,870 --> 00:39:14,460
+up in memory, like look up
+
+1065
+00:39:14,460 --> 00:39:16,110
+the next directory in memory.
+
+1066
+00:39:16,110 --> 00:39:16,800
+Yeah right,
+
+1067
+00:39:16,800 --> 00:39:18,210
+we could not have a
+
+1068
+00:39:18,210 --> 00:39:19,770
+translation scheme depends on yet
+
+1069
+00:39:19,770 --> 00:39:20,940
+another translation scheme,
+
+1070
+00:39:20,940 --> 00:39:21,780
+you know we could sort of,
+
+1071
+00:39:21,780 --> 00:39:23,250
+recursive intent look, so that
+
+1072
+00:39:23,250 --> 00:39:24,380
+just make sense.
+
+1073
+00:39:24,620 --> 00:39:26,300
+That's exactly the right answer,
+
+1074
+00:39:26,300 --> 00:39:27,590
+it has to be a physical number,
+
+1075
+00:39:27,590 --> 00:39:28,730
+how about the satp,
+
+1076
+00:39:28,730 --> 00:39:29,930
+what do you use the satp,
+
+1077
+00:39:29,930 --> 00:39:31,130
+what does it store it store
+
+1078
+00:39:31,130 --> 00:39:32,860
+a physical address or a virtual address.
+
+1079
+00:39:39,180 --> 00:39:41,340
+Also physical, assuming that
+
+1080
+00:39:41,340 --> 00:39:42,480
+the first page directory is
+
+1081
+00:39:42,480 --> 00:39:45,570
+also memory, right. Exactly so
+
+1082
+00:39:45,570 --> 00:39:46,080
+it has to be a
+
+1083
+00:39:46,080 --> 00:39:47,580
+physical number because we're actually
+
+1084
+00:39:47,580 --> 00:39:49,960
+trying to use it for translation.
+
+1085
+00:39:50,100 --> 00:39:52,560
+And, so you know the satp, you
+
+1086
+00:39:52,560 --> 00:39:53,700
+need to know what the physical
+
+1087
+00:39:53,700 --> 00:39:54,820
+page number is,
+
+1088
+00:39:54,930 --> 00:39:56,430
+on the route of the
+
+1089
+00:39:56,430 --> 00:39:57,400
+page directory.
+
+1090
+00:39:59,170 --> 00:40:00,490
+OK, there were two other questions
+
+1091
+00:40:00,490 --> 00:40:01,450
+or two people who raise their
+
+1092
+00:40:01,450 --> 00:40:02,740
+hands, you do,
+
+1093
+00:40:06,120 --> 00:40:08,080
+repeat your question if.
+
+1094
+00:40:10,740 --> 00:40:13,260
+So there's a hierarchy of three
+
+1095
+00:40:13,260 --> 00:40:15,210
+tables and each of them is
+
+1096
+00:40:15,210 --> 00:40:16,740
+indexed by a part of the
+
+1097
+00:40:16,740 --> 00:40:17,910
+virtual address,
+
+1098
+00:40:17,910 --> 00:40:20,260
+each 9 bits long.
+
+1099
+00:40:22,730 --> 00:40:23,840
+So I'm not sure
+
+1100
+00:40:23,840 --> 00:40:27,260
+I understand how chaining between
+
+1101
+00:40:27,260 --> 00:40:28,640
+them happens and what it's
+
+1102
+00:40:28,640 --> 00:40:30,020
+meant to accomplish, like shouldn't
+
+1103
+00:40:30,020 --> 00:40:31,400
+it be sufficient to just
+
+1104
+00:40:31,400 --> 00:40:33,770
+use those three 9 bit
+
+1105
+00:40:33,770 --> 00:40:34,910
+addresses to index into each
+
+1106
+00:40:34,910 --> 00:40:35,540
+of them.
+
+1107
+00:40:36,800 --> 00:40:37,310
+That's correct,
+
+1108
+00:40:37,310 --> 00:40:39,110
+so the first, top level
+
+1109
+00:40:39,110 --> 00:40:39,890
+9 bits are used to
+
+1110
+00:40:39,890 --> 00:40:40,760
+index the first
+
+1111
+00:40:40,760 --> 00:40:42,320
+top, page top directory,
+
+1112
+00:40:42,320 --> 00:40:43,370
+the second and the next
+
+1113
+00:40:43,370 --> 00:40:45,300
+one and the third in the third one.
+
+1114
+00:40:48,230 --> 00:40:50,180
+So maybe I'm just not understanding
+
+1115
+00:40:50,180 --> 00:40:51,020
+this correctly,
+
+1116
+00:40:51,020 --> 00:40:54,080
+so when a process requests
+
+1117
+00:40:54,080 --> 00:40:56,510
+a certain virtual address to be
+
+1118
+00:40:56,510 --> 00:40:57,320
+looked up,
+
+1119
+00:40:57,320 --> 00:40:58,730
+it loads into the
+
+1120
+00:40:58,730 --> 00:41:00,410
+satp register or the CPU
+
+1121
+00:41:00,410 --> 00:41:02,240
+does and that,
+
+1122
+00:41:02,310 --> 00:41:05,070
+get to the corresponding correct highest
+
+1123
+00:41:05,070 --> 00:41:07,240
+level page table.
+
+1124
+00:41:07,640 --> 00:41:10,120
+And then that page table will.
+
+1125
+00:41:10,620 --> 00:41:13,080
+We used in the top
+
+1126
+00:41:13,080 --> 00:41:15,390
+level 9 bits from the 27
+
+1127
+00:41:15,390 --> 00:41:17,380
+to index into that page directory.
+
+1128
+00:41:18,670 --> 00:41:19,810
+And then what is what is
+
+1129
+00:41:19,810 --> 00:41:20,830
+the result of that,
+
+1130
+00:41:20,830 --> 00:41:22,690
+like if the result is there's
+
+1131
+00:41:22,690 --> 00:41:24,490
+nothing there does MMU
+
+1132
+00:41:24,490 --> 00:41:26,590
+create a page table,
+
+1133
+00:41:26,590 --> 00:41:27,310
+No, no,
+
+1134
+00:41:27,310 --> 00:41:28,900
+MMU basically tells the operating
+
+1135
+00:41:28,900 --> 00:41:30,700
+system or tells the processor,
+
+1136
+00:41:30,700 --> 00:41:33,070
+sorry I couldn't translate that address,
+
+1137
+00:41:33,070 --> 00:41:35,140
+and basically turns into a
+
+1138
+00:41:35,140 --> 00:41:36,340
+page fault which we'll talk about
+
+1139
+00:41:36,340 --> 00:41:37,300
+a little bit later.
+
+1140
+00:41:38,970 --> 00:41:41,370
+But just cannot translate the address,
+
+1141
+00:41:41,370 --> 00:41:42,630
+it doesn't translate it's like you
+
+1142
+00:41:42,630 --> 00:41:44,070
+know you can't divide by zero,
+
+1143
+00:41:44,070 --> 00:41:45,120
+you know if you try to
+
+1144
+00:41:45,120 --> 00:41:46,740
+do that, the processor refuses to
+
+1145
+00:41:46,740 --> 00:41:47,380
+do it.
+
+1146
+00:41:50,130 --> 00:41:50,700
+I see, OK.
+
+1147
+00:41:54,060 --> 00:41:56,940
+Brandon, what about you, Brandon.
+
+1148
+00:41:56,940 --> 00:41:58,320
+So I just wanted to
+
+1149
+00:41:58,320 --> 00:42:00,060
+make sure I understand, how I
+
+1150
+00:42:00,060 --> 00:42:03,210
+think maybe we want to understand
+
+1151
+00:42:03,210 --> 00:42:07,170
+how the intermediate page tables well,
+
+1152
+00:42:07,170 --> 00:42:09,320
+how we calculate the physical address of those.
+
+1153
+00:42:09,550 --> 00:42:11,980
+So, is it correct that say if
+
+1154
+00:42:11,980 --> 00:42:13,570
+we're trying to find a second
+
+1155
+00:42:13,570 --> 00:42:15,400
+level page tables physical address,
+
+1156
+00:42:15,400 --> 00:42:17,530
+we would take the PPN from
+
+1157
+00:42:17,530 --> 00:42:18,850
+the first level page table,
+
+1158
+00:42:18,850 --> 00:42:20,380
+that's 44 bits and then we
+
+1159
+00:42:20,380 --> 00:42:22,150
+add the 12 bit offset from
+
+1160
+00:42:22,150 --> 00:42:23,440
+the original virtual address to get
+
+1161
+00:42:23,440 --> 00:42:25,060
+the full 56 bit, this question is.
+
+1162
+00:42:25,060 --> 00:42:27,040
+We don't add the offset
+
+1163
+00:42:27,040 --> 00:42:28,000
+from the virtual address,
+
+1164
+00:42:28,000 --> 00:42:30,160
+we just take twelve 0 bits.
+
+1165
+00:42:30,970 --> 00:42:31,960
+So we take the PPN
+
+1166
+00:42:31,960 --> 00:42:34,000
+there's 44 bits. Okay,
+
+1167
+00:42:34,000 --> 00:42:35,530
+12 0 bits on the bottom
+
+1168
+00:42:35,530 --> 00:42:36,580
+and that gives us a
+
+1169
+00:42:36,580 --> 00:42:38,620
+56 bit physical address and
+
+1170
+00:42:38,620 --> 00:42:39,670
+that's where the next page directories,
+
+1171
+00:42:39,670 --> 00:42:41,530
+and this requires that basically every
+
+1172
+00:42:41,530 --> 00:42:43,800
+page directories page aligned.
+
+1173
+00:42:45,460 --> 00:42:48,300
+I see, OK, that makes sense.
+
+1174
+00:42:49,890 --> 00:42:50,880
+So these are all great questions
+
+1175
+00:42:50,880 --> 00:42:51,570
+and these are all things,
+
+1176
+00:42:51,570 --> 00:42:52,620
+you're gonna be struggling within the
+
+1177
+00:42:52,620 --> 00:42:53,960
+page table lab so.
+
+1178
+00:42:54,020 --> 00:42:55,100
+Yeah it's very good to ask
+
+1179
+00:42:55,100 --> 00:42:56,100
+them right now.
+
+1180
+00:42:59,990 --> 00:43:01,970
+Okay, let me see,
+
+1181
+00:43:04,410 --> 00:43:06,600
+Yes, yeah okay,
+
+1182
+00:43:06,600 --> 00:43:09,040
+let me hold on for a second.
+
+1183
+00:43:09,640 --> 00:43:11,180
+And I quote my thoughts
+
+1184
+00:43:11,730 --> 00:43:14,260
+see where I am.
+
+1185
+00:43:16,320 --> 00:43:16,800
+Good good,
+
+1186
+00:43:16,800 --> 00:43:17,850
+good, okay,
+
+1187
+00:43:17,850 --> 00:43:20,130
+one a sort of you
+
+1188
+00:43:20,130 --> 00:43:21,600
+know one other thing that I
+
+1189
+00:43:21,600 --> 00:43:23,550
+want to mention because you will
+
+1190
+00:43:23,550 --> 00:43:25,770
+see that, is that if
+
+1191
+00:43:25,770 --> 00:43:27,390
+we think about this,
+
+1192
+00:43:27,390 --> 00:43:28,290
+you know the scheme that I
+
+1193
+00:43:28,290 --> 00:43:29,460
+just showed right,
+
+1194
+00:43:29,460 --> 00:43:30,660
+what really seems to be
+
+1195
+00:43:30,660 --> 00:43:32,400
+going on is that we load
+
+1196
+00:43:32,400 --> 00:43:34,440
+or store value to memory.
+
+1197
+00:43:34,480 --> 00:43:35,920
+What the processor loads or stores
+
+1198
+00:43:35,920 --> 00:43:36,790
+value to memory,
+
+1199
+00:43:36,790 --> 00:43:37,930
+we basically have to do free
+
+1200
+00:43:37,930 --> 00:43:39,310
+memory lookups, right,
+
+1201
+00:43:39,310 --> 00:43:40,660
+one in the top of the
+
+1202
+00:43:40,660 --> 00:43:41,230
+page directory,
+
+1203
+00:43:41,230 --> 00:43:42,430
+one intermediate page
+
+1204
+00:43:42,430 --> 00:43:43,840
+directory and then one in the
+
+1205
+00:43:43,840 --> 00:43:45,280
+bottom level page directory.
+
+1206
+00:43:45,500 --> 00:43:46,880
+It looks like, that you know
+
+1207
+00:43:46,880 --> 00:43:49,010
+any memory reference to virtual address
+
+1208
+00:43:49,010 --> 00:43:51,820
+basically requires free memory reach.
+
+1209
+00:43:52,380 --> 00:43:54,000
+And so that seems expensive.
+
+1210
+00:43:54,530 --> 00:43:55,700
+And so,
+
+1211
+00:43:55,700 --> 00:43:57,980
+what happens in practice where
+
+1212
+00:43:57,980 --> 00:43:59,690
+almost all every processor does this,
+
+1213
+00:43:59,690 --> 00:44:00,980
+it has a cache sitting
+
+1214
+00:44:00,980 --> 00:44:02,570
+on the side, that contains
+
+1215
+00:44:02,570 --> 00:44:04,400
+recently used translations.
+
+1216
+00:44:05,300 --> 00:44:07,240
+And this is called translation look-aside buffer.
+
+1217
+00:44:11,800 --> 00:44:13,540
+Then you'll see that term
+
+1218
+00:44:14,400 --> 00:44:17,640
+quite often, of TLB.
+
+1219
+00:44:18,400 --> 00:44:19,900
+Basically it's nothing else than
+
+1220
+00:44:19,900 --> 00:44:20,840
+the cache of
+
+1221
+00:44:22,500 --> 00:44:25,260
+entry, page table entries, PTE entries.
+
+1222
+00:44:28,170 --> 00:44:29,670
+So when the process has you
+
+1223
+00:44:29,670 --> 00:44:30,720
+know the first time the process
+
+1224
+00:44:30,720 --> 00:44:32,100
+routes look through virtual address,
+
+1225
+00:44:32,100 --> 00:44:34,440
+you know walks this, hardware
+
+1226
+00:44:34,440 --> 00:44:37,140
+walks this page, the three
+
+1227
+00:44:37,140 --> 00:44:38,940
+level page tables, that will come
+
+1228
+00:44:38,940 --> 00:44:40,470
+out with you know the final
+
+1229
+00:44:40,470 --> 00:44:42,750
+physical page, often called final PPN,
+
+1230
+00:44:42,750 --> 00:44:44,520
+for that particular virtual address,
+
+1231
+00:44:44,520 --> 00:44:46,320
+and then basically the
+
+1232
+00:44:46,320 --> 00:44:49,440
+TLB stores, VA, PA, PN,
+
+1233
+00:44:49,980 --> 00:44:53,900
+or PA mapping on the side.
+
+1234
+00:44:53,930 --> 00:44:54,320
+And so,
+
+1235
+00:44:54,320 --> 00:44:55,670
+then the next time you refer
+
+1236
+00:44:55,670 --> 00:44:57,520
+to that particular virtual address,
+
+1237
+00:44:57,490 --> 00:44:58,780
+I can just look at straight
+
+1238
+00:44:58,780 --> 00:45:00,490
+up in the TLB and the
+
+1239
+00:45:00,490 --> 00:45:02,290
+TLB will respond instead of having
+
+1240
+00:45:02,290 --> 00:45:03,580
+to do the page table walk.
+
+1241
+00:45:05,300 --> 00:45:07,400
+Yep, Amiar.
+
+1242
+00:45:09,700 --> 00:45:13,260
+So, the TLB map
+
+1243
+00:45:13,490 --> 00:45:16,010
+virtual addresses to the physical address
+
+1244
+00:45:16,010 --> 00:45:17,960
+of the page, that the virtual
+
+1245
+00:45:17,960 --> 00:45:20,690
+address along with the offset
+
+1246
+00:45:20,690 --> 00:45:22,490
+absolutely,
+
+1247
+00:45:22,490 --> 00:45:24,290
+wouldn't it be more efficient
+
+1248
+00:45:24,290 --> 00:45:25,520
+to like cache at the
+
+1249
+00:45:25,520 --> 00:45:27,060
+page table level.
+
+1250
+00:45:27,770 --> 00:45:30,290
+Okay, so I let me
+
+1251
+00:45:30,290 --> 00:45:31,400
+take a step back here,
+
+1252
+00:45:31,400 --> 00:45:33,020
+there are many ways of
+
+1253
+00:45:33,020 --> 00:45:34,550
+implementing the TLB,
+
+1254
+00:45:34,550 --> 00:45:35,930
+the most important thing that
+
+1255
+00:45:35,930 --> 00:45:36,710
+you need to know is that
+
+1256
+00:45:36,710 --> 00:45:37,760
+there is a TLB.
+
+1257
+00:45:38,230 --> 00:45:40,300
+And the exact details
+
+1258
+00:45:40,300 --> 00:45:41,410
+of actually how the TLB
+
+1259
+00:45:41,410 --> 00:45:42,430
+has implemented, this sort of
+
+1260
+00:45:42,430 --> 00:45:43,690
+you know not a topic
+
+1261
+00:45:43,690 --> 00:45:44,590
+that we're going to talk
+
+1262
+00:45:44,590 --> 00:45:46,260
+about in great amount of detail.
+
+1263
+00:45:46,400 --> 00:45:47,930
+That's not at all,
+
+1264
+00:45:47,930 --> 00:45:49,520
+and so this is really
+
+1265
+00:45:49,520 --> 00:45:50,900
+something that sits inside of the
+
+1266
+00:45:50,900 --> 00:45:52,400
+processor and is mostly hidden from
+
+1267
+00:45:52,400 --> 00:45:53,120
+the operating system,
+
+1268
+00:45:53,120 --> 00:45:54,470
+the operating system doesn't really know
+
+1269
+00:45:54,470 --> 00:45:57,020
+how to TLB be operates, the
+
+1270
+00:45:57,020 --> 00:45:58,190
+only thing the reason you need
+
+1271
+00:45:58,190 --> 00:45:59,180
+to know that the TLB
+
+1272
+00:45:59,180 --> 00:46:02,620
+exist is that if you switch page tables,
+
+1273
+00:46:03,710 --> 00:46:06,470
+then, typically the operating system needs
+
+1274
+00:46:06,470 --> 00:46:08,960
+to tell the processor that's switching
+
+1275
+00:46:08,960 --> 00:46:10,140
+page tables.
+
+1276
+00:46:10,760 --> 00:46:14,740
+And the TLB needs to be flushed.
+
+1277
+00:46:16,810 --> 00:46:18,070
+Because basically you send
+
+1278
+00:46:18,070 --> 00:46:18,820
+stale entries,
+
+1279
+00:46:18,820 --> 00:46:19,660
+but if you switch to a
+
+1280
+00:46:19,660 --> 00:46:20,890
+new page table,
+
+1281
+00:46:20,890 --> 00:46:22,360
+the entries in the TLB may
+
+1282
+00:46:22,360 --> 00:46:24,130
+not be valid anymore and so
+
+1283
+00:46:24,130 --> 00:46:25,840
+they need to be removed because
+
+1284
+00:46:25,840 --> 00:46:27,370
+otherwise you know the translation would
+
+1285
+00:46:27,370 --> 00:46:28,240
+be incorrect.
+
+1286
+00:46:28,830 --> 00:46:30,540
+And so the operating system is
+
+1287
+00:46:30,540 --> 00:46:32,100
+typically aware
+
+1288
+00:46:32,260 --> 00:46:33,340
+it's aware that there's a,
+
+1289
+00:46:33,340 --> 00:46:34,960
+that there is a TLB
+
+1290
+00:46:34,960 --> 00:46:36,880
+only basically to tell the
+
+1291
+00:46:36,880 --> 00:46:37,990
+hardware once in a while saying,
+
+1292
+00:46:37,990 --> 00:46:39,700
+okay we'll don't use them anymore,
+
+1293
+00:46:39,700 --> 00:46:41,740
+because I'm gonna switch page tables.
+
+1294
+00:46:44,140 --> 00:46:45,820
+And in fact on you know
+
+1295
+00:46:45,820 --> 00:46:50,350
+the, the RISC-V, the instruction
+
+1296
+00:46:50,350 --> 00:46:55,200
+to flush the TLB is called sfence_vma.
+
+1297
+00:46:57,280 --> 00:46:59,080
+I'm not actually,
+
+1298
+00:46:59,750 --> 00:47:02,100
+flush the TLB. [Biback].
+
+1299
+00:47:04,770 --> 00:47:06,000
+So I have a question,
+
+1300
+00:47:06,000 --> 00:47:08,190
+like not regarding TLB
+
+1301
+00:47:08,190 --> 00:47:10,110
+but that brought kind
+
+1302
+00:47:10,110 --> 00:47:11,820
+of this question.
+
+1303
+00:47:11,970 --> 00:47:14,970
+The three level support, that the
+
+1304
+00:47:14,970 --> 00:47:17,820
+three level paging that we have,
+
+1305
+00:47:17,820 --> 00:47:19,710
+is it implemented by the operating
+
+1306
+00:47:19,710 --> 00:47:21,690
+system or the hardware itself. It
+
+1307
+00:47:21,690 --> 00:47:23,060
+implemented in hardware.
+
+1308
+00:47:23,450 --> 00:47:24,830
+So you know there's all happens
+
+1309
+00:47:24,830 --> 00:47:25,670
+in hardware,
+
+1310
+00:47:25,670 --> 00:47:28,460
+the MMU is a block of hardware.
+
+1311
+00:47:28,730 --> 00:47:30,440
+In the operating system we'll
+
+1312
+00:47:30,440 --> 00:47:32,120
+see in a second when we
+
+1313
+00:47:32,120 --> 00:47:34,190
+look at xv6, xv6
+
+1314
+00:47:34,190 --> 00:47:36,320
+has a function that models the
+
+1315
+00:47:36,320 --> 00:47:37,640
+page table walk, because once in
+
+1316
+00:47:37,640 --> 00:47:39,260
+a while you know xv6
+
+1317
+00:47:39,260 --> 00:47:40,430
+basically has to do what the
+
+1318
+00:47:40,430 --> 00:47:41,360
+hardware does.
+
+1319
+00:47:42,040 --> 00:47:43,570
+And so it knows
+
+1320
+00:47:43,570 --> 00:47:44,380
+it does have a function
+
+1321
+00:47:44,380 --> 00:47:45,970
+called walk, that basically does
+
+1322
+00:47:45,970 --> 00:47:47,560
+exactly the same thing,
+
+1323
+00:47:47,560 --> 00:47:48,900
+but in software.
+
+1324
+00:47:51,360 --> 00:47:54,510
+So, can I ask a question?
+
+1325
+00:47:54,510 --> 00:47:58,670
+So, where in this scheme does the
+
+1326
+00:47:58,670 --> 00:48:00,170
+processor cache fit,
+
+1327
+00:48:00,170 --> 00:48:02,510
+does it happen before the address
+
+1328
+00:48:02,510 --> 00:48:04,300
+translation or after,
+
+1329
+00:48:04,510 --> 00:48:06,700
+because. Yeah, okay let me so
+
+1330
+00:48:06,700 --> 00:48:07,840
+let's switch back a little bit
+
+1331
+00:48:07,840 --> 00:48:10,800
+a couple, let me see.
+
+1332
+00:48:13,120 --> 00:48:14,980
+Okay, usually MMU will
+
+1333
+00:48:14,980 --> 00:48:17,170
+really the way to think about
+
+1334
+00:48:17,170 --> 00:48:18,720
+is that all this stuff,
+
+1335
+00:48:19,870 --> 00:48:21,220
+you know the whole block is
+
+1336
+00:48:21,220 --> 00:48:22,900
+inside the processor silicon.
+
+1337
+00:48:24,350 --> 00:48:25,310
+So there's a RISC-V
+
+1338
+00:48:25,310 --> 00:48:27,080
+chip and inside of it
+
+1339
+00:48:27,080 --> 00:48:27,920
+is the CPU,
+
+1340
+00:48:27,920 --> 00:48:29,270
+in fact there are multiple CPU
+
+1341
+00:48:29,270 --> 00:48:30,640
+correct, there 4 cores.
+
+1342
+00:48:30,740 --> 00:48:32,240
+And there's a MMU
+
+1343
+00:48:32,240 --> 00:48:34,040
+and you know you can think about that,
+
+1344
+00:48:34,040 --> 00:48:35,990
+either on this on the CPU side,
+
+1345
+00:48:35,990 --> 00:48:37,780
+you know there's a TLB.
+
+1346
+00:48:44,460 --> 00:48:45,210
+That makes sense,
+
+1347
+00:48:45,210 --> 00:48:47,190
+but I guess my question
+
+1348
+00:48:47,190 --> 00:48:48,560
+was about the like,
+
+1349
+00:48:48,700 --> 00:48:52,120
+cache in terms of not the TLB,
+
+1350
+00:48:52,120 --> 00:48:55,000
+but just a normal cache like,
+
+1351
+00:48:55,000 --> 00:48:56,290
+sometimes we don't actually go all
+
+1352
+00:48:56,290 --> 00:48:58,000
+the way to access the memory.
+
+1353
+00:48:58,000 --> 00:48:59,470
+Yeah, good points I think I
+
+1354
+00:48:59,470 --> 00:49:00,850
+should like to scheme last week
+
+1355
+00:49:00,850 --> 00:49:02,590
+correctly, on monday of the RISC-V
+
+1356
+00:49:02,590 --> 00:49:04,300
+processor and has one cache
+
+1357
+00:49:04,300 --> 00:49:05,700
+it has two cache.
+
+1358
+00:49:05,970 --> 00:49:08,100
+Some caches are indexed by physical
+
+1359
+00:49:08,100 --> 00:49:10,530
+address, some caches are indexed by
+
+1360
+00:49:10,530 --> 00:49:11,540
+virtual address.
+
+1361
+00:49:11,800 --> 00:49:13,030
+So the caches that are indexed
+
+1362
+00:49:13,030 --> 00:49:16,160
+by virtual address sit before the MMU.
+
+1363
+00:49:16,540 --> 00:49:17,800
+And cache in their index by
+
+1364
+00:49:17,800 --> 00:49:19,820
+physical addresses after the MMU.
+
+1365
+00:49:25,010 --> 00:49:25,820
+Does that make sense?
+
+1366
+00:49:25,820 --> 00:49:27,410
+Can I also ask a question
+
+1367
+00:49:27,410 --> 00:49:28,850
+my question is,
+
+1368
+00:49:28,850 --> 00:49:31,760
+you said that the TLB,
+
+1369
+00:49:31,760 --> 00:49:33,470
+it walks so I like to
+
+1370
+00:49:33,470 --> 00:49:34,880
+put stuff into TLB,
+
+1371
+00:49:34,880 --> 00:49:38,600
+the hardware walks through the page tables.
+
+1372
+00:49:39,830 --> 00:49:42,380
+Why do we arrive walk function,
+
+1373
+00:49:42,380 --> 00:49:44,400
+if hardware can do that.
+
+1374
+00:49:44,560 --> 00:49:45,790
+Very good question,
+
+1375
+00:49:45,790 --> 00:49:48,220
+one reason we have, a
+
+1376
+00:49:48,220 --> 00:49:49,270
+couple of reasons why we do
+
+1377
+00:49:49,270 --> 00:49:51,370
+it or why xv6 needs it,
+
+1378
+00:49:51,370 --> 00:49:52,630
+one is when it actually sets
+
+1379
+00:49:52,630 --> 00:49:54,160
+up the initial page tables.
+
+1380
+00:49:54,980 --> 00:49:56,360
+you know it needs to
+
+1381
+00:49:56,360 --> 00:49:58,560
+program the the three levels.
+
+1382
+00:49:58,680 --> 00:49:59,940
+And so it needs to basically
+
+1383
+00:49:59,940 --> 00:50:01,420
+emulate the three levels.
+
+1384
+00:50:02,120 --> 00:50:05,090
+Um, and um, another example,
+
+1385
+00:50:05,090 --> 00:50:06,740
+that you actually sort of run
+
+1386
+00:50:06,740 --> 00:50:08,630
+into or are running into in
+
+1387
+00:50:08,630 --> 00:50:10,550
+the syscall lab is that when
+
+1388
+00:50:10,550 --> 00:50:12,680
+you copy, the xv6, the
+
+1389
+00:50:12,680 --> 00:50:14,540
+kernel has its own page table
+
+1390
+00:50:14,540 --> 00:50:16,550
+and every user address space has
+
+1391
+00:50:16,550 --> 00:50:17,700
+its own page table.
+
+1392
+00:50:18,140 --> 00:50:19,580
+And once in a while,
+
+1393
+00:50:19,580 --> 00:50:21,620
+for example it says [info], you know, like
+
+1394
+00:50:21,620 --> 00:50:23,510
+system, pointed to system infrastructure,
+
+1395
+00:50:23,510 --> 00:50:25,460
+you know that lives in user space.
+
+1396
+00:50:25,610 --> 00:50:27,260
+The kernel needs to translate
+
+1397
+00:50:27,260 --> 00:50:28,460
+to an address that it can
+
+1398
+00:50:28,460 --> 00:50:29,760
+use to read and write.
+
+1399
+00:50:30,340 --> 00:50:31,120
+And so,
+
+1400
+00:50:31,120 --> 00:50:32,710
+for example if you're looking
+
+1401
+00:50:32,710 --> 00:50:34,600
+copyin or copyout.
+
+1402
+00:50:34,730 --> 00:50:38,480
+Basically, the kernel translates the
+
+1403
+00:50:38,480 --> 00:50:41,420
+user virtual address using the user
+
+1404
+00:50:41,420 --> 00:50:44,030
+virtual, using a user page
+
+1405
+00:50:44,030 --> 00:50:45,410
+table to get out of physical
+
+1406
+00:50:45,410 --> 00:50:46,520
+address, that kernel
+
+1407
+00:50:46,520 --> 00:50:49,760
+then get an address out,
+
+1408
+00:50:49,760 --> 00:50:51,050
+actually the kernel can use to
+
+1409
+00:50:51,050 --> 00:50:52,220
+read and write that memory.
+
+1410
+00:50:54,580 --> 00:50:55,390
+So there's a bunch of places
+
+1411
+00:50:55,390 --> 00:50:56,800
+going to show up, and I'll
+
+1412
+00:50:56,800 --> 00:50:58,630
+talk about hopefully in whatever ten
+
+1413
+00:50:58,630 --> 00:51:00,000
+minutes or fifteen minutes.
+
+1414
+00:51:00,610 --> 00:51:01,720
+I have a question,
+
+1415
+00:51:01,720 --> 00:51:05,350
+why doesn't the hardware like expose
+
+1416
+00:51:05,350 --> 00:51:06,430
+that walk function,
+
+1417
+00:51:06,430 --> 00:51:07,300
+so we don't have to write
+
+1418
+00:51:07,300 --> 00:51:08,890
+our own and potentially have bugs
+
+1419
+00:51:08,890 --> 00:51:09,430
+in it,
+
+1420
+00:51:09,430 --> 00:51:11,740
+why isn't there like, maybe
+
+1421
+00:51:11,740 --> 00:51:12,970
+a privileged instruction that you can
+
+1422
+00:51:12,970 --> 00:51:14,290
+pass a virtual address and will
+
+1423
+00:51:14,290 --> 00:51:16,120
+give back the physical address.
+
+1424
+00:51:16,370 --> 00:51:17,690
+Well, this is just like just
+
+1425
+00:51:17,690 --> 00:51:18,770
+store to the virtual address
+
+1426
+00:51:18,770 --> 00:51:20,480
+you get back and will do
+
+1427
+00:51:20,480 --> 00:51:21,740
+it right for you,
+
+1428
+00:51:21,740 --> 00:51:24,380
+so I will see later on,
+
+1429
+00:51:24,380 --> 00:51:26,750
+in the next lab,
+
+1430
+00:51:26,750 --> 00:51:27,890
+the page table lab,
+
+1431
+00:51:27,890 --> 00:51:29,090
+in fact is exactly what you'll
+
+1432
+00:51:29,090 --> 00:51:30,650
+be doing you'll actually set up
+
+1433
+00:51:30,650 --> 00:51:32,240
+the page table slightly differently,
+
+1434
+00:51:32,240 --> 00:51:33,440
+so that you can avoid the
+
+1435
+00:51:33,440 --> 00:51:36,980
+walk in copyin and copyinstr.
+
+1436
+00:51:42,500 --> 00:51:43,640
+I think this will become clear
+
+1437
+00:51:43,640 --> 00:51:44,780
+in the second we when we
+
+1438
+00:51:44,780 --> 00:51:46,960
+talk about we look at the xv6, OK.
+
+1439
+00:51:49,700 --> 00:51:51,400
+Okay, good.
+
+1440
+00:51:51,800 --> 00:51:54,260
+One more sure basically before jumping
+
+1441
+00:51:54,260 --> 00:51:57,400
+into xv6, I wanted to make one point.
+
+1442
+00:51:57,540 --> 00:52:04,200
+One way to think about, you know, page tables.
+
+1443
+00:52:05,980 --> 00:52:09,720
+A popular way to phrase this.
+
+1444
+00:52:09,930 --> 00:52:13,040
+It's the page tables provide
+
+1445
+00:52:13,300 --> 00:52:14,980
+a level of indirection.
+
+1446
+00:52:25,100 --> 00:52:27,140
+And, that and, so basically
+
+1447
+00:52:27,140 --> 00:52:27,890
+this indirection,
+
+1448
+00:52:27,890 --> 00:52:28,880
+what I'm talking about you know
+
+1449
+00:52:28,880 --> 00:52:30,200
+this mapping from virtual address to
+
+1450
+00:52:30,200 --> 00:52:31,260
+physical address.
+
+1451
+00:52:31,490 --> 00:52:33,440
+And this mapping is completely
+
+1452
+00:52:33,440 --> 00:52:36,500
+under control of the operating system.
+
+1453
+00:52:38,350 --> 00:52:40,720
+As we've seen, you know in the last
+
+1454
+00:52:40,720 --> 00:52:42,280
+a couple slides that we talk,
+
+1455
+00:52:42,280 --> 00:52:43,780
+and that means that the
+
+1456
+00:52:43,780 --> 00:52:45,640
+operating system because it has so
+
+1457
+00:52:45,640 --> 00:52:46,540
+much control,
+
+1458
+00:52:46,540 --> 00:52:48,520
+it has control complete control that
+
+1459
+00:52:48,520 --> 00:52:50,740
+translation, it can do all
+
+1460
+00:52:50,740 --> 00:52:52,060
+kinds of interesting tricks.
+
+1461
+00:52:52,660 --> 00:52:54,370
+And so for example, like
+
+1462
+00:52:54,370 --> 00:52:56,260
+one trick, talk a little
+
+1463
+00:52:56,260 --> 00:52:56,860
+bit about this,
+
+1464
+00:52:56,860 --> 00:52:58,630
+like if a page, page entry is
+
+1465
+00:52:58,630 --> 00:53:00,790
+invalid and will really return a
+
+1466
+00:53:00,790 --> 00:53:02,200
+page you know the hardware will
+
+1467
+00:53:02,200 --> 00:53:04,440
+raise page fault.
+
+1468
+00:53:04,820 --> 00:53:06,530
+In response the page fault,
+
+1469
+00:53:06,530 --> 00:53:08,150
+the operating system could update
+
+1470
+00:53:08,150 --> 00:53:09,410
+the page tables and then
+
+1471
+00:53:09,410 --> 00:53:11,120
+maybe restart the instruction.
+
+1472
+00:53:11,620 --> 00:53:12,640
+And so there are all kinds
+
+1473
+00:53:12,640 --> 00:53:14,230
+of things they can do, at
+
+1474
+00:53:14,230 --> 00:53:17,620
+runtime, and by manipulating
+
+1475
+00:53:17,620 --> 00:53:18,740
+the page tables.
+
+1476
+00:53:19,160 --> 00:53:20,660
+And we're not going to talk
+
+1477
+00:53:20,660 --> 00:53:22,070
+about it today,
+
+1478
+00:53:22,070 --> 00:53:23,300
+but in two weeks,
+
+1479
+00:53:23,300 --> 00:53:25,880
+we'll have a lecture exactly about
+
+1480
+00:53:25,880 --> 00:53:27,680
+this topic about what cool things
+
+1481
+00:53:27,680 --> 00:53:28,970
+can you do, once you have
+
+1482
+00:53:28,970 --> 00:53:30,420
+page tables and page faults.
+
+1483
+00:53:31,170 --> 00:53:32,430
+But it's important to keep
+
+1484
+00:53:32,430 --> 00:53:35,310
+in mind that this is
+
+1485
+00:53:35,310 --> 00:53:38,480
+incredibly powerful mechanism.
+
+1486
+00:53:38,540 --> 00:53:40,820
+That, will provide the operating system
+
+1487
+00:53:40,820 --> 00:53:42,700
+with a tremendous amount of flexibility.
+
+1488
+00:53:43,420 --> 00:53:44,890
+And there's one reason why page
+
+1489
+00:53:44,890 --> 00:53:46,520
+tables are so popular.
+
+1490
+00:53:49,520 --> 00:53:50,780
+Okay, so what I wanna do
+
+1491
+00:53:50,780 --> 00:53:53,960
+next is actually talk about xv6.
+
+1492
+00:53:54,570 --> 00:53:56,550
+Sort of see how
+
+1493
+00:53:56,550 --> 00:53:59,240
+it all plays out in xv6.
+
+1494
+00:53:59,600 --> 00:54:00,500
+So the first thing I'm gonna
+
+1495
+00:54:00,500 --> 00:54:02,060
+do, is going to look
+
+1496
+00:54:02,060 --> 00:54:05,000
+at the kernel page layout,
+
+1497
+00:54:05,000 --> 00:54:08,380
+if you will, and
+
+1498
+00:54:08,430 --> 00:54:10,200
+the mapping is on this slide,
+
+1499
+00:54:10,200 --> 00:54:11,560
+so here's the
+
+1500
+00:54:12,080 --> 00:54:21,900
+virtual address space of the kernel,
+
+1501
+00:54:23,470 --> 00:54:25,390
+here is, actually the physical memory,
+
+1502
+00:54:25,390 --> 00:54:27,040
+so this is basically whatever you
+
+1503
+00:54:27,040 --> 00:54:28,580
+can think about this is DRAM.
+
+1504
+00:54:31,760 --> 00:54:33,470
+And in fact it is not,
+
+1505
+00:54:33,470 --> 00:54:35,870
+let me take that back immediately
+
+1506
+00:54:35,870 --> 00:54:37,780
+one part is DRAM.
+
+1507
+00:54:38,560 --> 00:54:41,440
+And one part is actually IO devices.
+
+1508
+00:54:46,060 --> 00:54:48,970
+And so, to sort of maybe, I'm
+
+1509
+00:54:48,970 --> 00:54:50,050
+going to talk about the physical,
+
+1510
+00:54:50,050 --> 00:54:51,400
+the right side of the slide a
+
+1511
+00:54:51,400 --> 00:54:52,330
+little bit first, and then we'll
+
+1512
+00:54:52,330 --> 00:54:54,020
+talk about the left side in a second.
+
+1513
+00:54:54,310 --> 00:54:55,450
+So the left side of
+
+1514
+00:54:55,450 --> 00:54:58,520
+the slide is completely determined by the hardware.
+
+1515
+00:54:58,930 --> 00:55:00,670
+And so the hardware designers
+
+1516
+00:55:00,670 --> 00:55:02,620
+basically determined the layout of that
+
+1517
+00:55:02,620 --> 00:55:05,580
+fit and you know as you saw before last week.
+
+1518
+00:55:05,640 --> 00:55:11,060
+When the kernel starts, it starts at this address 0x8000.
+
+1519
+00:55:11,740 --> 00:55:15,000
+And that's determined by the hardware designers.
+
+1520
+00:55:15,130 --> 00:55:18,370
+And so you should be more explicit,
+
+1521
+00:55:18,370 --> 00:55:20,500
+if you look at the board,
+
+1522
+00:55:20,500 --> 00:55:22,990
+this is the same picture of the board, that I showed on
+
+1523
+00:55:22,990 --> 00:55:25,240
+Monday but is hopefully a little better picture,
+
+1524
+00:55:25,240 --> 00:55:26,290
+it's easy to see,
+
+1525
+00:55:26,290 --> 00:55:28,260
+here's our RISC-V processor.
+
+1526
+00:55:28,420 --> 00:55:30,640
+And we now know correct in the RISC-V processor,
+
+1527
+00:55:30,640 --> 00:55:33,220
+there four cores, but there's also, MMU.
+
+1528
+00:55:33,280 --> 00:55:35,650
+And there's also a TLB or
+
+1529
+00:55:35,650 --> 00:55:38,890
+multiple TLB, every core has its own MMU and every
+
+1530
+00:55:38,890 --> 00:55:40,400
+core has its own TLB.
+
+1531
+00:55:40,800 --> 00:55:42,880
+And here are DRAM chips.
+
+1532
+00:55:43,780 --> 00:55:46,240
+And so basically the designers of
+
+1533
+00:55:46,240 --> 00:55:47,890
+the board have decided that,
+
+1534
+00:55:47,890 --> 00:55:50,800
+when, you know, after, you
+
+1535
+00:55:50,800 --> 00:55:52,300
+know, the translation from virtual to
+
+1536
+00:55:52,300 --> 00:55:54,670
+physical address basic physical addresses that's
+
+1537
+00:55:54,670 --> 00:55:56,620
+starting you know at 08,
+
+1538
+00:55:56,620 --> 00:55:59,540
+you know, a lot of zeros actually go to the DRAM chips.
+
+1539
+00:56:00,770 --> 00:56:03,350
+Addresses above below 0x8, may go
+
+1540
+00:56:03,350 --> 00:56:04,900
+to different IO devices.
+
+1541
+00:56:05,260 --> 00:56:07,690
+And so the platform decides
+
+1542
+00:56:07,690 --> 00:56:10,120
+basically the designers this board have
+
+1543
+00:56:10,120 --> 00:56:12,300
+decided exactly what the physical layout.
+
+1544
+00:56:12,760 --> 00:56:14,800
+I think you can look that up the physical layout,
+
+1545
+00:56:14,800 --> 00:56:17,710
+if you want to, just let me show you so here's
+
+1546
+00:56:17,710 --> 00:56:19,420
+the same manual that I showed
+
+1547
+00:56:19,420 --> 00:56:23,060
+you on, um,
+
+1548
+00:56:24,230 --> 00:56:28,940
+on um, Monday and if you go to actually,
+
+1549
+00:56:29,510 --> 00:56:32,360
+go to page 31, I believe.
+
+1550
+00:56:32,820 --> 00:56:36,150
+Yeah it's a page and if you go down,
+
+1551
+00:56:36,150 --> 00:56:37,530
+this is whats the memory,
+
+1552
+00:56:37,530 --> 00:56:42,150
+it will spell out the memory map is, of the board
+
+1553
+00:56:42,150 --> 00:56:43,530
+and we'll see at address zero
+
+1554
+00:56:43,530 --> 00:56:45,700
+zero is reserved nothing is there.
+
+1555
+00:56:46,000 --> 00:56:49,990
+If you go scroll down in this memory map,
+
+1556
+00:56:49,990 --> 00:56:52,810
+you'll see some information about all
+
+1557
+00:56:52,810 --> 00:56:54,100
+the different things that are mapped,
+
+1558
+00:56:54,100 --> 00:56:56,500
+for example, ethernet board is mapped
+
+1559
+00:56:56,500 --> 00:56:59,440
+at Ox1, you know, 0x something.
+
+1560
+00:57:00,040 --> 00:57:04,940
+If you might go further down, oops, too much down.
+
+1561
+00:57:05,040 --> 00:57:10,740
+Here, you see the entry for 0x8000 worked
+
+1562
+00:57:10,740 --> 00:57:13,260
+and that actually is DDR memory,
+
+1563
+00:57:13,260 --> 00:57:15,180
+the Off-Chip Volatile Memory, so
+
+1564
+00:57:15,180 --> 00:57:16,500
+those are the DRAM chips or
+
+1565
+00:57:16,500 --> 00:57:18,220
+I can show you on the previous slide.
+
+1566
+00:57:19,520 --> 00:57:21,380
+And so it's just good to keep your head correct
+
+1567
+00:57:21,380 --> 00:57:22,370
+even though we're talking to
+
+1568
+00:57:22,370 --> 00:57:24,350
+QEMU, you're overseeing software in
+
+1569
+00:57:24,350 --> 00:57:26,030
+the end everything is determined,
+
+1570
+00:57:26,030 --> 00:57:28,300
+by you know the actual board.
+
+1571
+00:57:30,640 --> 00:57:34,520
+Okay, so go back to a my slides.
+
+1572
+00:57:34,780 --> 00:57:38,270
+So let's look at the layout.
+
+1573
+00:57:38,270 --> 00:57:40,160
+Yeah, Noah, go ahead.
+
+1574
+00:57:41,380 --> 00:57:42,760
+Yeah, when you say that this
+
+1575
+00:57:42,760 --> 00:57:43,810
+this layout is determined by the
+
+1576
+00:57:43,810 --> 00:57:45,850
+hardware, do you specifically mean
+
+1577
+00:57:45,850 --> 00:57:48,370
+like the CPU itself or the
+
+1578
+00:57:48,370 --> 00:57:50,800
+board on which the CPU resides.
+
+1579
+00:57:50,800 --> 00:57:52,390
+The board which the CPU resides,
+
+1580
+00:57:52,390 --> 00:57:54,010
+correct. Because you know the borad,
+
+1581
+00:57:54,010 --> 00:57:55,480
+you know, the CPU is the
+
+1582
+00:57:55,480 --> 00:57:56,770
+grey thing in the middle that
+
+1583
+00:57:56,770 --> 00:57:59,470
+square thing, saying whatever RISC-V,
+
+1584
+00:57:59,470 --> 00:58:01,660
+the DRAM chips are sitting off,
+
+1585
+00:58:01,660 --> 00:58:04,600
+the off the processor correct, it's
+
+1586
+00:58:04,600 --> 00:58:06,070
+the board designers who put the
+
+1587
+00:58:06,070 --> 00:58:08,500
+chip the DRAM, you know, do many
+
+1588
+00:58:08,500 --> 00:58:10,160
+IO devices altogether.
+
+1589
+00:58:11,600 --> 00:58:13,430
+And large part of
+
+1590
+00:58:13,430 --> 00:58:14,720
+an operating system is actually,
+
+1591
+00:58:14,720 --> 00:58:16,130
+you know the CPU is one part, but the
+
+1592
+00:58:16,130 --> 00:58:17,270
+IO devices are at least as
+
+1593
+00:58:17,270 --> 00:58:19,040
+important, right, and so when you're
+
+1594
+00:58:19,040 --> 00:58:20,720
+writing an operating system you both
+
+1595
+00:58:20,720 --> 00:58:21,860
+have to deal with the CPU
+
+1596
+00:58:21,860 --> 00:58:23,690
+as well as you know with the IO devices,
+
+1597
+00:58:23,690 --> 00:58:24,500
+you know and you want to
+
+1598
+00:58:24,500 --> 00:58:25,860
+send a packet over the Internet.
+
+1599
+00:58:25,930 --> 00:58:29,370
+Well, somebody has to take over.
+
+1600
+00:58:29,370 --> 00:58:30,450
+You know the network driver,
+
+1601
+00:58:30,450 --> 00:58:31,980
+the NIC card to actually do that,
+
+1602
+00:58:31,980 --> 00:58:33,160
+and that's the operating system.
+
+1603
+00:58:35,450 --> 00:58:37,220
+So going back to the right
+
+1604
+00:58:37,220 --> 00:58:38,240
+side of this picture,
+
+1605
+00:58:38,240 --> 00:58:40,550
+which is the physical address layout,
+
+1606
+00:58:40,550 --> 00:58:42,110
+you know we see basically the
+
+1607
+00:58:42,110 --> 00:58:43,790
+bottom was unused as I showed
+
+1608
+00:58:43,790 --> 00:58:45,680
+you on that document.
+
+1609
+00:58:45,740 --> 00:58:46,760
+It turns out that
+
+1610
+00:58:46,760 --> 00:58:48,680
+0x1000, that physical address,
+
+1611
+00:58:48,680 --> 00:58:49,910
+that's where the boot ROM
+
+1612
+00:58:49,910 --> 00:58:52,370
+is, so when you turn on that board,
+
+1613
+00:58:52,370 --> 00:58:53,480
+the first thing that happens is
+
+1614
+00:58:53,480 --> 00:58:55,660
+actually coding the boot ROM runs.
+
+1615
+00:58:55,940 --> 00:58:56,780
+And when the boot rom is
+
+1616
+00:58:56,780 --> 00:58:58,490
+done it actually will jump to
+
+1617
+00:58:58,490 --> 00:59:00,950
+this 0x000 and it's
+
+1618
+00:59:00,950 --> 00:59:02,240
+a job of the operating system make
+
+1619
+00:59:02,240 --> 00:59:03,400
+sure that there's some,
+
+1620
+00:59:03,760 --> 00:59:04,900
+you know, some data there.
+
+1621
+00:59:05,460 --> 00:59:06,240
+And then there's a bunch of
+
+1622
+00:59:06,240 --> 00:59:08,280
+other devices that will talk about
+
+1623
+00:59:08,280 --> 00:59:11,440
+goes to interrupt controller,
+
+1624
+00:59:11,440 --> 00:59:13,300
+we'll talk about it next week.
+
+1625
+00:59:13,540 --> 00:59:16,210
+There's a CLENT, another part
+
+1626
+00:59:16,210 --> 00:59:18,250
+of the interrupt story that we'll
+
+1627
+00:59:18,250 --> 00:59:19,480
+talk about next week,
+
+1628
+00:59:19,480 --> 00:59:21,490
+so there's multiple devices can generate
+
+1629
+00:59:21,490 --> 00:59:22,930
+interrupts there needs to be planned
+
+1630
+00:59:22,930 --> 00:59:24,850
+to route those interrupts to the
+
+1631
+00:59:24,850 --> 00:59:26,860
+to the appropriate request level and
+
+1632
+00:59:26,860 --> 00:59:28,960
+it's all implemented by those
+
+1633
+00:59:28,960 --> 00:59:30,140
+interrupt controllers.
+
+1634
+00:59:30,510 --> 00:59:32,160
+And let me finish for
+
+1635
+00:59:32,160 --> 00:59:33,210
+a second you know this,
+
+1636
+00:59:33,210 --> 00:59:34,660
+this slide before
+
+1637
+00:59:34,780 --> 00:59:35,920
+answering question.
+
+1638
+00:59:35,920 --> 00:59:38,500
+Then there's a uart
+
+1639
+00:59:38,500 --> 00:59:39,880
+that was the device,
+
+1640
+00:59:39,880 --> 00:59:42,500
+that was actually the thing that actually,
+
+1641
+00:59:42,630 --> 00:59:44,640
+the device actually UART device actually
+
+1642
+00:59:44,640 --> 00:59:46,140
+interacts with the console and the
+
+1643
+00:59:46,140 --> 00:59:48,300
+display and then there's the VIRTIO
+
+1644
+00:59:48,300 --> 00:59:49,320
+there's the disk.
+
+1645
+00:59:49,510 --> 00:59:51,790
+And that's the device,
+
+1646
+00:59:51,790 --> 00:59:53,080
+there's a device belong,
+
+1647
+00:59:53,080 --> 00:59:54,800
+it's that actually interacts with the disk.
+
+1648
+00:59:54,870 --> 00:59:56,490
+And so when you write to
+
+1649
+00:59:56,490 --> 00:59:58,680
+location to address, let's say,
+
+1650
+00:59:58,790 --> 01:00:01,610
+0x200 then
+
+1651
+01:00:01,610 --> 01:00:03,170
+that physical address corresponds to the
+
+1652
+01:00:03,170 --> 01:00:04,430
+CLINT and so do you want
+
+1653
+01:00:04,430 --> 01:00:05,450
+to do store instruction,
+
+1654
+01:00:05,450 --> 01:00:06,380
+load instruction,
+
+1655
+01:00:06,380 --> 01:00:09,530
+your reading and writing to the
+
+1656
+01:00:09,530 --> 01:00:12,480
+chip that implements the CLINT.
+
+1657
+01:00:13,190 --> 01:00:14,480
+We'll see later what that exactly
+
+1658
+01:00:14,480 --> 01:00:15,890
+means but basically you can think
+
+1659
+01:00:15,890 --> 01:00:17,600
+about this as interacting directly with
+
+1660
+01:00:17,600 --> 01:00:18,860
+the device and not reading or
+
+1661
+01:00:18,860 --> 01:00:20,020
+writing physical memory.
+
+1662
+01:00:21,780 --> 01:00:22,900
+Yeah there's a question.
+
+1663
+01:00:24,230 --> 01:00:25,760
+So just trying to make
+
+1664
+01:00:25,760 --> 01:00:29,450
+sure the addresses below
+
+1665
+01:00:29,450 --> 01:00:33,480
+0x800, they don't really exist in DRAM.
+
+1666
+01:00:33,660 --> 01:00:35,220
+If when we mention those addresses
+
+1667
+01:00:35,220 --> 01:00:37,200
+we directly go to the other hardwares.
+
+1668
+01:00:37,200 --> 01:00:38,070
+Yeah yeah,
+
+1669
+01:00:38,070 --> 01:00:40,280
+so if you go back to this picture.
+
+1670
+01:00:40,330 --> 01:00:42,010
+Anything of above
+
+1671
+01:00:42,010 --> 01:00:43,160
+0x8000, correct，
+
+1672
+01:00:45,330 --> 01:00:46,840
+That's these DRAM chips.
+
+1673
+01:00:48,020 --> 01:00:49,670
+And you know I can't
+
+1674
+01:00:49,670 --> 01:00:50,780
+draw, I can't point you
+
+1675
+01:00:50,780 --> 01:00:51,590
+to the CLINT,
+
+1676
+01:00:51,590 --> 01:00:53,680
+but like generally hears that,
+
+1677
+01:00:53,770 --> 01:00:55,020
+ethernet.
+
+1678
+01:00:55,980 --> 01:00:57,480
+And so that's a particular physical
+
+1679
+01:00:57,480 --> 01:00:58,830
+address and we can write you
+
+1680
+01:00:58,830 --> 01:01:00,570
+know load store instructions is called
+
+1681
+01:01:00,570 --> 01:01:01,830
+memory mapped IO,
+
+1682
+01:01:01,830 --> 01:01:03,450
+we can load and store instructions,
+
+1683
+01:01:03,450 --> 01:01:05,520
+we can program ethernet controller.
+
+1684
+01:01:09,340 --> 01:01:10,840
+I also have a question,
+
+1685
+01:01:10,840 --> 01:01:13,480
+why was this big chunk at
+
+1686
+01:01:13,480 --> 01:01:15,300
+the top says unused.
+
+1687
+01:01:15,480 --> 01:01:18,630
+Why is it not used. OK,
+
+1688
+01:01:18,630 --> 01:01:19,470
+so remember,
+
+1689
+01:01:19,470 --> 01:01:21,930
+not every machine not
+
+1690
+01:01:21,930 --> 01:01:24,880
+every so there's 2 to the power 56,
+
+1691
+01:01:25,190 --> 01:01:27,770
+bytes physical address space,
+
+1692
+01:01:27,770 --> 01:01:29,300
+but you don't have those,
+
+1693
+01:01:29,300 --> 01:01:30,830
+you know, plug in that much memory
+
+1694
+01:01:30,830 --> 01:01:31,550
+into the board,
+
+1695
+01:01:31,550 --> 01:01:32,560
+if you don't want to.
+
+1696
+01:01:32,940 --> 01:01:34,170
+And so some parts of it
+
+1697
+01:01:34,170 --> 01:01:36,150
+may be unused, depending on how
+
+1698
+01:01:36,150 --> 01:01:37,710
+much you're DRAM chips are sitting
+
+1699
+01:01:37,710 --> 01:01:38,480
+on the board.
+
+1700
+01:01:42,300 --> 01:01:44,220
+In fact, they like in xv6,
+
+1701
+01:01:44,220 --> 01:01:46,590
+we I think limit ourselves to
+
+1702
+01:01:46,590 --> 01:01:48,840
+128 megabyte.
+
+1703
+01:01:50,440 --> 01:01:51,380
+And no more.
+
+1704
+01:01:55,370 --> 01:01:58,970
+So when a, when a
+
+1705
+01:01:58,970 --> 01:02:01,280
+load store instruction goes out of
+
+1706
+01:02:01,280 --> 01:02:04,640
+the CPU, does that go,
+
+1707
+01:02:04,880 --> 01:02:06,800
+like where does it get
+
+1708
+01:02:06,800 --> 01:02:08,600
+routed to the correct IO, like
+
+1709
+01:02:08,600 --> 01:02:10,160
+already from the CPU,
+
+1710
+01:02:10,160 --> 01:02:11,870
+so kind of like if the
+
+1711
+01:02:11,870 --> 01:02:13,580
+CPU before it sends it out
+
+1712
+01:02:13,580 --> 01:02:14,120
+it says OK,
+
+1713
+01:02:14,120 --> 01:02:17,900
+if it's lower than 0x8 and all the zeros then
+
+1714
+01:02:17,900 --> 01:02:19,100
+I'm going to send it to
+
+1715
+01:02:19,100 --> 01:02:20,330
+the correct IO devices,
+
+1716
+01:02:20,330 --> 01:02:21,320
+and then otherwise I'm going to
+
+1717
+01:02:21,320 --> 01:02:24,380
+send it to the to the
+
+1718
+01:02:24,380 --> 01:02:26,760
+memory like DRAM chip.
+
+1719
+01:02:27,030 --> 01:02:28,200
+Yeah, you can think about as
+
+1720
+01:02:28,200 --> 01:02:29,760
+a demultiplexer sitting on the
+
+1721
+01:02:29,760 --> 01:02:31,710
+inside of the RISC-V, you
+
+1722
+01:02:31,710 --> 01:02:33,160
+know block.
+
+1723
+01:02:33,240 --> 01:02:34,110
+Oh, so it's inside of
+
+1724
+01:02:34,110 --> 01:02:35,380
+that block. OK.
+
+1725
+01:02:38,150 --> 01:02:41,480
+As a memory controller and does routing.
+
+1726
+01:02:44,700 --> 01:02:46,080
+Because very important to have
+
+1727
+01:02:46,080 --> 01:02:47,780
+that sort of all clear in your head.
+
+1728
+01:02:51,420 --> 01:02:51,960
+Are you okay,
+
+1729
+01:02:51,960 --> 01:02:52,740
+so now I want to
+
+1730
+01:02:52,740 --> 01:02:55,460
+switch to the right side of this picture.
+
+1731
+01:02:55,610 --> 01:02:57,080
+And this is basically what
+
+1732
+01:02:57,080 --> 01:03:00,140
+xv6 sets up, to
+
+1733
+01:03:00,140 --> 01:03:01,520
+the virtual address space, that
+
+1734
+01:03:01,520 --> 01:03:02,540
+xv6 setup,
+
+1735
+01:03:02,540 --> 01:03:04,910
+so when the machine boot, there's
+
+1736
+01:03:04,910 --> 01:03:06,740
+no page enable yet,
+
+1737
+01:03:06,740 --> 01:03:08,570
+xv6 sets up
+
+1738
+01:03:08,570 --> 01:03:11,690
+the first page tables, virtual
+
+1739
+01:03:11,690 --> 01:03:12,830
+address space and that's actually
+
+1740
+01:03:12,830 --> 01:03:13,580
+the virtual address space
+
+1741
+01:03:13,580 --> 01:03:14,900
+the kernel uses and we'll look
+
+1742
+01:03:14,900 --> 01:03:16,000
+at it in the second.
+
+1743
+01:03:16,050 --> 01:03:17,850
+At the code, but,
+
+1744
+01:03:17,850 --> 01:03:19,440
+and this is the layout
+
+1745
+01:03:19,440 --> 01:03:21,460
+and it turns out, you know,
+
+1746
+01:03:21,460 --> 01:03:22,750
+because we want to keep
+
+1747
+01:03:22,750 --> 01:03:24,160
+xv6 as simple as possible,
+
+1748
+01:03:24,160 --> 01:03:26,020
+it's easy for you to understand.
+
+1749
+01:03:25,990 --> 01:03:29,680
+The mapping from virtual to physical
+
+1750
+01:03:30,780 --> 01:03:32,700
+is mostly in identity mapping.
+
+1751
+01:03:38,110 --> 01:03:39,490
+So basically what that means is
+
+1752
+01:03:39,490 --> 01:03:42,700
+that the virtual address 0x200
+
+1753
+01:03:43,180 --> 01:03:45,160
+maps to physical address
+
+1754
+01:03:45,160 --> 01:03:47,080
+0x200, the kernel
+
+1755
+01:03:47,080 --> 01:03:48,400
+will set up the page tables
+
+1756
+01:03:48,400 --> 01:03:49,870
+exactly in that way,
+
+1757
+01:03:49,870 --> 01:03:51,670
+and so that means basically that
+
+1758
+01:03:51,670 --> 01:03:53,200
+you know all virtual addresses,
+
+1759
+01:03:53,200 --> 01:03:54,980
+below this top.
+
+1760
+01:03:55,840 --> 01:03:56,740
+Which is the top of
+
+1761
+01:03:56,740 --> 01:03:59,170
+physical memory are identical to the
+
+1762
+01:03:59,170 --> 01:04:00,730
+physical addresses that are actually being
+
+1763
+01:04:00,730 --> 01:04:02,800
+used on the right side.
+
+1764
+01:04:03,150 --> 01:04:04,260
+And so this is why all
+
+1765
+01:04:04,260 --> 01:04:06,210
+the arrows are straight, because it's
+
+1766
+01:04:06,210 --> 01:04:07,460
+identity mapping.
+
+1767
+01:04:10,830 --> 01:04:13,440
+The small changes to this,
+
+1768
+01:04:14,560 --> 01:04:16,900
+there are two important things to mention.
+
+1769
+01:04:17,610 --> 01:04:20,370
+Amiar, hold on a second, while
+
+1770
+01:04:20,370 --> 01:04:21,810
+try to first mention the two
+
+1771
+01:04:21,810 --> 01:04:23,300
+important things to mention.
+
+1772
+01:04:23,500 --> 01:04:25,090
+First of all,
+
+1773
+01:04:25,090 --> 01:04:26,800
+there's some pages,
+
+1774
+01:04:26,800 --> 01:04:28,300
+some maps very high up in
+
+1775
+01:04:28,300 --> 01:04:29,080
+your memory.
+
+1776
+01:04:32,550 --> 01:04:34,320
+Which some pages very high
+
+1777
+01:04:34,320 --> 01:04:35,040
+up in memory,
+
+1778
+01:04:35,040 --> 01:04:38,550
+for example the stack a
+
+1779
+01:04:38,550 --> 01:04:40,470
+kernel stack actually sits up is
+
+1780
+01:04:40,470 --> 01:04:42,280
+also map high up in memory.
+
+1781
+01:04:42,450 --> 01:04:43,590
+And the reason is high
+
+1782
+01:04:43,590 --> 01:04:44,880
+up in memory is because we
+
+1783
+01:04:44,880 --> 01:04:46,320
+have a guard page below it
+
+1784
+01:04:46,320 --> 01:04:47,500
+that is not mapped.
+
+1785
+01:04:47,770 --> 01:04:49,540
+So the PTE entry below
+
+1786
+01:04:49,540 --> 01:04:51,280
+the kernel stack, of one of
+
+1787
+01:04:51,280 --> 01:04:52,720
+the kernel stack [], does
+
+1788
+01:04:52,720 --> 01:04:55,380
+have, not have it's valid bit set.
+
+1789
+01:04:55,660 --> 01:04:58,360
+And, so if you know, the kernel
+
+1790
+01:04:58,360 --> 01:05:00,100
+runs off its stack and will
+
+1791
+01:05:00,100 --> 01:05:01,840
+result in a page fault,
+
+1792
+01:05:01,840 --> 01:05:04,060
+which is better than basically scribbling
+
+1793
+01:05:04,060 --> 01:05:05,140
+over some other memory that the
+
+1794
+01:05:05,140 --> 01:05:06,020
+kernel has.
+
+1795
+01:05:06,080 --> 01:05:07,220
+You get immediate panic,
+
+1796
+01:05:07,220 --> 01:05:09,020
+you know that something's bad to stack.
+
+1797
+01:05:09,680 --> 01:05:11,540
+Of course, we don't want
+
+1798
+01:05:11,540 --> 01:05:13,580
+to waste physical memory and so
+
+1799
+01:05:13,580 --> 01:05:15,080
+when we do that by basically
+
+1800
+01:05:15,080 --> 01:05:18,890
+putting the stack high, um,
+
+1801
+01:05:18,890 --> 01:05:20,690
+a guard page, an empty guard
+
+1802
+01:05:20,690 --> 01:05:22,280
+PTE entry below it.
+
+1803
+01:05:22,520 --> 01:05:24,590
+And the guard page
+
+1804
+01:05:24,590 --> 01:05:26,450
+doesn't really consume any physical memory
+
+1805
+01:05:26,450 --> 01:05:27,560
+records sitting high up in the
+
+1806
+01:05:27,560 --> 01:05:28,400
+virtual address space,
+
+1807
+01:05:28,400 --> 01:05:30,620
+so nothing is being consumed.
+
+1808
+01:05:31,190 --> 01:05:32,570
+But that means that they're showing
+
+1809
+01:05:32,570 --> 01:05:33,560
+this case, stack page,
+
+1810
+01:05:33,560 --> 01:05:35,140
+for example is mapped twice.
+
+1811
+01:05:35,360 --> 01:05:36,230
+It's mapped at a high
+
+1812
+01:05:36,230 --> 01:05:38,660
+address and it's mapped directly
+
+1813
+01:05:38,660 --> 01:05:40,010
+by one of the dresses
+
+1814
+01:05:40,010 --> 01:05:41,300
+that below PHYSTOP.
+
+1815
+01:05:42,590 --> 01:05:43,760
+And so you can do, this
+
+1816
+01:05:43,760 --> 01:05:45,290
+is one example of all the
+
+1817
+01:05:45,290 --> 01:05:46,970
+sort of cool things, you can
+
+1818
+01:05:46,970 --> 01:05:48,230
+do with page tables,
+
+1819
+01:05:48,230 --> 01:05:50,480
+you can map a physical address twice,
+
+1820
+01:05:50,480 --> 01:05:52,610
+you cannot map a physical address,
+
+1821
+01:05:52,610 --> 01:05:53,930
+you know it can be
+
+1822
+01:05:53,930 --> 01:05:55,160
+one to one mapping, one to
+
+1823
+01:05:55,160 --> 01:05:56,900
+many mapping, many to one mapping,
+
+1824
+01:05:56,900 --> 01:05:58,560
+all that kind of stuff is possible.
+
+1825
+01:05:58,930 --> 01:06:01,030
+Actually it does really use
+
+1826
+01:06:01,030 --> 01:06:01,930
+many of them, but there's a
+
+1827
+01:06:01,930 --> 01:06:03,760
+couple places we use those tricks.
+
+1828
+01:06:03,880 --> 01:06:05,110
+And there's the stack in
+
+1829
+01:06:05,110 --> 01:06:06,070
+the guard page is one
+
+1830
+01:06:06,070 --> 01:06:06,910
+example, of one of the
+
+1831
+01:06:06,910 --> 01:06:09,280
+cool trick then xv6 uses
+
+1832
+01:06:09,280 --> 01:06:11,020
+mostly to track down bugs.
+
+1833
+01:06:12,880 --> 01:06:13,720
+The second thing I wanted to
+
+1834
+01:06:13,720 --> 01:06:15,920
+mention is that, the permissions.
+
+1835
+01:06:16,570 --> 01:06:18,550
+So, for example the kernel text,
+
+1836
+01:06:18,550 --> 01:06:19,720
+the pages for the kernel text
+
+1837
+01:06:19,720 --> 01:06:22,420
+are mapped R-X, meaning you can
+
+1838
+01:06:22,420 --> 01:06:23,780
+read it and execute it.
+
+1839
+01:06:23,780 --> 01:06:24,890
+But you cannot write to
+
+1840
+01:06:24,890 --> 01:06:26,150
+kernel text and again this
+
+1841
+01:06:26,150 --> 01:06:27,500
+is basically devoid,
+
+1842
+01:06:27,530 --> 01:06:28,730
+[bugs] we catch
+
+1843
+01:06:28,730 --> 01:06:30,650
+them early, kernel data of course
+
+1844
+01:06:30,650 --> 01:06:31,610
+needs to be able to be
+
+1845
+01:06:31,610 --> 01:06:33,110
+written to, and so it has
+
+1846
+01:06:33,110 --> 01:06:34,250
+mapped read write,
+
+1847
+01:06:34,250 --> 01:06:36,060
+but you cannot execute
+
+1848
+01:06:36,130 --> 01:06:39,880
+out of kernel data pages instructions.
+
+1849
+01:06:40,680 --> 01:06:42,680
+So the execute bit is not set.
+
+1850
+01:06:45,960 --> 01:06:47,040
+Does that make sense.
+
+1851
+01:06:48,010 --> 01:06:50,020
+I skipped one or two questions,
+
+1852
+01:06:50,020 --> 01:06:51,280
+so if these questions are still
+
+1853
+01:06:51,280 --> 01:06:53,080
+not answered, please ask them.
+
+1854
+01:06:55,790 --> 01:06:58,460
+We have a question in the chat.
+
+1855
+01:06:58,460 --> 01:07:00,320
+Do we have multiple kernel stacks
+
+1856
+01:07:00,320 --> 01:07:02,240
+for different processes like we have
+
+1857
+01:07:02,240 --> 01:07:04,560
+n kstacks for n processes.
+
+1858
+01:07:04,640 --> 01:07:05,960
+And answers yes.
+
+1859
+01:07:06,850 --> 01:07:08,860
+So every process every user process
+
+1860
+01:07:08,860 --> 01:07:10,820
+has a corresponding kernel stack.
+
+1861
+01:07:13,130 --> 01:07:14,030
+I will see that in a
+
+1862
+01:07:14,030 --> 01:07:14,960
+little bit later.
+
+1863
+01:07:19,220 --> 01:07:20,660
+Okay, so let me,
+
+1864
+01:07:20,660 --> 01:07:22,500
+Samir, go ahead.
+
+1865
+01:07:23,350 --> 01:07:26,080
+So what's the virtual memory
+
+1866
+01:07:26,080 --> 01:07:28,420
+of another application
+
+1867
+01:07:28,720 --> 01:07:30,130
+map to somewhere in the physical
+
+1868
+01:07:30,130 --> 01:07:32,440
+memory in the unused space or.
+
+1869
+01:07:32,440 --> 01:07:34,540
+Yes, a very good point,
+
+1870
+01:07:34,540 --> 01:07:36,730
+so there's a bunch of
+
+1871
+01:07:36,730 --> 01:07:37,240
+physical memory,
+
+1872
+01:07:37,240 --> 01:07:38,800
+correct, here's free memory.
+
+1873
+01:07:39,340 --> 01:07:41,230
+Um, that's free memory
+
+1874
+01:07:41,230 --> 01:07:43,780
+here too, right, and
+
+1875
+01:07:43,780 --> 01:07:45,310
+we use that actually use
+
+1876
+01:07:45,310 --> 01:07:46,720
+that free memory to basically
+
+1877
+01:07:46,720 --> 01:07:48,790
+store pages of page tables,
+
+1878
+01:07:48,790 --> 01:07:51,190
+user processes as well as you
+
+1879
+01:07:51,190 --> 01:07:53,440
+know the text and data of
+
+1880
+01:07:53,440 --> 01:07:54,720
+user level processes.
+
+1881
+01:07:55,790 --> 01:07:56,900
+And if we are on many many,
+
+1882
+01:07:56,900 --> 01:07:58,490
+many user processes at some point
+
+1883
+01:07:58,490 --> 01:07:59,690
+we'll run out of free memory,
+
+1884
+01:07:59,690 --> 01:08:01,520
+and then basically fork or exec
+
+1885
+01:08:01,520 --> 01:08:03,480
+will return an error.
+
+1886
+01:08:04,900 --> 01:08:05,770
+But that means that the
+
+1887
+01:08:05,770 --> 01:08:08,620
+virtual space for processes are
+
+1888
+01:08:08,620 --> 01:08:09,850
+much smaller than the virtual
+
+1889
+01:08:09,850 --> 01:08:12,240
+space for the kernel, right?
+
+1890
+01:08:12,500 --> 01:08:14,000
+Well, the virtual spaces as
+
+1891
+01:08:14,000 --> 01:08:17,150
+the same as the same size in principle,
+
+1892
+01:08:17,150 --> 01:08:19,340
+but it will be less populated.
+
+1893
+01:08:22,520 --> 01:08:24,200
+Then let me let's look at
+
+1894
+01:08:24,200 --> 01:08:24,560
+some code,
+
+1895
+01:08:24,560 --> 01:08:25,280
+and I think that all this
+
+1896
+01:08:25,280 --> 01:08:26,720
+stuff becomes a bit more clear.
+
+1897
+01:08:27,690 --> 01:08:29,280
+I just want small thing,
+
+1898
+01:08:29,280 --> 01:08:34,020
+is so given that a lot of the like,
+
+1899
+01:08:34,020 --> 01:08:35,610
+each process has a big part
+
+1900
+01:08:35,610 --> 01:08:37,080
+of the memory map to the
+
+1901
+01:08:37,080 --> 01:08:39,810
+same location, is that optimized by
+
+1902
+01:08:39,810 --> 01:08:42,720
+like consolidating that into one place
+
+1903
+01:08:42,720 --> 01:08:44,180
+that mapping or no.
+
+1904
+01:08:44,280 --> 01:08:46,050
+Um, it's good,
+
+1905
+01:08:46,050 --> 01:08:47,370
+xv6 does not do that,
+
+1906
+01:08:47,370 --> 01:08:48,990
+like one of the challenge
+
+1907
+01:08:48,990 --> 01:08:51,210
+exercises in the page table lab
+
+1908
+01:08:51,210 --> 01:08:52,640
+is to actually implement that.
+
+1909
+01:08:54,510 --> 01:08:56,130
+I see. The real operating system
+
+1910
+01:08:56,130 --> 01:08:56,920
+would do that.
+
+1911
+01:08:58,710 --> 01:09:00,240
+Yeah. Makes sense.
+
+1912
+01:09:00,240 --> 01:09:01,220
+Very good question.
+
+1913
+01:09:02,380 --> 01:09:03,220
+I think you get a sense
+
+1914
+01:09:03,220 --> 01:09:04,240
+of what all kinds of things
+
+1915
+01:09:04,240 --> 01:09:06,120
+are possible, once you have page tables.
+
+1916
+01:09:08,790 --> 01:09:09,780
+Okay,
+
+1917
+01:09:09,780 --> 01:09:11,490
+so let's do the usual thing,
+
+1918
+01:09:12,640 --> 01:09:15,370
+boot xv6 again and again,
+
+1919
+01:09:15,370 --> 01:09:16,900
+you know QEMU uses basically implementing
+
+1920
+01:09:16,900 --> 01:09:17,780
+the board.
+
+1921
+01:09:18,170 --> 01:09:28,260
+And you know let's. Oops, -gdb,
+
+1922
+01:09:29,930 --> 01:09:31,880
+last time we looked at
+
+1923
+01:09:31,880 --> 01:09:33,710
+how the routing happens correct
+
+1924
+01:09:33,710 --> 01:09:34,310
+and then we got to
+
+1925
+01:09:34,310 --> 01:09:35,510
+main and then basically one
+
+1926
+01:09:35,510 --> 01:09:38,650
+of the things that, the kernel,
+
+1927
+01:09:38,650 --> 01:09:41,380
+when one of the functions called
+
+1928
+01:09:41,380 --> 01:09:42,670
+kvminit and that actually
+
+1929
+01:09:42,670 --> 01:09:44,820
+sets up the address space for the kernel.
+
+1930
+01:09:45,100 --> 01:09:46,330
+And so we saw in the
+
+1931
+01:09:46,330 --> 01:09:47,740
+picture where in the previous slide,
+
+1932
+01:09:47,740 --> 01:09:49,330
+what that you know looks like
+
+1933
+01:09:49,330 --> 01:09:50,200
+and here we go,
+
+1934
+01:09:50,200 --> 01:09:52,580
+C code how it actually is being set up.
+
+1935
+01:09:58,380 --> 01:10:01,500
+And why, hold on, something's
+
+1936
+01:10:01,500 --> 01:10:03,980
+not going as I wanted to.
+
+1937
+01:10:04,380 --> 01:10:07,100
+Am I the right directories.
+
+1938
+01:10:11,140 --> 01:10:12,130
+Hold on a second here
+
+1939
+01:10:12,130 --> 01:10:13,180
+while I'm trying to sort
+
+1940
+01:10:13,180 --> 01:10:14,720
+out my problems.
+
+1941
+01:10:16,590 --> 01:10:17,940
+That is good.
+
+1942
+01:10:21,390 --> 01:10:23,070
+I mean the right directory,
+
+1943
+01:10:23,070 --> 01:10:28,710
+yeah, We want to set a
+
+1944
+01:10:28,710 --> 01:10:29,670
+break from the main just
+
+1945
+01:10:29,670 --> 01:10:30,960
+to make sure.
+
+1946
+01:10:31,050 --> 01:10:35,940
+Good, and then a break point at kvminit.
+
+1947
+01:10:36,340 --> 01:10:37,300
+Actually I can just step to
+
+1948
+01:10:37,300 --> 01:10:40,540
+it now, next consoleinit
+
+1949
+01:10:40,540 --> 01:10:41,050
+printfinit,
+
+1950
+01:10:41,050 --> 01:10:42,760
+you know, we saw it before,
+
+1951
+01:10:43,250 --> 01:10:45,320
+physical memory allocator.
+
+1952
+01:10:51,100 --> 01:10:52,720
+You know, something happens that I
+
+1953
+01:10:52,720 --> 01:10:55,200
+not expecting.
+
+1954
+01:10:57,590 --> 01:10:59,840
+What is going on.
+
+1955
+01:11:02,590 --> 01:11:03,970
+We're gonna run this right before
+
+1956
+01:11:03,970 --> 01:11:04,900
+lecture. Here,
+
+1957
+01:11:04,900 --> 01:11:06,700
+that's what's going on actually printing,
+
+1958
+01:11:06,700 --> 01:11:08,220
+Okay.
+
+1959
+01:11:10,330 --> 01:11:11,620
+Interesting.
+
+1960
+01:11:11,620 --> 01:11:12,460
+Okay one more time,
+
+1961
+01:11:12,460 --> 01:11:15,840
+see if I can get lucky more [].
+
+1962
+01:11:19,270 --> 01:11:20,920
+Very good.
+
+1963
+01:11:28,910 --> 01:11:32,140
+Continue, hopefully it will get there,
+
+1964
+01:11:33,010 --> 01:11:34,210
+wait a little bit. Okay great
+
+1965
+01:11:34,210 --> 01:11:35,860
+we're at the kvminit,
+
+1966
+01:11:35,860 --> 01:11:37,390
+so basically we're now this function
+
+1967
+01:11:37,390 --> 01:11:39,220
+here, on the right side in
+
+1968
+01:11:39,220 --> 01:11:40,900
+the emacs buffer, you can see it.
+
+1969
+01:11:41,280 --> 01:11:43,640
+And,
+
+1970
+01:11:44,220 --> 01:11:46,380
+I think I've modified function
+
+1971
+01:11:46,380 --> 01:11:48,820
+slightly I hope I did.
+
+1972
+01:11:52,570 --> 01:11:53,980
+I think I did, we'll
+
+1973
+01:11:53,980 --> 01:11:56,890
+see, and what we knew
+
+1974
+01:11:56,890 --> 01:11:59,560
+is going to walk step into the function.
+
+1975
+01:12:00,080 --> 01:12:02,270
+Give me layout split it's
+
+1976
+01:12:02,270 --> 01:12:03,280
+easier to see.
+
+1977
+01:12:03,640 --> 01:12:04,630
+And this is the first thing
+
+1978
+01:12:04,630 --> 01:12:05,530
+that you can see, this section
+
+1979
+01:12:05,530 --> 01:12:06,640
+of the current actually allocates a
+
+1980
+01:12:06,640 --> 01:12:08,470
+physical page, for the top level
+
+1981
+01:12:08,470 --> 01:12:09,440
+page directory.
+
+1982
+01:12:10,090 --> 01:12:12,250
+And then zeroes it
+
+1983
+01:12:12,250 --> 01:12:14,760
+out so that all the PTE entries are zero.
+
+1984
+01:12:15,360 --> 01:12:17,490
+And then basically starts mapping in
+
+1985
+01:12:17,490 --> 01:12:21,280
+every device, IO device one by one.
+
+1986
+01:12:21,620 --> 01:12:23,990
+And so, for example, the UART0, it
+
+1987
+01:12:23,990 --> 01:12:25,820
+basically starts mapping maps that into
+
+1988
+01:12:25,820 --> 01:12:28,550
+the kernel address space and so
+
+1989
+01:12:28,550 --> 01:12:29,960
+we can look at a file
+
+1990
+01:12:29,960 --> 01:12:32,840
+called memlayout.h, is basically translate
+
+1991
+01:12:32,840 --> 01:12:34,580
+page 31 that I showed
+
+1992
+01:12:34,580 --> 01:12:35,930
+you from the document into a
+
+1993
+01:12:35,930 --> 01:12:37,620
+bunch of constants that we're using.
+
+1994
+01:12:38,010 --> 01:12:39,510
+And so, for example here it says what
+
+1995
+01:12:39,510 --> 01:12:42,700
+the address of 0x1000 is.
+
+1996
+01:12:44,100 --> 01:12:46,800
+Um, [do you ideas].
+
+1997
+01:12:47,100 --> 01:12:47,940
+And so,
+
+1998
+01:12:47,940 --> 01:12:50,040
+you know, we can basically
+
+1999
+01:12:50,040 --> 01:12:52,110
+map it into the address space
+
+2000
+01:12:52,110 --> 01:12:53,760
+by calling this function
+
+2001
+01:12:53,760 --> 01:12:54,660
+kvmmap which I will look in
+
+2002
+01:12:54,660 --> 01:12:55,520
+a second.
+
+2003
+01:12:56,040 --> 01:12:57,000
+And then,
+
+2004
+01:12:57,000 --> 01:13:00,390
+in the first exercise of
+
+2005
+01:13:00,390 --> 01:13:01,260
+the page table lab,
+
+2006
+01:13:01,260 --> 01:13:02,700
+you are asked to implement a
+
+2007
+01:13:02,700 --> 01:13:04,040
+function called vmprint.
+
+2008
+01:13:04,300 --> 01:13:06,400
+Um, and I implemented it too,
+
+2009
+01:13:06,400 --> 01:13:07,900
+and I'm going to step over
+
+2010
+01:13:07,900 --> 01:13:09,520
+it and we'll see basically,
+
+2011
+01:13:09,720 --> 01:13:13,790
+page tables, kernel page table as it
+
+2012
+01:13:13,790 --> 01:13:15,350
+is set up after that one
+
+2013
+01:13:15,350 --> 01:13:16,700
+call to the kvmmap,
+
+2014
+01:13:16,700 --> 01:13:17,980
+so I'm going to do that.
+
+2015
+01:13:18,250 --> 01:13:18,970
+And we're going to print
+
+2016
+01:13:18,970 --> 01:13:19,780
+out something.
+
+2017
+01:13:20,240 --> 01:13:20,750
+And so we're going to
+
+2018
+01:13:20,750 --> 01:13:22,160
+look a little bit of the output here,
+
+2019
+01:13:22,160 --> 01:13:23,420
+so here's the page table that
+
+2020
+01:13:23,420 --> 01:13:24,140
+is the
+
+2021
+01:13:24,790 --> 01:13:28,030
+physical address of the top level,
+
+2022
+01:13:28,030 --> 01:13:30,190
+page directory,
+
+2023
+01:13:30,190 --> 01:13:31,240
+so the thing that actually sits
+
+2024
+01:13:31,240 --> 01:13:33,980
+in satp, or will sit in satp.
+
+2025
+01:13:34,600 --> 01:13:36,850
+And then we have
+
+2026
+01:13:36,850 --> 01:13:38,140
+entry 0 of the top
+
+2027
+01:13:38,140 --> 01:13:40,030
+level page really has one
+
+2028
+01:13:40,030 --> 01:13:41,880
+PTE entry in it.
+
+2029
+01:13:42,480 --> 01:13:45,300
+And that is the contains
+
+2030
+01:13:45,300 --> 01:13:46,710
+the physical address for the middle
+
+2031
+01:13:46,710 --> 01:13:48,200
+level page table directory.
+
+2032
+01:13:48,600 --> 01:13:50,190
+The middle page level directory has
+
+2033
+01:13:50,190 --> 01:13:52,780
+one entry namely 128.
+
+2034
+01:13:52,900 --> 01:13:53,950
+And that points to the bottom
+
+2035
+01:13:53,950 --> 01:13:55,360
+of page table directory and the
+
+2036
+01:13:55,360 --> 01:13:56,800
+bottom page table directory has the
+
+2037
+01:13:56,800 --> 01:13:59,020
+entry then for the physical page.
+
+2038
+01:13:59,390 --> 01:14:00,110
+And you can see,
+
+2039
+01:14:00,110 --> 01:14:02,090
+indeed that the physical address,
+
+2040
+01:14:02,090 --> 01:14:03,530
+you know for that bottom level
+
+2041
+01:14:03,530 --> 01:14:05,570
+is 0x1000
+
+2042
+01:14:05,570 --> 01:14:07,680
+corresponding to uart0.
+
+2043
+01:14:08,350 --> 01:14:11,080
+Right, so basically virtual address
+
+2044
+01:14:11,470 --> 01:14:13,300
+1000 translates
+
+2045
+01:14:13,300 --> 01:14:15,820
+to physical address [1000].
+
+2046
+01:14:16,570 --> 01:14:18,700
+We can sure double check,
+
+2047
+01:14:18,700 --> 01:14:20,920
+this is indeed all legit.
+
+2048
+01:14:21,010 --> 01:14:22,690
+By,
+
+2049
+01:14:22,690 --> 01:14:28,330
+and let's take that address 0x100L
+
+2050
+01:14:28,330 --> 01:14:30,960
+and we're going to shift 12.
+
+2051
+01:14:31,700 --> 01:14:34,960
+And that should be,
+
+2052
+01:14:35,160 --> 01:14:36,240
+you know, that gives the top
+
+2053
+01:14:36,240 --> 01:14:38,600
+level 27 bits.
+
+2054
+01:14:39,070 --> 01:14:40,660
+We shifted 9,
+
+2055
+01:14:40,660 --> 01:14:43,360
+so I'm gonna take 0x100,
+
+2056
+01:14:43,970 --> 01:14:48,440
+0x10000, and we can
+
+2057
+01:14:48,440 --> 01:14:50,920
+shift at 9, print that.
+
+2058
+01:14:53,000 --> 01:14:54,620
+And that is 0x80,
+
+2059
+01:14:54,620 --> 01:14:56,360
+and actually print 0x80
+
+2060
+01:14:56,360 --> 01:14:58,460
+as a decimal number, it's
+
+2061
+01:14:58,460 --> 01:14:59,840
+going to be 128, OK.
+
+2062
+01:15:02,330 --> 01:15:03,590
+So we see actually sort of
+
+2063
+01:15:03,590 --> 01:15:04,640
+you know it all sort of
+
+2064
+01:15:04,640 --> 01:15:05,540
+makes sense.
+
+2065
+01:15:05,920 --> 01:15:07,390
+We also see I printed out
+
+2066
+01:15:07,390 --> 01:15:08,650
+the flags here,
+
+2067
+01:15:08,650 --> 01:15:11,230
+and you know the bottom
+
+2068
+01:15:11,230 --> 01:15:12,280
+level has read,
+
+2069
+01:15:12,280 --> 01:15:16,920
+write and valid, because valid is one.
+
+2070
+01:15:18,480 --> 01:15:19,740
+Any questions about this.
+
+2071
+01:15:24,760 --> 01:15:26,960
+Okay, so.
+
+2072
+01:15:27,290 --> 01:15:30,080
+The kernel basically proceeds, you know
+
+2073
+01:15:30,080 --> 01:15:32,000
+doing setting up the whole address
+
+2074
+01:15:32,000 --> 01:15:33,160
+space in this way.
+
+2075
+01:15:33,810 --> 01:15:35,580
+And, so we've called
+
+2076
+01:15:35,580 --> 01:15:37,740
+kvmmap for VIRTIO, for the
+
+2077
+01:15:37,740 --> 01:15:39,100
+CLINT, for the PLIC.
+
+2078
+01:15:39,350 --> 01:15:42,320
+Maps the kernel text, maps
+
+2079
+01:15:42,320 --> 01:15:44,480
+the kernel memory or kernel data,
+
+2080
+01:15:44,480 --> 01:15:45,830
+and then the TRAMPOLINE page that
+
+2081
+01:15:45,830 --> 01:15:47,040
+we'll talk about next week.
+
+2082
+01:15:47,460 --> 01:15:48,780
+And so in fact we
+
+2083
+01:15:48,780 --> 01:15:50,280
+can single step through this and
+
+2084
+01:15:50,280 --> 01:15:52,290
+then see what the final page
+
+2085
+01:15:52,290 --> 01:15:53,780
+directory looks like.
+
+2086
+01:15:55,610 --> 01:15:58,760
+Um, so next next next next.
+
+2087
+01:15:59,330 --> 01:16:01,190
+Basically, you know set the TRAMPOLINE,
+
+2088
+01:16:01,190 --> 01:16:02,030
+so now we're going to print
+
+2089
+01:16:02,030 --> 01:16:03,860
+the complete page table directory.
+
+2090
+01:16:04,160 --> 01:16:07,430
+You know we see basically
+
+2091
+01:16:07,430 --> 01:16:11,680
+lot of PTE is actually being setup.
+
+2092
+01:16:11,840 --> 01:16:13,310
+And I'm not going to
+
+2093
+01:16:13,310 --> 01:16:14,870
+talk about in any detail,
+
+2094
+01:16:14,870 --> 01:16:16,610
+but you know basically fills
+
+2095
+01:16:16,610 --> 01:16:17,480
+out the page
+
+2096
+01:16:17,920 --> 01:16:20,170
+directory to actually create
+
+2097
+01:16:20,170 --> 01:16:21,730
+virtual mapping that we
+
+2098
+01:16:21,730 --> 01:16:23,480
+basically saw on the previous slide.
+
+2099
+01:16:24,840 --> 01:16:26,010
+When I expect what I
+
+2100
+01:16:26,010 --> 01:16:26,910
+wanna do next is actually
+
+2101
+01:16:26,910 --> 01:16:28,160
+much more interesting.
+
+2102
+01:16:29,730 --> 01:16:31,080
+Yeah I'm gonna.
+
+2103
+01:16:32,270 --> 01:16:33,350
+Yeah I wanna go here,
+
+2104
+01:16:33,350 --> 01:16:34,730
+actually, I guess maybe I already
+
+2105
+01:16:34,730 --> 01:16:37,010
+did this, were 21,
+
+2106
+01:16:37,010 --> 01:16:39,400
+no, I'm 21, okay so single step that.
+
+2107
+01:16:40,560 --> 01:16:41,430
+OK that's too bad, I
+
+2108
+01:16:41,430 --> 01:16:43,800
+got past it. But basically,
+
+2109
+01:16:44,340 --> 01:16:47,840
+let me, let me restart this.
+
+2110
+01:16:53,210 --> 01:16:57,320
+I wanna break point at kvminithart.
+
+2111
+01:17:00,580 --> 01:17:01,880
+And continue,
+
+2112
+01:17:03,650 --> 01:17:06,020
+are now here at kvminithart,
+
+2113
+01:17:06,020 --> 01:17:07,430
+and you see here,
+
+2114
+01:17:07,430 --> 01:17:09,470
+basically that we're writing the
+
+2115
+01:17:09,470 --> 01:17:10,310
+satp register,
+
+2116
+01:17:10,310 --> 01:17:11,450
+so basically the kernel is going
+
+2117
+01:17:11,450 --> 01:17:14,600
+to enable page table or
+
+2118
+01:17:14,600 --> 01:17:15,740
+the hard, MMU,
+
+2119
+01:17:15,740 --> 01:17:16,970
+to basically start using
+
+2120
+01:17:16,970 --> 01:17:18,740
+the page table that we just set up.
+
+2121
+01:17:19,470 --> 01:17:22,860
+And one interesting question.
+
+2122
+01:17:23,350 --> 01:17:24,730
+Okay, so they do have layout
+
+2123
+01:17:24,730 --> 01:17:25,990
+split again,
+
+2124
+01:17:25,990 --> 01:17:27,340
+So,
+
+2125
+01:17:27,760 --> 01:17:30,860
+somewhere here is going to be,
+
+2126
+01:17:31,320 --> 01:17:34,860
+here's the instruction in,
+
+2127
+01:17:36,070 --> 01:17:39,700
+so once, something really dramatic happens
+
+2128
+01:17:39,700 --> 01:17:41,480
+after executing this instruction.
+
+2129
+01:17:42,270 --> 01:17:44,850
+Um, let's say yeah I can
+
+2130
+01:17:44,850 --> 01:17:46,500
+see the same instruction exactly but
+
+2131
+01:17:46,500 --> 01:17:48,960
+there's this this extent,
+
+2132
+01:17:48,960 --> 01:17:50,820
+once this instruction is executed what
+
+2133
+01:17:50,820 --> 01:17:52,200
+will happen with the next address
+
+2134
+01:17:52,200 --> 01:17:53,420
+that's being translated.
+
+2135
+01:17:58,310 --> 01:17:59,570
+Well, at the point that
+
+2136
+01:17:59,570 --> 01:18:01,550
+we execute this instruction, before
+
+2137
+01:18:01,550 --> 01:18:02,810
+executing this instruction,
+
+2138
+01:18:02,810 --> 01:18:04,550
+there's no page tables enabled yet
+
+2139
+01:18:04,550 --> 01:18:06,200
+so no translation happens.
+
+2140
+01:18:06,410 --> 01:18:07,820
+But the next and then the
+
+2141
+01:18:07,820 --> 01:18:10,040
+program counter is updated by [4].
+
+2142
+01:18:10,240 --> 01:18:11,380
+And then the next instruction is
+
+2143
+01:18:11,380 --> 01:18:13,030
+executed and the program counter will
+
+2144
+01:18:13,030 --> 01:18:15,060
+be translated using the virtual page,
+
+2145
+01:18:15,290 --> 01:18:16,400
+page table memory.
+
+2146
+01:18:17,140 --> 01:18:18,640
+And so this is, you
+
+2147
+01:18:18,640 --> 01:18:19,750
+know, the ways to think about this,
+
+2148
+01:18:19,750 --> 01:18:21,500
+this is a dramatic moment.
+
+2149
+01:18:21,630 --> 01:18:24,450
+Because basically the whole address translation,
+
+2150
+01:18:24,450 --> 01:18:25,500
+they started to enable and
+
+2151
+01:18:25,500 --> 01:18:26,910
+every address needs no maybe
+
+2152
+01:18:26,910 --> 01:18:28,480
+potentially something different.
+
+2153
+01:18:29,660 --> 01:18:31,370
+Right, because before we're running your
+
+2154
+01:18:31,370 --> 01:18:32,240
+physical addresses,
+
+2155
+01:18:32,240 --> 01:18:33,050
+then the page table,
+
+2156
+01:18:33,050 --> 01:18:34,310
+haven't install, and whatever is in
+
+2157
+01:18:34,310 --> 01:18:34,760
+the mapping,
+
+2158
+01:18:34,760 --> 01:18:36,290
+now there's now the new meaning
+
+2159
+01:18:36,290 --> 01:18:37,500
+of a virtual address.
+
+2160
+01:18:38,680 --> 01:18:40,090
+And here's how this works
+
+2161
+01:18:40,090 --> 01:18:41,230
+out, you know, the fact that
+
+2162
+01:18:41,230 --> 01:18:42,820
+this actually works out is remarkable
+
+2163
+01:18:42,820 --> 01:18:44,590
+because like the next instruction,
+
+2164
+01:18:44,590 --> 01:18:46,180
+the next value is a virtual
+
+2165
+01:18:46,180 --> 01:18:47,780
+address and not a physical address.
+
+2166
+01:18:49,000 --> 01:18:50,020
+The next instruction is going to
+
+2167
+01:18:50,020 --> 01:18:52,300
+be this, whatever 0x1110.
+
+2168
+01:18:52,750 --> 01:18:54,240
+And why does this work out.
+
+2169
+01:18:55,960 --> 01:18:57,130
+And the reason works out is
+
+2170
+01:18:57,130 --> 01:18:58,270
+because the kernel is setup,
+
+2171
+01:18:58,270 --> 01:19:00,460
+we can identity page mapping. So,
+
+2172
+01:19:00,730 --> 01:19:03,760
+after we enable the virtual paging hardware,
+
+2173
+01:19:03,760 --> 01:19:05,740
+we actually know this translator will
+
+2174
+01:19:05,740 --> 01:19:07,540
+translate again to the same physical
+
+2175
+01:19:07,540 --> 01:19:11,180
+address and so indeed we'll actually end up, you know,
+
+2176
+01:19:11,210 --> 01:19:13,430
+executing the writing instruction, because that's
+
+2177
+01:19:13,430 --> 01:19:14,750
+actually exactly the instruction,
+
+2178
+01:19:14,750 --> 01:19:16,490
+the memory location that the virtual
+
+2179
+01:19:16,490 --> 01:19:17,700
+hardware is programmed for.
+
+2180
+01:19:19,110 --> 01:19:20,400
+So does this make sense.
+
+2181
+01:19:22,920 --> 01:19:25,560
+Again, one reason why programming virtual
+
+2182
+01:19:25,560 --> 01:19:27,570
+memory is difficult is because once
+
+2183
+01:19:27,570 --> 01:19:29,100
+you execute one of these satp
+
+2184
+01:19:29,100 --> 01:19:31,410
+instructions you load a page table
+
+2185
+01:19:31,410 --> 01:19:35,040
+in the satp register, your world
+
+2186
+01:19:35,040 --> 01:19:36,320
+completely changes.
+
+2187
+01:19:36,680 --> 01:19:38,720
+And every address is now translated
+
+2188
+01:19:38,720 --> 01:19:40,520
+with the page table, that you set up.
+
+2189
+01:19:41,540 --> 01:19:42,590
+And so what happens if the
+
+2190
+01:19:42,590 --> 01:19:44,320
+page table setup incorrectly.
+
+2191
+01:19:44,840 --> 01:19:47,280
+What would you, what might happen.
+
+2192
+01:19:53,650 --> 01:19:54,960
+Anybody who wants to
+
+2193
+01:19:55,290 --> 01:19:56,790
+say that answered or answered in
+
+2194
+01:19:56,790 --> 01:19:58,120
+the chat, you can wait.
+
+2195
+01:20:00,510 --> 01:20:02,520
+You could override kernel data.
+
+2196
+01:20:02,980 --> 01:20:04,240
+Yeah you could overwrite kernel data
+
+2197
+01:20:04,240 --> 01:20:05,020
+what else could happen,
+
+2198
+01:20:05,020 --> 01:20:07,660
+yeah page fault, you basically do,
+
+2199
+01:20:07,720 --> 01:20:10,030
+the mapping may be incorrect and
+
+2200
+01:20:10,030 --> 01:20:12,010
+basically the address can be translated at all,
+
+2201
+01:20:12,010 --> 01:20:13,150
+and so the kernel can, you
+
+2202
+01:20:13,150 --> 01:20:14,650
+know, the hardware won't do it
+
+2203
+01:20:14,650 --> 01:20:16,620
+and usally the kernel there stops and panics.
+
+2204
+01:20:18,760 --> 01:20:20,020
+Does that make sense,
+
+2205
+01:20:20,020 --> 01:20:21,700
+so if you get a bug
+
+2206
+01:20:21,700 --> 01:20:23,020
+in your page tables,
+
+2207
+01:20:23,530 --> 01:20:24,490
+you know you're going to see
+
+2208
+01:20:24,490 --> 01:20:28,020
+these are errors or crashes.
+
+2209
+01:20:28,720 --> 01:20:29,080
+And so,
+
+2210
+01:20:29,080 --> 01:20:31,300
+one reason that example, the next lab,
+
+2211
+01:20:31,300 --> 01:20:32,470
+that page table lab, that
+
+2212
+01:20:32,470 --> 01:20:34,570
+will hand out or release tonight,
+
+2213
+01:20:34,570 --> 01:20:35,980
+is going to be hard,
+
+2214
+01:20:35,980 --> 01:20:37,840
+because those kind of bugs will show up.
+
+2215
+01:20:38,200 --> 01:20:39,820
+If you're not careful enough or
+
+2216
+01:20:39,820 --> 01:20:42,420
+you haven't fully internalized some aspect yet.
+
+2217
+01:20:42,520 --> 01:20:43,780
+And you're basically going to
+
+2218
+01:20:43,780 --> 01:20:45,640
+get kernel crash and
+
+2219
+01:20:45,640 --> 01:20:46,390
+you're gonna have a hard
+
+2220
+01:20:46,390 --> 01:20:48,220
+time when you will take a little bit of time
+
+2221
+01:20:48,220 --> 01:20:50,050
+and energy and detective work
+
+2222
+01:20:50,050 --> 01:20:52,280
+to basically track down why that happened.
+
+2223
+01:20:53,370 --> 01:20:55,860
+And that's just the, that's just
+
+2224
+01:20:55,860 --> 01:20:57,860
+part of like programming virtual memory.
+
+2225
+01:20:58,330 --> 01:20:59,170
+Because it's such a
+
+2226
+01:20:59,170 --> 01:21:00,730
+powerful primitive, you know, you
+
+2227
+01:21:00,730 --> 01:21:01,480
+get it wrong,
+
+2228
+01:21:01,480 --> 01:21:04,840
+you're gonna have powerful consequences.
+
+2229
+01:21:08,090 --> 01:21:09,890
+Yet the other hand is great amount of fun,
+
+2230
+01:21:09,890 --> 01:21:12,560
+so I don't want to end on a negative node,
+
+2231
+01:21:12,560 --> 01:21:14,630
+But all that will give
+
+2232
+01:21:14,630 --> 01:21:16,370
+you a real understanding of actually
+
+2233
+01:21:16,370 --> 01:21:18,020
+what really virtual memory is and
+
+2234
+01:21:18,020 --> 01:21:18,840
+what it can do.
+
+2235
+01:21:20,180 --> 01:21:21,140
+Okay I think I'm running
+
+2236
+01:21:21,140 --> 01:21:21,800
+out of time so I'm
+
+2237
+01:21:21,800 --> 01:21:22,820
+gonna stop here,
+
+2238
+01:21:22,820 --> 01:21:24,110
+so people have time to
+
+2239
+01:21:24,110 --> 01:21:26,060
+go to the next class or next activity,
+
+2240
+01:21:26,060 --> 01:21:27,620
+but if you have any questions
+
+2241
+01:21:27,620 --> 01:21:30,700
+left, please hang on and ask them.
+
+2242
+01:21:31,440 --> 01:21:33,960
+And, we'll see you on monday.
+
+2243
+01:21:35,360 --> 01:21:38,320
+And good luck with finishing the syscall lab.
+
+2244
+01:21:40,920 --> 01:21:44,190
+Um, hi, I have a question about walk,
+
+2245
+01:21:44,190 --> 01:21:47,040
+so it says and in the code,
+
+2246
+01:21:47,040 --> 01:21:52,360
+it returns the like the first tables of PTE.
+
+2247
+01:21:52,480 --> 01:21:53,980
+Yeah right.
+
+2248
+01:21:53,980 --> 01:21:56,410
+But how does it work,
+
+2249
+01:21:56,410 --> 01:21:57,910
+then like the other functions when
+
+2250
+01:21:57,910 --> 01:22:01,310
+they expect the actual PTE,
+
+2251
+01:22:01,310 --> 01:22:03,560
+than the physical address.
+
+2252
+01:22:05,690 --> 01:22:09,590
+Yeah basically this returns the PTE
+
+2253
+01:22:09,590 --> 01:22:11,240
+entry in the page table,
+
+2254
+01:22:12,100 --> 01:22:13,330
+and the kernel can read or
+
+2255
+01:22:13,330 --> 01:22:14,680
+write page table entries.
+
+2256
+01:22:15,070 --> 01:22:17,050
+Um, and so now you can
+
+2257
+01:22:17,050 --> 01:22:19,200
+stick values into the PTE.
+
+2258
+01:22:21,180 --> 01:22:22,560
+And so maybe I can draw
+
+2259
+01:22:22,560 --> 01:22:24,640
+a picture that is helpful.
+
+2260
+01:22:26,330 --> 01:22:27,160
+Let's see.
+
+2261
+01:22:35,790 --> 01:22:37,980
+So maybe we have a page directory.
+
+2262
+01:22:45,000 --> 01:22:48,150
+And, you know, this walk code,
+
+2263
+01:22:48,150 --> 01:22:52,900
+so the page directory has 512 PTE in it.
+
+2264
+01:22:56,960 --> 01:23:00,560
+Here's zero, here's 511 and basically what the
+
+2265
+01:23:00,560 --> 01:23:05,340
+function does it returns a pointer to one of these PTEs.
+
+2266
+01:23:06,040 --> 01:23:07,600
+And so that's just a virtual address,
+
+2267
+01:23:07,600 --> 01:23:09,740
+and it points to that particular PTE.
+
+2268
+01:23:10,220 --> 01:23:11,990
+And now the kernel can, you
+
+2269
+01:23:11,990 --> 01:23:14,330
+know manipulate that PTE, by whatever
+
+2270
+01:23:14,330 --> 01:23:15,680
+writing values to it.
+
+2271
+01:23:16,010 --> 01:23:17,420
+Like some physical address,
+
+2272
+01:23:17,820 --> 01:23:20,250
+maybe with some permissions
+
+2273
+01:23:20,250 --> 01:23:22,320
+into it for the bottom ten bits.
+
+2274
+01:23:23,730 --> 01:23:26,130
+And then basically updates the page table directory,
+
+2275
+01:23:26,130 --> 01:23:29,540
+and then later on when you load data into satp,
+
+2276
+01:23:29,810 --> 01:23:32,660
+now, that affect that change will go into effect.
+
+2277
+01:23:35,350 --> 01:23:36,480
+Does that make sense.
+
+2278
+01:23:37,180 --> 01:23:38,440
+Yeah that makes sense, I guess
+
+2279
+01:23:38,440 --> 01:23:39,880
+I just confused like why does
+
+2280
+01:23:39,880 --> 01:23:43,380
+it do the work of going all the way to the third,
+
+2281
+01:23:43,550 --> 01:23:46,840
+page table and then only return the first PTE.
+
+2282
+01:23:46,900 --> 01:23:50,440
+No, return is actually the bottom one.
+
+2283
+01:23:51,710 --> 01:23:53,510
+Actually, let me be careful,
+
+2284
+01:23:55,340 --> 01:23:56,840
+if, you know, it goes through
+
+2285
+01:23:56,840 --> 01:23:59,750
+the n levels, started level 2 and then go to level 1,
+
+2286
+01:23:59,750 --> 01:24:01,120
+again a level 0.
+
+2287
+01:24:01,730 --> 01:24:06,920
+If the alloc bit set and level doesn't exist,
+
+2288
+01:24:06,920 --> 01:24:09,980
+it will create the intermediate page table directory.
+
+2289
+01:24:10,580 --> 01:24:13,260
+And zero it out and then keep going to look.
+
+2290
+01:24:13,780 --> 01:24:17,840
+So, you always end up on the bottom PTE.
+
+2291
+01:24:18,580 --> 01:24:20,800
+If alloc not set, you stop
+
+2292
+01:24:20,800 --> 01:24:23,680
+at the first PTE, that doesn't have value.
+
+2293
+01:24:25,550 --> 01:24:26,510
+Okay, that makes sense,
+
+2294
+01:24:26,510 --> 01:24:29,840
+this is the last one, the actual on gonna have.
+
+2295
+01:24:29,840 --> 01:24:32,880
+Okay okay, thank you.
+
+2296
+01:24:36,850 --> 01:24:38,080
+Any other questions.
+
+2297
+01:24:40,820 --> 01:24:42,740
+So I have a question,
+
+2298
+01:24:42,740 --> 01:24:45,590
+basically everything made sense until
+
+2299
+01:24:45,590 --> 01:24:47,630
+we mapped the virtual addresses
+
+2300
+01:24:47,630 --> 01:24:51,980
+to, of the kernel to the physical addresses.
+
+2301
+01:24:53,800 --> 01:24:55,720
+So my understanding is that
+
+2302
+01:24:55,720 --> 01:24:57,880
+each process will have its own page table,
+
+2303
+01:24:57,880 --> 01:24:59,380
+which is also a three level tree
+
+2304
+01:24:59,380 --> 01:25:03,730
+which wraps its virtual addresses to physical addresses,
+
+2305
+01:25:03,730 --> 01:25:06,190
+but then we map the kernel
+
+2306
+01:25:06,190 --> 01:25:08,230
+virtual addresses to physical addresses, I
+
+2307
+01:25:08,230 --> 01:25:09,760
+don't think we accounted for the
+
+2308
+01:25:09,760 --> 01:25:14,150
+actual tree of them virtual addresses of the kernel
+
+2309
+01:25:14,150 --> 01:25:19,320
+or where other processes will have their virtual addresses.
+
+2310
+01:25:19,380 --> 01:25:23,760
+And I'm sorry, virtual addresses like
+
+2311
+01:25:23,760 --> 01:25:25,940
+the virtual table trees and
+
+2312
+01:25:26,200 --> 01:25:27,880
+whatever the page table tree points
+
+2313
+01:25:27,880 --> 01:25:30,430
+at in the physical memory.
+
+2314
+01:25:30,430 --> 01:25:32,260
+Yeah, so yeah so so you're
+
+2315
+01:25:32,260 --> 01:25:34,630
+back this is slide with kernel,
+
+2316
+01:25:35,870 --> 01:25:37,610
+address space, virtual kernel address
+
+2317
+01:25:37,610 --> 01:25:41,060
+space and so when the kernel allocates proc,
+
+2318
+01:25:41,370 --> 01:25:44,970
+and page tables for that particular process, they're going
+
+2319
+01:25:44,970 --> 01:25:48,630
+to be allocated at memory here, memory is
+
+2320
+01:25:48,630 --> 01:25:49,940
+not being used yet.
+
+2321
+01:25:50,870 --> 01:25:52,430
+And the kernel is going to
+
+2322
+01:25:52,430 --> 01:25:55,370
+program, we'll probably allocate a
+
+2323
+01:25:55,370 --> 01:25:57,170
+couple pages for the page table,
+
+2324
+01:25:57,170 --> 01:25:58,790
+off the usual process and
+
+2325
+01:25:58,790 --> 01:26:00,340
+will fill in the PTEs.
+
+2326
+01:26:01,460 --> 01:26:03,110
+And at some point when the
+
+2327
+01:26:03,110 --> 01:26:04,800
+kernel runs that process,
+
+2328
+01:26:04,900 --> 01:26:08,260
+it will load the route,
+
+2329
+01:26:08,260 --> 01:26:10,540
+physical address for those pages that
+
+2330
+01:26:10,540 --> 01:26:12,070
+is allocated for that page table
+
+2331
+01:26:12,070 --> 01:26:14,200
+or basically page table then built
+
+2332
+01:26:14,200 --> 01:26:15,880
+into the satp register.
+
+2333
+01:26:16,650 --> 01:26:19,560
+And at that point the processor
+
+2334
+01:26:19,560 --> 01:26:21,720
+will run with the virtual address
+
+2335
+01:26:21,720 --> 01:26:23,460
+space that the kernel constructed for
+
+2336
+01:26:23,460 --> 01:26:24,680
+that particular process.
+
+2337
+01:26:27,140 --> 01:26:29,060
+So the kernel gave up
+
+2338
+01:26:29,060 --> 01:26:32,270
+some of its memory for processes,
+
+2339
+01:26:32,270 --> 01:26:36,470
+and then the virtual space in theory is as big
+
+2340
+01:26:36,470 --> 01:26:39,910
+for the process as the kernel,
+
+2341
+01:26:39,910 --> 01:26:42,550
+but in reality, it's really not.
+
+2342
+01:26:42,550 --> 01:26:45,250
+Yeah, have a picture with the layout
+
+2343
+01:26:45,250 --> 01:26:46,330
+of a virtual address space with
+
+2344
+01:26:46,330 --> 01:26:48,040
+their usual level process and again
+
+2345
+01:26:48,040 --> 01:26:49,960
+it goes from zero to MAXVA.
+
+2346
+01:26:51,930 --> 01:26:53,520
+In the same way as the
+
+2347
+01:26:54,240 --> 01:26:56,100
+kernel address space does and it's
+
+2348
+01:26:56,100 --> 01:26:57,120
+basically has his own set of
+
+2349
+01:26:57,120 --> 01:27:00,140
+page tables to map those translation
+
+2350
+01:27:00,500 --> 01:27:01,720
+the kernel setup.
+
+2351
+01:27:03,200 --> 01:27:06,530
+But we can't actually use all of the MAXVA virtual.
+
+2352
+01:27:06,530 --> 01:27:07,580
+No, we cannot.
+
+2353
+01:27:07,640 --> 01:27:09,720
+We run out of memory.
+
+2354
+01:27:11,620 --> 01:27:14,800
+So many of the processes are much smaller than
+
+2355
+01:27:14,950 --> 01:27:16,800
+all of the virtual address space.
+
+2356
+01:27:19,740 --> 01:27:21,360
+I see, thank you.
+
+2357
+01:27:23,250 --> 01:27:24,480
+I've got a quick question,
+
+2358
+01:27:26,020 --> 01:27:28,450
+could you go back to the walk code,
+
+2359
+01:27:28,450 --> 01:27:30,040
+yeah yeah absolutely.
+
+2360
+01:27:31,490 --> 01:27:34,680
+It's one of my favorite functions.
+
+2361
+01:27:35,290 --> 01:27:38,560
+So I guess, one
+
+2362
+01:27:38,560 --> 01:27:40,570
+thing I'm confused about is after
+
+2363
+01:27:40,570 --> 01:27:44,800
+you write to the satp register, can the kernel even access
+
+2364
+01:27:44,800 --> 01:27:46,750
+physical addresses directly,
+
+2365
+01:27:46,750 --> 01:27:47,620
+so it looks like in the
+
+2366
+01:27:47,620 --> 01:27:49,210
+code that it's converting you know
+
+2367
+01:27:49,210 --> 01:27:51,250
+like page was being set to a physical address,
+
+2368
+01:27:51,250 --> 01:27:53,500
+but if satp is set,
+
+2369
+01:27:53,860 --> 01:27:57,580
+won't that be interpreted as a virtual address.
+
+2370
+01:27:57,580 --> 01:27:59,680
+Yeah,
+
+2371
+01:27:59,680 --> 01:28:06,600
+so, okay so let's look at hartinit.
+
+2372
+01:28:12,380 --> 01:28:14,720
+That's kvm, so built in kernel address space.
+
+2373
+01:28:15,070 --> 01:28:17,860
+The kernel page table,
+
+2374
+01:28:19,860 --> 01:28:23,280
+initially, the virtual physical, address
+
+2375
+01:28:23,280 --> 01:28:26,190
+is translated to a physical
+
+2376
+01:28:26,190 --> 01:28:29,300
+address and that's actually written into the satp register.
+
+2377
+01:28:30,380 --> 01:28:32,360
+And at that point you
+
+2378
+01:28:32,360 --> 01:28:34,220
+know we're running with the address
+
+2379
+01:28:34,220 --> 01:28:36,740
+space that we've constructed right before
+
+2380
+01:28:36,740 --> 01:28:38,280
+here, this kvminit.
+
+2381
+01:28:39,980 --> 01:28:41,480
+And gave me a map is
+
+2382
+01:28:41,480 --> 01:28:44,700
+basically nothing else than calling
+
+2383
+01:28:45,040 --> 01:28:47,710
+walk for every address where
+
+2384
+01:28:47,710 --> 01:28:49,500
+every page and at the range.
+
+2385
+01:28:50,340 --> 01:28:51,750
+And so what was your question?
+
+2386
+01:28:53,660 --> 01:28:54,380
+I guess,
+
+2387
+01:28:54,380 --> 01:28:56,810
+it's does walks still work
+
+2388
+01:28:56,810 --> 01:28:59,480
+the same way if you call it after satp
+
+2389
+01:28:59,480 --> 01:29:02,160
+is set. Yeah why.
+
+2390
+01:29:04,590 --> 01:29:06,900
+Why we work out the reason
+
+2391
+01:29:06,900 --> 01:29:13,260
+it work out the kernel set up in identity mapping.
+
+2392
+01:29:13,720 --> 01:29:15,100
+Ok, right, right.
+
+2393
+01:29:15,100 --> 01:29:16,390
+Very important,
+
+2394
+01:29:16,390 --> 01:29:18,580
+very good question,
+
+2395
+01:29:18,580 --> 01:29:19,930
+a lot of things just happened
+
+2396
+01:29:19,930 --> 01:29:23,040
+to work out because actually the identity mapping is set up.
+
+2397
+01:29:24,670 --> 01:29:27,610
+I see, I think that makes sense,
+
+2398
+01:29:31,360 --> 01:29:33,220
+I have a quick question.
+
+2399
+01:29:33,220 --> 01:29:38,000
+Where the satp register stored for all of the processes.
+
+2400
+01:29:38,480 --> 01:29:41,560
+There only one satp per core,
+
+2401
+01:29:42,040 --> 01:29:44,260
+but in every proc structure.
+
+2402
+01:29:46,300 --> 01:29:49,840
+If you look at proc.h, there is,
+
+2403
+01:29:52,740 --> 01:29:55,680
+a pointer to the page table,
+
+2404
+01:29:55,680 --> 01:29:57,620
+here, here. okay, makes sense.
+
+2405
+01:29:58,460 --> 01:30:01,370
+And also with regards to the
+
+2406
+01:30:01,370 --> 01:30:04,280
+three page tables are like the
+
+2407
+01:30:04,280 --> 01:30:06,680
+three tables that can complete the
+
+2408
+01:30:06,680 --> 01:30:08,060
+full address and help you get
+
+2409
+01:30:08,060 --> 01:30:11,510
+a full address for even something,
+
+2410
+01:30:11,510 --> 01:30:13,160
+how does how is that better
+
+2411
+01:30:13,160 --> 01:30:15,500
+I guess than than having one
+
+2412
+01:30:15,500 --> 01:30:17,120
+giant page table I didn't really
+
+2413
+01:30:17,120 --> 01:30:20,090
+fully understand what. A great question,
+
+2414
+01:30:20,090 --> 01:30:22,580
+the reason is because in the free level page table,
+
+2415
+01:30:22,580 --> 01:30:24,460
+you can leave a lot of entries empty.
+
+2416
+01:30:25,060 --> 01:30:26,920
+So, for example if you leave
+
+2417
+01:30:26,920 --> 01:30:30,520
+the entry in the top level page table directly empty,
+
+2418
+01:30:30,520 --> 01:30:31,960
+you don't have to create middle
+
+2419
+01:30:31,960 --> 01:30:33,910
+level page tables or bottom level
+
+2420
+01:30:33,910 --> 01:30:36,200
+page tables at all, for those entries.
+
+2421
+01:30:37,070 --> 01:30:38,870
+Like this means like a big
+
+2422
+01:30:38,870 --> 01:30:40,940
+[] of the whole virtual address
+
+2423
+01:30:40,940 --> 01:30:43,400
+space doesn't have to have any mapping at all.
+
+2424
+01:30:44,890 --> 01:30:45,730
+Okay, okay.
+
+2425
+01:30:45,730 --> 01:30:47,080
+You don't have the table there,
+
+2426
+01:30:47,080 --> 01:30:48,240
+it just doesn't exist.
+
+2427
+01:30:48,840 --> 01:30:49,230
+I see,
+
+2428
+01:30:49,230 --> 01:30:52,500
+basically allocating these chunks on demand
+
+2429
+01:30:52,500 --> 01:30:53,880
+as volumes and types,
+
+2430
+01:30:53,880 --> 01:30:55,170
+OK that makes sense,
+
+2431
+01:30:55,170 --> 01:30:56,880
+Yeah you're starting basically with three
+
+2432
+01:30:56,880 --> 01:30:58,410
+page three pages namely,
+
+2433
+01:30:58,410 --> 01:30:59,490
+one from the top level one
+
+2434
+01:30:59,490 --> 01:31:01,170
+for, one intermediate one from,
+
+2435
+01:31:01,170 --> 01:31:02,840
+one bottom level.
+
+2436
+01:31:03,170 --> 01:31:03,740
+And then,
+
+2437
+01:31:03,740 --> 01:31:05,090
+as you go you create more
+
+2438
+01:31:05,090 --> 01:31:06,500
+page table directories.
+
+2439
+01:31:06,750 --> 01:31:07,680
+Okay, okay,
+
+2440
+01:31:09,140 --> 01:31:10,400
+cool, thank you so much.
+
+2441
+01:31:10,400 --> 01:31:11,220
+You're welcome.
+
+2442
+01:31:12,930 --> 01:31:14,180
+Any more questions.
+
+2443
+01:31:14,670 --> 01:31:16,020
+I'm sorry I have another one,
+
+2444
+01:31:16,020 --> 01:31:18,270
+it's really really small but
+
+2445
+01:31:18,270 --> 01:31:26,280
+in the vm.c on line 43, 41,
+
+2446
+01:31:26,280 --> 01:31:30,680
+it says that, no, might 43, my bad,
+
+2447
+01:31:30,680 --> 01:31:38,020
+it says 'PHYSTOP-(uint64)etext', but wouldn't that,
+
+2448
+01:31:38,370 --> 01:31:43,260
+would not go over the, I guess the memory that
+
+2449
+01:31:43,260 --> 01:31:46,020
+we shouldn't touch, I don't
+
+2450
+01:31:46,020 --> 01:31:47,070
+know if that makes sense,
+
+2451
+01:31:47,070 --> 01:31:50,240
+but, would that go.
+
+2452
+01:31:51,210 --> 01:31:53,130
+I guess I don't understand, would
+
+2453
+01:31:53,130 --> 01:31:54,920
+they go over free memory.
+
+2454
+01:31:55,790 --> 01:31:58,820
+No, I don't think so,
+
+2455
+01:31:58,820 --> 01:32:03,680
+so KERNBASE is 0x8000, right
+
+2456
+01:32:03,680 --> 01:32:05,800
+so that's the beginning of memory.
+
+2457
+01:32:06,070 --> 01:32:09,400
+Kernel sits there in,
+
+2458
+01:32:09,430 --> 01:32:14,340
+basically, this thing is a size,
+
+2459
+01:32:15,070 --> 01:32:18,280
+right, so etext is the last address of the kernel,
+
+2460
+01:32:18,280 --> 01:32:20,200
+subtract KERNBASE, that basically gives
+
+2461
+01:32:20,200 --> 01:32:26,160
+you the size of the kernel, in byte.
+
+2462
+01:32:26,490 --> 01:32:28,140
+And, you know, I don't know how
+
+2463
+01:32:28,140 --> 01:32:31,800
+much it is, but it's like you know 60 or 90
+
+2464
+01:32:31,800 --> 01:32:33,460
+pages or something like that.
+
+2465
+01:32:33,990 --> 01:32:35,580
+And so this map
+
+2466
+01:32:35,580 --> 01:32:37,760
+is basically the text part of the kernel.
+
+2467
+01:32:38,350 --> 01:32:42,640
+Um, and there's enough space.
+
+2468
+01:32:43,290 --> 01:32:48,460
+There's enough DRAM there to map that the kernel text.
+
+2469
+01:32:48,830 --> 01:32:50,240
+I'm not sure, I'm answering your question,
+
+2470
+01:32:50,240 --> 01:32:53,840
+but. I think, I think I understand.
+
+2471
+01:32:54,030 --> 01:32:56,670
+I thought that etext starts
+
+2472
+01:32:56,670 --> 01:32:59,250
+somewhere else, okay, I think I understand now, thank you.
+
+2473
+01:32:59,250 --> 01:33:01,080
+So etext basically the last instruction,
+
+2474
+01:33:01,080 --> 01:33:03,080
+the address of the last instruction of the kernel.
+
+2475
+01:33:03,690 --> 01:33:04,720
+Okay, okay.
