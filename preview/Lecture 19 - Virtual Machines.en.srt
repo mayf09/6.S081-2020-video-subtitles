@@ -1,0 +1,10564 @@
+1
+00:00:02,800 --> 00:00:04,960
+all right
+
+2
+00:00:04,960 --> 00:00:09,509
+i'd like to get started um
+
+3
+00:00:09,519 --> 00:00:10,639
+today i want to talk about virtual
+
+4
+00:00:10,639 --> 00:00:12,719
+machines um
+
+5
+00:00:12,719 --> 00:00:14,719
+and i'm gonna the lecture is really
+
+6
+00:00:14,719 --> 00:00:16,480
+gonna be divided into three pieces one
+
+7
+00:00:16,480 --> 00:00:18,480
+is i'm going to start with
+
+8
+00:00:18,480 --> 00:00:19,840
+what's called trap and emulate
+
+9
+00:00:19,840 --> 00:00:21,920
+virtualization which is basically an
+
+10
+00:00:21,920 --> 00:00:24,240
+overview of how you could build your own
+
+11
+00:00:24,240 --> 00:00:27,519
+virtual machine scheme
+
+12
+00:00:27,519 --> 00:00:30,720
+on risk 5 and qmu now i'm going to talk
+
+13
+00:00:30,720 --> 00:00:32,000
+a bit about
+
+14
+00:00:32,000 --> 00:00:34,000
+recent hardware support in
+
+15
+00:00:34,000 --> 00:00:37,440
+microprocessors for virtualization
+
+16
+00:00:37,440 --> 00:00:39,440
+and then about today's paper dune which
+
+17
+00:00:39,440 --> 00:00:40,480
+uses
+
+18
+00:00:40,480 --> 00:00:43,600
+this modern hardware support all right
+
+19
+00:00:43,600 --> 00:00:44,559
+so
+
+20
+00:00:44,559 --> 00:00:47,680
+first what's a virtual machine
+
+21
+00:00:47,680 --> 00:00:49,760
+it's really uh you can think of it as a
+
+22
+00:00:49,760 --> 00:00:51,760
+simulation of a computer that's
+
+23
+00:00:51,760 --> 00:00:54,399
+accurate enough to run an operating
+
+24
+00:00:54,399 --> 00:00:55,840
+system
+
+25
+00:00:55,840 --> 00:01:00,239
+so qmu is a uh
+
+26
+00:01:00,239 --> 00:01:02,160
+example of uh you could consider to be
+
+27
+00:01:02,160 --> 00:01:04,960
+an example of a virtual machine
+
+28
+00:01:04,960 --> 00:01:07,280
+the way i'm going to talk about it is
+
+29
+00:01:07,280 --> 00:01:10,789
+that
+
+30
+00:01:10,799 --> 00:01:12,479
+down to the sort of the lowest level
+
+31
+00:01:12,479 --> 00:01:14,720
+sitting on top of the hardware
+
+32
+00:01:14,720 --> 00:01:17,920
+we're going to imagine a virtual machine
+
+33
+00:01:17,920 --> 00:01:20,960
+monitor or vmm
+
+34
+00:01:20,960 --> 00:01:22,880
+and this more or less takes the place of
+
+35
+00:01:22,880 --> 00:01:26,640
+the standard operating system kernel
+
+36
+00:01:26,640 --> 00:01:28,799
+and the virtual machine monitor's job is
+
+37
+00:01:28,799 --> 00:01:31,840
+to simulate a bunch of
+
+38
+00:01:31,840 --> 00:01:34,880
+computers for guest operating systems
+
+39
+00:01:34,880 --> 00:01:38,159
+so um so up here in
+
+40
+00:01:38,159 --> 00:01:40,880
+in you know what used to be user space
+
+41
+00:01:40,880 --> 00:01:43,040
+in our usual diagrams um but it's now
+
+42
+00:01:43,040 --> 00:01:43,439
+guest
+
+43
+00:01:43,439 --> 00:01:47,200
+space so this is um
+
+44
+00:01:47,200 --> 00:01:49,439
+we're gonna call this guest space and
+
+45
+00:01:49,439 --> 00:01:50,720
+down here
+
+46
+00:01:50,720 --> 00:01:53,520
+host space we're going to have a bunch
+
+47
+00:01:53,520 --> 00:01:54,560
+of
+
+48
+00:01:54,560 --> 00:01:56,880
+one or more guest operating systems
+
+49
+00:01:56,880 --> 00:01:59,439
+kernels so
+
+50
+00:01:59,439 --> 00:02:04,550
+we might have a linux kernel
+
+51
+00:02:04,560 --> 00:02:08,000
+as one guest and
+
+52
+00:02:08,000 --> 00:02:10,239
+this linux kernel is gonna you know it's
+
+53
+00:02:10,239 --> 00:02:11,920
+just a it thinks of itself as an
+
+54
+00:02:11,920 --> 00:02:13,360
+ordinary kernel and it runs a bunch of
+
+55
+00:02:13,360 --> 00:02:15,120
+processes maybe a
+
+56
+00:02:15,120 --> 00:02:18,319
+vi and a c compiler and we might have
+
+57
+00:02:18,319 --> 00:02:20,840
+other guests
+
+58
+00:02:20,840 --> 00:02:23,280
+um i might have other guests who guessed
+
+59
+00:02:23,280 --> 00:02:24,560
+virtual machines
+
+60
+00:02:24,560 --> 00:02:26,400
+uh running here there might be maybe
+
+61
+00:02:26,400 --> 00:02:28,640
+another linux or maybe even uh
+
+62
+00:02:28,640 --> 00:02:31,360
+some other operating system like windows
+
+63
+00:02:31,360 --> 00:02:32,640
+um
+
+64
+00:02:32,640 --> 00:02:34,959
+all running on the same machine and
+
+65
+00:02:34,959 --> 00:02:37,599
+there would be
+
+66
+00:02:37,599 --> 00:02:40,560
+windows processes running within as
+
+67
+00:02:40,560 --> 00:02:42,000
+within this guest
+
+68
+00:02:42,000 --> 00:02:46,720
+operating system so with the host
+
+69
+00:02:46,720 --> 00:02:48,400
+the host world where the virtual machine
+
+70
+00:02:48,400 --> 00:02:50,720
+monitor runs in a guest world
+
+71
+00:02:50,720 --> 00:02:53,040
+where these uh ordinary operating
+
+72
+00:02:53,040 --> 00:02:54,000
+systems run
+
+73
+00:02:54,000 --> 00:02:55,599
+and furthermore we're going to talk
+
+74
+00:02:55,599 --> 00:02:58,400
+about a lot about um
+
+75
+00:02:58,400 --> 00:03:00,879
+in within the guest world uh guest
+
+76
+00:03:00,879 --> 00:03:05,589
+supervisor mode which is
+
+77
+00:03:05,599 --> 00:03:08,720
+the mode that
+
+78
+00:03:08,720 --> 00:03:10,720
+the kernels run in the guest kernels run
+
+79
+00:03:10,720 --> 00:03:11,840
+in and
+
+80
+00:03:11,840 --> 00:03:16,630
+guest user mode
+
+81
+00:03:16,640 --> 00:03:20,400
+and again the the the kind of classical
+
+82
+00:03:20,400 --> 00:03:22,879
+goal of the virtual machine monitor is
+
+83
+00:03:22,879 --> 00:03:24,959
+to provide an emulation of a machine
+
+84
+00:03:24,959 --> 00:03:26,400
+that's so good that you can just boot
+
+85
+00:03:26,400 --> 00:03:28,239
+ordinary linux ordinary windows
+
+86
+00:03:28,239 --> 00:03:31,280
+unmodified um and have it run
+
+87
+00:03:31,280 --> 00:03:32,799
+inside this virtual machine never
+
+88
+00:03:32,799 --> 00:03:35,360
+suspecting uh that anything funny is
+
+89
+00:03:35,360 --> 00:03:36,879
+going on
+
+90
+00:03:36,879 --> 00:03:38,799
+so for example the virtual machine
+
+91
+00:03:38,799 --> 00:03:40,400
+monitor has to be in a position to
+
+92
+00:03:40,400 --> 00:03:41,599
+emulate the difference between
+
+93
+00:03:41,599 --> 00:03:43,680
+supervisor mode and user mode in a way
+
+94
+00:03:43,680 --> 00:03:45,920
+that is just completely convincing
+
+95
+00:03:45,920 --> 00:03:47,760
+simulation of how the actual hardware
+
+96
+00:03:47,760 --> 00:03:48,959
+does it
+
+97
+00:03:48,959 --> 00:03:51,200
+even though that's you know can't really
+
+98
+00:03:51,200 --> 00:03:53,120
+be exactly what's going on
+
+99
+00:03:53,120 --> 00:03:54,159
+so that's why we talk about guest
+
+100
+00:03:54,159 --> 00:03:55,760
+supervisor mode and guest user mode
+
+101
+00:03:55,760 --> 00:03:56,720
+these are the
+
+102
+00:03:56,720 --> 00:04:01,760
+vmm's emulation of those two modes
+
+103
+00:04:01,760 --> 00:04:03,680
+so so why would you want to use a
+
+104
+00:04:03,680 --> 00:04:05,360
+virtual machine
+
+105
+00:04:05,360 --> 00:04:06,799
+it turns out there's a lot of reasons to
+
+106
+00:04:06,799 --> 00:04:09,680
+run lots of distinct guest operating
+
+107
+00:04:09,680 --> 00:04:10,400
+systems
+
+108
+00:04:10,400 --> 00:04:13,519
+on a single computer
+
+109
+00:04:13,519 --> 00:04:15,519
+sometimes maybe you're running a big
+
+110
+00:04:15,519 --> 00:04:16,639
+company and you
+
+111
+00:04:16,639 --> 00:04:17,919
+you know you need to have lots and lots
+
+112
+00:04:17,919 --> 00:04:20,160
+of servers maybe you get name servers
+
+113
+00:04:20,160 --> 00:04:22,160
+and security servers who knows what
+
+114
+00:04:22,160 --> 00:04:24,080
+and each one of them doesn't use many
+
+115
+00:04:24,080 --> 00:04:26,000
+resources so it's sort of a waste of
+
+116
+00:04:26,000 --> 00:04:27,120
+time to have to
+
+117
+00:04:27,120 --> 00:04:29,680
+buy a physical machine for it but you
+
+118
+00:04:29,680 --> 00:04:31,280
+want to run lot you know you you want to
+
+119
+00:04:31,280 --> 00:04:33,360
+run lots of these low-intensity servers
+
+120
+00:04:33,360 --> 00:04:35,120
+on a single piece of hardware so you can
+
+121
+00:04:35,120 --> 00:04:36,560
+save money
+
+122
+00:04:36,560 --> 00:04:40,070
+by using a virtual machine
+
+123
+00:04:40,080 --> 00:04:41,680
+it turns out virtual machines are also
+
+124
+00:04:41,680 --> 00:04:43,199
+very uh
+
+125
+00:04:43,199 --> 00:04:45,520
+very widely used in cloud computing
+
+126
+00:04:45,520 --> 00:04:47,199
+where it's an outfit like amazon
+
+127
+00:04:47,199 --> 00:04:50,240
+amazon aws
+
+128
+00:04:50,240 --> 00:04:51,600
+they don't want to rent out physical
+
+129
+00:04:51,600 --> 00:04:53,040
+machines to people because that turns
+
+130
+00:04:53,040 --> 00:04:54,240
+out to be
+
+131
+00:04:54,240 --> 00:04:56,000
+difficult to manage what they want to do
+
+132
+00:04:56,000 --> 00:04:57,840
+is rent their customers
+
+133
+00:04:57,840 --> 00:05:01,440
+their cloud customers just a machine
+
+134
+00:05:01,440 --> 00:05:04,479
+that amazon can on the fly
+
+135
+00:05:04,479 --> 00:05:06,720
+you know decide what harvard run it on
+
+136
+00:05:06,720 --> 00:05:08,479
+whether to run it on a bigger or smaller
+
+137
+00:05:08,479 --> 00:05:10,800
+machine amazon can decide oh
+
+138
+00:05:10,800 --> 00:05:14,960
+um you know it's it's current customers
+
+139
+00:05:14,960 --> 00:05:16,639
+maybe there's two customers
+
+140
+00:05:16,639 --> 00:05:18,080
+on this piece of hardware right here but
+
+141
+00:05:18,080 --> 00:05:19,360
+they're not using the computer very much
+
+142
+00:05:19,360 --> 00:05:20,960
+maybe you can pack a third or a fourth
+
+143
+00:05:20,960 --> 00:05:22,560
+customer on to that same piece of
+
+144
+00:05:22,560 --> 00:05:23,199
+hardware
+
+145
+00:05:23,199 --> 00:05:24,960
+you know without spending it extra money
+
+146
+00:05:24,960 --> 00:05:26,560
+but get more revenue
+
+147
+00:05:26,560 --> 00:05:29,680
+so this um virtual machines allow kind
+
+148
+00:05:29,680 --> 00:05:29,919
+of
+
+149
+00:05:29,919 --> 00:05:33,120
+extra level of flexibility and
+
+150
+00:05:33,120 --> 00:05:34,960
+you know it's the kind of trick that's
+
+151
+00:05:34,960 --> 00:05:36,560
+being used is that
+
+152
+00:05:36,560 --> 00:05:39,199
+we're kind of shifting up the existing
+
+153
+00:05:39,199 --> 00:05:40,800
+operating system kernels in user space
+
+154
+00:05:40,800 --> 00:05:41,199
+and
+
+155
+00:05:41,199 --> 00:05:44,320
+adding a new layer underneath
+
+156
+00:05:44,320 --> 00:05:47,759
+to provide this flexibility it turns out
+
+157
+00:05:47,759 --> 00:05:48,639
+there's um
+
+158
+00:05:48,639 --> 00:05:49,840
+you know there's other reasons why
+
+159
+00:05:49,840 --> 00:05:51,039
+people use virtual machines one is
+
+160
+00:05:51,039 --> 00:05:52,560
+certainly kernel development which is
+
+161
+00:05:52,560 --> 00:05:53,280
+why
+
+162
+00:05:53,280 --> 00:05:56,720
+we all use qmu the ability to run
+
+163
+00:05:56,720 --> 00:05:59,039
+xv6 in a kind of virtual environment
+
+164
+00:05:59,039 --> 00:06:00,639
+rather than on a real
+
+165
+00:06:00,639 --> 00:06:03,360
+computer makes this course much more
+
+166
+00:06:03,360 --> 00:06:04,880
+convenient for all of us
+
+167
+00:06:04,880 --> 00:06:06,400
+it also makes it a little bit easier to
+
+168
+00:06:06,400 --> 00:06:08,080
+debug because we can
+
+169
+00:06:08,080 --> 00:06:11,120
+turns out that once you're running xv6
+
+170
+00:06:11,120 --> 00:06:11,600
+and
+
+171
+00:06:11,600 --> 00:06:13,360
+in this virtual machine environment the
+
+172
+00:06:13,360 --> 00:06:15,840
+qmu provides it's easier to provide gdb
+
+173
+00:06:15,840 --> 00:06:19,039
+access than it would be on a
+
+174
+00:06:19,039 --> 00:06:22,000
+physical computer and a final reason
+
+175
+00:06:22,000 --> 00:06:23,039
+that people use
+
+176
+00:06:23,039 --> 00:06:25,039
+virtual machines is that there's a bunch
+
+177
+00:06:25,039 --> 00:06:26,880
+of tricks that can be played
+
+178
+00:06:26,880 --> 00:06:29,280
+using this extra layer of indirection
+
+179
+00:06:29,280 --> 00:06:30,880
+provided by the virtual machine monitor
+
+180
+00:06:30,880 --> 00:06:31,919
+for example
+
+181
+00:06:31,919 --> 00:06:36,000
+you can checkpoint an entire running
+
+182
+00:06:36,000 --> 00:06:37,840
+operating system and user processes you
+
+183
+00:06:37,840 --> 00:06:40,000
+can take a checkpoint of it
+
+184
+00:06:40,000 --> 00:06:42,080
+stash it away somewhere maybe on disk
+
+185
+00:06:42,080 --> 00:06:44,639
+and then later restore that checkpoint
+
+186
+00:06:44,639 --> 00:06:46,960
+sort of exactly the state of that
+
+187
+00:06:46,960 --> 00:06:48,800
+operating system and its processes
+
+188
+00:06:48,800 --> 00:06:50,319
+as it was at the time of the checkpoint
+
+189
+00:06:50,319 --> 00:06:52,160
+that's useful for reliability for
+
+190
+00:06:52,160 --> 00:06:53,039
+debugging
+
+191
+00:06:53,039 --> 00:06:55,840
+for maybe cloning the image of a virtual
+
+192
+00:06:55,840 --> 00:06:57,280
+machine so you can run it
+
+193
+00:06:57,280 --> 00:06:59,919
+multiple times another game you can play
+
+194
+00:06:59,919 --> 00:07:01,520
+is you can might
+
+195
+00:07:01,520 --> 00:07:04,400
+migrate a guest an entire guest to
+
+196
+00:07:04,400 --> 00:07:06,080
+another computer
+
+197
+00:07:06,080 --> 00:07:07,520
+if you have a guest operating system
+
+198
+00:07:07,520 --> 00:07:09,120
+running on a physical computer
+
+199
+00:07:09,120 --> 00:07:10,720
+and you need to shut down or replace
+
+200
+00:07:10,720 --> 00:07:12,160
+that physical computer
+
+201
+00:07:12,160 --> 00:07:14,319
+you can actually turns out move the
+
+202
+00:07:14,319 --> 00:07:15,520
+running
+
+203
+00:07:15,520 --> 00:07:17,840
+virtual machine image without disturbing
+
+204
+00:07:17,840 --> 00:07:20,000
+it to another physical computer so you
+
+205
+00:07:20,000 --> 00:07:20,319
+can
+
+206
+00:07:20,319 --> 00:07:22,800
+shut down the first one so there's just
+
+207
+00:07:22,800 --> 00:07:24,080
+examples of
+
+208
+00:07:24,080 --> 00:07:26,000
+why people really like virtual machines
+
+209
+00:07:26,000 --> 00:07:27,360
+and people really do virtual machines
+
+210
+00:07:27,360 --> 00:07:30,319
+are very very widely used
+
+211
+00:07:30,319 --> 00:07:31,840
+and they also have a long history this
+
+212
+00:07:31,840 --> 00:07:34,080
+ideas first came up in the 1960s and
+
+213
+00:07:34,080 --> 00:07:34,960
+they've been
+
+214
+00:07:34,960 --> 00:07:38,560
+developed over time until they're
+
+215
+00:07:38,560 --> 00:07:42,800
+quite pervasive and easy to use
+
+216
+00:07:42,800 --> 00:07:45,840
+for this course um the reason why we're
+
+217
+00:07:45,840 --> 00:07:47,680
+looking into them is that
+
+218
+00:07:47,680 --> 00:07:50,160
+virtual machine monitors provide a sort
+
+219
+00:07:50,160 --> 00:07:51,199
+of different view
+
+220
+00:07:51,199 --> 00:07:53,599
+on what an operating system can be you
+
+221
+00:07:53,599 --> 00:07:54,560
+know instead of
+
+222
+00:07:54,560 --> 00:07:56,240
+the process abstraction we're all used
+
+223
+00:07:56,240 --> 00:07:57,759
+to you know we have some analogous
+
+224
+00:07:57,759 --> 00:07:59,440
+structures here but
+
+225
+00:07:59,440 --> 00:08:00,960
+that's sort of providing a different
+
+226
+00:08:00,960 --> 00:08:03,520
+kind of container it's not a
+
+227
+00:08:03,520 --> 00:08:06,479
+process it's a sort of simulated machine
+
+228
+00:08:06,479 --> 00:08:08,639
+so it allows us to kind of think about
+
+229
+00:08:08,639 --> 00:08:10,800
+all the stuff we've been talking about
+
+230
+00:08:10,800 --> 00:08:13,280
+you know memory allocation scheduling
+
+231
+00:08:13,280 --> 00:08:16,160
+protection from a different point of
+
+232
+00:08:16,160 --> 00:08:17,759
+view
+
+233
+00:08:17,759 --> 00:08:19,280
+maybe give us some ideas which we can
+
+234
+00:08:19,280 --> 00:08:20,800
+take back to traditional operating
+
+235
+00:08:20,800 --> 00:08:22,000
+system kernels
+
+236
+00:08:22,000 --> 00:08:25,280
+um and indeed much of the action
+
+237
+00:08:25,280 --> 00:08:27,039
+the sort of development design
+
+238
+00:08:27,039 --> 00:08:29,599
+development research action
+
+239
+00:08:29,599 --> 00:08:32,880
+has shifted from conventional kernels
+
+240
+00:08:32,880 --> 00:08:35,440
+um down into the virtual machine
+
+241
+00:08:35,440 --> 00:08:36,800
+monitors themselves as
+
+242
+00:08:36,800 --> 00:08:39,839
+as they've gotten more prevalent so in
+
+243
+00:08:39,839 --> 00:08:41,279
+some sense kind of the topic of
+
+244
+00:08:41,279 --> 00:08:42,320
+operating systems
+
+245
+00:08:42,320 --> 00:08:48,150
+is drifting downwards a bit by one layer
+
+246
+00:08:48,160 --> 00:08:51,360
+okay for the first part of this lecture
+
+247
+00:08:51,360 --> 00:08:53,440
+i want to talk about
+
+248
+00:08:53,440 --> 00:08:56,399
+a bit about how we could implement our
+
+249
+00:08:56,399 --> 00:08:57,040
+own
+
+250
+00:08:57,040 --> 00:09:00,399
+uh virtual machine and
+
+251
+00:09:00,399 --> 00:09:04,240
+i'm going to use risk 5 as the sort of
+
+252
+00:09:04,240 --> 00:09:08,000
+assume that we're trying to emulate risk
+
+253
+00:09:08,000 --> 00:09:09,680
+five hardware so we can run operating
+
+254
+00:09:09,680 --> 00:09:11,839
+systems designed for risk five like
+
+255
+00:09:11,839 --> 00:09:14,959
+xv6 um and
+
+256
+00:09:14,959 --> 00:09:19,600
+just to repeat the uh specific goals
+
+257
+00:09:19,600 --> 00:09:22,240
+what we'd like what or for kind of
+
+258
+00:09:22,240 --> 00:09:24,160
+classical virtual machines
+
+259
+00:09:24,160 --> 00:09:26,080
+what we'd like to build is something in
+
+260
+00:09:26,080 --> 00:09:28,000
+which the guest software is just
+
+261
+00:09:28,000 --> 00:09:28,880
+completely
+
+262
+00:09:28,880 --> 00:09:32,000
+not aware that it's running inside a
+
+263
+00:09:32,000 --> 00:09:33,279
+virtual machine
+
+264
+00:09:33,279 --> 00:09:36,000
+we want to build something that makes it
+
+265
+00:09:36,000 --> 00:09:37,680
+impossible for the guest software to
+
+266
+00:09:37,680 --> 00:09:38,959
+distinguish
+
+267
+00:09:38,959 --> 00:09:40,399
+and to decide whether is this am i
+
+268
+00:09:40,399 --> 00:09:42,080
+running on a real machine or a virtual
+
+269
+00:09:42,080 --> 00:09:43,680
+machine right we want the emulation to
+
+270
+00:09:43,680 --> 00:09:45,600
+be that good
+
+271
+00:09:45,600 --> 00:09:46,959
+and the reason for that is that we don't
+
+272
+00:09:46,959 --> 00:09:49,040
+want we want
+
+273
+00:09:49,040 --> 00:09:50,240
+to be able to run it we'd like to be
+
+274
+00:09:50,240 --> 00:09:51,519
+able to run anything in our virtual
+
+275
+00:09:51,519 --> 00:09:52,320
+machine
+
+276
+00:09:52,320 --> 00:09:53,760
+any operating system even maybe an
+
+277
+00:09:53,760 --> 00:09:55,519
+operating system we haven't heard of
+
+278
+00:09:55,519 --> 00:09:58,080
+um and that means that you know whatever
+
+279
+00:09:58,080 --> 00:09:59,200
+funny stuff the
+
+280
+00:09:59,200 --> 00:10:00,800
+operating system does and the way it
+
+281
+00:10:00,800 --> 00:10:02,560
+uses hardware um
+
+282
+00:10:02,560 --> 00:10:06,079
+the virtual machine has to provide that
+
+283
+00:10:06,079 --> 00:10:08,720
+an emulation of exactly the hardware so
+
+284
+00:10:08,720 --> 00:10:09,760
+that any
+
+285
+00:10:09,760 --> 00:10:11,200
+tricks that work on the real hardware
+
+286
+00:10:11,200 --> 00:10:12,320
+are also going to work in the virtual
+
+287
+00:10:12,320 --> 00:10:13,600
+machine
+
+288
+00:10:13,600 --> 00:10:18,079
+um sort of similar
+
+289
+00:10:18,079 --> 00:10:20,880
+goal that we'd like is we want there to
+
+290
+00:10:20,880 --> 00:10:23,440
+be no way not only no way for a guest
+
+291
+00:10:23,440 --> 00:10:25,519
+to decide if it's running on virtual
+
+292
+00:10:25,519 --> 00:10:26,560
+machine but
+
+293
+00:10:26,560 --> 00:10:28,399
+no way for a guest to be able to escape
+
+294
+00:10:28,399 --> 00:10:29,760
+from the virtual machine
+
+295
+00:10:29,760 --> 00:10:31,519
+a lot of the reason why people use
+
+296
+00:10:31,519 --> 00:10:33,440
+virtual machines is to provide strict
+
+297
+00:10:33,440 --> 00:10:35,440
+confinement
+
+298
+00:10:35,440 --> 00:10:38,000
+for untrusted software even untrusted
+
+299
+00:10:38,000 --> 00:10:39,360
+operating systems running inside the
+
+300
+00:10:39,360 --> 00:10:40,399
+virtual machine
+
+301
+00:10:40,399 --> 00:10:42,480
+for example if you're amazon and you're
+
+302
+00:10:42,480 --> 00:10:44,399
+selling cloud service and your
+
+303
+00:10:44,399 --> 00:10:46,399
+it's your customers often who provide
+
+304
+00:10:46,399 --> 00:10:47,680
+the operating system
+
+305
+00:10:47,680 --> 00:10:49,200
+that runs in the virtual machine as well
+
+306
+00:10:49,200 --> 00:10:51,440
+as the applications and gosh for all you
+
+307
+00:10:51,440 --> 00:10:52,720
+know your customers are not running
+
+308
+00:10:52,720 --> 00:10:53,760
+ordinary linux
+
+309
+00:10:53,760 --> 00:10:55,360
+they're running a special hacked version
+
+310
+00:10:55,360 --> 00:10:57,279
+of linux who's
+
+311
+00:10:57,279 --> 00:11:00,160
+intended to try to break out of its
+
+312
+00:11:00,160 --> 00:11:03,040
+virtual machine and break into amazon's
+
+313
+00:11:03,040 --> 00:11:04,320
+um either the virtual machines of
+
+314
+00:11:04,320 --> 00:11:06,959
+amazon's other customers or
+
+315
+00:11:06,959 --> 00:11:08,720
+into the virtual machine monitor that
+
+316
+00:11:08,720 --> 00:11:10,959
+amazon uses to enforce isolation
+
+317
+00:11:10,959 --> 00:11:14,160
+so it's quite important that guests
+
+318
+00:11:14,160 --> 00:11:15,600
+not be able to break out of their
+
+319
+00:11:15,600 --> 00:11:16,959
+virtual machines and they'll be able to
+
+320
+00:11:16,959 --> 00:11:18,640
+use the memory
+
+321
+00:11:18,640 --> 00:11:19,839
+that they're allowed to use by the
+
+322
+00:11:19,839 --> 00:11:22,320
+virtual machine monitor for example
+
+323
+00:11:22,320 --> 00:11:25,120
+but not other memory and similarly they
+
+324
+00:11:25,120 --> 00:11:26,720
+shouldn't be able to reach out
+
+325
+00:11:26,720 --> 00:11:29,040
+without permission and use things like
+
+326
+00:11:29,040 --> 00:11:30,320
+storage devices or
+
+327
+00:11:30,320 --> 00:11:32,480
+network interface cards so we want to
+
+328
+00:11:32,480 --> 00:11:34,240
+have very strict isolation
+
+329
+00:11:34,240 --> 00:11:38,240
+and in many ways virtual machines
+
+330
+00:11:38,240 --> 00:11:41,360
+provide stricter isolation than ordinary
+
+331
+00:11:41,360 --> 00:11:43,920
+unix processes ordinary unix processes
+
+332
+00:11:43,920 --> 00:11:45,519
+can often interact you know they can
+
+333
+00:11:45,519 --> 00:11:47,760
+kill each other or they can all rewrite
+
+334
+00:11:47,760 --> 00:11:49,200
+the same files or
+
+335
+00:11:49,200 --> 00:11:52,800
+communicate over pipes um but
+
+336
+00:11:52,800 --> 00:11:54,639
+in a sort of ordinary virtual machine
+
+337
+00:11:54,639 --> 00:11:58,150
+system none of that's possible
+
+338
+00:11:58,160 --> 00:11:59,440
+the different virtual machines running
+
+339
+00:11:59,440 --> 00:12:01,920
+on the same computer are just
+
+340
+00:12:01,920 --> 00:12:04,399
+completely isolated from each other by
+
+341
+00:12:04,399 --> 00:12:05,760
+the virtual machine monitor so people
+
+342
+00:12:05,760 --> 00:12:07,120
+like them for security
+
+343
+00:12:07,120 --> 00:12:08,480
+right it's a way of being able to run
+
+344
+00:12:08,480 --> 00:12:10,639
+untrusted software
+
+345
+00:12:10,639 --> 00:12:12,240
+without having to worry if it's buggy or
+
+346
+00:12:12,240 --> 00:12:15,350
+malicious
+
+347
+00:12:15,360 --> 00:12:18,560
+now in practice i've
+
+348
+00:12:18,560 --> 00:12:21,519
+pitched the goal as being a sort of
+
+349
+00:12:21,519 --> 00:12:23,120
+completely faithful
+
+350
+00:12:23,120 --> 00:12:26,320
+emulation of a physical machine in fact
+
+351
+00:12:26,320 --> 00:12:28,160
+it turns out that for performance
+
+352
+00:12:28,160 --> 00:12:30,639
+reasons this is often blurred and you'll
+
+353
+00:12:30,639 --> 00:12:33,440
+find for example that um
+
+354
+00:12:33,440 --> 00:12:35,600
+linux and the most common virtual
+
+355
+00:12:35,600 --> 00:12:37,279
+machine monitors have co-evolved a
+
+356
+00:12:37,279 --> 00:12:38,720
+little bit so that
+
+357
+00:12:38,720 --> 00:12:40,959
+in real life linux may actually be aware
+
+358
+00:12:40,959 --> 00:12:42,320
+that it's running on a virtual machine
+
+359
+00:12:42,320 --> 00:12:43,920
+monitor and with the virtual machine
+
+360
+00:12:43,920 --> 00:12:45,120
+monitor's permission
+
+361
+00:12:45,120 --> 00:12:48,639
+for efficiency linux sometimes knowingly
+
+362
+00:12:48,639 --> 00:12:49,600
+talks
+
+363
+00:12:49,600 --> 00:12:51,120
+down to the virtual machine monitors to
+
+364
+00:12:51,120 --> 00:12:53,040
+do things like get high-speed access to
+
+365
+00:12:53,040 --> 00:12:54,399
+devices
+
+366
+00:12:54,399 --> 00:12:55,680
+but that's a carefully controlled
+
+367
+00:12:55,680 --> 00:12:59,600
+exception and the general strategy is
+
+368
+00:12:59,600 --> 00:13:06,639
+completely faithful simulation okay so
+
+369
+00:13:06,639 --> 00:13:08,560
+um how could we build our own virtual
+
+370
+00:13:08,560 --> 00:13:10,079
+machine monitor
+
+371
+00:13:10,079 --> 00:13:13,760
+um well one possibility would be to do
+
+372
+00:13:13,760 --> 00:13:16,399
+it entirely in software you can imagine
+
+373
+00:13:16,399 --> 00:13:20,880
+writing something like qmu that
+
+374
+00:13:20,880 --> 00:13:22,959
+interpreted the machine instructions
+
+375
+00:13:22,959 --> 00:13:24,240
+that is you could write a program that
+
+376
+00:13:24,240 --> 00:13:25,279
+would
+
+377
+00:13:25,279 --> 00:13:28,560
+open up the xv6 the read the
+
+378
+00:13:28,560 --> 00:13:30,959
+file that has the xv6 instructions in it
+
+379
+00:13:30,959 --> 00:13:32,399
+and your program could look at each
+
+380
+00:13:32,399 --> 00:13:34,000
+instruction and say oh that's a
+
+381
+00:13:34,000 --> 00:13:35,680
+that's a load instruction or a move
+
+382
+00:13:35,680 --> 00:13:37,920
+instruction and your program could
+
+383
+00:13:37,920 --> 00:13:40,480
+you know sort of simulate risk five
+
+384
+00:13:40,480 --> 00:13:42,800
+state like might have 32 registers
+
+385
+00:13:42,800 --> 00:13:46,240
+implemented in software and as your
+
+386
+00:13:46,240 --> 00:13:47,839
+software sort of reads each instruction
+
+387
+00:13:47,839 --> 00:13:49,120
+and picks it apart and figures out what
+
+388
+00:13:49,120 --> 00:13:50,800
+kind of instruction it is it would apply
+
+389
+00:13:50,800 --> 00:13:53,040
+the effects of that instruction
+
+390
+00:13:53,040 --> 00:13:56,160
+to the 32 registers and control
+
+391
+00:13:56,160 --> 00:13:58,160
+registers that it was simulating all in
+
+392
+00:13:58,160 --> 00:13:59,600
+software
+
+393
+00:13:59,600 --> 00:14:02,800
+and people do this um
+
+394
+00:14:02,800 --> 00:14:04,959
+and it's conceptually straightforward to
+
+395
+00:14:04,959 --> 00:14:06,800
+make it work although it
+
+396
+00:14:06,800 --> 00:14:08,240
+may be a lot of work to get all the
+
+397
+00:14:08,240 --> 00:14:10,000
+details right the
+
+398
+00:14:10,000 --> 00:14:13,600
+reason why uh um
+
+399
+00:14:13,600 --> 00:14:17,199
+sort of pure software
+
+400
+00:14:17,199 --> 00:14:19,839
+interpretive virtual machines aren't
+
+401
+00:14:19,839 --> 00:14:21,440
+widely used
+
+402
+00:14:21,440 --> 00:14:24,160
+is that they're slow if you play this
+
+403
+00:14:24,160 --> 00:14:24,720
+game
+
+404
+00:14:24,720 --> 00:14:26,480
+your virtual machine is going to run
+
+405
+00:14:26,480 --> 00:14:29,440
+guest software at a small fraction
+
+406
+00:14:29,440 --> 00:14:31,519
+of the speed of the of the hardware that
+
+407
+00:14:31,519 --> 00:14:33,120
+you're using because for every ins
+
+408
+00:14:33,120 --> 00:14:34,720
+your your virtual machine monitor
+
+409
+00:14:34,720 --> 00:14:35,680
+software has to look at every
+
+410
+00:14:35,680 --> 00:14:37,920
+instruction as it's executed up here
+
+411
+00:14:37,920 --> 00:14:39,360
+your machine monitor is going to maybe
+
+412
+00:14:39,360 --> 00:14:41,199
+run dozens of instructions
+
+413
+00:14:41,199 --> 00:14:43,040
+um in the process of interpreting each
+
+414
+00:14:43,040 --> 00:14:44,880
+one of the guest instructions and so
+
+415
+00:14:44,880 --> 00:14:46,399
+it's going to be orders of magnitude
+
+416
+00:14:46,399 --> 00:14:47,680
+slower
+
+417
+00:14:47,680 --> 00:14:49,760
+than a real computer and for something
+
+418
+00:14:49,760 --> 00:14:51,839
+like cloud computing
+
+419
+00:14:51,839 --> 00:14:54,959
+it really would not be practical so
+
+420
+00:14:54,959 --> 00:14:57,760
+people don't use the software
+
+421
+00:14:57,760 --> 00:14:58,959
+interpretation
+
+422
+00:14:58,959 --> 00:15:00,880
+to build virtual machines for production
+
+423
+00:15:00,880 --> 00:15:03,829
+systems
+
+424
+00:15:03,839 --> 00:15:07,509
+instead
+
+425
+00:15:07,519 --> 00:15:11,199
+the sort of core of
+
+426
+00:15:11,199 --> 00:15:14,480
+one of the main uh widely used
+
+427
+00:15:14,480 --> 00:15:15,519
+strategies
+
+428
+00:15:15,519 --> 00:15:18,720
+is to run the to actually run the guest
+
+429
+00:15:18,720 --> 00:15:19,680
+instructions
+
+430
+00:15:19,680 --> 00:15:24,150
+on the real cpu um
+
+431
+00:15:24,160 --> 00:15:28,079
+so if you were gonna run xv6 in your um
+
+432
+00:15:28,079 --> 00:15:29,759
+virtual machine monitor you would
+
+433
+00:15:29,759 --> 00:15:31,600
+actually load
+
+434
+00:15:31,600 --> 00:15:33,920
+xv6's instructions the kernel the
+
+435
+00:15:33,920 --> 00:15:35,600
+beginning you know the
+
+436
+00:15:35,600 --> 00:15:38,000
+entire xv6 instructions in a memory and
+
+437
+00:15:38,000 --> 00:15:40,079
+then jump to the first instruction in
+
+438
+00:15:40,079 --> 00:15:42,399
+xv6
+
+439
+00:15:42,399 --> 00:15:47,360
+right in order to have your computer
+
+440
+00:15:47,360 --> 00:15:49,440
+actually run the instructions in xv6 and
+
+441
+00:15:49,440 --> 00:15:50,720
+of course this requires that your
+
+442
+00:15:50,720 --> 00:15:52,720
+computer have the same
+
+443
+00:15:52,720 --> 00:15:54,880
+microprocessor in it that xv6 is
+
+444
+00:15:54,880 --> 00:15:56,160
+expecting but
+
+445
+00:15:56,160 --> 00:15:59,519
+um that's easy to arrange
+
+446
+00:15:59,519 --> 00:16:02,240
+now it turns out you can't literally do
+
+447
+00:16:02,240 --> 00:16:02,720
+this
+
+448
+00:16:02,720 --> 00:16:04,639
+um the point at which you'd run into
+
+449
+00:16:04,639 --> 00:16:06,079
+trouble is when
+
+450
+00:16:06,079 --> 00:16:09,040
+your guest operating system first
+
+451
+00:16:09,040 --> 00:16:12,000
+executed a privileged instruction
+
+452
+00:16:12,000 --> 00:16:14,560
+right if it um and you know that's
+
+453
+00:16:14,560 --> 00:16:16,000
+really the difference between a kernel
+
+454
+00:16:16,000 --> 00:16:16,800
+and ordinary
+
+455
+00:16:16,800 --> 00:16:19,120
+user code is that uh kernels which is
+
+456
+00:16:19,120 --> 00:16:20,399
+what we're trying to run here in our
+
+457
+00:16:20,399 --> 00:16:22,240
+virtual machine kernels use privileged
+
+458
+00:16:22,240 --> 00:16:23,920
+instructions so
+
+459
+00:16:23,920 --> 00:16:25,680
+the guest your guest colonel might for
+
+460
+00:16:25,680 --> 00:16:28,480
+example try to load a new page table
+
+461
+00:16:28,480 --> 00:16:32,639
+into the sat p register on risk 5 and
+
+462
+00:16:32,639 --> 00:16:35,519
+so that's starting to present a puzzle
+
+463
+00:16:35,519 --> 00:16:36,160
+if we're
+
+464
+00:16:36,160 --> 00:16:38,000
+executing our guest kernel as an
+
+465
+00:16:38,000 --> 00:16:40,000
+ordinary user process in linux for
+
+466
+00:16:40,000 --> 00:16:40,800
+example
+
+467
+00:16:40,800 --> 00:16:42,480
+boy loading sat piece an illegal
+
+468
+00:16:42,480 --> 00:16:44,000
+instruction
+
+469
+00:16:44,000 --> 00:16:46,480
+in in user mode and so our program's
+
+470
+00:16:46,480 --> 00:16:47,680
+going to crash
+
+471
+00:16:47,680 --> 00:16:50,320
+if we are so foolish as to load our
+
+472
+00:16:50,320 --> 00:16:51,440
+guest
+
+473
+00:16:51,440 --> 00:16:54,160
+kernel into and run it in supervisor
+
+474
+00:16:54,160 --> 00:16:55,120
+mode
+
+475
+00:16:55,120 --> 00:16:58,160
+um somehow then our guest colonel will
+
+476
+00:16:58,160 --> 00:16:59,920
+now be able to modify the real page
+
+477
+00:16:59,920 --> 00:17:00,399
+table
+
+478
+00:17:00,399 --> 00:17:02,480
+and would be able to escape from its
+
+479
+00:17:02,480 --> 00:17:04,559
+virtual machine and because it can
+
+480
+00:17:04,559 --> 00:17:07,280
+control the contents of ptes read and
+
+481
+00:17:07,280 --> 00:17:10,309
+write
+
+482
+00:17:10,319 --> 00:17:13,679
+any memory so we can't use a strategy
+
+483
+00:17:13,679 --> 00:17:14,160
+that's
+
+484
+00:17:14,160 --> 00:17:16,720
+as simple as just running the guest
+
+485
+00:17:16,720 --> 00:17:18,640
+kernel directly
+
+486
+00:17:18,640 --> 00:17:19,839
+instead we're going to start playing
+
+487
+00:17:19,839 --> 00:17:21,919
+some tricks the
+
+488
+00:17:21,919 --> 00:17:26,959
+first step is to run the guest kernel
+
+489
+00:17:26,959 --> 00:17:32,320
+in user mode
+
+490
+00:17:32,320 --> 00:17:37,990
+so um this is sort of the
+
+491
+00:17:38,000 --> 00:17:40,480
+fundamental strategy here um i'm going
+
+492
+00:17:40,480 --> 00:17:44,070
+to run the guest kernel in user mode
+
+493
+00:17:44,080 --> 00:17:46,799
+you know in the risk five user mode and
+
+494
+00:17:46,799 --> 00:17:48,960
+so what that means
+
+495
+00:17:48,960 --> 00:17:50,720
+you know we're we're writing uh we're
+
+496
+00:17:50,720 --> 00:17:52,880
+writing our own virtual machine monitor
+
+497
+00:17:52,880 --> 00:17:55,360
+and when we tell it look please boot xv6
+
+498
+00:17:55,360 --> 00:17:57,200
+it's gonna load xv6s
+
+499
+00:17:57,200 --> 00:17:59,280
+kernel instructions into memory
+
+500
+00:17:59,280 --> 00:18:02,070
+somewhere
+
+501
+00:18:02,080 --> 00:18:03,919
+maybe set up a page table appropriately
+
+502
+00:18:03,919 --> 00:18:07,039
+that makes it look to xv6 like
+
+503
+00:18:07,039 --> 00:18:09,520
+its memory starts at zero and goes up to
+
+504
+00:18:09,520 --> 00:18:10,160
+whatever
+
+505
+00:18:10,160 --> 00:18:13,440
+high memory is and then
+
+506
+00:18:13,440 --> 00:18:15,840
+the virtual machine monitor will use a
+
+507
+00:18:15,840 --> 00:18:17,840
+trap you know s-red instruction as
+
+508
+00:18:17,840 --> 00:18:21,039
+uh you've all come across in xv6
+
+509
+00:18:21,039 --> 00:18:24,640
+to uh jump into the first instruction of
+
+510
+00:18:24,640 --> 00:18:29,360
+the guest os um
+
+511
+00:18:29,360 --> 00:18:32,559
+in user mode and so the guest operating
+
+512
+00:18:32,559 --> 00:18:34,400
+system will execute along and now many
+
+513
+00:18:34,400 --> 00:18:36,080
+instructions will work fine if the guest
+
+514
+00:18:36,080 --> 00:18:37,280
+operating system is just
+
+515
+00:18:37,280 --> 00:18:40,000
+adding two registers together or even
+
+516
+00:18:40,000 --> 00:18:41,440
+loading or storing from memory that'll
+
+517
+00:18:41,440 --> 00:18:42,400
+just work
+
+518
+00:18:42,400 --> 00:18:43,919
+and as soon as the guest operating
+
+519
+00:18:43,919 --> 00:18:46,400
+system uses privileged instruction
+
+520
+00:18:46,400 --> 00:18:48,080
+what's going to happen is it's going to
+
+521
+00:18:48,080 --> 00:18:50,880
+trap that risk 5 hardware will cause it
+
+522
+00:18:50,880 --> 00:18:52,480
+since it's running in user mode not
+
+523
+00:18:52,480 --> 00:18:54,480
+supervised mode will cause it to trap
+
+524
+00:18:54,480 --> 00:18:56,240
+back into the our virtual machine
+
+525
+00:18:56,240 --> 00:18:56,799
+monitor
+
+526
+00:18:56,799 --> 00:18:59,039
+and we'll get control so if the guest
+
+527
+00:18:59,039 --> 00:19:00,960
+operating system for example tries to
+
+528
+00:19:00,960 --> 00:19:01,600
+change
+
+529
+00:19:01,600 --> 00:19:04,880
+sat p the page table pointer boom
+
+530
+00:19:04,880 --> 00:19:06,799
+the risk 5 cpu will trap into our
+
+531
+00:19:06,799 --> 00:19:08,720
+virtual machine monitor and our software
+
+532
+00:19:08,720 --> 00:19:10,799
+will get control back
+
+533
+00:19:10,799 --> 00:19:12,320
+and our software will be able to look
+
+534
+00:19:12,320 --> 00:19:14,160
+and see what instruction
+
+535
+00:19:14,160 --> 00:19:16,320
+caused the trap and do something
+
+536
+00:19:16,320 --> 00:19:17,840
+appropriate
+
+537
+00:19:17,840 --> 00:19:19,200
+but the cool thing here is that the
+
+538
+00:19:19,200 --> 00:19:20,960
+guest operating system didn't actually
+
+539
+00:19:20,960 --> 00:19:21,520
+get
+
+540
+00:19:21,520 --> 00:19:24,960
+to set the page table pointer but
+
+541
+00:19:24,960 --> 00:19:28,000
+how does how does the vmm uh um
+
+542
+00:19:28,000 --> 00:19:30,240
+intercept this like it has to set the
+
+543
+00:19:30,240 --> 00:19:31,520
+trap handler right
+
+544
+00:19:31,520 --> 00:19:33,200
+isn't that something only a privilege
+
+545
+00:19:33,200 --> 00:19:35,600
+process can do
+
+546
+00:19:35,600 --> 00:19:38,799
+yeah vm is a user program on the host os
+
+547
+00:19:38,799 --> 00:19:39,440
+right okay
+
+548
+00:19:39,440 --> 00:19:42,960
+what i'm assuming um what i'm assuming
+
+549
+00:19:42,960 --> 00:19:44,799
+is that the virtual machine monitor
+
+550
+00:19:44,799 --> 00:19:47,200
+runs in supervisor mode so in this
+
+551
+00:19:47,200 --> 00:19:48,559
+simple picture
+
+552
+00:19:48,559 --> 00:19:50,480
+the virtual machine monitor is the
+
+553
+00:19:50,480 --> 00:19:52,000
+kernel that boots on
+
+554
+00:19:52,000 --> 00:19:54,000
+this piece of hardware so instead of
+
+555
+00:19:54,000 --> 00:19:56,080
+booting linux or whatever you would boot
+
+556
+00:19:56,080 --> 00:19:57,840
+this virtual machine monitor
+
+557
+00:19:57,840 --> 00:19:59,520
+it boosts in supervisor mode it has
+
+558
+00:19:59,520 --> 00:20:01,440
+complete control over the hardware
+
+559
+00:20:01,440 --> 00:20:04,159
+so we can set up you know st vec and all
+
+560
+00:20:04,159 --> 00:20:06,400
+this other stuff however it likes
+
+561
+00:20:06,400 --> 00:20:09,600
+that makes sense um now and actually
+
+562
+00:20:09,600 --> 00:20:11,039
+some virtual machine monitors work
+
+563
+00:20:11,039 --> 00:20:12,559
+exactly that way you just boot them on
+
+564
+00:20:12,559 --> 00:20:14,480
+the hardware and it's just the virtual
+
+565
+00:20:14,480 --> 00:20:16,159
+machine monitor only that's running in
+
+566
+00:20:16,159 --> 00:20:17,280
+supervisor mode
+
+567
+00:20:17,280 --> 00:20:19,360
+um in fact there's also many many
+
+568
+00:20:19,360 --> 00:20:21,200
+virtual machine schemes out there
+
+569
+00:20:21,200 --> 00:20:25,840
+in fact um boot linux
+
+570
+00:20:25,840 --> 00:20:29,840
+and then once linux is up and running um
+
+571
+00:20:29,840 --> 00:20:32,559
+you load you load the virtual either
+
+572
+00:20:32,559 --> 00:20:35,360
+linux i mean actually linux
+
+573
+00:20:35,360 --> 00:20:36,960
+comes with a virtual machine monitor or
+
+574
+00:20:36,960 --> 00:20:38,799
+you load the virtual machine monitor as
+
+575
+00:20:38,799 --> 00:20:39,120
+a
+
+576
+00:20:39,120 --> 00:20:40,640
+as what's called a loadable kernel
+
+577
+00:20:40,640 --> 00:20:43,520
+module into linux
+
+578
+00:20:43,520 --> 00:20:45,840
+and it runs in the kernel in supervisor
+
+579
+00:20:45,840 --> 00:20:47,280
+mode
+
+580
+00:20:47,280 --> 00:20:48,320
+and that's that's the way actually
+
+581
+00:20:48,320 --> 00:20:50,559
+today's paper works is you boot linux
+
+582
+00:20:50,559 --> 00:20:52,240
+and then
+
+583
+00:20:52,240 --> 00:20:54,480
+run this little loadable kernel module
+
+584
+00:20:54,480 --> 00:20:56,240
+but the the main point is the virtual
+
+585
+00:20:56,240 --> 00:20:57,600
+machine monitor software you know the
+
+586
+00:20:57,600 --> 00:20:59,520
+software rewriting that we trust
+
+587
+00:20:59,520 --> 00:21:01,840
+runs in supervisor mode and we're going
+
+588
+00:21:01,840 --> 00:21:02,799
+to run the guest
+
+589
+00:21:02,799 --> 00:21:06,240
+in user mode but arrange
+
+590
+00:21:06,240 --> 00:21:07,440
+for it to look like it's running in
+
+591
+00:21:07,440 --> 00:21:12,549
+supervisor mode as far as it's concerned
+
+592
+00:21:12,559 --> 00:21:16,559
+okay so the good news is that on risk
+
+593
+00:21:16,559 --> 00:21:17,600
+five
+
+594
+00:21:17,600 --> 00:21:20,799
+um everything dangerous
+
+595
+00:21:20,799 --> 00:21:25,760
+um traps if you try to do it in uh
+
+596
+00:21:25,760 --> 00:21:27,919
+user mode that is all the sort of
+
+597
+00:21:27,919 --> 00:21:29,520
+privileged things the supervisor
+
+598
+00:21:29,520 --> 00:21:32,960
+node can do with the exception of stuff
+
+599
+00:21:32,960 --> 00:21:34,240
+having to do with the page table or
+
+600
+00:21:34,240 --> 00:21:35,840
+pte's which we'll talk about in a bit
+
+601
+00:21:35,840 --> 00:21:37,120
+but basically every pr
+
+602
+00:21:37,120 --> 00:21:41,110
+every supervisor only instruction
+
+603
+00:21:41,120 --> 00:21:43,679
+causes a trap if you try to execute it
+
+604
+00:21:43,679 --> 00:21:45,039
+in user mode
+
+605
+00:21:45,039 --> 00:21:46,240
+so that means that every time the guest
+
+606
+00:21:46,240 --> 00:21:47,440
+operating system does anything like
+
+607
+00:21:47,440 --> 00:21:48,080
+reads s
+
+608
+00:21:48,080 --> 00:21:50,240
+calls or reads and writes st vac or does
+
+609
+00:21:50,240 --> 00:21:51,840
+any of those things that
+
+610
+00:21:51,840 --> 00:21:53,440
+xv6 for example does to kind of
+
+611
+00:21:53,440 --> 00:21:55,679
+configure the privileged part of
+
+612
+00:21:55,679 --> 00:21:57,600
+5 hardware will cause a trap into the
+
+613
+00:21:57,600 --> 00:21:59,919
+virtual machine monitor
+
+614
+00:21:59,919 --> 00:22:04,000
+and we'll get control and then
+
+615
+00:22:04,000 --> 00:22:05,520
+the game is going to be the virtual
+
+616
+00:22:05,520 --> 00:22:07,919
+machine monitor is going to
+
+617
+00:22:07,919 --> 00:22:11,360
+maintain virtual state
+
+618
+00:22:11,360 --> 00:22:13,200
+a whole table of virtual state
+
+619
+00:22:13,200 --> 00:22:18,630
+information
+
+620
+00:22:18,640 --> 00:22:24,470
+for
+
+621
+00:22:24,480 --> 00:22:26,960
+for the guest so the virtual machine
+
+622
+00:22:26,960 --> 00:22:28,880
+monitor will have for example
+
+623
+00:22:28,880 --> 00:22:32,720
+um an s a virtual st
+
+624
+00:22:32,720 --> 00:22:35,679
+vec register just implemented as a
+
+625
+00:22:35,679 --> 00:22:37,200
+variable and software in a
+
+626
+00:22:37,200 --> 00:22:40,320
+you know a virtual um
+
+627
+00:22:40,320 --> 00:22:43,039
+sepc register and all these for all
+
+628
+00:22:43,039 --> 00:22:44,720
+these protected registers there'll be a
+
+629
+00:22:44,720 --> 00:22:46,640
+whole array of them down here
+
+630
+00:22:46,640 --> 00:22:48,000
+implemented by the virtual machine
+
+631
+00:22:48,000 --> 00:22:49,600
+monitor and when the guest operating
+
+632
+00:22:49,600 --> 00:22:50,880
+system for example tr
+
+633
+00:22:50,880 --> 00:22:52,960
+runs the instruction that reads one of
+
+634
+00:22:52,960 --> 00:22:54,080
+these registers
+
+635
+00:22:54,080 --> 00:22:56,080
+boom it'll take a trap because it's
+
+636
+00:22:56,080 --> 00:22:57,440
+legal in user space
+
+637
+00:22:57,440 --> 00:22:59,200
+the virtual machine monitor will inspect
+
+638
+00:22:59,200 --> 00:23:01,039
+the instruction and say aha
+
+639
+00:23:01,039 --> 00:23:02,960
+that's an instruction that's reading the
+
+640
+00:23:02,960 --> 00:23:04,880
+scpc register
+
+641
+00:23:04,880 --> 00:23:06,480
+and so the virtual machine monitor will
+
+642
+00:23:06,480 --> 00:23:08,000
+then emulate that
+
+643
+00:23:08,000 --> 00:23:11,039
+instruction it'll read the sap virtual
+
+644
+00:23:11,039 --> 00:23:12,720
+scpc value
+
+645
+00:23:12,720 --> 00:23:16,159
+out of this array it'll
+
+646
+00:23:16,159 --> 00:23:19,280
+copy that into the hardware
+
+647
+00:23:19,280 --> 00:23:22,000
+or well what really happened here if is
+
+648
+00:23:22,000 --> 00:23:24,400
+that the um
+
+649
+00:23:24,400 --> 00:23:28,559
+uh um
+
+650
+00:23:28,559 --> 00:23:32,159
+i forgot the name of the the uh
+
+651
+00:23:32,159 --> 00:23:35,280
+um there's there's some
+
+652
+00:23:35,280 --> 00:23:36,559
+instruction whose name might forget
+
+653
+00:23:36,559 --> 00:23:38,320
+which is basically supervisor
+
+654
+00:23:38,320 --> 00:23:40,880
+read um although that's not its name and
+
+655
+00:23:40,880 --> 00:23:42,159
+you give the name of an ordinary
+
+656
+00:23:42,159 --> 00:23:42,720
+register
+
+657
+00:23:42,720 --> 00:23:44,400
+and the name of a privilege register
+
+658
+00:23:44,400 --> 00:23:46,080
+like scpc
+
+659
+00:23:46,080 --> 00:23:48,080
+and so what the virtual that will track
+
+660
+00:23:48,080 --> 00:23:49,440
+the virtual machine monitor will read
+
+661
+00:23:49,440 --> 00:23:49,760
+that
+
+662
+00:23:49,760 --> 00:23:53,039
+instruction we'll see oh it's an s read
+
+663
+00:23:53,039 --> 00:23:54,799
+the virtual machine monitor will copy
+
+664
+00:23:54,799 --> 00:23:57,919
+the virtual copy of scpc
+
+665
+00:23:57,919 --> 00:24:01,520
+into a0 in the trap frame after all when
+
+666
+00:24:01,520 --> 00:24:04,240
+entering the vmm that's going to have
+
+667
+00:24:04,240 --> 00:24:06,240
+created a trap frame of copies of all
+
+668
+00:24:06,240 --> 00:24:06,960
+the
+
+669
+00:24:06,960 --> 00:24:09,360
+guest registers that will copy this scpc
+
+670
+00:24:09,360 --> 00:24:11,120
+into azer and the trap frame
+
+671
+00:24:11,120 --> 00:24:16,710
+then return from the trap using sret
+
+672
+00:24:16,720 --> 00:24:19,039
+that you know after copying the trap
+
+673
+00:24:19,039 --> 00:24:20,960
+frame registers and the real registers
+
+674
+00:24:20,960 --> 00:24:24,320
+and return from this uh trap to the
+
+675
+00:24:24,320 --> 00:24:25,840
+instruction after the s read and
+
+676
+00:24:25,840 --> 00:24:26,320
+continue
+
+677
+00:24:26,320 --> 00:24:31,200
+reading there with now uh a0 set to the
+
+678
+00:24:31,200 --> 00:24:34,799
+uh virtual scpc
+
+679
+00:24:34,799 --> 00:24:36,240
+and now the guest operating system will
+
+680
+00:24:36,240 --> 00:24:38,320
+proceed you know
+
+681
+00:24:38,320 --> 00:24:39,919
+but not i'm not realizing that something
+
+682
+00:24:39,919 --> 00:24:41,440
+funny happened here
+
+683
+00:24:41,440 --> 00:24:44,640
+um but it will have gotten a copy of the
+
+684
+00:24:44,640 --> 00:24:47,679
+virtual scpc that the vmm was keeping on
+
+685
+00:24:47,679 --> 00:24:50,310
+its behalf
+
+686
+00:24:50,320 --> 00:24:52,799
+so any questions about this about this
+
+687
+00:24:52,799 --> 00:24:58,710
+strategy
+
+688
+00:24:58,720 --> 00:25:01,760
+how does the vmm differentiate between
+
+689
+00:25:01,760 --> 00:25:04,870
+different guests
+
+690
+00:25:04,880 --> 00:25:09,039
+um it it um it's basically the same way
+
+691
+00:25:09,039 --> 00:25:11,200
+it would keep one of these tables a
+
+692
+00:25:11,200 --> 00:25:12,159
+virtual state
+
+693
+00:25:12,159 --> 00:25:14,640
+per guest and it just knows just like
+
+694
+00:25:14,640 --> 00:25:16,640
+xv6 knows which process it's running it
+
+695
+00:25:16,640 --> 00:25:19,039
+has a variable maybe a per core variable
+
+696
+00:25:19,039 --> 00:25:19,600
+saying
+
+697
+00:25:19,600 --> 00:25:22,400
+here's the process i'm currently running
+
+698
+00:25:22,400 --> 00:25:24,799
+similarly a vmm would
+
+699
+00:25:24,799 --> 00:25:26,720
+have a per core variable that indicated
+
+700
+00:25:26,720 --> 00:25:28,080
+which virtual machine
+
+701
+00:25:28,080 --> 00:25:30,799
+would be multiple of these state
+
+702
+00:25:30,799 --> 00:25:31,520
+structures
+
+703
+00:25:31,520 --> 00:25:33,520
+vmm would know which virtual machine was
+
+704
+00:25:33,520 --> 00:25:34,559
+executing and it would look in the
+
+705
+00:25:34,559 --> 00:25:35,840
+appropriate
+
+706
+00:25:35,840 --> 00:25:40,520
+virtual machine state structure defined
+
+707
+00:25:40,520 --> 00:25:42,400
+s-t-s-e-p-c or whatever it is it's
+
+708
+00:25:42,400 --> 00:25:43,520
+looking for
+
+709
+00:25:43,520 --> 00:25:46,720
+can it run multiple can it
+
+710
+00:25:46,720 --> 00:25:48,880
+assign multiple cores to one of the
+
+711
+00:25:48,880 --> 00:25:49,760
+guests
+
+712
+00:25:49,760 --> 00:25:51,600
+yeah sophisticated virtual machine
+
+713
+00:25:51,600 --> 00:25:56,960
+monitors can do that yes
+
+714
+00:25:56,960 --> 00:26:00,320
+so if you sorry go ahead oh sorry so the
+
+715
+00:26:00,320 --> 00:26:03,600
+guest operating system it will have uh
+
+716
+00:26:03,600 --> 00:26:06,400
+like some registers in the actual
+
+717
+00:26:06,400 --> 00:26:07,840
+hardware will be
+
+718
+00:26:07,840 --> 00:26:11,200
+the registers that the guest os uses so
+
+719
+00:26:11,200 --> 00:26:14,240
+why do we not use the actual scpc
+
+720
+00:26:14,240 --> 00:26:23,510
+but we use the virtual one um
+
+721
+00:26:23,520 --> 00:26:25,440
+the the reason is that the virtual
+
+722
+00:26:25,440 --> 00:26:26,960
+machine monitor needs to use these
+
+723
+00:26:26,960 --> 00:26:27,520
+registers
+
+724
+00:26:27,520 --> 00:26:30,400
+use use the real registers um so for
+
+725
+00:26:30,400 --> 00:26:31,520
+example think about s
+
+726
+00:26:31,520 --> 00:26:35,039
+cause when a trap occurs
+
+727
+00:26:35,039 --> 00:26:36,400
+what happens on the when you know when
+
+728
+00:26:36,400 --> 00:26:38,480
+the guest operating system uh
+
+729
+00:26:38,480 --> 00:26:40,480
+tries to do anything privileged the trap
+
+730
+00:26:40,480 --> 00:26:42,320
+will occur and the hardware
+
+731
+00:26:42,320 --> 00:26:45,520
+sets the real hardware s-cause register
+
+732
+00:26:45,520 --> 00:26:47,520
+to the cause of the trap
+
+733
+00:26:47,520 --> 00:26:49,600
+right which is illegal instruction or
+
+734
+00:26:49,600 --> 00:26:51,279
+unprivileged instruction
+
+735
+00:26:51,279 --> 00:26:54,320
+whatever it is but if the
+
+736
+00:26:54,320 --> 00:26:57,520
+um guest operating system you know
+
+737
+00:26:57,520 --> 00:26:58,960
+supposing the guest operating system has
+
+738
+00:26:58,960 --> 00:27:01,200
+just taken a system call
+
+739
+00:27:01,200 --> 00:27:03,760
+from a guest user process the guest
+
+740
+00:27:03,760 --> 00:27:06,080
+operating system needs to see an s
+
+741
+00:27:06,080 --> 00:27:09,039
+cause that's whatever the right s calls
+
+742
+00:27:09,039 --> 00:27:12,400
+value is for system call
+
+743
+00:27:12,400 --> 00:27:14,159
+right even though maybe the last thing
+
+744
+00:27:14,159 --> 00:27:15,840
+that you know so
+
+745
+00:27:15,840 --> 00:27:17,520
+the guest operating system is going to
+
+746
+00:27:17,520 --> 00:27:21,990
+read s cause
+
+747
+00:27:22,000 --> 00:27:23,440
+you know in the trap hand and what it
+
+748
+00:27:23,440 --> 00:27:26,080
+thinks is the trap handler handling a
+
+749
+00:27:26,080 --> 00:27:28,240
+system call from one of its guest
+
+750
+00:27:28,240 --> 00:27:30,240
+processes the s calls that the guest
+
+751
+00:27:30,240 --> 00:27:31,200
+operating system
+
+752
+00:27:31,200 --> 00:27:33,679
+needs to see is the value that says that
+
+753
+00:27:33,679 --> 00:27:35,520
+means system call
+
+754
+00:27:35,520 --> 00:27:37,200
+but the s calls is going to be in the
+
+755
+00:27:37,200 --> 00:27:38,960
+real s cause register
+
+756
+00:27:38,960 --> 00:27:41,440
+is the s cause that means illegal
+
+757
+00:27:41,440 --> 00:27:42,960
+instruction or unprivileged
+
+758
+00:27:42,960 --> 00:27:45,440
+or you know instructions violating the
+
+759
+00:27:45,440 --> 00:27:46,720
+privilege rules
+
+760
+00:27:46,720 --> 00:27:50,230
+so um
+
+761
+00:27:50,240 --> 00:27:52,559
+there are actually some times when you
+
+762
+00:27:52,559 --> 00:27:53,600
+could
+
+763
+00:27:53,600 --> 00:27:56,720
+um well anyway in general
+
+764
+00:27:56,720 --> 00:28:01,039
+the vmm you know the vmm is the one that
+
+765
+00:28:01,039 --> 00:28:02,080
+needs to see the real
+
+766
+00:28:02,080 --> 00:28:03,840
+the vmm needs to see different values in
+
+767
+00:28:03,840 --> 00:28:05,840
+the in the real registers than the
+
+768
+00:28:05,840 --> 00:28:07,840
+operating system should see and it's for
+
+769
+00:28:07,840 --> 00:28:11,830
+in its vision of the registers
+
+770
+00:28:11,840 --> 00:28:17,279
+does that make sense thank you yeah
+
+771
+00:28:17,279 --> 00:28:20,480
+okay um so this is called the name for
+
+772
+00:28:20,480 --> 00:28:21,440
+this style
+
+773
+00:28:21,440 --> 00:28:24,240
+of um virtual machine implementation in
+
+774
+00:28:24,240 --> 00:28:26,240
+which the guest runs at user level
+
+775
+00:28:26,240 --> 00:28:29,120
+and therefore traps whenever tries to do
+
+776
+00:28:29,120 --> 00:28:30,799
+anything privileged and the vmm can
+
+777
+00:28:30,799 --> 00:28:32,799
+emulate the privileged instruction
+
+778
+00:28:32,799 --> 00:28:34,960
+and the name for that is trap and
+
+779
+00:28:34,960 --> 00:28:38,230
+emulate
+
+780
+00:28:38,240 --> 00:28:41,360
+and it's nice because
+
+781
+00:28:41,360 --> 00:28:43,200
+you can you can build this for yourself
+
+782
+00:28:43,200 --> 00:28:44,240
+actually you can build this for
+
+783
+00:28:44,240 --> 00:28:44,880
+yourselves
+
+784
+00:28:44,880 --> 00:28:47,919
+entirely in software um and
+
+785
+00:28:47,919 --> 00:28:50,159
+you could modify xv6 for example to be a
+
+786
+00:28:50,159 --> 00:28:52,080
+virtual machine monitor
+
+787
+00:28:52,080 --> 00:28:54,559
+on risk 5 and run little virtual
+
+788
+00:28:54,559 --> 00:28:55,520
+machines perhaps
+
+789
+00:28:55,520 --> 00:28:59,039
+regular xv6 just
+
+790
+00:28:59,039 --> 00:29:00,240
+by writing software of course your
+
+791
+00:29:00,240 --> 00:29:02,480
+software does have to run in
+
+792
+00:29:02,480 --> 00:29:07,350
+supervisor mode
+
+793
+00:29:07,360 --> 00:29:09,840
+the state here all the registers that
+
+794
+00:29:09,840 --> 00:29:10,559
+begin with s
+
+795
+00:29:10,559 --> 00:29:15,279
+all those supervisor control registers
+
+796
+00:29:15,279 --> 00:29:17,440
+have to be part of this virtual state
+
+797
+00:29:17,440 --> 00:29:19,360
+there's also some other things that are
+
+798
+00:29:19,360 --> 00:29:23,200
+not directly accessible from those s
+
+799
+00:29:23,200 --> 00:29:24,960
+registers that nevertheless need to be
+
+800
+00:29:24,960 --> 00:29:26,480
+down in this state one of them is the
+
+801
+00:29:26,480 --> 00:29:27,039
+mode
+
+802
+00:29:27,039 --> 00:29:28,640
+the virtual machine monitor needs to
+
+803
+00:29:28,640 --> 00:29:30,399
+know whether the virtual machine is
+
+804
+00:29:30,399 --> 00:29:32,000
+running in
+
+805
+00:29:32,000 --> 00:29:34,880
+guest user mode or guest operating
+
+806
+00:29:34,880 --> 00:29:35,840
+system mode because
+
+807
+00:29:35,840 --> 00:29:40,320
+for example if you if user code executes
+
+808
+00:29:40,320 --> 00:29:41,760
+the privileged instruction like trying
+
+809
+00:29:41,760 --> 00:29:43,600
+to read s cause sure that'll cause a
+
+810
+00:29:43,600 --> 00:29:45,200
+trap into the vmm too
+
+811
+00:29:45,200 --> 00:29:48,159
+but in that case the vmm should not just
+
+812
+00:29:48,159 --> 00:29:50,080
+emulate the instruction in return
+
+813
+00:29:50,080 --> 00:29:51,679
+because that's not a legal instruction
+
+814
+00:29:51,679 --> 00:29:54,399
+in user mode so the vmm has to track
+
+815
+00:29:54,399 --> 00:29:57,360
+um whether the guest is in guest
+
+816
+00:29:57,360 --> 00:29:59,200
+supervisor mode or guest user mode and
+
+817
+00:29:59,200 --> 00:30:00,880
+so there's going to be a mode
+
+818
+00:30:00,880 --> 00:30:04,000
+slot down here as well and the vmm will
+
+819
+00:30:04,000 --> 00:30:05,840
+know because
+
+820
+00:30:05,840 --> 00:30:08,399
+when the guest operating system jumps
+
+821
+00:30:08,399 --> 00:30:09,440
+into
+
+822
+00:30:09,440 --> 00:30:11,600
+user space it'll execute the s red
+
+823
+00:30:11,600 --> 00:30:13,279
+instruction s-red is a privileged
+
+824
+00:30:13,279 --> 00:30:14,960
+instruction so the vmm will actually get
+
+825
+00:30:14,960 --> 00:30:16,720
+control there and we'll see oh
+
+826
+00:30:16,720 --> 00:30:17,840
+the guest is running an s-red
+
+827
+00:30:17,840 --> 00:30:19,760
+instruction among other things i'm going
+
+828
+00:30:19,760 --> 00:30:21,840
+to change the virtual mode from
+
+829
+00:30:21,840 --> 00:30:25,510
+supervisor to user
+
+830
+00:30:25,520 --> 00:30:28,640
+and another hidden piece of state is the
+
+831
+00:30:28,640 --> 00:30:30,559
+heart number
+
+832
+00:30:30,559 --> 00:30:34,149
+that is the core number
+
+833
+00:30:34,159 --> 00:30:36,159
+you can't get that that directly even
+
+834
+00:30:36,159 --> 00:30:37,840
+with the privileged instruction
+
+835
+00:30:37,840 --> 00:30:41,279
+um uh but the via manager needs to keep
+
+836
+00:30:41,279 --> 00:30:42,159
+track of
+
+837
+00:30:42,159 --> 00:30:46,149
+which heart it's emulating right now
+
+838
+00:30:46,159 --> 00:30:49,200
+okay um the
+
+839
+00:30:49,200 --> 00:30:52,240
+risk 5 it turns out different cpus or
+
+840
+00:30:52,240 --> 00:30:55,919
+different levels of difficulty and
+
+841
+00:30:55,919 --> 00:30:57,600
+how hard it is to write a trap and
+
+842
+00:30:57,600 --> 00:30:59,919
+emulate virtual machine on them
+
+843
+00:30:59,919 --> 00:31:02,720
+the wrist vice particularly well suited
+
+844
+00:31:02,720 --> 00:31:04,000
+to it because the designers
+
+845
+00:31:04,000 --> 00:31:05,519
+had that in mind when they were
+
+846
+00:31:05,519 --> 00:31:07,360
+designing the instruction set
+
+847
+00:31:07,360 --> 00:31:09,679
+and so they knew what the requirements
+
+848
+00:31:09,679 --> 00:31:10,960
+of a trap and emulate
+
+849
+00:31:10,960 --> 00:31:13,760
+virtual machine were and for example um
+
+850
+00:31:13,760 --> 00:31:14,320
+they've
+
+851
+00:31:14,320 --> 00:31:15,919
+been quite diligent at making sure that
+
+852
+00:31:15,919 --> 00:31:17,600
+every single privileged thing that
+
+853
+00:31:17,600 --> 00:31:19,200
+supervisor code can do
+
+854
+00:31:19,200 --> 00:31:21,039
+will cause a trap if you try to do it in
+
+855
+00:31:21,039 --> 00:31:23,039
+user mode which is what you need
+
+856
+00:31:23,039 --> 00:31:24,399
+in order to make sure the virtual
+
+857
+00:31:24,399 --> 00:31:27,679
+machine monitor sees a trap for every
+
+858
+00:31:27,679 --> 00:31:31,350
+privileged instruction
+
+859
+00:31:31,360 --> 00:31:34,720
+um oh i have a quick question uh so
+
+860
+00:31:34,720 --> 00:31:37,120
+does anything actually run in the guest
+
+861
+00:31:37,120 --> 00:31:38,159
+os itself
+
+862
+00:31:38,159 --> 00:31:40,080
+or does it always trap into the virtual
+
+863
+00:31:40,080 --> 00:31:41,440
+machine monitor
+
+864
+00:31:41,440 --> 00:31:44,640
+well all ordinary instructions
+
+865
+00:31:44,640 --> 00:31:47,360
+like if you just have an ad instruction
+
+866
+00:31:47,360 --> 00:31:47,919
+that
+
+867
+00:31:47,919 --> 00:31:50,159
+you know adds i don't know how to write
+
+868
+00:31:50,159 --> 00:31:52,240
+this press 5 assembly but let's just say
+
+869
+00:31:52,240 --> 00:31:54,960
+you add a 0 to a1 and you want to put
+
+870
+00:31:54,960 --> 00:31:56,559
+the result in a2
+
+871
+00:31:56,559 --> 00:31:59,039
+that instruction just executes directly
+
+872
+00:31:59,039 --> 00:32:02,000
+on the hardware at full hardware speed
+
+873
+00:32:02,000 --> 00:32:04,159
+if you make a function call just an
+
+874
+00:32:04,159 --> 00:32:07,909
+ordinary function call
+
+875
+00:32:07,919 --> 00:32:10,240
+up here in the guest world that just
+
+876
+00:32:10,240 --> 00:32:11,919
+executes
+
+877
+00:32:11,919 --> 00:32:13,440
+without anything special it's just
+
+878
+00:32:13,440 --> 00:32:15,120
+ordinary you know all the instructions
+
+879
+00:32:15,120 --> 00:32:15,919
+that are legal
+
+880
+00:32:15,919 --> 00:32:19,679
+in you in user code um on non-privileged
+
+881
+00:32:19,679 --> 00:32:21,519
+instructions just execute directly at
+
+882
+00:32:21,519 --> 00:32:22,640
+full speed
+
+883
+00:32:22,640 --> 00:32:24,799
+when the guest operating system executes
+
+884
+00:32:24,799 --> 00:32:25,840
+them
+
+885
+00:32:25,840 --> 00:32:28,320
+okay so is there a semblance of like
+
+886
+00:32:28,320 --> 00:32:29,440
+user mode and
+
+887
+00:32:29,440 --> 00:32:32,960
+kernel mode in the guest os
+
+888
+00:32:32,960 --> 00:32:36,240
+yes the guest operating system is
+
+889
+00:32:36,240 --> 00:32:38,760
+well the guest operating system is
+
+890
+00:32:38,760 --> 00:32:40,399
+unchanged
+
+891
+00:32:40,399 --> 00:32:43,360
+so what we're running up here is exactly
+
+892
+00:32:43,360 --> 00:32:45,919
+the linux kernel or exactly the xv6
+
+893
+00:32:45,919 --> 00:32:46,480
+kernel
+
+894
+00:32:46,480 --> 00:32:48,720
+and of course xv6 is all you know it
+
+895
+00:32:48,720 --> 00:32:50,240
+knows the xv6 kernel
+
+896
+00:32:50,240 --> 00:32:53,039
+knows it's running in supervisor mode
+
+897
+00:32:53,039 --> 00:32:53,760
+yeah
+
+898
+00:32:53,760 --> 00:32:56,000
+right that's just it just is of course
+
+899
+00:32:56,000 --> 00:32:57,120
+it's not here but
+
+900
+00:32:57,120 --> 00:32:58,799
+as far as the code is concerned it's
+
+901
+00:32:58,799 --> 00:33:00,240
+just definitely running in supervisor
+
+902
+00:33:00,240 --> 00:33:01,360
+mode it just
+
+903
+00:33:01,360 --> 00:33:02,880
+does all kinds of privileged things and
+
+904
+00:33:02,880 --> 00:33:05,120
+expects them to work and then it knows
+
+905
+00:33:05,120 --> 00:33:06,080
+when it executes an
+
+906
+00:33:06,080 --> 00:33:08,480
+s-red to get into user space it knows
+
+907
+00:33:08,480 --> 00:33:09,279
+aha
+
+908
+00:33:09,279 --> 00:33:12,960
+i'm going to enter user space now
+
+909
+00:33:12,960 --> 00:33:15,519
+and you know the vmm sort of makes
+
+910
+00:33:15,519 --> 00:33:16,880
+everything look like
+
+911
+00:33:16,880 --> 00:33:20,000
+that's indeed what's happening okay okay
+
+912
+00:33:20,000 --> 00:33:22,640
+even though it's actually in in the real
+
+913
+00:33:22,640 --> 00:33:25,120
+machine it's in user mode
+
+914
+00:33:25,120 --> 00:33:27,760
+in both places but this looks just like
+
+915
+00:33:27,760 --> 00:33:28,880
+supervisor mode and this
+
+916
+00:33:28,880 --> 00:33:35,110
+looks just like you survived
+
+917
+00:33:35,120 --> 00:33:38,559
+okay um
+
+918
+00:33:38,559 --> 00:33:40,960
+okay so when the uh so for example when
+
+919
+00:33:40,960 --> 00:33:42,799
+the guest when we execute s-red to enter
+
+920
+00:33:42,799 --> 00:33:43,679
+user space
+
+921
+00:33:43,679 --> 00:33:47,440
+um the s-ret's privileged uh
+
+922
+00:33:47,440 --> 00:33:50,720
+luckily um it traps into the virtual
+
+923
+00:33:50,720 --> 00:33:52,240
+machine monitor
+
+924
+00:33:52,240 --> 00:33:54,000
+the virtual machine monitor changes the
+
+925
+00:33:54,000 --> 00:33:55,840
+virtual mode to user
+
+926
+00:33:55,840 --> 00:33:57,120
+even though of course the real mode is
+
+927
+00:33:57,120 --> 00:33:58,320
+still supervisor because we're still
+
+928
+00:33:58,320 --> 00:33:59,360
+executing down here
+
+929
+00:33:59,360 --> 00:34:03,840
+change the virtual mode to user um
+
+930
+00:34:03,840 --> 00:34:07,519
+it just before it returns from the trap
+
+931
+00:34:07,519 --> 00:34:09,440
+the virtual machine monitor sets the
+
+932
+00:34:09,440 --> 00:34:12,639
+real scpc
+
+933
+00:34:12,639 --> 00:34:16,000
+to the virtual scpc because in order
+
+934
+00:34:16,000 --> 00:34:16,639
+that when
+
+935
+00:34:16,639 --> 00:34:18,960
+the virtual machine monitor returns
+
+936
+00:34:18,960 --> 00:34:20,159
+using its own
+
+937
+00:34:20,159 --> 00:34:23,760
+srat that the uh the
+
+938
+00:34:23,760 --> 00:34:25,760
+program counter value it returns to is a
+
+939
+00:34:25,760 --> 00:34:26,960
+program valid
+
+940
+00:34:26,960 --> 00:34:28,879
+is the program calendar that the guest
+
+941
+00:34:28,879 --> 00:34:32,000
+operating system wanted to return to
+
+942
+00:34:32,000 --> 00:34:33,919
+so here's the case where very briefly
+
+943
+00:34:33,919 --> 00:34:36,639
+the real scpc was set equal to the
+
+944
+00:34:36,639 --> 00:34:40,159
+virtual scpc um
+
+945
+00:34:40,159 --> 00:34:42,399
+and i'll talk about this in a bit but
+
+946
+00:34:42,399 --> 00:34:43,599
+the virtual machine monitor also is
+
+947
+00:34:43,599 --> 00:34:45,040
+going to be switching page tables
+
+948
+00:34:45,040 --> 00:34:47,839
+when it uh goes back into into the
+
+949
+00:34:47,839 --> 00:34:49,119
+virtual machine
+
+950
+00:34:49,119 --> 00:34:52,159
+um when the guest user code wants to
+
+951
+00:34:52,159 --> 00:34:53,679
+make it then the guest user code if it
+
+952
+00:34:53,679 --> 00:34:54,879
+for ordinary instructions
+
+953
+00:34:54,879 --> 00:34:56,879
+just execute the machine excuse them
+
+954
+00:34:56,879 --> 00:34:58,880
+directly at full speed
+
+955
+00:34:58,880 --> 00:35:02,240
+when the uh guest
+
+956
+00:35:02,240 --> 00:35:04,320
+code wants to make a system call you
+
+957
+00:35:04,320 --> 00:35:06,960
+know executes the e-call instruction
+
+958
+00:35:06,960 --> 00:35:09,760
+um that causes a trap that trap goes to
+
+959
+00:35:09,760 --> 00:35:11,200
+the virtual machine monitor in this
+
+960
+00:35:11,200 --> 00:35:12,000
+scheme
+
+961
+00:35:12,000 --> 00:35:13,760
+the virtual machine monitor says aha
+
+962
+00:35:13,760 --> 00:35:15,520
+we're in you know consults the virtual
+
+963
+00:35:15,520 --> 00:35:16,320
+mode it's
+
+964
+00:35:16,320 --> 00:35:19,119
+virtual mode is user space it looks at
+
+965
+00:35:19,119 --> 00:35:20,400
+the instruction
+
+966
+00:35:20,400 --> 00:35:24,160
+uh that trapped defaulted it's an e-call
+
+967
+00:35:24,160 --> 00:35:26,000
+and then the virtual machine monitor
+
+968
+00:35:26,000 --> 00:35:27,839
+sort of does all the virtual changes
+
+969
+00:35:27,839 --> 00:35:29,440
+makes all the changes in the virtual
+
+970
+00:35:29,440 --> 00:35:30,720
+state required to
+
+971
+00:35:30,720 --> 00:35:33,599
+simulate a system call trap into the
+
+972
+00:35:33,599 --> 00:35:35,200
+guest operating system
+
+973
+00:35:35,200 --> 00:35:38,960
+so it's going to set the virtual scpc to
+
+974
+00:35:38,960 --> 00:35:41,359
+be whatever program counter
+
+975
+00:35:41,359 --> 00:35:44,160
+was the e-call instruction was at it's
+
+976
+00:35:44,160 --> 00:35:45,440
+gonna change the virtual mode back to
+
+977
+00:35:45,440 --> 00:35:46,480
+supervisor
+
+978
+00:35:46,480 --> 00:35:48,880
+it's gonna set the virtual s cause to be
+
+979
+00:35:48,880 --> 00:35:50,320
+system call
+
+980
+00:35:50,320 --> 00:35:54,000
+um it's gonna set the real epc
+
+981
+00:35:54,000 --> 00:35:57,040
+to be equal to the virtual st vec and
+
+982
+00:35:57,040 --> 00:35:57,599
+then call
+
+983
+00:35:57,599 --> 00:36:00,640
+srat so that it'll
+
+984
+00:36:00,640 --> 00:36:02,560
+jump into the guest operating system's
+
+985
+00:36:02,560 --> 00:36:03,920
+trap handler
+
+986
+00:36:03,920 --> 00:36:06,880
+which is what um or trampoline page or
+
+987
+00:36:06,880 --> 00:36:07,599
+whatever it is
+
+988
+00:36:07,599 --> 00:36:09,839
+which is what the virtual stbec was
+
+989
+00:36:09,839 --> 00:36:16,790
+pointing to
+
+990
+00:36:16,800 --> 00:36:20,230
+okay
+
+991
+00:36:20,240 --> 00:36:22,640
+we have two remaining pieces of business
+
+992
+00:36:22,640 --> 00:36:25,040
+which are quite important one is
+
+993
+00:36:25,040 --> 00:36:29,200
+what about page tables and the other is
+
+994
+00:36:29,200 --> 00:36:32,560
+what about devices um
+
+995
+00:36:32,560 --> 00:36:36,550
+so the um
+
+996
+00:36:36,560 --> 00:36:38,960
+page table sort of there's two pieces to
+
+997
+00:36:38,960 --> 00:36:40,160
+that um
+
+998
+00:36:40,160 --> 00:36:41,839
+one is that at various points the guest
+
+999
+00:36:41,839 --> 00:36:43,839
+operating system is going to modify the
+
+1000
+00:36:43,839 --> 00:36:44,160
+sat
+
+1001
+00:36:44,160 --> 00:36:47,200
+p register um and of course you know
+
+1002
+00:36:47,200 --> 00:36:48,800
+that'll turn into a trap and the virtual
+
+1003
+00:36:48,800 --> 00:36:50,800
+machine monitor and the virtual machine
+
+1004
+00:36:50,800 --> 00:36:52,960
+monitor gets a chance to do something
+
+1005
+00:36:52,960 --> 00:36:54,640
+but what we don't want the virtual
+
+1006
+00:36:54,640 --> 00:36:56,240
+machine monitor to do is simply
+
+1007
+00:36:56,240 --> 00:36:59,520
+let the guest set the real sat p
+
+1008
+00:36:59,520 --> 00:37:03,200
+um and then execute after having changed
+
+1009
+00:37:03,200 --> 00:37:04,560
+the wheel sap because that would let the
+
+1010
+00:37:04,560 --> 00:37:05,359
+guest get at
+
+1011
+00:37:05,359 --> 00:37:07,760
+any memory not just the memory that the
+
+1012
+00:37:07,760 --> 00:37:09,839
+virtual machine monitor has allocated to
+
+1013
+00:37:09,839 --> 00:37:10,240
+it
+
+1014
+00:37:10,240 --> 00:37:12,079
+so we cannot let the guest operating
+
+1015
+00:37:12,079 --> 00:37:15,520
+system simply set the sat p
+
+1016
+00:37:15,520 --> 00:37:17,119
+but we do need to do something to this
+
+1017
+00:37:17,119 --> 00:37:18,960
+app because we need to
+
+1018
+00:37:18,960 --> 00:37:20,560
+provide the illusion to the guest
+
+1019
+00:37:20,560 --> 00:37:22,000
+operating system that yes
+
+1020
+00:37:22,000 --> 00:37:24,480
+indeed the page table's been changed and
+
+1021
+00:37:24,480 --> 00:37:26,400
+more than an illusion when the guest
+
+1022
+00:37:26,400 --> 00:37:28,000
+software runs load and store
+
+1023
+00:37:28,000 --> 00:37:30,320
+instructions or fetches and instructions
+
+1024
+00:37:30,320 --> 00:37:31,200
+to execute
+
+1025
+00:37:31,200 --> 00:37:32,640
+we need those to come from the right
+
+1026
+00:37:32,640 --> 00:37:34,640
+place from the place that the
+
+1027
+00:37:34,640 --> 00:37:37,680
+guest operating system pointed its page
+
+1028
+00:37:37,680 --> 00:37:40,000
+table entries to
+
+1029
+00:37:40,000 --> 00:37:42,320
+so what actually happens when the guest
+
+1030
+00:37:42,320 --> 00:37:47,589
+sets the sat p
+
+1031
+00:37:47,599 --> 00:37:50,640
+is we you know we can't let it we can't
+
+1032
+00:37:50,640 --> 00:37:52,400
+directly use the guest operating systems
+
+1033
+00:37:52,400 --> 00:37:53,280
+page table
+
+1034
+00:37:53,280 --> 00:37:55,920
+but the virtual machine monitor cooks up
+
+1035
+00:37:55,920 --> 00:37:57,680
+a new page table
+
+1036
+00:37:57,680 --> 00:38:00,720
+um that simulates
+
+1037
+00:38:00,720 --> 00:38:04,079
+the uh guest operating systems desired
+
+1038
+00:38:04,079 --> 00:38:04,560
+ph
+
+1039
+00:38:04,560 --> 00:38:07,920
+table so um the
+
+1040
+00:38:07,920 --> 00:38:10,400
+so now the page translation situation is
+
+1041
+00:38:10,400 --> 00:38:11,280
+a little bit different
+
+1042
+00:38:11,280 --> 00:38:14,560
+um we have the guest
+
+1043
+00:38:14,560 --> 00:38:16,880
+what the guest was trying to set the
+
+1044
+00:38:16,880 --> 00:38:19,040
+page table to so this is the guest
+
+1045
+00:38:19,040 --> 00:38:20,400
+page table of course it's the current
+
+1046
+00:38:20,400 --> 00:38:22,240
+you know the guest kernel
+
+1047
+00:38:22,240 --> 00:38:27,040
+um and that maps uh sort of guest
+
+1048
+00:38:27,040 --> 00:38:29,760
+uh virtual addresses to what i'll call
+
+1049
+00:38:29,760 --> 00:38:30,880
+guest
+
+1050
+00:38:30,880 --> 00:38:33,200
+physical addresses of course the guest
+
+1051
+00:38:33,200 --> 00:38:34,560
+physical addresses are
+
+1052
+00:38:34,560 --> 00:38:37,359
+um the virtual machine monitors you know
+
+1053
+00:38:37,359 --> 00:38:38,640
+given the guests
+
+1054
+00:38:38,640 --> 00:38:41,359
+you know 32 gigabytes or however much
+
+1055
+00:38:41,359 --> 00:38:46,160
+simul you know physical memory um
+
+1056
+00:38:46,160 --> 00:38:49,920
+for its use um presumably starting at
+
+1057
+00:38:49,920 --> 00:38:53,280
+uh uh telling the guest operating system
+
+1058
+00:38:53,280 --> 00:38:53,920
+that it's
+
+1059
+00:38:53,920 --> 00:38:55,599
+physical addresses start at zero and go
+
+1060
+00:38:55,599 --> 00:38:57,760
+up for 32 megabytes but of course
+
+1061
+00:38:57,760 --> 00:38:59,440
+you know they don't in real life on the
+
+1062
+00:38:59,440 --> 00:39:01,359
+real hardware they're just 32 gigabytes
+
+1063
+00:39:01,359 --> 00:39:02,640
+worth of pages somewhere
+
+1064
+00:39:02,640 --> 00:39:05,680
+not contiguous um so we can't you
+
+1065
+00:39:05,680 --> 00:39:07,760
+can't directly use the guests physical
+
+1066
+00:39:07,760 --> 00:39:09,040
+addresses because they don't
+
+1067
+00:39:09,040 --> 00:39:11,520
+correspond to the uh real physical
+
+1068
+00:39:11,520 --> 00:39:13,280
+addresses so instead
+
+1069
+00:39:13,280 --> 00:39:18,710
+the vmm is going to maintain
+
+1070
+00:39:18,720 --> 00:39:22,720
+a map for each
+
+1071
+00:39:22,720 --> 00:39:25,680
+virtual machine that maps guest physical
+
+1072
+00:39:25,680 --> 00:39:26,720
+addresses
+
+1073
+00:39:26,720 --> 00:39:28,800
+to real physical addresses what i'll
+
+1074
+00:39:28,800 --> 00:39:30,240
+call host
+
+1075
+00:39:30,240 --> 00:39:33,200
+physical addresses um so this map is you
+
+1076
+00:39:33,200 --> 00:39:34,880
+know it's like a page table
+
+1077
+00:39:34,880 --> 00:39:38,800
+it has an entry for every page every
+
+1078
+00:39:38,800 --> 00:39:40,400
+physical page that the guest thinks
+
+1079
+00:39:40,400 --> 00:39:43,359
+exists and indicates what real physical
+
+1080
+00:39:43,359 --> 00:39:43,920
+page
+
+1081
+00:39:43,920 --> 00:39:46,240
+that guest physical address refers to
+
+1082
+00:39:46,240 --> 00:39:49,440
+that the vmm has allocated for it
+
+1083
+00:39:49,440 --> 00:39:52,800
+and then when the guest writes
+
+1084
+00:39:52,800 --> 00:39:55,920
+a new page table to sat p
+
+1085
+00:39:55,920 --> 00:39:57,920
+in the trap handler for that the vmm
+
+1086
+00:39:57,920 --> 00:39:59,280
+creates
+
+1087
+00:39:59,280 --> 00:40:03,119
+a sh what's called a shadow page table
+
+1088
+00:40:03,119 --> 00:40:05,359
+which is going to be what the vmm puts
+
+1089
+00:40:05,359 --> 00:40:09,030
+in the real
+
+1090
+00:40:09,040 --> 00:40:12,880
+sat p and this shadow page table is
+
+1091
+00:40:12,880 --> 00:40:15,359
+um constructed by the combination of
+
+1092
+00:40:15,359 --> 00:40:17,599
+these two page tables and so it maps
+
+1093
+00:40:17,599 --> 00:40:20,800
+guest virtual addresses
+
+1094
+00:40:20,800 --> 00:40:24,000
+to host physical addresses
+
+1095
+00:40:24,000 --> 00:40:26,079
+and is constructed by taking every entry
+
+1096
+00:40:26,079 --> 00:40:27,680
+in the guest page table
+
+1097
+00:40:27,680 --> 00:40:30,079
+looking at the guest desired guest
+
+1098
+00:40:30,079 --> 00:40:31,359
+physical address
+
+1099
+00:40:31,359 --> 00:40:33,200
+using the vmm map to translate that
+
+1100
+00:40:33,200 --> 00:40:35,119
+guest physical address to a real host
+
+1101
+00:40:35,119 --> 00:40:36,079
+physical address
+
+1102
+00:40:36,079 --> 00:40:38,800
+and putting that virtual physical pair
+
+1103
+00:40:38,800 --> 00:40:39,280
+um
+
+1104
+00:40:39,280 --> 00:40:41,680
+into the shadow page table and then the
+
+1105
+00:40:41,680 --> 00:40:43,359
+virtual machine monitor sets
+
+1106
+00:40:43,359 --> 00:40:46,480
+this to be in sat p as the real page
+
+1107
+00:40:46,480 --> 00:40:50,550
+table before returning back
+
+1108
+00:40:50,560 --> 00:40:53,680
+to the guest kernel
+
+1109
+00:40:53,680 --> 00:40:54,960
+and so the guest kernel thinks it's that
+
+1110
+00:40:54,960 --> 00:40:56,800
+one page table but actually the real
+
+1111
+00:40:56,800 --> 00:40:58,240
+hardware is using this
+
+1112
+00:40:58,240 --> 00:41:01,599
+shadow page table instead um and this
+
+1113
+00:41:01,599 --> 00:41:03,040
+way there's the
+
+1114
+00:41:03,040 --> 00:41:05,200
+this is what prevents the guest from
+
+1115
+00:41:05,200 --> 00:41:07,200
+escaping from the memory it's allowed to
+
+1116
+00:41:07,200 --> 00:41:08,640
+use
+
+1117
+00:41:08,640 --> 00:41:11,200
+the the the shadow page table can only
+
+1118
+00:41:11,200 --> 00:41:12,160
+contain
+
+1119
+00:41:12,160 --> 00:41:15,359
+host physical addresses um
+
+1120
+00:41:15,359 --> 00:41:18,960
+that the vmm had allocated for that
+
+1121
+00:41:18,960 --> 00:41:21,119
+guest so i guess there's nothing the
+
+1122
+00:41:21,119 --> 00:41:22,960
+guests can put in the page table it asks
+
+1123
+00:41:22,960 --> 00:41:23,599
+for
+
+1124
+00:41:23,599 --> 00:41:25,599
+that'll allow it to access a page that
+
+1125
+00:41:25,599 --> 00:41:27,280
+wasn't allocated to it by the virtual
+
+1126
+00:41:27,280 --> 00:41:30,390
+machine monitor
+
+1127
+00:41:30,400 --> 00:41:32,160
+um that's a critical piece of the
+
+1128
+00:41:32,160 --> 00:41:34,000
+isolation story here
+
+1129
+00:41:34,000 --> 00:41:36,079
+any questions about the paging setup for
+
+1130
+00:41:36,079 --> 00:41:40,150
+trap and emulate
+
+1131
+00:41:40,160 --> 00:41:43,520
+sorry so if it's if the operating system
+
+1132
+00:41:43,520 --> 00:41:47,040
+the guest just wants to make a new
+
+1133
+00:41:47,040 --> 00:41:49,040
+a new process and a new page table for
+
+1134
+00:41:49,040 --> 00:41:50,240
+the process
+
+1135
+00:41:50,240 --> 00:41:52,800
+what does it do like what happens the
+
+1136
+00:41:52,800 --> 00:41:53,520
+the guest
+
+1137
+00:41:53,520 --> 00:41:55,520
+the guest does the usual just does
+
+1138
+00:41:55,520 --> 00:41:57,920
+exactly what linux or xv6 does right now
+
+1139
+00:41:57,920 --> 00:41:58,560
+it
+
+1140
+00:41:58,560 --> 00:42:00,880
+it formats up a page table entries to
+
+1141
+00:42:00,880 --> 00:42:02,800
+make a page table and then it executes
+
+1142
+00:42:02,800 --> 00:42:04,240
+the instruction to
+
+1143
+00:42:04,240 --> 00:42:05,839
+assign that address to the page table
+
+1144
+00:42:05,839 --> 00:42:07,520
+into sat d so that's what the guest
+
+1145
+00:42:07,520 --> 00:42:08,960
+operating system
+
+1146
+00:42:08,960 --> 00:42:12,480
+does and when the
+
+1147
+00:42:12,480 --> 00:42:14,800
+but it can't actually assign to sat p
+
+1148
+00:42:14,800 --> 00:42:16,400
+because that's a privileged
+
+1149
+00:42:16,400 --> 00:42:18,480
+operation so there's a trap into the
+
+1150
+00:42:18,480 --> 00:42:19,839
+virtual machine monitor
+
+1151
+00:42:19,839 --> 00:42:21,680
+the virtual machine monitor inspects the
+
+1152
+00:42:21,680 --> 00:42:24,319
+instruction that trapped sees oh gosh
+
+1153
+00:42:24,319 --> 00:42:27,520
+that guest is trying to assign to sat p
+
+1154
+00:42:27,520 --> 00:42:29,040
+and then the virtual machine monitor
+
+1155
+00:42:29,040 --> 00:42:32,240
+would create this new shadow page table
+
+1156
+00:42:32,240 --> 00:42:34,640
+from the combination of the page table
+
+1157
+00:42:34,640 --> 00:42:35,520
+the guest ask
+
+1158
+00:42:35,520 --> 00:42:38,640
+was trying to set up the virtual machine
+
+1159
+00:42:38,640 --> 00:42:40,720
+monitor looks at the page table the
+
+1160
+00:42:40,720 --> 00:42:42,319
+all the pte's and the page table the
+
+1161
+00:42:42,319 --> 00:42:43,760
+guest was trying to set up
+
+1162
+00:42:43,760 --> 00:42:45,920
+it runs it translates the physical
+
+1163
+00:42:45,920 --> 00:42:47,280
+address in each guest
+
+1164
+00:42:47,280 --> 00:42:49,760
+page table entry through this map to get
+
+1165
+00:42:49,760 --> 00:42:52,000
+a real
+
+1166
+00:42:52,000 --> 00:42:54,480
+physical address or to cause a real
+
+1167
+00:42:54,480 --> 00:42:55,359
+fault if
+
+1168
+00:42:55,359 --> 00:42:58,000
+if the guest is trying to use a physical
+
+1169
+00:42:58,000 --> 00:42:59,760
+address that it's not allowed to
+
+1170
+00:42:59,760 --> 00:43:01,200
+um and then the virtual machine monitor
+
+1171
+00:43:01,200 --> 00:43:03,040
+installs the shadow page table and the
+
+1172
+00:43:03,040 --> 00:43:04,400
+real sat p
+
+1173
+00:43:04,400 --> 00:43:08,710
+and returns back to the guest
+
+1174
+00:43:08,720 --> 00:43:19,190
+okay okay i see i see okay thank you yes
+
+1175
+00:43:19,200 --> 00:43:22,960
+okay um
+
+1176
+00:43:22,960 --> 00:43:24,640
+okay so this is this this shadow page
+
+1177
+00:43:24,640 --> 00:43:26,319
+table stuff is certainly one of the
+
+1178
+00:43:26,319 --> 00:43:32,069
+tricky aspects of um
+
+1179
+00:43:32,079 --> 00:43:35,359
+implementing a virtual machine monitor
+
+1180
+00:43:35,359 --> 00:43:38,720
+there's actually another thing that uh
+
+1181
+00:43:38,720 --> 00:43:40,079
+there's another way in which the guest
+
+1182
+00:43:40,079 --> 00:43:41,599
+operating system can interact with the
+
+1183
+00:43:41,599 --> 00:43:43,040
+page table the guest operating system
+
+1184
+00:43:43,040 --> 00:43:43,680
+actually
+
+1185
+00:43:43,680 --> 00:43:46,000
+you know xv6 sometimes directly reads
+
+1186
+00:43:46,000 --> 00:43:47,520
+and writes page table entries
+
+1187
+00:43:47,520 --> 00:43:51,839
+in in its page table um
+
+1188
+00:43:51,839 --> 00:43:54,640
+and you know so xp6 could modify a page
+
+1189
+00:43:54,640 --> 00:43:56,240
+table entry or
+
+1190
+00:43:56,240 --> 00:43:58,240
+read the dirty bits for example in a
+
+1191
+00:43:58,240 --> 00:43:59,280
+page table entry
+
+1192
+00:43:59,280 --> 00:44:03,280
+now on the risk 5 um if
+
+1193
+00:44:03,280 --> 00:44:05,440
+if software modifies the page table
+
+1194
+00:44:05,440 --> 00:44:08,160
+entry if you read the wrist 5 spec
+
+1195
+00:44:08,160 --> 00:44:11,200
+risk 5 is not required to do anything
+
+1196
+00:44:11,200 --> 00:44:12,960
+at that point so if you modify a page
+
+1197
+00:44:12,960 --> 00:44:15,040
+table entry um
+
+1198
+00:44:15,040 --> 00:44:17,119
+the risk 5 microprocessor does not
+
+1199
+00:44:17,119 --> 00:44:19,280
+promise to immediately observe
+
+1200
+00:44:19,280 --> 00:44:21,200
+that modification to a page table entry
+
+1201
+00:44:21,200 --> 00:44:22,640
+you may completely ignore it for the
+
+1202
+00:44:22,640 --> 00:44:23,440
+time being
+
+1203
+00:44:23,440 --> 00:44:26,000
+instead what the manual says is that if
+
+1204
+00:44:26,000 --> 00:44:28,079
+if you modify page table entries and
+
+1205
+00:44:28,079 --> 00:44:29,760
+and you actually want the hardware to
+
+1206
+00:44:29,760 --> 00:44:31,599
+mmu to see them
+
+1207
+00:44:31,599 --> 00:44:34,839
+you have to execute um the s
+
+1208
+00:44:34,839 --> 00:44:38,319
+fence dot
+
+1209
+00:44:38,319 --> 00:44:41,359
+vma instruction and it's
+
+1210
+00:44:41,359 --> 00:44:42,960
+the spec says only it's only this
+
+1211
+00:44:42,960 --> 00:44:44,480
+instruction that causes the hardware to
+
+1212
+00:44:44,480 --> 00:44:45,520
+pay attention
+
+1213
+00:44:45,520 --> 00:44:47,599
+to your page table modifications and so
+
+1214
+00:44:47,599 --> 00:44:48,839
+if you're building a virtual machine
+
+1215
+00:44:48,839 --> 00:44:51,040
+monitor your virtual machine monitor on
+
+1216
+00:44:51,040 --> 00:44:54,720
+risk 5 can completely ignore
+
+1217
+00:44:54,720 --> 00:44:56,880
+the guest modifications to page table
+
+1218
+00:44:56,880 --> 00:44:58,960
+entries but since you know the guest
+
+1219
+00:44:58,960 --> 00:45:01,440
+is is going to issue is going to execute
+
+1220
+00:45:01,440 --> 00:45:02,160
+an s fence
+
+1221
+00:45:02,160 --> 00:45:04,720
+vma instruction after modifying page
+
+1222
+00:45:04,720 --> 00:45:05,520
+table entries
+
+1223
+00:45:05,520 --> 00:45:07,200
+and this is a privileged instruction you
+
+1224
+00:45:07,200 --> 00:45:09,200
+can tell because it starts with s
+
+1225
+00:45:09,200 --> 00:45:10,560
+that's going to trap into the virtual
+
+1226
+00:45:10,560 --> 00:45:12,640
+machine monitor the virtual machine
+
+1227
+00:45:12,640 --> 00:45:16,069
+monitor is going to
+
+1228
+00:45:16,079 --> 00:45:18,560
+re-knows that an s fence was executed it
+
+1229
+00:45:18,560 --> 00:45:19,520
+looks the instruction
+
+1230
+00:45:19,520 --> 00:45:22,720
+it's going to rescan the guest
+
+1231
+00:45:22,720 --> 00:45:24,400
+the guests version of the current page
+
+1232
+00:45:24,400 --> 00:45:26,720
+table and the current page table
+
+1233
+00:45:26,720 --> 00:45:28,240
+and look for page table entries that
+
+1234
+00:45:28,240 --> 00:45:30,560
+have changed and reflect those changes
+
+1235
+00:45:30,560 --> 00:45:32,480
+if they're legal
+
+1236
+00:45:32,480 --> 00:45:35,839
+into the shadow page table um
+
+1237
+00:45:35,839 --> 00:45:39,200
+reset the executor real estate vma to
+
+1238
+00:45:39,200 --> 00:45:40,960
+get the real hardware to pay attention
+
+1239
+00:45:40,960 --> 00:45:42,880
+to the shadow page table and then return
+
+1240
+00:45:42,880 --> 00:45:45,359
+to the guest operating system
+
+1241
+00:45:45,359 --> 00:45:48,560
+so this means that um there's only like
+
+1242
+00:45:48,560 --> 00:45:50,880
+the mmu actually just uses one page
+
+1243
+00:45:50,880 --> 00:45:52,480
+table right which is the shadow it's not
+
+1244
+00:45:52,480 --> 00:45:54,880
+like it's using the ept or anything like
+
+1245
+00:45:54,880 --> 00:45:55,680
+this
+
+1246
+00:45:55,680 --> 00:45:57,760
+there's no ept yet okay so the guest
+
+1247
+00:45:57,760 --> 00:45:59,680
+just like thinks it has a page table
+
+1248
+00:45:59,680 --> 00:46:02,000
+like the gva to gpa but that's not
+
+1249
+00:46:02,000 --> 00:46:03,680
+actually doing any translation
+
+1250
+00:46:03,680 --> 00:46:06,800
+it's not in this vmm yeah makes its own
+
+1251
+00:46:06,800 --> 00:46:08,880
+page table based on both of them
+
+1252
+00:46:08,880 --> 00:46:11,280
+combined that's right that's right just
+
+1253
+00:46:11,280 --> 00:46:13,200
+to be clear the ept is part of a
+
+1254
+00:46:13,200 --> 00:46:14,240
+different a
+
+1255
+00:46:14,240 --> 00:46:16,880
+quite different virtual machine
+
+1256
+00:46:16,880 --> 00:46:18,400
+implementation
+
+1257
+00:46:18,400 --> 00:46:20,319
+virtual machine design that requires
+
+1258
+00:46:20,319 --> 00:46:22,400
+hardware support i'm assuming this is a
+
+1259
+00:46:22,400 --> 00:46:23,520
+story about how to
+
+1260
+00:46:23,520 --> 00:46:25,119
+build a virtual machine with no special
+
+1261
+00:46:25,119 --> 00:46:26,800
+hardware support other than
+
+1262
+00:46:26,800 --> 00:46:31,589
+trapping on privileged instructions
+
+1263
+00:46:31,599 --> 00:46:34,640
+um does this mess up direct mapping in
+
+1264
+00:46:34,640 --> 00:46:37,109
+any way
+
+1265
+00:46:37,119 --> 00:46:41,510
+well there won't be a direct map
+
+1266
+00:46:41,520 --> 00:46:45,990
+this will allow the guest i mean
+
+1267
+00:46:46,000 --> 00:46:49,040
+this will cause the guest colonel to run
+
+1268
+00:46:49,040 --> 00:46:52,000
+correctly with what the guest colonel
+
+1269
+00:46:52,000 --> 00:46:55,510
+thinks is a direct mapping
+
+1270
+00:46:55,520 --> 00:46:57,040
+but i mean it's not a direct it's a
+
+1271
+00:46:57,040 --> 00:46:58,640
+direct mapping in the virtual world but
+
+1272
+00:46:58,640 --> 00:47:00,400
+it's not a direct mapping in the
+
+1273
+00:47:00,400 --> 00:47:04,950
+uh on the real machine
+
+1274
+00:47:04,960 --> 00:47:08,630
+but it doesn't matter because
+
+1275
+00:47:08,640 --> 00:47:11,760
+because we're tricking the yeah we're
+
+1276
+00:47:11,760 --> 00:47:13,119
+tricking the guests into
+
+1277
+00:47:13,119 --> 00:47:14,240
+everything looks just like it was a
+
+1278
+00:47:14,240 --> 00:47:17,670
+direct mapping
+
+1279
+00:47:17,680 --> 00:47:19,920
+uh one more question you may be
+
+1280
+00:47:19,920 --> 00:47:22,160
+addressing this later but i wonder
+
+1281
+00:47:22,160 --> 00:47:24,000
+like when we discussed the trap
+
+1282
+00:47:24,000 --> 00:47:25,680
+mechanism earlier in the semester we
+
+1283
+00:47:25,680 --> 00:47:26,160
+mentioned
+
+1284
+00:47:26,160 --> 00:47:29,520
+the high performance cost to trapping
+
+1285
+00:47:29,520 --> 00:47:32,319
+so this sounds like there's way more of
+
+1286
+00:47:32,319 --> 00:47:34,240
+a performance hit when we use
+
+1287
+00:47:34,240 --> 00:47:37,599
+a vmm yes yes there's all these
+
+1288
+00:47:37,599 --> 00:47:39,119
+instructions you know
+
+1289
+00:47:39,119 --> 00:47:40,800
+if you if you're if your operating
+
+1290
+00:47:40,800 --> 00:47:42,240
+system maybe x uses a lot of
+
+1291
+00:47:42,240 --> 00:47:44,319
+privileged instructions which you may
+
+1292
+00:47:44,319 --> 00:47:45,359
+and you spend a lot of time in the
+
+1293
+00:47:45,359 --> 00:47:46,880
+operating system then the traps you may
+
+1294
+00:47:46,880 --> 00:47:48,480
+have quite a few traps
+
+1295
+00:47:48,480 --> 00:47:49,839
+and then that may cost you quite a bit
+
+1296
+00:47:49,839 --> 00:47:52,079
+of performance and that's what motivates
+
+1297
+00:47:52,079 --> 00:47:53,839
+i mean a little bit we'll talk about
+
+1298
+00:47:53,839 --> 00:47:55,920
+modern hardware support virtual machines
+
+1299
+00:47:55,920 --> 00:47:58,079
+which is what today's paper was using
+
+1300
+00:47:58,079 --> 00:48:00,800
+and the high cost of the of the traps is
+
+1301
+00:48:00,800 --> 00:48:02,240
+a lot of the motivation
+
+1302
+00:48:02,240 --> 00:48:04,880
+for why intel felt compelled to uh an
+
+1303
+00:48:04,880 --> 00:48:07,040
+amd felt compelled to add
+
+1304
+00:48:07,040 --> 00:48:08,640
+hardware support for a much more
+
+1305
+00:48:08,640 --> 00:48:10,160
+efficient
+
+1306
+00:48:10,160 --> 00:48:12,400
+or for a virtual machine scheme that had
+
+1307
+00:48:12,400 --> 00:48:13,359
+much
+
+1308
+00:48:13,359 --> 00:48:17,440
+many fewer traps yes
+
+1309
+00:48:17,440 --> 00:48:19,280
+that's quite important but this actually
+
+1310
+00:48:19,280 --> 00:48:20,800
+ran i mean for many years this is what
+
+1311
+00:48:20,800 --> 00:48:23,040
+people did for virtual machines and
+
+1312
+00:48:23,040 --> 00:48:24,880
+it was very successful and it works and
+
+1313
+00:48:24,880 --> 00:48:27,440
+it's you know so much slower
+
+1314
+00:48:27,440 --> 00:48:28,720
+but not so much slower that people
+
+1315
+00:48:28,720 --> 00:48:34,160
+didn't like it people liked it a lot
+
+1316
+00:48:34,160 --> 00:48:36,160
+okay any more questions about the trap
+
+1317
+00:48:36,160 --> 00:48:37,440
+and emulate
+
+1318
+00:48:37,440 --> 00:48:44,069
+strategy for page tables
+
+1319
+00:48:44,079 --> 00:48:46,960
+okay let me uh as a final piece of the
+
+1320
+00:48:46,960 --> 00:48:49,040
+trap and emulate story
+
+1321
+00:48:49,040 --> 00:48:54,630
+um uh let me talk about devices
+
+1322
+00:48:54,640 --> 00:48:58,640
+um and so here i'm talking about uh
+
+1323
+00:48:58,640 --> 00:49:00,160
+you know ordinary operating system
+
+1324
+00:49:00,160 --> 00:49:01,599
+expects to be able to get at a disk
+
+1325
+00:49:01,599 --> 00:49:02,319
+drive
+
+1326
+00:49:02,319 --> 00:49:04,400
+to store its file system on and maybe
+
+1327
+00:49:04,400 --> 00:49:06,400
+network interface card and
+
+1328
+00:49:06,400 --> 00:49:09,520
+maybe even if it's xv6 a uart so it can
+
+1329
+00:49:09,520 --> 00:49:11,280
+talk to its console and you know who
+
+1330
+00:49:11,280 --> 00:49:12,720
+knows a sound card
+
+1331
+00:49:12,720 --> 00:49:15,359
+a graphics adapter a mouse a keyboard
+
+1332
+00:49:15,359 --> 00:49:16,319
+all kinds of stuff
+
+1333
+00:49:16,319 --> 00:49:19,280
+um so the operating system we need to uh
+
+1334
+00:49:19,280 --> 00:49:20,720
+our virtual machine scheme has to have
+
+1335
+00:49:20,720 --> 00:49:21,760
+some provision
+
+1336
+00:49:21,760 --> 00:49:24,800
+to allow allow guests
+
+1337
+00:49:24,800 --> 00:49:26,800
+to at least trick them into thinking
+
+1338
+00:49:26,800 --> 00:49:28,319
+that all these devices that they need
+
+1339
+00:49:28,319 --> 00:49:30,720
+really exist
+
+1340
+00:49:30,720 --> 00:49:34,000
+and there's three main strategies
+
+1341
+00:49:34,000 --> 00:49:37,680
+that people use one is
+
+1342
+00:49:37,680 --> 00:49:41,040
+just pick some very commonly used device
+
+1343
+00:49:41,040 --> 00:49:42,240
+in the class that you need
+
+1344
+00:49:42,240 --> 00:49:45,280
+say a disk drive and just do an
+
+1345
+00:49:45,280 --> 00:49:47,040
+emulation
+
+1346
+00:49:47,040 --> 00:49:49,280
+that is nothing you're not actually
+
+1347
+00:49:49,280 --> 00:49:51,040
+having a real device
+
+1348
+00:49:51,040 --> 00:49:54,079
+the vmm just makes it look like this
+
+1349
+00:49:54,079 --> 00:49:56,319
+particular kind of disk drive
+
+1350
+00:49:56,319 --> 00:49:58,559
+exists and that the guest is talking to
+
+1351
+00:49:58,559 --> 00:50:00,480
+it
+
+1352
+00:50:00,480 --> 00:50:01,760
+and the way you would drive this
+
+1353
+00:50:01,760 --> 00:50:04,240
+emulation uh typically
+
+1354
+00:50:04,240 --> 00:50:07,520
+uh the guest operating system is gonna
+
+1355
+00:50:07,520 --> 00:50:09,920
+try to talk to the device through memory
+
+1356
+00:50:09,920 --> 00:50:11,680
+mapped control registers so
+
+1357
+00:50:11,680 --> 00:50:14,800
+this is how xv6 talks to its uh ua it's
+
+1358
+00:50:14,800 --> 00:50:17,599
+uart you know the serial port
+
+1359
+00:50:17,599 --> 00:50:20,960
+uh the console uh
+
+1360
+00:50:20,960 --> 00:50:23,839
+device that you type characters to and
+
+1361
+00:50:23,839 --> 00:50:25,359
+that displays characters to you
+
+1362
+00:50:25,359 --> 00:50:28,319
+xv6 is talking to some control registers
+
+1363
+00:50:28,319 --> 00:50:29,760
+that are mapped that it assumes the
+
+1364
+00:50:29,760 --> 00:50:30,880
+hardware
+
+1365
+00:50:30,880 --> 00:50:34,480
+um has mapped in a known address
+
+1366
+00:50:34,480 --> 00:50:36,160
+in the address in the kernel's address
+
+1367
+00:50:36,160 --> 00:50:38,480
+space and so the way you'd emulate that
+
+1368
+00:50:38,480 --> 00:50:40,720
+in a virtual machine monitor is you
+
+1369
+00:50:40,720 --> 00:50:43,440
+actually not map those pages in the
+
+1370
+00:50:43,440 --> 00:50:45,040
+guest instead you would
+
+1371
+00:50:45,040 --> 00:50:47,760
+allow or have those pages be invalid so
+
+1372
+00:50:47,760 --> 00:50:49,200
+that every time the
+
+1373
+00:50:49,200 --> 00:50:51,280
+guest operating system tried to use the
+
+1374
+00:50:51,280 --> 00:50:52,960
+uart hardware or whatever
+
+1375
+00:50:52,960 --> 00:50:55,200
+device hardware the vm virtual machine
+
+1376
+00:50:55,200 --> 00:50:56,400
+monitor will get a trap
+
+1377
+00:50:56,400 --> 00:50:57,599
+and the virtual machine monitor we're
+
+1378
+00:50:57,599 --> 00:50:59,040
+going to look at the instructions say oh
+
+1379
+00:50:59,040 --> 00:51:00,559
+it's trying to send a character
+
+1380
+00:51:00,559 --> 00:51:02,960
+on the uart or read from the disk or who
+
+1381
+00:51:02,960 --> 00:51:05,359
+knows what
+
+1382
+00:51:05,359 --> 00:51:07,359
+and the virtual machine monitor would
+
+1383
+00:51:07,359 --> 00:51:09,119
+have some simulation of a disk or
+
+1384
+00:51:09,119 --> 00:51:10,480
+simulation of a
+
+1385
+00:51:10,480 --> 00:51:14,000
+serial device um
+
+1386
+00:51:14,000 --> 00:51:16,240
+and you know sort of invoke its
+
+1387
+00:51:16,240 --> 00:51:17,680
+simulation to figure out
+
+1388
+00:51:17,680 --> 00:51:19,680
+uh how to respond to the guest's
+
+1389
+00:51:19,680 --> 00:51:21,280
+instruction and then
+
+1390
+00:51:21,280 --> 00:51:24,319
+allow the guests to resume
+
+1391
+00:51:24,319 --> 00:51:27,119
+and so this is basically how qmu
+
+1392
+00:51:27,119 --> 00:51:28,559
+implements the
+
+1393
+00:51:28,559 --> 00:51:31,760
+the uart console device that xv6 uses
+
+1394
+00:51:31,760 --> 00:51:33,599
+it just has a there's actually no
+
+1395
+00:51:33,599 --> 00:51:35,680
+physical serial port in sight but
+
+1396
+00:51:35,680 --> 00:51:38,960
+qmu emulates one to keep
+
+1397
+00:51:38,960 --> 00:51:41,119
+xv6 happy and so this is a common
+
+1398
+00:51:41,119 --> 00:51:42,960
+strategy
+
+1399
+00:51:42,960 --> 00:51:45,200
+it's can be very low performance though
+
+1400
+00:51:45,200 --> 00:51:46,800
+because it involves a trap
+
+1401
+00:51:46,800 --> 00:51:48,319
+into the operating system for every
+
+1402
+00:51:48,319 --> 00:51:50,000
+interaction between the guest and the
+
+1403
+00:51:50,000 --> 00:51:51,920
+device hardware
+
+1404
+00:51:51,920 --> 00:51:54,720
+but for low speed stuff it's works
+
+1405
+00:51:54,720 --> 00:51:56,240
+pretty well
+
+1406
+00:51:56,240 --> 00:52:00,000
+a second strategy that's often used
+
+1407
+00:52:00,000 --> 00:52:03,119
+and actually but if you're if your goal
+
+1408
+00:52:03,119 --> 00:52:04,480
+is to provide
+
+1409
+00:52:04,480 --> 00:52:06,319
+is to be able to boot operating systems
+
+1410
+00:52:06,319 --> 00:52:07,839
+that have no idea they're running on a
+
+1411
+00:52:07,839 --> 00:52:09,359
+virtual machine
+
+1412
+00:52:09,359 --> 00:52:11,599
+um this is pretty much the way you have
+
+1413
+00:52:11,599 --> 00:52:12,559
+to go
+
+1414
+00:52:12,559 --> 00:52:16,160
+um there's really no other choice but
+
+1415
+00:52:16,160 --> 00:52:18,559
+in the modern world you know uh it's
+
+1416
+00:52:18,559 --> 00:52:19,920
+often the case that the operating
+
+1417
+00:52:19,920 --> 00:52:20,800
+systems
+
+1418
+00:52:20,800 --> 00:52:22,960
+are aware that they're actually running
+
+1419
+00:52:22,960 --> 00:52:24,319
+at a low level at least aware that
+
+1420
+00:52:24,319 --> 00:52:25,680
+they're running on top of a
+
+1421
+00:52:25,680 --> 00:52:29,040
+virtual machine and so um a different
+
+1422
+00:52:29,040 --> 00:52:31,359
+strategy is to provide virtual devices
+
+1423
+00:52:31,359 --> 00:52:35,920
+that is not try to emulate a real device
+
+1424
+00:52:35,920 --> 00:52:40,559
+but cook up a device interface that is
+
+1425
+00:52:40,559 --> 00:52:42,319
+particularly efficient
+
+1426
+00:52:42,319 --> 00:52:45,920
+for the um provides efficient ways for
+
+1427
+00:52:45,920 --> 00:52:46,559
+the
+
+1428
+00:52:46,559 --> 00:52:49,040
+uh device driver in the guest to be able
+
+1429
+00:52:49,040 --> 00:52:50,240
+to talk to
+
+1430
+00:52:50,240 --> 00:52:52,319
+um the device support inside the virtual
+
+1431
+00:52:52,319 --> 00:52:53,520
+machine monitor
+
+1432
+00:52:53,520 --> 00:52:56,160
+um and so so you might not have memory
+
+1433
+00:52:56,160 --> 00:52:57,920
+map control registers instead you might
+
+1434
+00:52:57,920 --> 00:52:58,400
+have
+
+1435
+00:52:58,400 --> 00:53:02,640
+sort of a queue of command
+
+1436
+00:53:02,640 --> 00:53:06,319
+structures in memory in which the
+
+1437
+00:53:06,319 --> 00:53:07,920
+guest operating system would write its
+
+1438
+00:53:07,920 --> 00:53:10,720
+commands to the
+
+1439
+00:53:10,720 --> 00:53:13,760
+to the device and in fact
+
+1440
+00:53:13,760 --> 00:53:15,839
+xp6 also uses one of these if you look
+
+1441
+00:53:15,839 --> 00:53:18,000
+at the um
+
+1442
+00:53:18,000 --> 00:53:22,069
+xv6 vert i o disk
+
+1443
+00:53:22,079 --> 00:53:25,280
+um bird iodis.c you'll see the guest
+
+1444
+00:53:25,280 --> 00:53:28,800
+and of a um
+
+1445
+00:53:28,800 --> 00:53:31,839
+device driver intended to talk to a disk
+
+1446
+00:53:31,839 --> 00:53:35,359
+virtual device that's implemented by qmu
+
+1447
+00:53:35,359 --> 00:53:38,880
+and it it uses either little or
+
+1448
+00:53:38,880 --> 00:53:42,160
+almost not either either little or no
+
+1449
+00:53:42,160 --> 00:53:44,720
+uh memory map control registers and so
+
+1450
+00:53:44,720 --> 00:53:46,400
+it doesn't really rely on traps
+
+1451
+00:53:46,400 --> 00:53:49,280
+um and instead it formats up this sort
+
+1452
+00:53:49,280 --> 00:53:49,599
+of
+
+1453
+00:53:49,599 --> 00:53:52,319
+hue of commands and memory um as i
+
+1454
+00:53:52,319 --> 00:53:53,599
+mentioned
+
+1455
+00:53:53,599 --> 00:53:55,760
+and and then qmu looks at these commands
+
+1456
+00:53:55,760 --> 00:53:56,640
+in memory and
+
+1457
+00:53:56,640 --> 00:53:59,839
+applies them not to a real disk but to
+
+1458
+00:53:59,839 --> 00:54:03,440
+um a file like for us it's fs.image
+
+1459
+00:54:03,440 --> 00:54:05,839
+um qmu applies these commands to
+
+1460
+00:54:05,839 --> 00:54:07,359
+fs.image instead of
+
+1461
+00:54:07,359 --> 00:54:10,079
+instead of using a real piece of device
+
+1462
+00:54:10,079 --> 00:54:11,119
+hardware
+
+1463
+00:54:11,119 --> 00:54:14,160
+which is another strategy um
+
+1464
+00:54:14,160 --> 00:54:16,559
+and a third strategy that people use so
+
+1465
+00:54:16,559 --> 00:54:18,240
+this is higher performance than straight
+
+1466
+00:54:18,240 --> 00:54:19,440
+emulation because
+
+1467
+00:54:19,440 --> 00:54:22,400
+um you can design the interface so it
+
+1468
+00:54:22,400 --> 00:54:24,400
+doesn't require a lot of traps
+
+1469
+00:54:24,400 --> 00:54:27,520
+a final strategy people use
+
+1470
+00:54:27,520 --> 00:54:33,829
+um is a pass-through of a real device
+
+1471
+00:54:33,839 --> 00:54:35,440
+and that's our classic situation for
+
+1472
+00:54:35,440 --> 00:54:37,280
+this is network interface controllers
+
+1473
+00:54:37,280 --> 00:54:38,079
+you know
+
+1474
+00:54:38,079 --> 00:54:41,200
+that provide access to the network and
+
+1475
+00:54:41,200 --> 00:54:44,960
+modern network devices
+
+1476
+00:54:44,960 --> 00:54:47,280
+actually have hardware support for
+
+1477
+00:54:47,280 --> 00:54:48,319
+talking to
+
+1478
+00:54:48,319 --> 00:54:51,040
+multiple guest operating systems running
+
+1479
+00:54:51,040 --> 00:54:52,000
+under a virtual machine
+
+1480
+00:54:52,000 --> 00:54:53,520
+monitor and so you can configure a
+
+1481
+00:54:53,520 --> 00:54:55,520
+modern nic to actually
+
+1482
+00:54:55,520 --> 00:54:58,720
+act as if it's multiple independent
+
+1483
+00:54:58,720 --> 00:55:01,040
+apparently independent mix one for each
+
+1484
+00:55:01,040 --> 00:55:02,559
+guest operating system
+
+1485
+00:55:02,559 --> 00:55:04,559
+and then the guest operating system can
+
+1486
+00:55:04,559 --> 00:55:06,319
+talk directly
+
+1487
+00:55:06,319 --> 00:55:08,000
+can be configured by the virtual machine
+
+1488
+00:55:08,000 --> 00:55:09,440
+monitor so that it's allowed to talk
+
+1489
+00:55:09,440 --> 00:55:10,319
+directly
+
+1490
+00:55:10,319 --> 00:55:13,359
+to its sort of slice of the nic the
+
+1491
+00:55:13,359 --> 00:55:15,359
+network interface card hardware
+
+1492
+00:55:15,359 --> 00:55:18,160
+um with very high efficiency so this is
+
+1493
+00:55:18,160 --> 00:55:19,839
+the modern
+
+1494
+00:55:19,839 --> 00:55:22,960
+high performance way and the guest
+
+1495
+00:55:22,960 --> 00:55:26,079
+operating system probably
+
+1496
+00:55:26,079 --> 00:55:28,000
+in theory i think you could design you
+
+1497
+00:55:28,000 --> 00:55:29,440
+could set this up so the guest operating
+
+1498
+00:55:29,440 --> 00:55:31,440
+system wasn't really aware
+
+1499
+00:55:31,440 --> 00:55:32,880
+that anything odd was going on but i
+
+1500
+00:55:32,880 --> 00:55:34,640
+think in practice the guest operating
+
+1501
+00:55:34,640 --> 00:55:36,160
+system device drivers kind of know
+
+1502
+00:55:36,160 --> 00:55:39,520
+that they're talking to one of these
+
+1503
+00:55:39,520 --> 00:55:42,720
+special network interface cards
+
+1504
+00:55:42,720 --> 00:55:46,240
+all right so um so these are the options
+
+1505
+00:55:46,240 --> 00:55:47,839
+for devices
+
+1506
+00:55:47,839 --> 00:55:50,960
+in fact i i believe
+
+1507
+00:55:50,960 --> 00:55:53,920
+that most of the difficulty in
+
+1508
+00:55:53,920 --> 00:55:56,079
+implementing a uh
+
+1509
+00:55:56,079 --> 00:56:00,319
+virtual machine monitor today um
+
+1510
+00:56:00,319 --> 00:56:03,280
+comes in in the form of trying to cook
+
+1511
+00:56:03,280 --> 00:56:03,599
+up
+
+1512
+00:56:03,599 --> 00:56:05,680
+device emulations and device drivers
+
+1513
+00:56:05,680 --> 00:56:08,319
+that are um
+
+1514
+00:56:08,319 --> 00:56:10,000
+uh sufficiently good that will act that
+
+1515
+00:56:10,000 --> 00:56:12,000
+they'll actually work correctly with
+
+1516
+00:56:12,000 --> 00:56:14,720
+uh real guest operating systems this is
+
+1517
+00:56:14,720 --> 00:56:15,119
+where
+
+1518
+00:56:15,119 --> 00:56:16,559
+probably the majority of the work is
+
+1519
+00:56:16,559 --> 00:56:17,920
+particularly if you need to use this
+
+1520
+00:56:17,920 --> 00:56:20,160
+emulation
+
+1521
+00:56:20,160 --> 00:56:23,430
+strategy
+
+1522
+00:56:23,440 --> 00:56:32,630
+any questions about devices
+
+1523
+00:56:32,640 --> 00:56:36,000
+so what what exactly is i i didn't quite
+
+1524
+00:56:36,000 --> 00:56:38,079
+get the difference between the virtual
+
+1525
+00:56:38,079 --> 00:56:41,119
+and the emulation because they don't
+
+1526
+00:56:41,119 --> 00:56:42,880
+like they they're similar they're
+
+1527
+00:56:42,880 --> 00:56:44,640
+similar um
+
+1528
+00:56:44,640 --> 00:56:46,799
+the here's the way to think about it um
+
+1529
+00:56:46,799 --> 00:56:48,559
+if you're booting an operating system
+
+1530
+00:56:48,559 --> 00:56:52,480
+that has no idea about virtual machine
+
+1531
+00:56:52,480 --> 00:56:54,640
+it probably has a lot of disk drivers in
+
+1532
+00:56:54,640 --> 00:56:56,160
+it but they're all for real hardware
+
+1533
+00:56:56,160 --> 00:56:57,280
+that you can go out and like
+
+1534
+00:56:57,280 --> 00:56:58,960
+physical chunks of hardware that you can
+
+1535
+00:56:58,960 --> 00:57:00,319
+go out and buy and that means that if
+
+1536
+00:57:00,319 --> 00:57:01,680
+you want to boot that kind of operating
+
+1537
+00:57:01,680 --> 00:57:04,079
+system on your virtual machine
+
+1538
+00:57:04,079 --> 00:57:08,160
+you need to have an exact emulation you
+
+1539
+00:57:08,160 --> 00:57:10,000
+need to choose one of those real pieces
+
+1540
+00:57:10,000 --> 00:57:12,160
+of hardware and have a precise super
+
+1541
+00:57:12,160 --> 00:57:13,040
+accurate
+
+1542
+00:57:13,040 --> 00:57:16,319
+emulation of that hardware um so that
+
+1543
+00:57:16,319 --> 00:57:17,200
+the
+
+1544
+00:57:17,200 --> 00:57:20,079
+and then i mean people totally do that
+
+1545
+00:57:20,079 --> 00:57:21,599
+so that works
+
+1546
+00:57:21,599 --> 00:57:25,119
+however and that would be fine um
+
+1547
+00:57:25,119 --> 00:57:28,160
+except most of these
+
+1548
+00:57:28,160 --> 00:57:30,640
+for real hardware that the device
+
+1549
+00:57:30,640 --> 00:57:31,440
+interfaces
+
+1550
+00:57:31,440 --> 00:57:33,119
+were not designed the hardware
+
+1551
+00:57:33,119 --> 00:57:35,119
+interfaces were not designed
+
+1552
+00:57:35,119 --> 00:57:37,280
+to be efficient with a trap and emulate
+
+1553
+00:57:37,280 --> 00:57:38,640
+virtual machine monitor
+
+1554
+00:57:38,640 --> 00:57:41,359
+and so it's very often the case that the
+
+1555
+00:57:41,359 --> 00:57:42,559
+real device just
+
+1556
+00:57:42,559 --> 00:57:44,559
+requires you to read and write its
+
+1557
+00:57:44,559 --> 00:57:46,880
+control registers a lot
+
+1558
+00:57:46,880 --> 00:57:48,559
+but the virtual machine monitor has to
+
+1559
+00:57:48,559 --> 00:57:50,400
+get control for every right of a
+
+1560
+00:57:50,400 --> 00:57:53,040
+device control register because it needs
+
+1561
+00:57:53,040 --> 00:57:54,480
+to emulate
+
+1562
+00:57:54,480 --> 00:57:56,480
+um and that means that every right of a
+
+1563
+00:57:56,480 --> 00:57:57,599
+device control
+
+1564
+00:57:57,599 --> 00:57:59,200
+register results in a trap into the
+
+1565
+00:57:59,200 --> 00:58:00,720
+virtual machine monitor which you know
+
+1566
+00:58:00,720 --> 00:58:02,799
+costs maybe hundreds of cycles
+
+1567
+00:58:02,799 --> 00:58:05,359
+um and that means this is slow this is
+
+1568
+00:58:05,359 --> 00:58:06,400
+inefficient
+
+1569
+00:58:06,400 --> 00:58:08,480
+and so the difference here is that
+
+1570
+00:58:08,480 --> 00:58:09,760
+instead of
+
+1571
+00:58:09,760 --> 00:58:12,480
+slavishly mimicking a real device some
+
+1572
+00:58:12,480 --> 00:58:15,760
+designer has come up with a
+
+1573
+00:58:15,760 --> 00:58:19,040
+a device interface
+
+1574
+00:58:19,040 --> 00:58:20,720
+that's not implemented by any real piece
+
+1575
+00:58:20,720 --> 00:58:23,040
+of hardware but only implemented by a
+
+1576
+00:58:23,040 --> 00:58:24,559
+virtual machine monitor and it just
+
+1577
+00:58:24,559 --> 00:58:25,920
+happens to be designed in a way that
+
+1578
+00:58:25,920 --> 00:58:28,960
+doesn't require a lot of traps
+
+1579
+00:58:28,960 --> 00:58:30,240
+but then instead of chit chatting with
+
+1580
+00:58:30,240 --> 00:58:31,760
+control registers and expecting the
+
+1581
+00:58:31,760 --> 00:58:33,359
+device to respond
+
+1582
+00:58:33,359 --> 00:58:36,079
+immediately which really requires a trap
+
+1583
+00:58:36,079 --> 00:58:37,040
+instead that
+
+1584
+00:58:37,040 --> 00:58:39,440
+the device driver and that sort of
+
+1585
+00:58:39,440 --> 00:58:41,359
+virtual hardware are decoupled
+
+1586
+00:58:41,359 --> 00:58:43,920
+and don't ever require sort of immediate
+
+1587
+00:58:43,920 --> 00:58:46,480
+uh interaction
+
+1588
+00:58:46,480 --> 00:58:48,720
+in that case the guest needs its own
+
+1589
+00:58:48,720 --> 00:58:50,000
+like a new driver
+
+1590
+00:58:50,000 --> 00:58:51,839
+so it's just like the guests will have a
+
+1591
+00:58:51,839 --> 00:58:54,000
+driver for like this model of the disk
+
+1592
+00:58:54,000 --> 00:58:55,440
+and that model of the disk and they'll
+
+1593
+00:58:55,440 --> 00:58:57,520
+also have a driver for that virtual disk
+
+1594
+00:58:57,520 --> 00:59:00,960
+right and so indeed xv6 does so so the
+
+1595
+00:59:00,960 --> 00:59:03,200
+so at the functionality level you play
+
+1596
+00:59:03,200 --> 00:59:04,880
+this game maybe you can boot
+
+1597
+00:59:04,880 --> 00:59:08,000
+any operating system whereas if you play
+
+1598
+00:59:08,000 --> 00:59:09,440
+this game you can only boot operating
+
+1599
+00:59:09,440 --> 00:59:11,040
+systems that have been taught
+
+1600
+00:59:11,040 --> 00:59:13,440
+about your virtual devices if you want
+
+1601
+00:59:13,440 --> 00:59:15,839
+to use you know the virtual devices
+
+1602
+00:59:15,839 --> 00:59:18,079
+it turns out this is actually a standard
+
+1603
+00:59:18,079 --> 00:59:19,440
+that's
+
+1604
+00:59:19,440 --> 00:59:22,160
+provided by multiple different virtual
+
+1605
+00:59:22,160 --> 00:59:23,280
+machine schemes
+
+1606
+00:59:23,280 --> 00:59:25,040
+so with this you know except for the
+
+1607
+00:59:25,040 --> 00:59:26,400
+fact that we never tested it on anything
+
+1608
+00:59:26,400 --> 00:59:27,599
+other than qmu
+
+1609
+00:59:27,599 --> 00:59:30,960
+this disk driver and xv6 might work or
+
+1610
+00:59:30,960 --> 00:59:32,319
+it could probably be modified to work on
+
+1611
+00:59:32,319 --> 00:59:34,480
+other virtual machines
+
+1612
+00:59:34,480 --> 00:59:37,200
+so if every xv6 was compiled for that
+
+1613
+00:59:37,200 --> 00:59:38,720
+board that you showed sometime in the
+
+1614
+00:59:38,720 --> 00:59:39,680
+beginning
+
+1615
+00:59:39,680 --> 00:59:41,760
+um in that case it would have to have a
+
+1616
+00:59:41,760 --> 00:59:43,680
+different disk driver based on what disk
+
+1617
+00:59:43,680 --> 00:59:45,119
+that was running right
+
+1618
+00:59:45,119 --> 00:59:46,640
+yeah yeah they're i think you may be
+
+1619
+00:59:46,640 --> 00:59:48,640
+able to buy disk interface real hardware
+
+1620
+00:59:48,640 --> 00:59:49,920
+disk interfaces that now
+
+1621
+00:59:49,920 --> 00:59:52,880
+support this interface but in but most i
+
+1622
+00:59:52,880 --> 00:59:53,760
+mean
+
+1623
+00:59:53,760 --> 00:59:55,359
+most disk drive don't and we would have
+
+1624
+00:59:55,359 --> 00:59:57,119
+to implement a new as as you said
+
+1625
+00:59:57,119 --> 00:59:58,720
+we'd have to implement a new disk driver
+
+1626
+00:59:58,720 --> 01:00:00,240
+for a real piece of
+
+1627
+01:00:00,240 --> 01:00:03,349
+hardware
+
+1628
+01:00:03,359 --> 01:00:06,630
+yes
+
+1629
+01:00:06,640 --> 01:00:14,319
+okay any other questions about devices
+
+1630
+01:00:14,319 --> 01:00:17,359
+all right next topic i want to talk
+
+1631
+01:00:17,359 --> 01:00:18,000
+about
+
+1632
+01:00:18,000 --> 01:00:21,680
+hardware support for
+
+1633
+01:00:21,680 --> 01:00:26,829
+virtual machines
+
+1634
+01:00:26,839 --> 01:00:29,760
+um in particular intel's
+
+1635
+01:00:29,760 --> 01:00:32,960
+vt x scheme
+
+1636
+01:00:32,960 --> 01:00:37,839
+so what's motivating what motivated uh
+
+1637
+01:00:37,839 --> 01:00:41,119
+intel and other hardware providers to
+
+1638
+01:00:41,119 --> 01:00:43,680
+add direct hardware support for virtual
+
+1639
+01:00:43,680 --> 01:00:44,240
+machines
+
+1640
+01:00:44,240 --> 01:00:46,559
+is a the fact that virtual machine use
+
+1641
+01:00:46,559 --> 01:00:47,520
+is pervasive
+
+1642
+01:00:47,520 --> 01:00:49,359
+so a lot of their customers were running
+
+1643
+01:00:49,359 --> 01:00:50,720
+a lot of virtual machines
+
+1644
+01:00:50,720 --> 01:00:52,559
+and b the fact that trap and emulate as
+
+1645
+01:00:52,559 --> 01:00:54,319
+i just described it
+
+1646
+01:00:54,319 --> 01:00:56,319
+often involves a lot of expensive traps
+
+1647
+01:00:56,319 --> 01:00:58,640
+and so it's not particularly efficient
+
+1648
+01:00:58,640 --> 01:01:02,400
+um and a third sort of less interesting
+
+1649
+01:01:02,400 --> 01:01:02,880
+perhaps
+
+1650
+01:01:02,880 --> 01:01:05,040
+motivation was that although the risk
+
+1651
+01:01:05,040 --> 01:01:06,160
+five is
+
+1652
+01:01:06,160 --> 01:01:07,920
+pretty well suited to trap and emulate
+
+1653
+01:01:07,920 --> 01:01:10,079
+virtualization the x86
+
+1654
+01:01:10,079 --> 01:01:12,400
+intel's microprocessor has a number of
+
+1655
+01:01:12,400 --> 01:01:14,000
+detailed features which make it
+
+1656
+01:01:14,000 --> 01:01:16,720
+actually very difficult possible but
+
+1657
+01:01:16,720 --> 01:01:18,559
+very difficult to virtualize
+
+1658
+01:01:18,559 --> 01:01:21,119
+and so intel was also motivated to try
+
+1659
+01:01:21,119 --> 01:01:22,559
+to fix that because so many of his
+
+1660
+01:01:22,559 --> 01:01:24,079
+customers wanted to
+
+1661
+01:01:24,079 --> 01:01:28,160
+run virtual machine monitors all right
+
+1662
+01:01:28,160 --> 01:01:31,670
+okay so this hardware is uh
+
+1663
+01:01:31,680 --> 01:01:33,200
+the main point is to make it be allow
+
+1664
+01:01:33,200 --> 01:01:35,280
+you to build faster virtual machines
+
+1665
+01:01:35,280 --> 01:01:37,920
+using this hardware support and another
+
+1666
+01:01:37,920 --> 01:01:39,040
+motivation was to
+
+1667
+01:01:39,040 --> 01:01:41,680
+make it easier to implement a virtual
+
+1668
+01:01:41,680 --> 01:01:42,880
+machine
+
+1669
+01:01:42,880 --> 01:01:45,440
+and this support has been around for
+
+1670
+01:01:45,440 --> 01:01:45,920
+maybe
+
+1671
+01:01:45,920 --> 01:01:48,240
+10 years and is now very very widely
+
+1672
+01:01:48,240 --> 01:01:49,280
+used
+
+1673
+01:01:49,280 --> 01:01:53,280
+to build virtual machines okay so um
+
+1674
+01:01:53,280 --> 01:01:56,720
+the basic strategy is that
+
+1675
+01:01:56,720 --> 01:01:59,039
+all that virtual state that in my trap
+
+1676
+01:01:59,039 --> 01:02:00,400
+and emulate scheme
+
+1677
+01:02:00,400 --> 01:02:01,760
+all the virtual state that was being
+
+1678
+01:02:01,760 --> 01:02:03,920
+maintained by the virtual machine
+
+1679
+01:02:03,920 --> 01:02:04,720
+monitor just
+
+1680
+01:02:04,720 --> 01:02:08,000
+in software all that virtual state
+
+1681
+01:02:08,000 --> 01:02:10,400
+is going to be going to be implemented
+
+1682
+01:02:10,400 --> 01:02:11,599
+in the hardware
+
+1683
+01:02:11,599 --> 01:02:15,039
+in these hardware supported schemes
+
+1684
+01:02:15,039 --> 01:02:18,000
+and that will allow guest software to
+
+1685
+01:02:18,000 --> 01:02:20,480
+execute privileged instructions
+
+1686
+01:02:20,480 --> 01:02:23,359
+affecting these virtual hardware
+
+1687
+01:02:23,359 --> 01:02:25,119
+supported registers directly
+
+1688
+01:02:25,119 --> 01:02:28,319
+so rather than trapping
+
+1689
+01:02:28,319 --> 01:02:29,920
+so the goal is now that guests will be
+
+1690
+01:02:29,920 --> 01:02:31,920
+able to execute privileged instructions
+
+1691
+01:02:31,920 --> 01:02:35,119
+but not trap and the reason
+
+1692
+01:02:35,119 --> 01:02:37,440
+you know the way that works is that
+
+1693
+01:02:37,440 --> 01:02:39,119
+again we have a
+
+1694
+01:02:39,119 --> 01:02:45,029
+virtual machine monitor and
+
+1695
+01:02:45,039 --> 01:02:47,760
+a guest operating system and user level
+
+1696
+01:02:47,760 --> 01:02:49,359
+and the hardware
+
+1697
+01:02:49,359 --> 01:02:51,839
+now you know we know the the in the
+
+1698
+01:02:51,839 --> 01:02:53,440
+hardware we have a
+
+1699
+01:02:53,440 --> 01:02:56,880
+uh you know uh sd vac
+
+1700
+01:02:56,880 --> 01:02:58,720
+and all those you know hardware
+
+1701
+01:02:58,720 --> 01:03:02,319
+registers um
+
+1702
+01:03:02,319 --> 01:03:06,549
+um
+
+1703
+01:03:06,559 --> 01:03:08,480
+and there's all the when we're running
+
+1704
+01:03:08,480 --> 01:03:10,079
+in the virtu in these new schemes
+
+1705
+01:03:10,079 --> 01:03:11,359
+hardware support schemes we'll run the
+
+1706
+01:03:11,359 --> 01:03:12,720
+virtual machine monitor we just use the
+
+1707
+01:03:12,720 --> 01:03:13,599
+real
+
+1708
+01:03:13,599 --> 01:03:15,200
+versions of these registers but the
+
+1709
+01:03:15,200 --> 01:03:17,520
+hardware when the virtual machine
+
+1710
+01:03:17,520 --> 01:03:18,079
+monitor
+
+1711
+01:03:18,079 --> 01:03:20,079
+tells the hardware look please switch
+
+1712
+01:03:20,079 --> 01:03:22,000
+into guest mode
+
+1713
+01:03:22,000 --> 01:03:24,480
+the hardware has a complete separate set
+
+1714
+01:03:24,480 --> 01:03:27,280
+of registers
+
+1715
+01:03:27,280 --> 01:03:31,280
+dedicated for use by in guest mode
+
+1716
+01:03:31,280 --> 01:03:33,280
+so the guest mode can read and write
+
+1717
+01:03:33,280 --> 01:03:34,960
+these registers but it's not you know
+
+1718
+01:03:34,960 --> 01:03:36,880
+it's reading it's reading writing it's
+
+1719
+01:03:36,880 --> 01:03:38,559
+hardware copies of these right it's
+
+1720
+01:03:38,559 --> 01:03:40,160
+versions of these registers rather than
+
+1721
+01:03:40,160 --> 01:03:41,280
+the real registers
+
+1722
+01:03:41,280 --> 01:03:43,920
+and the hardware has you know has some
+
+1723
+01:03:43,920 --> 01:03:44,640
+kind of
+
+1724
+01:03:44,640 --> 01:03:47,920
+extra checks it makes on what the
+
+1725
+01:03:47,920 --> 01:03:49,440
+guest operating system can do to make
+
+1726
+01:03:49,440 --> 01:03:51,280
+sure that it can't abuse these registers
+
+1727
+01:03:51,280 --> 01:03:51,839
+to
+
+1728
+01:03:51,839 --> 01:03:54,880
+escape from the virtual machine um
+
+1729
+01:03:54,880 --> 01:03:56,720
+this is the basic this is most of the
+
+1730
+01:03:56,720 --> 01:03:58,960
+basic strategy
+
+1731
+01:03:58,960 --> 01:04:00,880
+and in the terminology of these hardware
+
+1732
+01:04:00,880 --> 01:04:02,559
+supported virtual machine schemes
+
+1733
+01:04:02,559 --> 01:04:05,359
+the name at least the intel one the name
+
+1734
+01:04:05,359 --> 01:04:07,520
+for guest mode is
+
+1735
+01:04:07,520 --> 01:04:10,710
+non-root
+
+1736
+01:04:10,720 --> 01:04:14,789
+and the name for uh
+
+1737
+01:04:14,799 --> 01:04:16,960
+um host mode where we're using the real
+
+1738
+01:04:16,960 --> 01:04:18,880
+registers is root and so there's a
+
+1739
+01:04:18,880 --> 01:04:22,319
+set of non-root or virtual registers for
+
+1740
+01:04:22,319 --> 01:04:23,680
+the virtual machine to use and there's a
+
+1741
+01:04:23,680 --> 01:04:25,440
+set of registers that are used when
+
+1742
+01:04:25,440 --> 01:04:32,150
+we're in root mode
+
+1743
+01:04:32,160 --> 01:04:35,920
+so now when we're running in the guest
+
+1744
+01:04:35,920 --> 01:04:40,880
+kernel it can execute
+
+1745
+01:04:40,880 --> 01:04:43,760
+any privileged instruction without
+
+1746
+01:04:43,760 --> 01:04:44,480
+trapping
+
+1747
+01:04:44,480 --> 01:04:46,400
+so if it wants to read or write the s t
+
+1748
+01:04:46,400 --> 01:04:48,640
+vec ah the hardware just lets it read or
+
+1749
+01:04:48,640 --> 01:04:49,920
+write the
+
+1750
+01:04:49,920 --> 01:04:52,400
+non-root copy of the hardware s t vec
+
+1751
+01:04:52,400 --> 01:04:54,400
+register
+
+1752
+01:04:54,400 --> 01:04:56,400
+and so all this stuff proceeds at full
+
+1753
+01:04:56,400 --> 01:04:57,680
+speed without
+
+1754
+01:04:57,680 --> 01:04:59,760
+having to trap it in the vmm so it's
+
+1755
+01:04:59,760 --> 01:05:00,880
+much faster
+
+1756
+01:05:00,880 --> 01:05:02,960
+for code that was incurring a lot of
+
+1757
+01:05:02,960 --> 01:05:07,270
+traps
+
+1758
+01:05:07,280 --> 01:05:09,119
+the uh you still have to there's a whole
+
+1759
+01:05:09,119 --> 01:05:10,720
+bunch of stuff having
+
+1760
+01:05:10,720 --> 01:05:12,640
+involved in configuring this the when
+
+1761
+01:05:12,640 --> 01:05:14,480
+the virtual machine monitor wants to
+
+1762
+01:05:14,480 --> 01:05:15,839
+create a new virtual machine it actually
+
+1763
+01:05:15,839 --> 01:05:17,760
+has to tell the hardware
+
+1764
+01:05:17,760 --> 01:05:22,960
+um and so there is uh down in the
+
+1765
+01:05:22,960 --> 01:05:24,559
+virtual machine monitor's memory there's
+
+1766
+01:05:24,559 --> 01:05:26,799
+this structure that the
+
+1767
+01:05:26,799 --> 01:05:29,599
+virtual machine monitor and the vtx
+
+1768
+01:05:29,599 --> 01:05:31,200
+hardware used to communicate which is
+
+1769
+01:05:31,200 --> 01:05:34,160
+called the vmcs or vm
+
+1770
+01:05:34,160 --> 01:05:37,440
+control something structure
+
+1771
+01:05:37,440 --> 01:05:38,720
+and when the virtual machine monitor
+
+1772
+01:05:38,720 --> 01:05:40,880
+wants to create a new virtual machine it
+
+1773
+01:05:40,880 --> 01:05:42,640
+creates one of these in memory and fills
+
+1774
+01:05:42,640 --> 01:05:44,400
+in a bunch of configuration flags and
+
+1775
+01:05:44,400 --> 01:05:46,480
+also initial values
+
+1776
+01:05:46,480 --> 01:05:48,839
+for all these registers and then tells
+
+1777
+01:05:48,839 --> 01:05:50,000
+the
+
+1778
+01:05:50,000 --> 01:05:53,039
+vtx hardware look and i want to start
+
+1779
+01:05:53,039 --> 01:05:54,640
+running a new virtual machine and here's
+
+1780
+01:05:54,640 --> 01:05:56,400
+the initial state
+
+1781
+01:05:56,400 --> 01:05:58,480
+and so there's these new instructions
+
+1782
+01:05:58,480 --> 01:06:00,559
+which the paper mentions
+
+1783
+01:06:00,559 --> 01:06:04,720
+there's vm launch it's just like a new
+
+1784
+01:06:04,720 --> 01:06:07,039
+new machine instruction which you tell
+
+1785
+01:06:07,039 --> 01:06:09,119
+it the address of this and it
+
+1786
+01:06:09,119 --> 01:06:12,160
+starts running you know starting with
+
+1787
+01:06:12,160 --> 01:06:13,599
+these registers like
+
+1788
+01:06:13,599 --> 01:06:16,400
+um starts running the guest kernel um
+
+1789
+01:06:16,400 --> 01:06:19,520
+and there's also this vm resume
+
+1790
+01:06:19,520 --> 01:06:22,240
+because sometimes you break out of the
+
+1791
+01:06:22,240 --> 01:06:22,720
+kernel
+
+1792
+01:06:22,720 --> 01:06:24,240
+trap out of the kernel into the bmm and
+
+1793
+01:06:24,240 --> 01:06:25,839
+you need to resume it um
+
+1794
+01:06:25,839 --> 01:06:27,440
+and then code up here can run a new
+
+1795
+01:06:27,440 --> 01:06:29,839
+instruction called vm call which
+
+1796
+01:06:29,839 --> 01:06:33,119
+sort of intentionally exits from
+
+1797
+01:06:33,119 --> 01:06:35,680
+non-root mode and basically traps into
+
+1798
+01:06:35,680 --> 01:06:37,280
+the virtual machine monitor and root
+
+1799
+01:06:37,280 --> 01:06:39,670
+mode
+
+1800
+01:06:39,680 --> 01:06:40,799
+all right so when the virtual machine
+
+1801
+01:06:40,799 --> 01:06:43,200
+monitor uh excuse one of these
+
+1802
+01:06:43,200 --> 01:06:43,839
+instructions
+
+1803
+01:06:43,839 --> 01:06:47,359
+to jump into a guest the ways that it
+
+1804
+01:06:47,359 --> 01:06:48,799
+may come back
+
+1805
+01:06:48,799 --> 01:06:50,559
+i mean the guests now can execute
+
+1806
+01:06:50,559 --> 01:06:52,400
+ordinary privileged instructions without
+
+1807
+01:06:52,400 --> 01:06:53,440
+trapping
+
+1808
+01:06:53,440 --> 01:06:55,039
+but there's a bunch of reasons why you
+
+1809
+01:06:55,039 --> 01:06:56,640
+may nevertheless return to the virtual
+
+1810
+01:06:56,640 --> 01:06:59,119
+machine mode one is an intentional
+
+1811
+01:06:59,119 --> 01:07:01,440
+exit but also if the device interrupt
+
+1812
+01:07:01,440 --> 01:07:03,359
+goes off like the timer interrupt goes
+
+1813
+01:07:03,359 --> 01:07:03,839
+off
+
+1814
+01:07:03,839 --> 01:07:07,200
+that'll the microprocessor will force a
+
+1815
+01:07:07,200 --> 01:07:08,240
+trap
+
+1816
+01:07:08,240 --> 01:07:11,920
+out of non-root mode out of the guest
+
+1817
+01:07:11,920 --> 01:07:13,520
+into root mode in the virtual machine
+
+1818
+01:07:13,520 --> 01:07:15,920
+monitor so in general device interrupts
+
+1819
+01:07:15,920 --> 01:07:18,960
+um trap back into the virtual machine
+
+1820
+01:07:18,960 --> 01:07:20,799
+monitor and so that means that a guest
+
+1821
+01:07:20,799 --> 01:07:22,960
+operating system can't hog the cpu every
+
+1822
+01:07:22,960 --> 01:07:24,640
+time the timer hardware timer ticks the
+
+1823
+01:07:24,640 --> 01:07:26,640
+virtual machine monitor gets control
+
+1824
+01:07:26,640 --> 01:07:29,920
+and if there's multiple guests it can
+
+1825
+01:07:29,920 --> 01:07:30,640
+now
+
+1826
+01:07:30,640 --> 01:07:32,319
+basically time share the machine using
+
+1827
+01:07:32,319 --> 01:07:34,079
+the timer interrupts among all the
+
+1828
+01:07:34,079 --> 01:07:39,190
+different guests
+
+1829
+01:07:39,200 --> 01:07:42,240
+um okay so this is a basic strategy
+
+1830
+01:07:42,240 --> 01:07:43,680
+basically
+
+1831
+01:07:43,680 --> 01:07:47,280
+there's a second set of registers um
+
+1832
+01:07:47,280 --> 01:07:50,799
+uh the other
+
+1833
+01:07:50,799 --> 01:07:53,280
+may the other big piece of machinery
+
+1834
+01:07:53,280 --> 01:07:54,960
+that vtx provides
+
+1835
+01:07:54,960 --> 01:07:58,799
+is a page table support
+
+1836
+01:07:58,799 --> 01:08:01,280
+you know we're operating up here in the
+
+1837
+01:08:01,280 --> 01:08:02,960
+guest world we you know we still need a
+
+1838
+01:08:02,960 --> 01:08:04,400
+page table
+
+1839
+01:08:04,400 --> 01:08:06,720
+now we need to change people for two
+
+1840
+01:08:06,720 --> 01:08:08,319
+reasons one is
+
+1841
+01:08:08,319 --> 01:08:10,000
+the guest colonel wants to be able to
+
+1842
+01:08:10,000 --> 01:08:11,599
+configure its own page table it wants to
+
+1843
+01:08:11,599 --> 01:08:13,520
+be able to load
+
+1844
+01:08:13,520 --> 01:08:17,839
+uh cr3 which is the um
+
+1845
+01:08:17,839 --> 01:08:21,120
+intel equivalent of uh the sat p
+
+1846
+01:08:21,120 --> 01:08:23,920
+register so we'd love to be able or vtx
+
+1847
+01:08:23,920 --> 01:08:25,199
+allows the guest kernel
+
+1848
+01:08:25,199 --> 01:08:29,279
+to load any value it likes into the
+
+1849
+01:08:29,279 --> 01:08:32,560
+cr3 register to set the page table and
+
+1850
+01:08:32,560 --> 01:08:34,319
+the hardware will actually obey that
+
+1851
+01:08:34,319 --> 01:08:36,960
+page table that the guest kernel loads
+
+1852
+01:08:36,960 --> 01:08:38,239
+but we know that can't be though which
+
+1853
+01:08:38,239 --> 01:08:40,080
+is fantastic right because now the guest
+
+1854
+01:08:40,080 --> 01:08:41,600
+ground can load a page table without
+
+1855
+01:08:41,600 --> 01:08:42,080
+trapping
+
+1856
+01:08:42,080 --> 01:08:45,679
+the vmm um but we know that we
+
+1857
+01:08:45,679 --> 01:08:47,359
+we can't just let the guest kernel put
+
+1858
+01:08:47,359 --> 01:08:49,920
+anything it likes in its page table
+
+1859
+01:08:49,920 --> 01:08:52,400
+without because i would allow it to read
+
+1860
+01:08:52,400 --> 01:08:53,839
+and write arbitrary memory
+
+1861
+01:08:53,839 --> 01:08:56,799
+so this vtx scheme actually has an
+
+1862
+01:08:56,799 --> 01:08:57,920
+another
+
+1863
+01:08:57,920 --> 01:09:00,640
+um important register which is in fact
+
+1864
+01:09:00,640 --> 01:09:02,159
+part of the um
+
+1865
+01:09:02,159 --> 01:09:04,159
+sort of real well who knows where i
+
+1866
+01:09:04,159 --> 01:09:07,359
+should draw but i'll draw it right here
+
+1867
+01:09:07,359 --> 01:09:11,679
+the extended page
+
+1868
+01:09:11,679 --> 01:09:15,520
+table register and
+
+1869
+01:09:15,520 --> 01:09:18,319
+the virtual machine which points to a
+
+1870
+01:09:18,319 --> 01:09:21,359
+page table right
+
+1871
+01:09:21,359 --> 01:09:24,319
+uh that maps well that's one kind of
+
+1872
+01:09:24,319 --> 01:09:25,839
+address to another kind of address
+
+1873
+01:09:25,839 --> 01:09:27,839
+and the virtual machine monitor sets
+
+1874
+01:09:27,839 --> 01:09:29,600
+when it's gone about to run
+
+1875
+01:09:29,600 --> 01:09:33,040
+a guest kernel it sets up an ept
+
+1876
+01:09:33,040 --> 01:09:35,920
+for that kernel tells the hardware look
+
+1877
+01:09:35,920 --> 01:09:36,960
+here's the ept
+
+1878
+01:09:36,960 --> 01:09:40,799
+for the um virtual machine i'm about to
+
+1879
+01:09:40,799 --> 01:09:42,159
+run and then jumps into the virtual
+
+1880
+01:09:42,159 --> 01:09:43,040
+machine
+
+1881
+01:09:43,040 --> 01:09:47,440
+and then the game is that the mmu
+
+1882
+01:09:47,440 --> 01:09:49,679
+on this machine when it's translating a
+
+1883
+01:09:49,679 --> 01:09:51,359
+guest virtual address it first
+
+1884
+01:09:51,359 --> 01:09:52,719
+translates
+
+1885
+01:09:52,719 --> 01:09:54,320
+the guest virtual address to a guest
+
+1886
+01:09:54,320 --> 01:09:57,120
+physical address to the guests
+
+1887
+01:09:57,120 --> 01:09:58,880
+the page table that the guest sets up
+
+1888
+01:09:58,880 --> 01:10:01,040
+and then does another translation of
+
+1889
+01:10:01,040 --> 01:10:02,880
+that guest physical address
+
+1890
+01:10:02,880 --> 01:10:05,040
+through the ept to get a host physical
+
+1891
+01:10:05,040 --> 01:10:07,040
+address
+
+1892
+01:10:07,040 --> 01:10:09,440
+and the hardware does that automatically
+
+1893
+01:10:09,440 --> 01:10:11,280
+for every memory reference the guest
+
+1894
+01:10:11,280 --> 01:10:11,840
+does
+
+1895
+01:10:11,840 --> 01:10:14,080
+that's this double level of translation
+
+1896
+01:10:14,080 --> 01:10:15,040
+and so this again
+
+1897
+01:10:15,040 --> 01:10:18,000
+gives the vmm control over what physical
+
+1898
+01:10:18,000 --> 01:10:18,800
+memory
+
+1899
+01:10:18,800 --> 01:10:20,480
+uh the guest is allowed to use the
+
+1900
+01:10:20,480 --> 01:10:22,159
+guests can set up any page table that
+
+1901
+01:10:22,159 --> 01:10:22,640
+likes
+
+1902
+01:10:22,640 --> 01:10:24,080
+and can do it quite efficiently because
+
+1903
+01:10:24,080 --> 01:10:26,320
+it can directly execute the instructions
+
+1904
+01:10:26,320 --> 01:10:29,440
+but it's still constrained
+
+1905
+01:10:29,440 --> 01:10:32,080
+by the ept which the vmm configures to
+
+1906
+01:10:32,080 --> 01:10:34,080
+be able to only
+
+1907
+01:10:34,080 --> 01:10:37,199
+use physical pages that the vmm wants to
+
+1908
+01:10:37,199 --> 01:10:40,470
+let it use
+
+1909
+01:10:40,480 --> 01:10:47,270
+any questions about the ept
+
+1910
+01:10:47,280 --> 01:10:48,640
+oh sorry i have a question out about the
+
+1911
+01:10:48,640 --> 01:10:50,640
+ability but about the um
+
+1912
+01:10:50,640 --> 01:10:53,440
+the second set of registers so if you
+
+1913
+01:10:53,440 --> 01:10:54,239
+have
+
+1914
+01:10:54,239 --> 01:10:57,600
+two cores and you want to run two vmms
+
+1915
+01:10:57,600 --> 01:11:01,040
+does it do you get us like a third copy
+
+1916
+01:11:01,040 --> 01:11:04,080
+of the register every core
+
+1917
+01:11:04,080 --> 01:11:07,040
+has its own set of these registers every
+
+1918
+01:11:07,040 --> 01:11:10,830
+core has a sort of independent
+
+1919
+01:11:10,840 --> 01:11:14,320
+uh in an independent instance of
+
+1920
+01:11:14,320 --> 01:11:17,440
+all this vtx hardware so every core
+
+1921
+01:11:17,440 --> 01:11:19,040
+every core has its own 32 general
+
+1922
+01:11:19,040 --> 01:11:20,480
+purpose registers
+
+1923
+01:11:20,480 --> 01:11:23,360
+its own real control registers and its
+
+1924
+01:11:23,360 --> 01:11:24,400
+own
+
+1925
+01:11:24,400 --> 01:11:27,840
+uh virtual registers for guest mode
+
+1926
+01:11:27,840 --> 01:11:30,880
+and its own in its own ebt
+
+1927
+01:11:30,880 --> 01:11:32,480
+so you can be running two different
+
+1928
+01:11:32,480 --> 01:11:34,080
+guests on two different cores they all
+
+1929
+01:11:34,080 --> 01:11:34,880
+have their own
+
+1930
+01:11:34,880 --> 01:11:37,920
+every register uh every core has its own
+
+1931
+01:11:37,920 --> 01:11:39,280
+one
+
+1932
+01:11:39,280 --> 01:11:42,480
+so you need a new vmm too well i mean
+
+1933
+01:11:42,480 --> 01:11:44,880
+it could just like an ordinary operating
+
+1934
+01:11:44,880 --> 01:11:46,880
+system the xv6 can support multiple
+
+1935
+01:11:46,880 --> 01:11:48,560
+processes and it's
+
+1936
+01:11:48,560 --> 01:11:52,640
+all the same xv6 but although
+
+1937
+01:11:52,640 --> 01:11:55,120
+and just like xv6 has a struct separate
+
+1938
+01:11:55,120 --> 01:11:56,400
+struct proc
+
+1939
+01:11:56,400 --> 01:11:58,719
+for every process our virtual machine
+
+1940
+01:11:58,719 --> 01:12:01,040
+monitor would have a separate struct
+
+1941
+01:12:01,040 --> 01:12:04,080
+struct vm or whatever it is one for each
+
+1942
+01:12:04,080 --> 01:12:06,159
+guest to keep track of that guess
+
+1943
+01:12:06,159 --> 01:12:08,239
+information for that guest
+
+1944
+01:12:08,239 --> 01:12:11,520
+okay i see thank you yes and as i
+
+1945
+01:12:11,520 --> 01:12:13,360
+mentioned before the switching
+
+1946
+01:12:13,360 --> 01:12:16,159
+if you have you know one core and three
+
+1947
+01:12:16,159 --> 01:12:17,760
+guests the switching can be driven by
+
+1948
+01:12:17,760 --> 01:12:19,360
+timer interrupts which
+
+1949
+01:12:19,360 --> 01:12:21,280
+go to the virtual machine monitor not
+
+1950
+01:12:21,280 --> 01:12:26,790
+the guest
+
+1951
+01:12:26,800 --> 01:12:29,280
+okay more questions about virtual
+
+1952
+01:12:29,280 --> 01:12:30,080
+machines
+
+1953
+01:12:30,080 --> 01:12:34,070
+before i switch to the
+
+1954
+01:12:34,080 --> 01:12:39,350
+the paper
+
+1955
+01:12:39,360 --> 01:12:42,640
+all right the paper takes
+
+1956
+01:12:42,640 --> 01:12:45,040
+this hardware as a starting point and
+
+1957
+01:12:45,040 --> 01:12:46,800
+uses it for something else
+
+1958
+01:12:46,800 --> 01:12:49,040
+not a virtual machine so that's a lot of
+
+1959
+01:12:49,040 --> 01:12:50,480
+the interest in the papers that they
+
+1960
+01:12:50,480 --> 01:12:51,840
+they took this harder which is like
+
+1961
+01:12:51,840 --> 01:12:54,000
+absolutely designed just for virtual
+
+1962
+01:12:54,000 --> 01:12:55,120
+machines
+
+1963
+01:12:55,120 --> 01:12:56,400
+and the paper saying gosh we could just
+
+1964
+01:12:56,400 --> 01:12:58,560
+use this hardware to do something it's
+
+1965
+01:12:58,560 --> 01:12:59,840
+not a virtual machine
+
+1966
+01:12:59,840 --> 01:13:02,960
+um and uh
+
+1967
+01:13:02,960 --> 01:13:04,640
+what their sort of high level view of
+
+1968
+01:13:04,640 --> 01:13:06,159
+what they're doing is
+
+1969
+01:13:06,159 --> 01:13:08,239
+um they're just they want to implement
+
+1970
+01:13:08,239 --> 01:13:09,840
+the ordinary processes
+
+1971
+01:13:09,840 --> 01:13:12,000
+so now we're back in just linux no no
+
+1972
+01:13:12,000 --> 01:13:13,760
+virtual machines anymore just linux
+
+1973
+01:13:13,760 --> 01:13:15,520
+but assuming vtx hardware so this is
+
+1974
+01:13:15,520 --> 01:13:16,960
+dune
+
+1975
+01:13:16,960 --> 01:13:21,280
+um we have
+
+1976
+01:13:21,280 --> 01:13:24,960
+linux and we've assumed we've loaded the
+
+1977
+01:13:24,960 --> 01:13:26,080
+dune
+
+1978
+01:13:26,080 --> 01:13:28,000
+loadable kernel module into linux and
+
+1979
+01:13:28,000 --> 01:13:30,480
+now this dune software is running
+
+1980
+01:13:30,480 --> 01:13:32,320
+in supervisor mode as part of the linux
+
+1981
+01:13:32,320 --> 01:13:33,679
+kernel
+
+1982
+01:13:33,679 --> 01:13:35,760
+um but for the most part we're you know
+
+1983
+01:13:35,760 --> 01:13:37,199
+we're running linux and we're expecting
+
+1984
+01:13:37,199 --> 01:13:37,840
+to run
+
+1985
+01:13:37,840 --> 01:13:41,430
+linux processes so
+
+1986
+01:13:41,440 --> 01:13:42,480
+so the abstraction we're trying to
+
+1987
+01:13:42,480 --> 01:13:43,920
+support is mostly the process
+
+1988
+01:13:43,920 --> 01:13:46,159
+abstraction with system calls and
+
+1989
+01:13:46,159 --> 01:13:47,760
+all the sort of ordinary things that
+
+1990
+01:13:47,760 --> 01:13:50,080
+linux processes can do
+
+1991
+01:13:50,080 --> 01:13:52,800
+but we want to use this vtx hardware to
+
+1992
+01:13:52,800 --> 01:13:53,840
+give sort of
+
+1993
+01:13:53,840 --> 01:13:57,120
+more um sort of allow
+
+1994
+01:13:57,120 --> 01:13:58,960
+ordinary processes to do some extra
+
+1995
+01:13:58,960 --> 01:14:01,840
+things
+
+1996
+01:14:01,840 --> 01:14:04,880
+and there's really
+
+1997
+01:14:04,880 --> 01:14:06,480
+so we're actually going to run so dune
+
+1998
+01:14:06,480 --> 01:14:08,239
+runs these processes
+
+1999
+01:14:08,239 --> 01:14:09,840
+or you know allows a process to switch
+
+2000
+01:14:09,840 --> 01:14:11,679
+into dune mode which means that instead
+
+2001
+01:14:11,679 --> 01:14:12,800
+of
+
+2002
+01:14:12,800 --> 01:14:14,560
+just being protected being isolated by a
+
+2003
+01:14:14,560 --> 01:14:16,320
+page table now this
+
+2004
+01:14:16,320 --> 01:14:20,480
+process is isolated by the complete vtx
+
+2005
+01:14:20,480 --> 01:14:21,360
+apparatus
+
+2006
+01:14:21,360 --> 01:14:23,679
+so for this process dune is going to
+
+2007
+01:14:23,679 --> 01:14:25,199
+maintain
+
+2008
+01:14:25,199 --> 01:14:28,880
+this process now has this virtual set of
+
+2009
+01:14:28,880 --> 01:14:31,199
+of all the re control registers like its
+
+2010
+01:14:31,199 --> 01:14:32,239
+own
+
+2011
+01:14:32,239 --> 01:14:35,360
+cr3 and it's therefore its own page
+
+2012
+01:14:35,360 --> 01:14:36,480
+table
+
+2013
+01:14:36,480 --> 01:14:38,560
+um because these this process is going
+
+2014
+01:14:38,560 --> 01:14:41,120
+to run in
+
+2015
+01:14:41,120 --> 01:14:43,280
+non-root supervisor mode so it can run
+
+2016
+01:14:43,280 --> 01:14:44,719
+all the privileged instructions although
+
+2017
+01:14:44,719 --> 01:14:46,159
+against the
+
+2018
+01:14:46,159 --> 01:14:50,159
+virtual state implemented by btx
+
+2019
+01:14:50,159 --> 01:14:52,560
+um so so one of the critical things this
+
+2020
+01:14:52,560 --> 01:14:53,920
+process can do under dune
+
+2021
+01:14:53,920 --> 01:14:57,120
+is set up its own page table using its
+
+2022
+01:14:57,120 --> 01:14:57,520
+own
+
+2023
+01:14:57,520 --> 01:15:00,480
+hardware cr3 of course doom you know
+
+2024
+01:15:00,480 --> 01:15:02,640
+controls an ept
+
+2025
+01:15:02,640 --> 01:15:06,080
+for this process so and the ept
+
+2026
+01:15:06,080 --> 01:15:07,440
+is going to be set up to only have
+
+2027
+01:15:07,440 --> 01:15:09,120
+entries for this processes
+
+2028
+01:15:09,120 --> 01:15:11,040
+ordinary process memory so the process
+
+2029
+01:15:11,040 --> 01:15:12,800
+can put anything it likes in cr3 but
+
+2030
+01:15:12,800 --> 01:15:15,360
+because the mmu
+
+2031
+01:15:15,360 --> 01:15:16,880
+translates through the ept after
+
+2032
+01:15:16,880 --> 01:15:18,239
+translating through the ordinary page
+
+2033
+01:15:18,239 --> 01:15:20,080
+table the process still cannot
+
+2034
+01:15:20,080 --> 01:15:21,760
+escape its allocated memory so the
+
+2035
+01:15:21,760 --> 01:15:23,199
+process doesn't have any
+
+2036
+01:15:23,199 --> 01:15:25,040
+sort of additional powers with respect
+
+2037
+01:15:25,040 --> 01:15:27,760
+to other processes or kernel memory
+
+2038
+01:15:27,760 --> 01:15:30,239
+um it just has now a more flexible way
+
+2039
+01:15:30,239 --> 01:15:30,880
+of
+
+2040
+01:15:30,880 --> 01:15:34,080
+setting up its own memory all right so
+
+2041
+01:15:34,080 --> 01:15:36,000
+one thing a dune process can do is
+
+2042
+01:15:36,000 --> 01:15:38,239
+have its own page table in fact it's
+
+2043
+01:15:38,239 --> 01:15:39,600
+basically required to have its own page
+
+2044
+01:15:39,600 --> 01:15:41,760
+table because
+
+2045
+01:15:41,760 --> 01:15:44,159
+otherwise it won't work and the other
+
+2046
+01:15:44,159 --> 01:15:45,920
+thing a process can do
+
+2047
+01:15:45,920 --> 01:15:50,080
+is have a supervisor mode
+
+2048
+01:15:50,080 --> 01:15:53,760
+and uh user mode you know within
+
+2049
+01:15:53,760 --> 01:15:57,280
+its little virtual machine and be able
+
+2050
+01:15:57,280 --> 01:15:57,840
+to run
+
+2051
+01:15:57,840 --> 01:16:00,640
+be able to have the supervisor code set
+
+2052
+01:16:00,640 --> 01:16:02,719
+itself up to be protected
+
+2053
+01:16:02,719 --> 01:16:04,880
+against the code that it runs in guest
+
+2054
+01:16:04,880 --> 01:16:06,080
+user mode
+
+2055
+01:16:06,080 --> 01:16:07,760
+so the paper really talks about these
+
+2056
+01:16:07,760 --> 01:16:09,360
+two different uses
+
+2057
+01:16:09,360 --> 01:16:10,560
+two different things you can do with
+
+2058
+01:16:10,560 --> 01:16:13,189
+doom
+
+2059
+01:16:13,199 --> 01:16:17,520
+so the uh this ability to
+
+2060
+01:16:17,520 --> 01:16:18,880
+get at for a process to get at the
+
+2061
+01:16:18,880 --> 01:16:20,880
+hardware support for supervisor use
+
+2062
+01:16:20,880 --> 01:16:22,159
+versus user mode
+
+2063
+01:16:22,159 --> 01:16:26,159
+um allows them to run untrusted
+
+2064
+01:16:26,159 --> 01:16:31,510
+uh plug-in code here in a sandbox
+
+2065
+01:16:31,520 --> 01:16:34,159
+and so the idea is oh maybe your maybe
+
+2066
+01:16:34,159 --> 01:16:36,719
+the main program is like a web browser
+
+2067
+01:16:36,719 --> 01:16:39,520
+um you know you can download web browse
+
+2068
+01:16:39,520 --> 01:16:41,520
+download plugins that your web browser
+
+2069
+01:16:41,520 --> 01:16:42,400
+runs
+
+2070
+01:16:42,400 --> 01:16:46,470
+maybe a new
+
+2071
+01:16:46,480 --> 01:16:48,880
+video decoder or a new ad blocker or
+
+2072
+01:16:48,880 --> 01:16:50,239
+something but we don't totally trust
+
+2073
+01:16:50,239 --> 01:16:51,760
+that plugin so we'd like to run it with
+
+2074
+01:16:51,760 --> 01:16:54,000
+restricted privileges somehow
+
+2075
+01:16:54,000 --> 01:16:56,719
+it's actu it's it's possible but a
+
+2076
+01:16:56,719 --> 01:16:58,159
+little bit tricky to do in ordinary
+
+2077
+01:16:58,159 --> 01:17:00,080
+linux but with dune
+
+2078
+01:17:00,080 --> 01:17:03,840
+we can run the plugin up here in user
+
+2079
+01:17:03,840 --> 01:17:04,400
+space
+
+2080
+01:17:04,400 --> 01:17:07,120
+and the web browser which runs in the
+
+2081
+01:17:07,120 --> 01:17:08,640
+process and supervisor mode
+
+2082
+01:17:08,640 --> 01:17:11,840
+can configure the page table
+
+2083
+01:17:11,840 --> 01:17:15,199
+configure a different page table for use
+
+2084
+01:17:15,199 --> 01:17:16,880
+by this user code because it's allowed
+
+2085
+01:17:16,880 --> 01:17:18,400
+to write cr3
+
+2086
+01:17:18,400 --> 01:17:21,440
+um and that can allow it to run this
+
+2087
+01:17:21,440 --> 01:17:23,679
+untrusted plugin code
+
+2088
+01:17:23,679 --> 01:17:26,159
+with only allowing it restricted access
+
+2089
+01:17:26,159 --> 01:17:27,120
+to just some
+
+2090
+01:17:27,120 --> 01:17:30,480
+pages of the web browser's memory
+
+2091
+01:17:30,480 --> 01:17:33,120
+uh so that the even if the web uh plugin
+
+2092
+01:17:33,120 --> 01:17:34,480
+code is malicious it can't
+
+2093
+01:17:34,480 --> 01:17:37,120
+just arbitrarily read and write the main
+
+2094
+01:17:37,120 --> 01:17:38,880
+web browser's memory
+
+2095
+01:17:38,880 --> 01:17:40,560
+um and if the user code you know the
+
+2096
+01:17:40,560 --> 01:17:42,159
+user could may be expecting to make
+
+2097
+01:17:42,159 --> 01:17:46,880
+system calls but those system calls
+
+2098
+01:17:46,880 --> 01:17:50,560
+actually trap into
+
+2099
+01:17:50,560 --> 01:17:53,360
+the supervisor mode of the process and
+
+2100
+01:17:53,360 --> 01:17:55,199
+not into linux so the user this
+
+2101
+01:17:55,199 --> 01:17:57,120
+plugin code may think it's calling fork
+
+2102
+01:17:57,120 --> 01:17:58,800
+or read or write or who knows what
+
+2103
+01:17:58,800 --> 01:18:01,679
+but actually those attempts to execute
+
+2104
+01:18:01,679 --> 01:18:02,719
+system calls
+
+2105
+01:18:02,719 --> 01:18:06,000
+trap into the web browser in the process
+
+2106
+01:18:06,000 --> 01:18:07,360
+and they can do whatever it likes they
+
+2107
+01:18:07,360 --> 01:18:09,760
+can not do the system call or execute
+
+2108
+01:18:09,760 --> 01:18:12,400
+some call or who knows what i'm so now
+
+2109
+01:18:12,400 --> 01:18:13,600
+our web browser has sort of
+
+2110
+01:18:13,600 --> 01:18:16,400
+full control over the sandboxed plug-in
+
+2111
+01:18:16,400 --> 01:18:19,590
+code
+
+2112
+01:18:19,600 --> 01:18:22,080
+that's a quick overview any questions
+
+2113
+01:18:22,080 --> 01:18:28,790
+about using due into sandbox
+
+2114
+01:18:28,800 --> 01:18:31,760
+um and to be fair this is something this
+
+2115
+01:18:31,760 --> 01:18:33,199
+is an effect that
+
+2116
+01:18:33,199 --> 01:18:35,199
+could be achieved by quite different
+
+2117
+01:18:35,199 --> 01:18:36,239
+techniques
+
+2118
+01:18:36,239 --> 01:18:41,040
+using existing linux um facilities but
+
+2119
+01:18:41,040 --> 01:18:42,960
+dune allows you to provide in a
+
+2120
+01:18:42,960 --> 01:18:45,199
+particularly kind of elegant and
+
+2121
+01:18:45,199 --> 01:18:51,430
+efficient way by using the vtx hardware
+
+2122
+01:18:51,440 --> 01:18:55,120
+the other thing that the paper talks
+
+2123
+01:18:55,120 --> 01:18:55,679
+about
+
+2124
+01:18:55,679 --> 01:18:57,360
+using dune 4 is to make garbage
+
+2125
+01:18:57,360 --> 01:18:58,800
+collection faster
+
+2126
+01:18:58,800 --> 01:19:02,480
+and here it's um the way it does that is
+
+2127
+01:19:02,480 --> 01:19:03,199
+by
+
+2128
+01:19:03,199 --> 01:19:06,719
+allowing the garbage collector
+
+2129
+01:19:06,719 --> 01:19:08,320
+when not doing sandbox anymore we're
+
+2130
+01:19:08,320 --> 01:19:10,080
+actually not even using
+
+2131
+01:19:10,080 --> 01:19:12,640
+user mode we're just having one program
+
+2132
+01:19:12,640 --> 01:19:14,000
+um
+
+2133
+01:19:14,000 --> 01:19:15,360
+we're assuming that we're writing just
+
+2134
+01:19:15,360 --> 01:19:16,960
+whatever program who knows what but in a
+
+2135
+01:19:16,960 --> 01:19:18,719
+garbage collected language like
+
+2136
+01:19:18,719 --> 01:19:22,560
+you know java or python or something
+
+2137
+01:19:22,560 --> 01:19:25,280
+garbage collection can be slow you know
+
+2138
+01:19:25,280 --> 01:19:26,000
+there's
+
+2139
+01:19:26,000 --> 01:19:27,440
+dozens and dozens of tricks for making
+
+2140
+01:19:27,440 --> 01:19:29,440
+garbage collection faster but one of the
+
+2141
+01:19:29,440 --> 01:19:30,719
+things that's important in garbage
+
+2142
+01:19:30,719 --> 01:19:32,560
+collectors is the garbage collectors
+
+2143
+01:19:32,560 --> 01:19:35,280
+is some many garbage collectors trace
+
+2144
+01:19:35,280 --> 01:19:36,000
+find the
+
+2145
+01:19:36,000 --> 01:19:37,679
+memory that's still alive it's still
+
+2146
+01:19:37,679 --> 01:19:40,080
+active by just tracing all the pointers
+
+2147
+01:19:40,080 --> 01:19:41,440
+through all objects
+
+2148
+01:19:41,440 --> 01:19:43,360
+starting at the registers and if it
+
+2149
+01:19:43,360 --> 01:19:44,719
+doesn't find some
+
+2150
+01:19:44,719 --> 01:19:46,960
+object after it's completed the trace
+
+2151
+01:19:46,960 --> 01:19:48,000
+then that object
+
+2152
+01:19:48,000 --> 01:19:49,679
+isn't can't be reached isn't referred to
+
+2153
+01:19:49,679 --> 01:19:51,760
+by any uh any pointer
+
+2154
+01:19:51,760 --> 01:19:55,280
+and can be freed um but many garbage
+
+2155
+01:19:55,280 --> 01:19:57,360
+collectors run at the same time as in a
+
+2156
+01:19:57,360 --> 01:19:58,880
+different thread or something as the
+
+2157
+01:19:58,880 --> 01:19:59,920
+main program
+
+2158
+01:19:59,920 --> 01:20:01,520
+and so maybe the garbage collector has
+
+2159
+01:20:01,520 --> 01:20:04,320
+started tracing pointers from you know
+
+2160
+01:20:04,320 --> 01:20:06,400
+maybe from some set of registers and
+
+2161
+01:20:06,400 --> 01:20:08,400
+this followed a pointer to this object
+
+2162
+01:20:08,400 --> 01:20:10,480
+which had pointers to these objects and
+
+2163
+01:20:10,480 --> 01:20:11,440
+you know the garbage collectors
+
+2164
+01:20:11,440 --> 01:20:13,679
+following into these pointers
+
+2165
+01:20:13,679 --> 01:20:17,280
+down to the tree or graph of objects and
+
+2166
+01:20:17,280 --> 01:20:20,080
+maybe the garbage collector's gotten you
+
+2167
+01:20:20,080 --> 01:20:22,159
+know down here so far
+
+2168
+01:20:22,159 --> 01:20:23,360
+and actually traced through all these
+
+2169
+01:20:23,360 --> 01:20:25,360
+objects but then because the garbage
+
+2170
+01:20:25,360 --> 01:20:26,880
+collector is running concurrently with
+
+2171
+01:20:26,880 --> 01:20:27,360
+the
+
+2172
+01:20:27,360 --> 01:20:29,760
+program itself maybe the program
+
+2173
+01:20:29,760 --> 01:20:30,639
+modifies
+
+2174
+01:20:30,639 --> 01:20:32,400
+this object that the garbage collector's
+
+2175
+01:20:32,400 --> 01:20:34,400
+already traced through
+
+2176
+01:20:34,400 --> 01:20:36,000
+so that's a bad deal you know because
+
+2177
+01:20:36,000 --> 01:20:37,440
+now that the
+
+2178
+01:20:37,440 --> 01:20:39,440
+list of object pointers the garbage
+
+2179
+01:20:39,440 --> 01:20:41,199
+collectors decided are live or dead or
+
+2180
+01:20:41,199 --> 01:20:42,000
+whatever
+
+2181
+01:20:42,000 --> 01:20:44,239
+may not be correct because some object
+
+2182
+01:20:44,239 --> 01:20:45,280
+it's already seen
+
+2183
+01:20:45,280 --> 01:20:48,480
+has been modified by the program
+
+2184
+01:20:48,480 --> 01:20:51,120
+so dune using page table support
+
+2185
+01:20:51,120 --> 01:20:52,719
+provides a way for the garbage collector
+
+2186
+01:20:52,719 --> 01:20:54,000
+to detect
+
+2187
+01:20:54,000 --> 01:20:57,280
+rights like that and in particular
+
+2188
+01:20:57,280 --> 01:21:00,719
+dune sets up the uh cr3
+
+2189
+01:21:00,719 --> 01:21:02,800
+the you know the virtual cr3 supported
+
+2190
+01:21:02,800 --> 01:21:04,400
+by vtx
+
+2191
+01:21:04,400 --> 01:21:07,679
+to point to its own page table um
+
+2192
+01:21:07,679 --> 01:21:09,920
+and then the it leaves all these page
+
+2193
+01:21:09,920 --> 01:21:11,679
+table entries valid but
+
+2194
+01:21:11,679 --> 01:21:14,320
+it looks at the d bit you know every
+
+2195
+01:21:14,320 --> 01:21:16,560
+page tab boundary has a dirty bit
+
+2196
+01:21:16,560 --> 01:21:19,679
+that indicates that there's been a right
+
+2197
+01:21:19,679 --> 01:21:22,239
+to that page so if the program writes
+
+2198
+01:21:22,239 --> 01:21:23,280
+some object
+
+2199
+01:21:23,280 --> 01:21:25,360
+then the dirty bit in the corresponding
+
+2200
+01:21:25,360 --> 01:21:28,470
+page
+
+2201
+01:21:28,480 --> 01:21:30,239
+in the page table the dirty bit will be
+
+2202
+01:21:30,239 --> 01:21:31,760
+set and so the government the garbage
+
+2203
+01:21:31,760 --> 01:21:33,280
+collector's finished tracing through the
+
+2204
+01:21:33,280 --> 01:21:34,080
+objects
+
+2205
+01:21:34,080 --> 01:21:35,840
+it goes back and looks at the d bits in
+
+2206
+01:21:35,840 --> 01:21:37,120
+the page table
+
+2207
+01:21:37,120 --> 01:21:40,080
+to find all pages that contain objects
+
+2208
+01:21:40,080 --> 01:21:41,440
+that might have been modified and
+
+2209
+01:21:41,440 --> 01:21:43,600
+re-scans those objects
+
+2210
+01:21:43,600 --> 01:21:46,560
+um and it turns out that this facility
+
+2211
+01:21:46,560 --> 01:21:47,360
+of getting at the d
+
+2212
+01:21:47,360 --> 01:21:50,719
+bits is difficult and slow with ordinary
+
+2213
+01:21:50,719 --> 01:21:52,639
+linux
+
+2214
+01:21:52,639 --> 01:21:53,920
+i don't even know if linux supports it
+
+2215
+01:21:53,920 --> 01:21:55,199
+there are operating systems where you
+
+2216
+01:21:55,199 --> 01:21:57,040
+can make system calls to ask for d
+
+2217
+01:21:57,040 --> 01:22:00,800
+bits but if you use dune and vtx
+
+2218
+01:22:00,800 --> 01:22:03,840
+then the process can just use
+
+2219
+01:22:03,840 --> 01:22:05,440
+ordinary load and store instructions to
+
+2220
+01:22:05,440 --> 01:22:07,760
+get the ptes and therefore the dbits
+
+2221
+01:22:07,760 --> 01:22:11,520
+and it's very fast and so they showed
+
+2222
+01:22:11,520 --> 01:22:14,239
+you know that this makes this trick
+
+2223
+01:22:14,239 --> 01:22:15,600
+for some programs that are you know
+
+2224
+01:22:15,600 --> 01:22:17,520
+garbage collection intensive
+
+2225
+01:22:17,520 --> 01:22:20,000
+uh makes the programs significantly
+
+2226
+01:22:20,000 --> 01:22:23,189
+faster
+
+2227
+01:22:23,199 --> 01:22:26,709
+any questions
+
+2228
+01:22:26,719 --> 01:22:29,920
+what would happen if um the sandboxed
+
+2229
+01:22:29,920 --> 01:22:32,960
+program um
+
+2230
+01:22:32,960 --> 01:22:36,400
+wants to like run its own garbage
+
+2231
+01:22:36,400 --> 01:22:37,520
+collector or something
+
+2232
+01:22:37,520 --> 01:22:39,760
+like with that i see so you're sort of
+
+2233
+01:22:39,760 --> 01:22:42,960
+using all right all right so we got uh
+
+2234
+01:22:42,960 --> 01:22:46,229
+we're using dune
+
+2235
+01:22:46,239 --> 01:22:49,280
+we have a dune process that's actually
+
+2236
+01:22:49,280 --> 01:22:51,120
+using
+
+2237
+01:22:51,120 --> 01:22:55,120
+vtx's uh supervisor versus user mode
+
+2238
+01:22:55,120 --> 01:22:56,960
+we're running a plug-in up here in user
+
+2239
+01:22:56,960 --> 01:22:59,199
+mode in the plug-in but also
+
+2240
+01:22:59,199 --> 01:23:00,480
+it's also written in a garbage collected
+
+2241
+01:23:00,480 --> 01:23:02,320
+language and was like to use
+
+2242
+01:23:02,320 --> 01:23:05,679
+like to have its own page table
+
+2243
+01:23:05,679 --> 01:23:07,840
+its own cr3 pointing to its own page
+
+2244
+01:23:07,840 --> 01:23:08,880
+table with its own v
+
+2245
+01:23:08,880 --> 01:23:13,679
+bits um so no that doesn't work because
+
+2246
+01:23:13,679 --> 01:23:15,760
+um we're gonna run the the way doon
+
+2247
+01:23:15,760 --> 01:23:17,280
+wants you to run plugins
+
+2248
+01:23:17,280 --> 01:23:19,280
+sandbox plugins is to run them and use
+
+2249
+01:23:19,280 --> 01:23:20,480
+in
+
+2250
+01:23:20,480 --> 01:23:24,320
+guest user mode guess user mode is not
+
+2251
+01:23:24,320 --> 01:23:24,960
+allowed
+
+2252
+01:23:24,960 --> 01:23:26,320
+it's just like user mode it's not
+
+2253
+01:23:26,320 --> 01:23:29,199
+allowed to think about cr3
+
+2254
+01:23:29,199 --> 01:23:31,360
+and so in user mode in guest user mode
+
+2255
+01:23:31,360 --> 01:23:32,719
+we don't get
+
+2256
+01:23:32,719 --> 01:23:34,400
+to have our own page table and so we
+
+2257
+01:23:34,400 --> 01:23:38,639
+don't get quick access to the d bits
+
+2258
+01:23:38,639 --> 01:23:41,920
+it's only in guest supervisor mode
+
+2259
+01:23:41,920 --> 01:23:45,199
+though we can have our own co3 so
+
+2260
+01:23:45,199 --> 01:23:48,480
+you can't well there's no obvious way to
+
+2261
+01:23:48,480 --> 01:23:50,480
+combine the two tricks
+
+2262
+01:23:50,480 --> 01:23:57,270
+the two kinds of tricks that june allows
+
+2263
+01:23:57,280 --> 01:23:59,199
+what about let's say somebody wrote a
+
+2264
+01:23:59,199 --> 01:24:00,639
+draw
+
+2265
+01:24:00,639 --> 01:24:04,000
+a browser uh actually using dune
+
+2266
+01:24:04,000 --> 01:24:07,120
+um that would mean like that would be
+
+2267
+01:24:07,120 --> 01:24:08,719
+quite tough to
+
+2268
+01:24:08,719 --> 01:24:11,120
+make if some computers didn't support
+
+2269
+01:24:11,120 --> 01:24:12,560
+dune or something right
+
+2270
+01:24:12,560 --> 01:24:15,199
+like it's hard to just put chrome into
+
+2271
+01:24:15,199 --> 01:24:16,719
+and you to use dune
+
+2272
+01:24:16,719 --> 01:24:18,480
+if not not everyone has that kernel
+
+2273
+01:24:18,480 --> 01:24:19,840
+modules right so
+
+2274
+01:24:19,840 --> 01:24:21,040
+so first of all you have to be running
+
+2275
+01:24:21,040 --> 01:24:23,760
+on a computer that supports the vtx
+
+2276
+01:24:23,760 --> 01:24:25,040
+you know the underlying computer has to
+
+2277
+01:24:25,040 --> 01:24:28,840
+support vtx which means many intel chips
+
+2278
+01:24:28,840 --> 01:24:30,639
+many um
+
+2279
+01:24:30,639 --> 01:24:32,960
+so you need vtx to run dune and you and
+
+2280
+01:24:32,960 --> 01:24:34,960
+dune had to be loaded in order to run
+
+2281
+01:24:34,960 --> 01:24:35,840
+the browser
+
+2282
+01:24:35,840 --> 01:24:37,280
+that takes advantage of doing so yeah
+
+2283
+01:24:37,280 --> 01:24:39,040
+you gotta set all this up correctly
+
+2284
+01:24:39,040 --> 01:24:42,400
+um um
+
+2285
+01:24:42,400 --> 01:24:44,400
+yeah i mean it's a research project it's
+
+2286
+01:24:44,400 --> 01:24:45,520
+you know
+
+2287
+01:24:45,520 --> 01:24:48,639
+it's it's intended to sort of get people
+
+2288
+01:24:48,639 --> 01:24:50,000
+thinking about things that
+
+2289
+01:24:50,000 --> 01:24:52,000
+could be deployed in the real world if
+
+2290
+01:24:52,000 --> 01:24:53,199
+they were
+
+2291
+01:24:53,199 --> 01:24:54,400
+if it seemed like they were valuable
+
+2292
+01:24:54,400 --> 01:24:56,560
+enough so and you know just like linux i
+
+2293
+01:24:56,560 --> 01:24:57,520
+mean linux has
+
+2294
+01:24:57,520 --> 01:25:00,960
+hundreds and hundreds of features it has
+
+2295
+01:25:00,960 --> 01:25:02,639
+and so if somebody decided to add
+
+2296
+01:25:02,639 --> 01:25:05,199
+dune to linux you know as a standard
+
+2297
+01:25:05,199 --> 01:25:06,080
+feature then i
+
+2298
+01:25:06,080 --> 01:25:07,679
+would start relying on it and chrome
+
+2299
+01:25:07,679 --> 01:25:09,040
+could just use it it would not be a
+
+2300
+01:25:09,040 --> 01:25:10,840
+problem
+
+2301
+01:25:10,840 --> 01:25:17,669
+but
+
+2302
+01:25:17,679 --> 01:25:21,040
+sorry so in a high level doing this like
+
+2303
+01:25:21,040 --> 01:25:23,760
+like be like making a vm but instead of
+
+2304
+01:25:23,760 --> 01:25:24,880
+a vm you run
+
+2305
+01:25:24,880 --> 01:25:28,800
+a process or yeah or
+
+2306
+01:25:28,800 --> 01:25:31,600
+yeah you can phrase it either way it's
+
+2307
+01:25:31,600 --> 01:25:32,400
+it's
+
+2308
+01:25:32,400 --> 01:25:34,800
+it it's reporting what's mostly a
+
+2309
+01:25:34,800 --> 01:25:35,840
+process abstraction
+
+2310
+01:25:35,840 --> 01:25:38,719
+because but but it's using instead of
+
+2311
+01:25:38,719 --> 01:25:40,400
+using the page table hardware
+
+2312
+01:25:40,400 --> 01:25:42,560
+it's using the cpu hardware to support a
+
+2313
+01:25:42,560 --> 01:25:44,480
+process abstraction
+
+2314
+01:25:44,480 --> 01:25:46,719
+but instead of that the particular cpu
+
+2315
+01:25:46,719 --> 01:25:48,080
+hardware it's using is the
+
+2316
+01:25:48,080 --> 01:25:51,679
+vtx hardware which has a few extra
+
+2317
+01:25:51,679 --> 01:25:52,840
+features
+
+2318
+01:25:52,840 --> 01:25:56,639
+like like the ability to
+
+2319
+01:25:56,639 --> 01:26:00,159
+set up your own page right right i see
+
+2320
+01:26:00,159 --> 01:26:02,159
+i remember in the paper i read process
+
+2321
+01:26:02,159 --> 01:26:03,360
+level abstraction but i didn't
+
+2322
+01:26:03,360 --> 01:26:04,719
+understand what that means but now i
+
+2323
+01:26:04,719 --> 01:26:05,360
+understand it
+
+2324
+01:26:05,360 --> 01:26:11,270
+thank you
+
+2325
+01:26:11,280 --> 01:26:13,760
+all right time is up and i'm happy to
+
+2326
+01:26:13,760 --> 01:26:14,400
+continue
+
+2327
+01:26:14,400 --> 01:26:16,639
+if anybody has any more questions happy
+
+2328
+01:26:16,639 --> 01:26:18,719
+to answer
+
+2329
+01:26:18,719 --> 01:26:20,719
+yeah so i had a question in particular
+
+2330
+01:26:20,719 --> 01:26:21,760
+about
+
+2331
+01:26:21,760 --> 01:26:24,000
+something that said in the paper was uh
+
+2332
+01:26:24,000 --> 01:26:24,880
+if a dune
+
+2333
+01:26:24,880 --> 01:26:27,440
+like a processor process inside dune
+
+2334
+01:26:27,440 --> 01:26:28,480
+forks
+
+2335
+01:26:28,480 --> 01:26:31,360
+it becomes a non-doing process isn't
+
+2336
+01:26:31,360 --> 01:26:31,600
+that
+
+2337
+01:26:31,600 --> 01:26:34,639
+like a security flaw in a way or or
+
+2338
+01:26:34,639 --> 01:26:38,320
+what's the attack um well you've run
+
+2339
+01:26:38,320 --> 01:26:40,080
+something as a doom process
+
+2340
+01:26:40,080 --> 01:26:42,719
+thinking that it's now safe but then it
+
+2341
+01:26:42,719 --> 01:26:43,679
+can run
+
+2342
+01:26:43,679 --> 01:26:46,400
+it can just fork or escape so here's the
+
+2343
+01:26:46,400 --> 01:26:48,239
+possibility yeah
+
+2344
+01:26:48,239 --> 01:26:51,360
+okay so if um let's see code down here
+
+2345
+01:26:51,360 --> 01:26:54,000
+in supervisor mode
+
+2346
+01:26:54,000 --> 01:26:55,520
+you know there's no security problem for
+
+2347
+01:26:55,520 --> 01:26:57,040
+this you know with respect to this code
+
+2348
+01:26:57,040 --> 01:26:58,080
+because it would already have
+
+2349
+01:26:58,080 --> 01:27:00,560
+whatever privileges were possible it
+
+2350
+01:27:00,560 --> 01:27:01,840
+already had it's not going to gain the
+
+2351
+01:27:01,840 --> 01:27:03,440
+extra pillar just like pork
+
+2352
+01:27:03,440 --> 01:27:05,920
+right okay coda but you know maybe it's
+
+2353
+01:27:05,920 --> 01:27:08,960
+using dune to sandbox a plug-in
+
+2354
+01:27:08,960 --> 01:27:12,560
+and we have untrusted code up here that
+
+2355
+01:27:12,560 --> 01:27:15,440
+that it would be dangerous to you know
+
+2356
+01:27:15,440 --> 01:27:16,960
+let it run without doom
+
+2357
+01:27:16,960 --> 01:27:18,719
+because it's not trusted and we're using
+
+2358
+01:27:18,719 --> 01:27:20,320
+doom to sandbox it
+
+2359
+01:27:20,320 --> 01:27:23,520
+so then if we forked you know okay
+
+2360
+01:27:23,520 --> 01:27:26,800
+so this code cannot fork right you can
+
+2361
+01:27:26,800 --> 01:27:29,040
+try to call the fork system call
+
+2362
+01:27:29,040 --> 01:27:32,080
+but oh a system call instruction up here
+
+2363
+01:27:32,080 --> 01:27:34,480
+traps into the supervisor part of this
+
+2364
+01:27:34,480 --> 01:27:35,280
+process
+
+2365
+01:27:35,280 --> 01:27:36,880
+and presumably the supervisor process
+
+2366
+01:27:36,880 --> 01:27:38,159
+part of this process is carefully
+
+2367
+01:27:38,159 --> 01:27:39,600
+written
+
+2368
+01:27:39,600 --> 01:27:41,280
+not to be tricked and so it's not
+
+2369
+01:27:41,280 --> 01:27:43,520
+actually going to work
+
+2370
+01:27:43,520 --> 01:27:45,840
+so that doesn't work if the supervisor
+
+2371
+01:27:45,840 --> 01:27:47,679
+code it is allowed to fork it is allowed
+
+2372
+01:27:47,679 --> 01:27:48,400
+to make
+
+2373
+01:27:48,400 --> 01:27:50,000
+linux system calls it'll get a fork of
+
+2374
+01:27:50,000 --> 01:27:52,159
+this process with the same memory image
+
+2375
+01:27:52,159 --> 01:27:53,600
+so we'll get the
+
+2376
+01:27:53,600 --> 01:27:56,880
+plug-in up here and i see
+
+2377
+01:27:56,880 --> 01:27:58,880
+if it didn't realize that fork turned
+
+2378
+01:27:58,880 --> 01:28:00,560
+off dune
+
+2379
+01:28:00,560 --> 01:28:03,750
+and it did
+
+2380
+01:28:03,760 --> 01:28:06,400
+well i mean it's hard to see how this
+
+2381
+01:28:06,400 --> 01:28:08,000
+could actually happen but you know
+
+2382
+01:28:08,000 --> 01:28:10,159
+if it did something to to resume
+
+2383
+01:28:10,159 --> 01:28:11,600
+execution of the plug-in now
+
+2384
+01:28:11,600 --> 01:28:13,120
+that would be very foolish because now
+
+2385
+01:28:13,120 --> 01:28:16,000
+the plug is in sandbox you know in fact
+
+2386
+01:28:16,000 --> 01:28:18,320
+this you know the code to jump into the
+
+2387
+01:28:18,320 --> 01:28:19,600
+sandbox here involves privileged
+
+2388
+01:28:19,600 --> 01:28:21,360
+instructions just like it does on risk
+
+2389
+01:28:21,360 --> 01:28:22,000
+five
+
+2390
+01:28:22,000 --> 01:28:26,400
+because it switches it switches uh
+
+2391
+01:28:26,400 --> 01:28:28,239
+guest modes and if you execute that
+
+2392
+01:28:28,239 --> 01:28:29,440
+instruction here that's an
+
+2393
+01:28:29,440 --> 01:28:33,199
+illegal instruction i guess
+
+2394
+01:28:33,199 --> 01:28:35,280
+i guess what i was misunderstanding was
+
+2395
+01:28:35,280 --> 01:28:36,560
+i think that the
+
+2396
+01:28:36,560 --> 01:28:38,639
+plug-in is not a process like the the
+
+2397
+01:28:38,639 --> 01:28:40,960
+dune process is the sandbox the plug-in
+
+2398
+01:28:40,960 --> 01:28:41,360
+is just
+
+2399
+01:28:41,360 --> 01:28:44,000
+inside there the process is just enabled
+
+2400
+01:28:44,000 --> 01:28:44,639
+to use
+
+2401
+01:28:44,639 --> 01:28:47,440
+features to let the plugin run faster
+
+2402
+01:28:47,440 --> 01:28:48,080
+basically
+
+2403
+01:28:48,080 --> 01:28:49,920
+that's right and we're absolutely
+
+2404
+01:28:49,920 --> 01:28:52,800
+assuming that this software down here
+
+2405
+01:28:52,800 --> 01:28:56,560
+is clever with is careful about what
+
+2406
+01:28:56,560 --> 01:28:58,800
+what it likes about preventing you know
+
+2407
+01:28:58,800 --> 01:29:00,239
+the sandbox
+
+2408
+01:29:00,239 --> 01:29:03,280
+to actually going forward in real life
+
+2409
+01:29:03,280 --> 01:29:06,719
+and it's not it's not uh unsafe for the
+
+2410
+01:29:06,719 --> 01:29:09,040
+dune process to have supervisor mode
+
+2411
+01:29:09,040 --> 01:29:10,880
+because it's actually supervisor mode
+
+2412
+01:29:10,880 --> 01:29:12,719
+and non-root mode which is the same as
+
+2413
+01:29:12,719 --> 01:29:13,520
+supervisor
+
+2414
+01:29:13,520 --> 01:29:16,080
+mode in a go guest os right that's right
+
+2415
+01:29:16,080 --> 01:29:17,760
+it's like you can let it do everything
+
+2416
+01:29:17,760 --> 01:29:18,080
+just
+
+2417
+01:29:18,080 --> 01:29:21,040
+but because it because of etx it's gonna
+
+2418
+01:29:21,040 --> 01:29:22,480
+be like a virtual machine so it's not
+
+2419
+01:29:22,480 --> 01:29:23,440
+gonna hurt us
+
+2420
+01:29:23,440 --> 01:29:25,120
+that's right it can't escape from its
+
+2421
+01:29:25,120 --> 01:29:26,719
+address spaces ept
+
+2422
+01:29:26,719 --> 01:29:29,520
+is a set of bpt to constrain it to its
+
+2423
+01:29:29,520 --> 01:29:33,030
+address space
+
+2424
+01:29:33,040 --> 01:29:36,960
+that makes sense so one last thing i had
+
+2425
+01:29:36,960 --> 01:29:40,639
+um i i there was like a paragraph
+
+2426
+01:29:40,639 --> 01:29:44,400
+on uh on epts and it said that the user
+
+2427
+01:29:44,400 --> 01:29:45,440
+page table can just
+
+2428
+01:29:45,440 --> 01:29:48,960
+expand the addresses like like
+
+2429
+01:29:48,960 --> 01:29:51,520
+remap them to their original layout that
+
+2430
+01:29:51,520 --> 01:29:52,000
+was something
+
+2431
+01:29:52,000 --> 01:29:53,600
+i i just didn't understand the whole
+
+2432
+01:29:53,600 --> 01:29:56,000
+paragraph so i i don't complain
+
+2433
+01:29:56,000 --> 01:29:59,199
+maybe that's a bit specific i think
+
+2434
+01:29:59,199 --> 01:30:00,239
+what's going on
+
+2435
+01:30:00,239 --> 01:30:04,719
+is that the um physical addresses
+
+2436
+01:30:04,719 --> 01:30:08,560
+are on the x86 are have fewer bits than
+
+2437
+01:30:08,560 --> 01:30:10,159
+virtual addresses
+
+2438
+01:30:10,159 --> 01:30:12,960
+so i'm kind of guessing and so that
+
+2439
+01:30:12,960 --> 01:30:13,920
+means that the
+
+2440
+01:30:13,920 --> 01:30:17,280
+ept you know the
+
+2441
+01:30:17,280 --> 01:30:18,719
+the ordinary page table maps virtual
+
+2442
+01:30:18,719 --> 01:30:19,920
+addresses to physical addresses the
+
+2443
+01:30:19,920 --> 01:30:22,239
+physical addresses have fewer bits
+
+2444
+01:30:22,239 --> 01:30:25,840
+and so that constricts the the uh
+
+2445
+01:30:25,840 --> 01:30:30,000
+that means um that when dune is setting
+
+2446
+01:30:30,000 --> 01:30:31,040
+up
+
+2447
+01:30:31,040 --> 01:30:34,239
+an address space for a process one way
+
+2448
+01:30:34,239 --> 01:30:35,520
+to look at is when doing setting up the
+
+2449
+01:30:35,520 --> 01:30:37,360
+address space for a process
+
+2450
+01:30:37,360 --> 01:30:40,159
+the process address space has to fit in
+
+2451
+01:30:40,159 --> 01:30:42,239
+the smaller number of bits
+
+2452
+01:30:42,239 --> 01:30:45,040
+for a dune process okay regular
+
+2453
+01:30:45,040 --> 01:30:46,400
+processes can maybe use
+
+2454
+01:30:46,400 --> 01:30:47,520
+i don't know what the numbers are let's
+
+2455
+01:30:47,520 --> 01:30:49,679
+say 48-bit virtual addresses
+
+2456
+01:30:49,679 --> 01:30:52,159
+but maybe physical addresses are only 36
+
+2457
+01:30:52,159 --> 01:30:53,360
+bits
+
+2458
+01:30:53,360 --> 01:30:55,040
+again i'm making this up okay ordinary
+
+2459
+01:30:55,040 --> 01:30:56,639
+process could use all 48 bits for
+
+2460
+01:30:56,639 --> 01:30:58,400
+virtual addresses a dune process can
+
+2461
+01:30:58,400 --> 01:30:59,120
+only use
+
+2462
+01:30:59,120 --> 01:31:01,440
+36 or whatever so there's like different
+
+2463
+01:31:01,440 --> 01:31:03,440
+rules for
+
+2464
+01:31:03,440 --> 01:31:07,030
+things have to fit down
+
+2465
+01:31:07,040 --> 01:31:12,870
+okay
+
+2466
+01:31:12,880 --> 01:31:15,840
+um i had a question about the btx scheme
+
+2467
+01:31:15,840 --> 01:31:18,639
+um and how we're accessing page tables
+
+2468
+01:31:18,639 --> 01:31:21,199
+so um when like in the way we're
+
+2469
+01:31:21,199 --> 01:31:22,560
+accessing page tables
+
+2470
+01:31:22,560 --> 01:31:25,280
+um because we're going to the ept and
+
+2471
+01:31:25,280 --> 01:31:25,920
+then um
+
+2472
+01:31:25,920 --> 01:31:27,840
+like doing the second layer layer of
+
+2473
+01:31:27,840 --> 01:31:30,159
+translation there from the um
+
+2474
+01:31:30,159 --> 01:31:32,080
+guest physical address to the host
+
+2475
+01:31:32,080 --> 01:31:33,440
+physical address
+
+2476
+01:31:33,440 --> 01:31:36,960
+um is the latency of accesses um to the
+
+2477
+01:31:36,960 --> 01:31:40,239
+page table actually lower
+
+2478
+01:31:40,239 --> 01:31:42,880
+uh takes more time potentially takes
+
+2479
+01:31:42,880 --> 01:31:44,880
+more time possibly much more time to
+
+2480
+01:31:44,880 --> 01:31:46,719
+train for the hardware mmu to translate
+
+2481
+01:31:46,719 --> 01:31:48,000
+it and dress
+
+2482
+01:31:48,000 --> 01:31:50,960
+good because now it has to do too well
+
+2483
+01:31:50,960 --> 01:31:51,280
+that
+
+2484
+01:31:51,280 --> 01:31:52,960
+the worst case is very much worse
+
+2485
+01:31:52,960 --> 01:31:54,960
+because
+
+2486
+01:31:54,960 --> 01:31:56,840
+you know um on the risk 5 there's
+
+2487
+01:31:56,840 --> 01:31:58,320
+multiple
+
+2488
+01:31:58,320 --> 01:32:00,800
+levels of the page table and so the mmu
+
+2489
+01:32:00,800 --> 01:32:01,520
+esther b
+
+2490
+01:32:01,520 --> 01:32:03,760
+an entry participate from this page
+
+2491
+01:32:03,760 --> 01:32:05,840
+table page and then next to the next
+
+2492
+01:32:05,840 --> 01:32:08,239
+each of those the x86 also has multiple
+
+2493
+01:32:08,239 --> 01:32:09,760
+levels
+
+2494
+01:32:09,760 --> 01:32:13,199
+and so in the x86 in the lookup in the
+
+2495
+01:32:13,199 --> 01:32:15,120
+first in the main page table also has to
+
+2496
+01:32:15,120 --> 01:32:16,480
+make multiple memory references
+
+2497
+01:32:16,480 --> 01:32:17,760
+potentially
+
+2498
+01:32:17,760 --> 01:32:19,679
+each of those multiple memory references
+
+2499
+01:32:19,679 --> 01:32:21,600
+has to go through the ept
+
+2500
+01:32:21,600 --> 01:32:24,000
+and the epd is also a multi-level page
+
+2501
+01:32:24,000 --> 01:32:25,840
+table
+
+2502
+01:32:25,840 --> 01:32:28,800
+so i don't even know what the worst case
+
+2503
+01:32:28,800 --> 01:32:30,480
+number of memory references is but it's
+
+2504
+01:32:30,480 --> 01:32:32,560
+quite a bit worse under vtx than it is
+
+2505
+01:32:32,560 --> 01:32:34,080
+with a
+
+2506
+01:32:34,080 --> 01:32:36,480
+non than it is an ordinary case so
+
+2507
+01:32:36,480 --> 01:32:37,840
+there's a potential there now in fact
+
+2508
+01:32:37,840 --> 01:32:39,280
+there's lots of caching
+
+2509
+01:32:39,280 --> 01:32:40,639
+and so usually you don't run up against
+
+2510
+01:32:40,639 --> 01:32:43,440
+that worst case but okay okay
+
+2511
+01:32:43,440 --> 01:32:46,239
+um and so virtual machines are they
+
+2512
+01:32:46,239 --> 01:32:46,880
+still
+
+2513
+01:32:46,880 --> 01:32:51,440
+like generally slow today and if so
+
+2514
+01:32:51,440 --> 01:32:53,440
+i guess i was wondering how does aws
+
+2515
+01:32:53,440 --> 01:32:55,040
+work if um
+
+2516
+01:32:55,040 --> 01:32:56,719
+it seems to be fast and it seems to be
+
+2517
+01:32:56,719 --> 01:32:58,080
+working well so
+
+2518
+01:32:58,080 --> 01:33:01,679
+um my my belief is that they use vtx
+
+2519
+01:33:01,679 --> 01:33:03,360
+hardware
+
+2520
+01:33:03,360 --> 01:33:04,719
+they use the support that we're talking
+
+2521
+01:33:04,719 --> 01:33:06,719
+about and that it is
+
+2522
+01:33:06,719 --> 01:33:10,159
+as well as clever device schemes for
+
+2523
+01:33:10,159 --> 01:33:11,600
+efficient device access
+
+2524
+01:33:11,600 --> 01:33:14,480
+um and that the result is that aws
+
+2525
+01:33:14,480 --> 01:33:16,400
+virtual machines are
+
+2526
+01:33:16,400 --> 01:33:20,239
+like fast or we're not much slower than
+
+2527
+01:33:20,239 --> 01:33:22,159
+a real computer
+
+2528
+01:33:22,159 --> 01:33:25,920
+cool thank you so much yes
+
+2529
+01:33:25,920 --> 01:33:27,840
+oh i had also another question on the
+
+2530
+01:33:27,840 --> 01:33:29,440
+shadow coffee
+
+2531
+01:33:29,440 --> 01:33:32,800
+for uh trump and eminently so you said
+
+2532
+01:33:32,800 --> 01:33:33,280
+that
+
+2533
+01:33:33,280 --> 01:33:35,920
+it it like i understand how you would
+
+2534
+01:33:35,920 --> 01:33:36,639
+make it but
+
+2535
+01:33:36,639 --> 01:33:38,639
+does it actually make the shadow of
+
+2536
+01:33:38,639 --> 01:33:41,520
+coffee or does it just
+
+2537
+01:33:41,520 --> 01:33:42,880
+i think it has to make the shadow
+
+2538
+01:33:42,880 --> 01:33:44,800
+copyright because it has to allow the
+
+2539
+01:33:44,800 --> 01:33:46,239
+process just to do it
+
+2540
+01:33:46,239 --> 01:33:49,280
+itself not like to go to all the traps
+
+2541
+01:33:49,280 --> 01:33:50,320
+but let's
+
+2542
+01:33:50,320 --> 01:33:52,480
+do it every time does it remember the
+
+2543
+01:33:52,480 --> 01:33:54,159
+previous version oh
+
+2544
+01:33:54,159 --> 01:33:57,920
+okay yes so so so yeah um yes and yes
+
+2545
+01:33:57,920 --> 01:34:00,080
+the virtual machine monitor has to
+
+2546
+01:34:00,080 --> 01:34:01,360
+create a new page table
+
+2547
+01:34:01,360 --> 01:34:03,679
+or there you know yes has to create a
+
+2548
+01:34:03,679 --> 01:34:04,960
+new page table and it's the virtual
+
+2549
+01:34:04,960 --> 01:34:06,159
+machine monitors
+
+2550
+01:34:06,159 --> 01:34:08,480
+you know page table which format it up
+
+2551
+01:34:08,480 --> 01:34:10,239
+which is what the real hardware uses
+
+2552
+01:34:10,239 --> 01:34:12,400
+now of course there are plenty of
+
+2553
+01:34:12,400 --> 01:34:13,760
+opportunities for caching
+
+2554
+01:34:13,760 --> 01:34:16,400
+and for reuse so if the if the clever
+
+2555
+01:34:16,400 --> 01:34:18,080
+virtual machine monitors if they notice
+
+2556
+01:34:18,080 --> 01:34:19,360
+that oh the guest
+
+2557
+01:34:19,360 --> 01:34:22,719
+changed just one pte um then the virtual
+
+2558
+01:34:22,719 --> 01:34:23,679
+machine monitor may
+
+2559
+01:34:23,679 --> 01:34:25,440
+be able to do correspondingly limited
+
+2560
+01:34:25,440 --> 01:34:28,000
+amount of work to update
+
+2561
+01:34:28,000 --> 01:34:31,360
+um its shadow page table and it also may
+
+2562
+01:34:31,360 --> 01:34:34,960
+keep you know when it if it's
+
+2563
+01:34:34,960 --> 01:34:36,639
+sort of multiplexing time sharing among
+
+2564
+01:34:36,639 --> 01:34:38,320
+multiple virtual machines the virtual
+
+2565
+01:34:38,320 --> 01:34:40,000
+machine monitor will keep around
+
+2566
+01:34:40,000 --> 01:34:42,400
+the shadow page tables for the virtual
+
+2567
+01:34:42,400 --> 01:34:43,920
+machines that aren't running
+
+2568
+01:34:43,920 --> 01:34:47,280
+so that it can reuse them directly
+
+2569
+01:34:47,280 --> 01:34:48,960
+when it switches back to that virtual
+
+2570
+01:34:48,960 --> 01:34:50,560
+machine okay
+
+2571
+01:34:50,560 --> 01:34:52,159
+i see so it doesn't mean that you have
+
+2572
+01:34:52,159 --> 01:34:54,159
+like you have to remember
+
+2573
+01:34:54,159 --> 01:34:57,600
+a shadow copy for like each
+
+2574
+01:34:57,600 --> 01:35:03,270
+process for each virtual machine
+
+2575
+01:35:03,280 --> 01:35:06,239
+yes there are many many right there are
+
+2576
+01:35:06,239 --> 01:35:07,679
+many many page tables
+
+2577
+01:35:07,679 --> 01:35:09,440
+uh running around in the virtual machine
+
+2578
+01:35:09,440 --> 01:35:12,000
+the virtual machine is aware of all
+
+2579
+01:35:12,000 --> 01:35:14,560
+page table switches that the guest does
+
+2580
+01:35:14,560 --> 01:35:16,560
+yeah it's uh
+
+2581
+01:35:16,560 --> 01:35:18,880
+that the specific issue of maintaining
+
+2582
+01:35:18,880 --> 01:35:21,119
+the shadow page tables um
+
+2583
+01:35:21,119 --> 01:35:25,040
+has consumed a lot of work right
+
+2584
+01:35:25,040 --> 01:35:27,520
+thank you thank you so much before you
+
+2585
+01:35:27,520 --> 01:35:29,040
+know this is one of the many things that
+
+2586
+01:35:29,040 --> 01:35:31,040
+hardware supported virtual machines
+
+2587
+01:35:31,040 --> 01:35:34,560
+uh made quite a bit easier
+
+2588
+01:35:34,560 --> 01:35:36,560
+oh okay okay i see i see okay because
+
+2589
+01:35:36,560 --> 01:35:38,239
+the ept means you don't have to cook up
+
+2590
+01:35:38,239 --> 01:35:39,440
+your own shadow page
+
+2591
+01:35:39,440 --> 01:35:41,440
+right right right yeah that's that's
+
+2592
+01:35:41,440 --> 01:35:43,119
+nice yeah thank you
+
+2593
+01:35:43,119 --> 01:35:51,189
+yes
+
+2594
+01:35:51,199 --> 01:35:52,960
+all right gotta head out but i'll see
+
+2595
+01:35:52,960 --> 01:35:55,199
+you guys on wednesday thank you
+
+2596
+01:35:55,199 --> 01:36:01,990
+thank you bye-bye thank you
+
+2597
+01:36:02,000 --> 01:36:04,320
+is it okay um you have time for one more
+
+2598
+01:36:04,320 --> 01:36:05,440
+question yes
+
+2599
+01:36:05,440 --> 01:36:09,520
+please um this one is about the garbage
+
+2600
+01:36:09,520 --> 01:36:10,400
+collection
+
+2601
+01:36:10,400 --> 01:36:12,880
+of how it like re-scans um to see if
+
+2602
+01:36:12,880 --> 01:36:14,320
+like they're dirty bits
+
+2603
+01:36:14,320 --> 01:36:18,159
+um like
+
+2604
+01:36:18,159 --> 01:36:19,679
+it's just like a sort of a continued
+
+2605
+01:36:19,679 --> 01:36:21,199
+process where like it continues to
+
+2606
+01:36:21,199 --> 01:36:22,080
+rescan like
+
+2607
+01:36:22,080 --> 01:36:26,239
+indefinitely because um could it
+
+2608
+01:36:26,239 --> 01:36:27,440
+you're asking oh yeah would it ever
+
+2609
+01:36:27,440 --> 01:36:29,520
+terminate supposing oh there's always
+
+2610
+01:36:29,520 --> 01:36:30,159
+something new
+
+2611
+01:36:30,159 --> 01:36:33,679
+modified so in fact potential problem in
+
+2612
+01:36:33,679 --> 01:36:35,199
+fact what the garbage collector does is
+
+2613
+01:36:35,199 --> 01:36:35,679
+it
+
+2614
+01:36:35,679 --> 01:36:39,199
+it it does one pass
+
+2615
+01:36:39,199 --> 01:36:41,440
+one pass through to completion and then
+
+2616
+01:36:41,440 --> 01:36:42,880
+it freezes
+
+2617
+01:36:42,880 --> 01:36:44,080
+everything else but the garbage
+
+2618
+01:36:44,080 --> 01:36:46,159
+collector so nothing else can happen
+
+2619
+01:36:46,159 --> 01:36:47,520
+then it goes back and look at the dirty
+
+2620
+01:36:47,520 --> 01:36:48,800
+pages but of course everything else is
+
+2621
+01:36:48,800 --> 01:36:49,679
+frozen
+
+2622
+01:36:49,679 --> 01:36:52,000
+and so no more no more dirty pages can
+
+2623
+01:36:52,000 --> 01:36:52,800
+occur
+
+2624
+01:36:52,800 --> 01:36:54,159
+and then the garbage so the garbage can
+
+2625
+01:36:54,159 --> 01:36:55,280
+looks all the dirty pages and then it
+
+2626
+01:36:55,280 --> 01:36:56,480
+knows it's done
+
+2627
+01:36:56,480 --> 01:36:58,000
+it you know does whatever it's supposed
+
+2628
+01:36:58,000 --> 01:36:59,280
+to do to finish up and create the free
+
+2629
+01:36:59,280 --> 01:37:00,159
+list and then it be
+
+2630
+01:37:00,159 --> 01:37:04,400
+resumes all the threads that it stopped
+
+2631
+01:37:04,400 --> 01:37:06,639
+okay yeah okay that makes a lot more
+
+2632
+01:37:06,639 --> 01:37:08,880
+sense i i know it froze everything else
+
+2633
+01:37:08,880 --> 01:37:09,280
+but
+
+2634
+01:37:09,280 --> 01:37:11,440
+yeah yeah this is complex stuff and of
+
+2635
+01:37:11,440 --> 01:37:12,719
+course there's not enough room in the
+
+2636
+01:37:12,719 --> 01:37:13,600
+paper the
+
+2637
+01:37:13,600 --> 01:37:15,600
+dune paper to explain all the ins and
+
+2638
+01:37:15,600 --> 01:37:17,679
+outs of what the garbage collector is up
+
+2639
+01:37:17,679 --> 01:37:18,840
+to
+
+2640
+01:37:18,840 --> 01:37:21,440
+sadly all right uh yeah
+
+2641
+01:37:21,440 --> 01:37:27,149
+thank you so much thank you see you
+
