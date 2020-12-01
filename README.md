@@ -37,11 +37,11 @@
 
 ## 工作流程
 
-1. 字幕从 vtt 转换为 srt
+1. 字幕从 vtt 转换为 srt ，提供预览版字幕
 
-2. 修正 srt 字幕
+2. 使用语音识别结果生成草稿字幕文件，修正英文字幕
 
-3. 机翻中文，生成 *.zh.srt
+3. 机翻，草稿字幕增加中文翻译
 
 4. 人工校对翻译
 
@@ -49,4 +49,8 @@
 
 - auto-sub - 从 youtube 自动生成的字幕文件
 
-- preview - 对字幕转换格式、去重后，生成的字幕文件
+- preview - 对自动生成字幕转换格式、去重后，生成的字幕文件
+
+- asr-res - 使用腾讯云[语音识别](https://cloud.tencent.com/document/product/1093/37139)生成的结果文件
+
+- draft - 自定义的[草稿字幕（.draft.srt）](https://github.com/mayf09/subtitle-tools/blob/develop/draft.srt.md)文件
