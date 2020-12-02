@@ -1,0 +1,9704 @@
+1
+00:00:06,160 --> 00:00:07,359
+all right
+
+2
+00:00:07,359 --> 00:00:10,880
+hello everyone welcome back from um
+
+3
+00:00:10,880 --> 00:00:15,360
+thanksgiving um can anyone hear me
+
+4
+00:00:15,360 --> 00:00:17,760
+yep you're good good all right today i
+
+5
+00:00:17,760 --> 00:00:18,800
+want to talk about
+
+6
+00:00:18,800 --> 00:00:21,199
+uh networking and how it relates to
+
+7
+00:00:21,199 --> 00:00:22,240
+operating systems
+
+8
+00:00:22,240 --> 00:00:28,070
+um and a lot of this is
+
+9
+00:00:28,080 --> 00:00:31,599
+geared towards the lab the last lab
+
+10
+00:00:31,599 --> 00:00:35,520
+in which you'll actually build some uh
+
+11
+00:00:35,520 --> 00:00:39,360
+network interface driver some of us just
+
+12
+00:00:39,360 --> 00:00:40,960
+care for general understanding of how
+
+13
+00:00:40,960 --> 00:00:43,600
+the network software
+
+14
+00:00:43,600 --> 00:00:46,800
+typically is set up in operating systems
+
+15
+00:00:46,800 --> 00:00:48,320
+and then we're going to talk about the
+
+16
+00:00:48,320 --> 00:00:50,000
+today's paper on live look which
+
+17
+00:00:50,000 --> 00:00:54,229
+illustrates a interesting danger
+
+18
+00:00:54,239 --> 00:00:57,280
+in network and stack design so first let
+
+19
+00:00:57,280 --> 00:00:59,520
+me set the general scheme
+
+20
+00:00:59,520 --> 00:01:02,399
+scene by uh drawing a few network
+
+21
+00:01:02,399 --> 00:01:03,120
+pictures
+
+22
+00:01:03,120 --> 00:01:06,159
+um the network of course connects up
+
+23
+00:01:06,159 --> 00:01:07,680
+different hosts
+
+24
+00:01:07,680 --> 00:01:10,960
+at uh there's kind of
+
+25
+00:01:10,960 --> 00:01:14,400
+two ways um in which you can view the
+
+26
+00:01:14,400 --> 00:01:16,320
+connections is occurring
+
+27
+00:01:16,320 --> 00:01:19,040
+one is that in the in for nearby hosts
+
+28
+00:01:19,040 --> 00:01:20,240
+they're often connected
+
+29
+00:01:20,240 --> 00:01:22,720
+to what you what's essentially um the
+
+30
+00:01:22,720 --> 00:01:23,840
+same network
+
+31
+00:01:23,840 --> 00:01:27,280
+so there may be a single ethernet
+
+32
+00:01:27,280 --> 00:01:29,280
+and maybe this is a switch or a cable
+
+33
+00:01:29,280 --> 00:01:31,040
+and you might have a bunch of hosts
+
+34
+00:01:31,040 --> 00:01:34,240
+connected to this this ethernet
+
+35
+00:01:34,240 --> 00:01:37,439
+where hosts are maybe laptops
+
+36
+00:01:37,439 --> 00:01:42,399
+or servers or as it'll turn out routers
+
+37
+00:01:42,399 --> 00:01:45,510
+and
+
+38
+00:01:45,520 --> 00:01:49,200
+the way network software's designed is
+
+39
+00:01:49,200 --> 00:01:51,840
+to kind of try to ignore as much as
+
+40
+00:01:51,840 --> 00:01:53,520
+possible the details of exactly what
+
+41
+00:01:53,520 --> 00:01:55,360
+this network is that directly attac
+
+42
+00:01:55,360 --> 00:01:56,799
+attaches hosts it might be a single
+
+43
+00:01:56,799 --> 00:02:01,119
+cable which is probably the case
+
+44
+00:02:01,119 --> 00:02:03,200
+at the time today's paper was written
+
+45
+00:02:03,200 --> 00:02:04,960
+this might be an ethernet switch
+
+46
+00:02:04,960 --> 00:02:06,960
+this might be some sort of wi-fi
+
+47
+00:02:06,960 --> 00:02:09,039
+wireless lan and these
+
+48
+00:02:09,039 --> 00:02:10,479
+these things aren't wires at all but
+
+49
+00:02:10,479 --> 00:02:12,720
+rather radio links
+
+50
+00:02:12,720 --> 00:02:15,920
+but for the most part these these
+
+51
+00:02:15,920 --> 00:02:16,879
+differences in
+
+52
+00:02:16,879 --> 00:02:18,080
+sort of exactly what the local
+
+53
+00:02:18,080 --> 00:02:19,920
+connectivity is are kind of
+
+54
+00:02:19,920 --> 00:02:22,000
+totally papered over at a pretty low
+
+55
+00:02:22,000 --> 00:02:23,280
+level
+
+56
+00:02:23,280 --> 00:02:26,550
+in the networking stack
+
+57
+00:02:26,560 --> 00:02:28,640
+and so on each of these hosts there may
+
+58
+00:02:28,640 --> 00:02:30,480
+be different applications maybe there's
+
+59
+00:02:30,480 --> 00:02:31,360
+a
+
+60
+00:02:31,360 --> 00:02:36,160
+web browser here and you know http
+
+61
+00:02:36,160 --> 00:02:37,599
+server over here and they need to talk
+
+62
+00:02:37,599 --> 00:02:39,680
+to each other across this
+
+63
+00:02:39,680 --> 00:02:43,680
+this network now there's a limit to how
+
+64
+00:02:43,680 --> 00:02:45,840
+big you can build a single local area
+
+65
+00:02:45,840 --> 00:02:47,840
+network so
+
+66
+00:02:47,840 --> 00:02:50,000
+for which the abbreviation is usually
+
+67
+00:02:50,000 --> 00:02:51,040
+lan
+
+68
+00:02:51,040 --> 00:02:54,239
+local area network um and
+
+69
+00:02:54,239 --> 00:02:55,680
+the way to think about it maybe is that
+
+70
+00:02:55,680 --> 00:02:58,080
+a local area network is can be as large
+
+71
+00:02:58,080 --> 00:02:58,800
+as
+
+72
+00:02:58,800 --> 00:03:00,400
+the network in which it makes sense for
+
+73
+00:03:00,400 --> 00:03:01,840
+all the hosts to be able to see
+
+74
+00:03:01,840 --> 00:03:05,840
+all of each other's packets that is
+
+75
+00:03:05,840 --> 00:03:07,280
+sometimes hosts need to want to
+
+76
+00:03:07,280 --> 00:03:08,879
+broadcast to
+
+77
+00:03:08,879 --> 00:03:10,879
+all of the local hosts you know that
+
+78
+00:03:10,879 --> 00:03:12,800
+works fine with a dozen or
+
+79
+00:03:12,800 --> 00:03:15,680
+20 or 50 or maybe even 100 hosts but you
+
+80
+00:03:15,680 --> 00:03:17,280
+can't really
+
+81
+00:03:17,280 --> 00:03:19,280
+easily build single networks where all
+
+82
+00:03:19,280 --> 00:03:20,800
+the hosts can more or less directly talk
+
+83
+00:03:20,800 --> 00:03:22,080
+to each other
+
+84
+00:03:22,080 --> 00:03:26,799
+with more than say a few hundred hosts
+
+85
+00:03:26,799 --> 00:03:29,280
+and so to deal with that the way the
+
+86
+00:03:29,280 --> 00:03:31,120
+larger internet is constructed
+
+87
+00:03:31,120 --> 00:03:34,080
+is that there's a number of these
+
+88
+00:03:34,080 --> 00:03:36,080
+individual lands
+
+89
+00:03:36,080 --> 00:03:39,440
+maybe one at mit you know maybe one at
+
+90
+00:03:39,440 --> 00:03:41,760
+harvard
+
+91
+00:03:41,760 --> 00:03:45,040
+maybe one far away at
+
+92
+00:03:45,040 --> 00:03:48,480
+stanford and
+
+93
+00:03:48,480 --> 00:03:50,239
+there's some sort of connectivity
+
+94
+00:03:50,239 --> 00:03:52,000
+between them which you can think of as
+
+95
+00:03:52,000 --> 00:03:54,000
+routers so there might be a router
+
+96
+00:03:54,000 --> 00:03:56,720
+that's plugged into the mit local area
+
+97
+00:03:56,720 --> 00:03:57,599
+network and
+
+98
+00:03:57,599 --> 00:04:00,959
+also has perhaps a longer link to
+
+99
+00:04:00,959 --> 00:04:05,519
+the um to the harvard network
+
+100
+00:04:05,519 --> 00:04:06,959
+and in fact there's a network of routers
+
+101
+00:04:06,959 --> 00:04:08,560
+which is essentially the backbone of the
+
+102
+00:04:08,560 --> 00:04:09,360
+internet
+
+103
+00:04:09,360 --> 00:04:12,000
+um including long distance router to
+
+104
+00:04:12,000 --> 00:04:13,040
+router links
+
+105
+00:04:13,040 --> 00:04:14,720
+so there might be a longer link across
+
+106
+00:04:14,720 --> 00:04:16,160
+the country and maybe this router is
+
+107
+00:04:16,160 --> 00:04:19,189
+plugged into the
+
+108
+00:04:19,199 --> 00:04:21,040
+some local area network at stanford and
+
+109
+00:04:21,040 --> 00:04:25,189
+then we have hosts we have the sort of
+
+110
+00:04:25,199 --> 00:04:26,880
+more elaborate task in which we want to
+
+111
+00:04:26,880 --> 00:04:28,800
+host at mit to be able to talk through a
+
+112
+00:04:28,800 --> 00:04:30,400
+sequence of routers
+
+113
+00:04:30,400 --> 00:04:33,120
+to a host to stanford and this is called
+
+114
+00:04:33,120 --> 00:04:33,600
+routing
+
+115
+00:04:33,600 --> 00:04:35,919
+so we need to have a way for hosts at
+
+116
+00:04:35,919 --> 00:04:36,800
+mit to
+
+117
+00:04:36,800 --> 00:04:39,919
+to address to names individual hosts at
+
+118
+00:04:39,919 --> 00:04:40,880
+stanford
+
+119
+00:04:40,880 --> 00:04:44,080
+and we need some way to so that routers
+
+120
+00:04:44,080 --> 00:04:47,840
+near mit can look at a packet sent by
+
+121
+00:04:47,840 --> 00:04:49,040
+mit and say oh
+
+122
+00:04:49,040 --> 00:04:51,520
+that's a packet for emp for harvard or
+
+123
+00:04:51,520 --> 00:04:53,440
+packet for stanford or a packet that
+
+124
+00:04:53,440 --> 00:04:54,960
+you know needs to go somewhere in japan
+
+125
+00:04:54,960 --> 00:04:57,520
+or who knows what
+
+126
+00:04:57,520 --> 00:05:00,240
+so from the point of view of network
+
+127
+00:05:00,240 --> 00:05:01,199
+protocols
+
+128
+00:05:01,199 --> 00:05:04,469
+this local
+
+129
+00:05:04,479 --> 00:05:06,639
+this local communication is taken care
+
+130
+00:05:06,639 --> 00:05:08,000
+of by
+
+131
+00:05:08,000 --> 00:05:10,560
+ethernet protocols and this long
+
+132
+00:05:10,560 --> 00:05:11,360
+distance
+
+133
+00:05:11,360 --> 00:05:13,120
+communication is sort of layered on top
+
+134
+00:05:13,120 --> 00:05:14,960
+of that and taken care of by
+
+135
+00:05:14,960 --> 00:05:17,759
+ip or internet protocols that know how
+
+136
+00:05:17,759 --> 00:05:19,120
+to
+
+137
+00:05:19,120 --> 00:05:20,880
+route over long distances to distant
+
+138
+00:05:20,880 --> 00:05:23,510
+hosts
+
+139
+00:05:23,520 --> 00:05:25,280
+okay this is what a network looks like
+
+140
+00:05:25,280 --> 00:05:27,840
+in a nutshell
+
+141
+00:05:27,840 --> 00:05:30,639
+i would now want to talk about the
+
+142
+00:05:30,639 --> 00:05:31,120
+what's
+
+143
+00:05:31,120 --> 00:05:34,080
+inside the packets that move across an
+
+144
+00:05:34,080 --> 00:05:35,759
+ethernet or move across
+
+145
+00:05:35,759 --> 00:05:38,400
+the larger internet with an eye to
+
+146
+00:05:38,400 --> 00:05:39,039
+eventually
+
+147
+00:05:39,039 --> 00:05:40,880
+talking about the software that act that
+
+148
+00:05:40,880 --> 00:05:42,560
+in
+
+149
+00:05:42,560 --> 00:05:44,560
+hosts that has to process hosts and
+
+150
+00:05:44,560 --> 00:05:46,800
+routers that has to process those
+
+151
+00:05:46,800 --> 00:05:48,160
+packets
+
+152
+00:05:48,160 --> 00:05:51,120
+so let me start with the lowest level
+
+153
+00:05:51,120 --> 00:05:52,479
+and talk about what's inside
+
+154
+00:05:52,479 --> 00:05:55,440
+an ethernet packet so when two hosts
+
+155
+00:05:55,440 --> 00:05:56,880
+that are quite nearby attached to the
+
+156
+00:05:56,880 --> 00:05:59,199
+same cable or same wi-fi network or same
+
+157
+00:05:59,199 --> 00:05:59,919
+ethernet
+
+158
+00:05:59,919 --> 00:06:03,039
+want to talk to each other um the
+
+159
+00:06:03,039 --> 00:06:06,240
+sort of lowest level protocol
+
+160
+00:06:06,240 --> 00:06:08,400
+which allows two hosts on the scene land
+
+161
+00:06:08,400 --> 00:06:09,680
+to talk to each other is the ethernet
+
+162
+00:06:09,680 --> 00:06:10,400
+protocol
+
+163
+00:06:10,400 --> 00:06:14,240
+and you can think of one host
+
+164
+00:06:14,240 --> 00:06:17,670
+host one
+
+165
+00:06:17,680 --> 00:06:20,479
+sending a frame over the over the
+
+166
+00:06:20,479 --> 00:06:22,479
+ethernet to host two
+
+167
+00:06:22,479 --> 00:06:23,840
+what's called an ethernet frame which is
+
+168
+00:06:23,840 --> 00:06:25,680
+the ethernet work for a packet
+
+169
+00:06:25,680 --> 00:06:30,870
+and it's a series of bytes that are sent
+
+170
+00:06:30,880 --> 00:06:32,560
+over the ethernet from one host to
+
+171
+00:06:32,560 --> 00:06:34,560
+another and what the ethernet protocol
+
+172
+00:06:34,560 --> 00:06:35,520
+does is have
+
+173
+00:06:35,520 --> 00:06:38,720
+just enough information in it to
+
+174
+00:06:38,720 --> 00:06:42,319
+allow the two hosts to realize who's
+
+175
+00:06:42,319 --> 00:06:43,360
+talking to each other and
+
+176
+00:06:43,360 --> 00:06:45,360
+cause the host to be able to recognize
+
+177
+00:06:45,360 --> 00:06:48,400
+packets that are addressed to them
+
+178
+00:06:48,400 --> 00:06:50,400
+and so when an ethernet header looks so
+
+179
+00:06:50,400 --> 00:06:52,560
+the way that ethernet deals with this is
+
+180
+00:06:52,560 --> 00:06:54,000
+that every ethernet packet
+
+181
+00:06:54,000 --> 00:06:57,350
+has at the beginning
+
+182
+00:06:57,360 --> 00:07:01,919
+a header that has three fields
+
+183
+00:07:01,919 --> 00:07:07,029
+followed by some ethernet payload
+
+184
+00:07:07,039 --> 00:07:10,479
+and what's in the header is two
+
+185
+00:07:10,479 --> 00:07:12,319
+ethernet addresses we'll call them the
+
+186
+00:07:12,319 --> 00:07:13,840
+destination address
+
+187
+00:07:13,840 --> 00:07:16,800
+and the source address and also the type
+
+188
+00:07:16,800 --> 00:07:17,840
+of the packet
+
+189
+00:07:17,840 --> 00:07:19,840
+each of these addresses is a just a
+
+190
+00:07:19,840 --> 00:07:21,680
+48-bit number
+
+191
+00:07:21,680 --> 00:07:24,240
+that uniquely identifies a particular
+
+192
+00:07:24,240 --> 00:07:26,800
+network interface card really
+
+193
+00:07:26,800 --> 00:07:29,280
+and this type field is going to indicate
+
+194
+00:07:29,280 --> 00:07:30,000
+to the recipient
+
+195
+00:07:30,000 --> 00:07:31,759
+host what it's supposed to do with that
+
+196
+00:07:31,759 --> 00:07:33,199
+packet and what that really means is
+
+197
+00:07:33,199 --> 00:07:35,599
+what higher level protocol
+
+198
+00:07:35,599 --> 00:07:39,039
+should examine and process the payload
+
+199
+00:07:39,039 --> 00:07:42,710
+of that ethernet pack
+
+200
+00:07:42,720 --> 00:07:45,280
+so these these are bits that go um are
+
+201
+00:07:45,280 --> 00:07:47,919
+typically said to go over the wire
+
+202
+00:07:47,919 --> 00:07:51,599
+these 48 plus 48 plus 16 bits of header
+
+203
+00:07:51,599 --> 00:07:54,479
+and then however much payload and not
+
+204
+00:07:54,479 --> 00:07:56,639
+really visible to the software but
+
+205
+00:07:56,639 --> 00:07:57,919
+there's going to be something at the
+
+206
+00:07:57,919 --> 00:07:59,840
+beginning of the packet that's
+
+207
+00:07:59,840 --> 00:08:01,759
+recognized at a very low level by the
+
+208
+00:08:01,759 --> 00:08:03,599
+hardware that signifies the start of a
+
+209
+00:08:03,599 --> 00:08:05,120
+packet
+
+210
+00:08:05,120 --> 00:08:06,400
+and the receiving hose needs to know
+
+211
+00:08:06,400 --> 00:08:07,680
+when the packet ends and so there's
+
+212
+00:08:07,680 --> 00:08:10,000
+going to be another
+
+213
+00:08:10,000 --> 00:08:11,759
+sort of special bit pattern at the end
+
+214
+00:08:11,759 --> 00:08:14,639
+that signifies the end of the packet
+
+215
+00:08:14,639 --> 00:08:16,879
+these two begin and end flags are never
+
+216
+00:08:16,879 --> 00:08:17,840
+seen by the software
+
+217
+00:08:17,840 --> 00:08:21,199
+but the rest the rest of this ethernet
+
+218
+00:08:21,199 --> 00:08:21,919
+frame
+
+219
+00:08:21,919 --> 00:08:23,680
+is delivered by the network interface
+
+220
+00:08:23,680 --> 00:08:25,599
+card the nick at h2
+
+221
+00:08:25,599 --> 00:08:28,710
+to the software
+
+222
+00:08:28,720 --> 00:08:31,199
+if you've looked at the final lab for
+
+223
+00:08:31,199 --> 00:08:32,640
+the course
+
+224
+00:08:32,640 --> 00:08:34,399
+you'll see that the software we give you
+
+225
+00:08:34,399 --> 00:08:36,479
+includes a bunch of new files including
+
+226
+00:08:36,479 --> 00:08:38,959
+kernel slash net.h which contains a
+
+227
+00:08:38,959 --> 00:08:40,000
+whole bunch of
+
+228
+00:08:40,000 --> 00:08:43,200
+definitions of
+
+229
+00:08:43,200 --> 00:08:44,880
+packet headers for different network
+
+230
+00:08:44,880 --> 00:08:46,399
+protocols
+
+231
+00:08:46,399 --> 00:08:48,399
+and so this is just text taken directly
+
+232
+00:08:48,399 --> 00:08:50,720
+from this net.h file we give you
+
+233
+00:08:50,720 --> 00:08:54,959
+and it includes a description of the the
+
+234
+00:08:54,959 --> 00:08:57,519
+layout of the ethernet header um and
+
+235
+00:08:57,519 --> 00:08:58,240
+this this
+
+236
+00:08:58,240 --> 00:08:59,680
+software we give you actually uses
+
+237
+00:08:59,680 --> 00:09:01,600
+literally uses this struct definition
+
+238
+00:09:01,600 --> 00:09:04,240
+in order to parse incoming ethernet
+
+239
+00:09:04,240 --> 00:09:05,040
+packets that
+
+240
+00:09:05,040 --> 00:09:08,240
+is to pick apart the head to get the
+
+241
+00:09:08,240 --> 00:09:10,640
+destination and type and also it uses
+
+242
+00:09:10,640 --> 00:09:12,720
+this structure to format packets
+
+243
+00:09:12,720 --> 00:09:15,120
+so the host is really in charge of sort
+
+244
+00:09:15,120 --> 00:09:18,800
+of setting up and parsing this header
+
+245
+00:09:18,800 --> 00:09:22,240
+that's used by ethernet
+
+246
+00:09:22,240 --> 00:09:31,990
+any questions about uh ethernet packets
+
+247
+00:09:32,000 --> 00:09:35,120
+uh yeah i had a question please is is
+
+248
+00:09:35,120 --> 00:09:36,240
+the
+
+249
+00:09:36,240 --> 00:09:37,440
+bit pattern you mentioned that the
+
+250
+00:09:37,440 --> 00:09:40,160
+hardware uses to determine the start and
+
+251
+00:09:40,160 --> 00:09:42,399
+end of a packet similar to
+
+252
+00:09:42,399 --> 00:09:46,800
+the eop in the lab
+
+253
+00:09:46,800 --> 00:09:52,150
+which is uh end of packet no
+
+254
+00:09:52,160 --> 00:09:55,519
+no the eop is a is a separate
+
+255
+00:09:55,519 --> 00:09:58,720
+mechanism between the driver and the nic
+
+256
+00:09:58,720 --> 00:10:01,760
+to help them communicate
+
+257
+00:10:01,760 --> 00:10:03,519
+this is you know there's some electrical
+
+258
+00:10:03,519 --> 00:10:04,880
+scheme there's some slow level
+
+259
+00:10:04,880 --> 00:10:06,560
+electrical or optical
+
+260
+00:10:06,560 --> 00:10:09,839
+signaling scheme to transmit bits over
+
+261
+00:10:09,839 --> 00:10:11,440
+ethernet cables
+
+262
+00:10:11,440 --> 00:10:13,760
+and these flags have to do with um
+
+263
+00:10:13,760 --> 00:10:14,480
+they're
+
+264
+00:10:14,480 --> 00:10:17,760
+typically electrical
+
+265
+00:10:17,760 --> 00:10:20,880
+patterns that would not be legal inside
+
+266
+00:10:20,880 --> 00:10:22,640
+a packet
+
+267
+00:10:22,640 --> 00:10:25,440
+and so you know one scheme is to instead
+
+268
+00:10:25,440 --> 00:10:26,240
+of just sending
+
+269
+00:10:26,240 --> 00:10:29,279
+0 1 bits over the wire you can send you
+
+270
+00:10:29,279 --> 00:10:31,440
+could send
+
+271
+00:10:31,440 --> 00:10:34,240
+uh sequences of two signals so there's
+
+272
+00:10:34,240 --> 00:10:35,040
+four different
+
+273
+00:10:35,040 --> 00:10:38,079
+symbols possible with sequences of two
+
+274
+00:10:38,079 --> 00:10:39,040
+different
+
+275
+00:10:39,040 --> 00:10:42,560
+um you know electrical voltage levels or
+
+276
+00:10:42,560 --> 00:10:43,200
+something
+
+277
+00:10:43,200 --> 00:10:45,040
+and have two of the four possible
+
+278
+00:10:45,040 --> 00:10:47,200
+symbols indicate zero or one bits
+
+279
+00:10:47,200 --> 00:10:48,959
+in the body of the packet and have the
+
+280
+00:10:48,959 --> 00:10:50,399
+remaining two
+
+281
+00:10:50,399 --> 00:10:52,640
+indicate beginning and end and that was
+
+282
+00:10:52,640 --> 00:10:54,880
+in fact a scheme that was used years ago
+
+283
+00:10:54,880 --> 00:10:56,240
+much like that was used years ago on
+
+284
+00:10:56,240 --> 00:10:57,839
+ethernet i don't actually know how it
+
+285
+00:10:57,839 --> 00:11:01,990
+works now
+
+286
+00:11:02,000 --> 00:11:06,160
+okay uh something to know about these
+
+287
+00:11:06,160 --> 00:11:08,720
+addresses is that what these are 48-bit
+
+288
+00:11:08,720 --> 00:11:10,160
+addresses
+
+289
+00:11:10,160 --> 00:11:12,480
+the reason for the 48 bits is that they
+
+290
+00:11:12,480 --> 00:11:13,600
+wanted to make sure that there was
+
+291
+00:11:13,600 --> 00:11:14,560
+enough bits
+
+292
+00:11:14,560 --> 00:11:17,440
+to be able to give a unique uh address
+
+293
+00:11:17,440 --> 00:11:17,839
+to
+
+294
+00:11:17,839 --> 00:11:20,959
+every different nic ever manufactured so
+
+295
+00:11:20,959 --> 00:11:22,320
+there's a vast number of possible
+
+296
+00:11:22,320 --> 00:11:23,200
+addresses
+
+297
+00:11:23,200 --> 00:11:25,279
+the internal structure of these 48-bit
+
+298
+00:11:25,279 --> 00:11:27,200
+addresses is that the first
+
+299
+00:11:27,200 --> 00:11:30,640
+half the first 24 bits is a manufacturer
+
+300
+00:11:30,640 --> 00:11:31,040
+number
+
+301
+00:11:31,040 --> 00:11:33,519
+and this there's every manufacturer of
+
+302
+00:11:33,519 --> 00:11:35,360
+network interface cards of nyx
+
+303
+00:11:35,360 --> 00:11:37,120
+has its own manufacturer number so
+
+304
+00:11:37,120 --> 00:11:38,880
+that's the first 24 bits
+
+305
+00:11:38,880 --> 00:11:41,519
+and the second 24 bits is just any
+
+306
+00:11:41,519 --> 00:11:42,160
+number
+
+307
+00:11:42,160 --> 00:11:43,920
+can be any unique number assigned by the
+
+308
+00:11:43,920 --> 00:11:45,600
+manufacturer so manufacturers typically
+
+309
+00:11:45,600 --> 00:11:46,720
+assign them in just
+
+310
+00:11:46,720 --> 00:11:49,120
+ascending order so if you buy you know
+
+311
+00:11:49,120 --> 00:11:51,760
+half a dozen network interface cards
+
+312
+00:11:51,760 --> 00:11:53,920
+the network enterprise card each network
+
+313
+00:11:53,920 --> 00:11:55,760
+interface card has programmed into its
+
+314
+00:11:55,760 --> 00:11:56,000
+own
+
+315
+00:11:56,000 --> 00:11:58,000
+address and if you look at the address
+
+316
+00:11:58,000 --> 00:11:59,760
+you'll see that the high bits are the
+
+317
+00:11:59,760 --> 00:12:00,639
+same for these
+
+318
+00:12:00,639 --> 00:12:02,160
+six cards you bought from the same
+
+319
+00:12:02,160 --> 00:12:03,920
+manufacturer but the low
+
+320
+00:12:03,920 --> 00:12:06,800
+below 24 bits are probably six
+
+321
+00:12:06,800 --> 00:12:09,760
+sequential numbers
+
+322
+00:12:09,760 --> 00:12:12,800
+so these addresses are unique
+
+323
+00:12:12,800 --> 00:12:16,079
+but what they're not helpful in is
+
+324
+00:12:16,079 --> 00:12:18,160
+locating the destination hosts so if you
+
+325
+00:12:18,160 --> 00:12:19,600
+know the host you're talking about is on
+
+326
+00:12:19,600 --> 00:12:21,839
+the same local area network as you
+
+327
+00:12:21,839 --> 00:12:24,959
+you can use a ethernet address and
+
+328
+00:12:24,959 --> 00:12:26,880
+it's on the same local area network so
+
+329
+00:12:26,880 --> 00:12:28,320
+it will be listening for packets with
+
+330
+00:12:28,320 --> 00:12:29,760
+its own address
+
+331
+00:12:29,760 --> 00:12:31,040
+but if the host you're trying to talk to
+
+332
+00:12:31,040 --> 00:12:32,639
+is in the other side of the country you
+
+333
+00:12:32,639 --> 00:12:34,000
+have to use a different scheme and
+
+334
+00:12:34,000 --> 00:12:35,519
+that's what's ip is all about
+
+335
+00:12:35,519 --> 00:12:38,949
+which i'll talk about in a bit
+
+336
+00:12:38,959 --> 00:12:42,399
+okay so this is what these packets look
+
+337
+00:12:42,399 --> 00:12:42,800
+like
+
+338
+00:12:42,800 --> 00:12:44,959
+you can actually look at ethernet
+
+339
+00:12:44,959 --> 00:12:46,880
+packets
+
+340
+00:12:46,880 --> 00:12:50,399
+in action using the tcp dump program and
+
+341
+00:12:50,399 --> 00:12:51,519
+you're encouraged to do this you'll
+
+342
+00:12:51,519 --> 00:12:52,880
+probably need to do this as part of the
+
+343
+00:12:52,880 --> 00:12:54,000
+lab
+
+344
+00:12:54,000 --> 00:12:57,670
+and this is actually uh
+
+345
+00:12:57,680 --> 00:13:01,680
+the output of tcp dump from the lab
+
+346
+00:13:01,680 --> 00:13:04,959
+and what tcp dump is telling us here was
+
+347
+00:13:04,959 --> 00:13:06,160
+telling us a whole bunch of things this
+
+348
+00:13:06,160 --> 00:13:07,600
+first part is the time at which the
+
+349
+00:13:07,600 --> 00:13:08,880
+packet
+
+350
+00:13:08,880 --> 00:13:11,839
+arrived um if you like you can try this
+
+351
+00:13:11,839 --> 00:13:14,480
+on your laptops if you install tcpdump
+
+352
+00:13:14,480 --> 00:13:17,519
+um and the rest of the first line is
+
+353
+00:13:17,519 --> 00:13:21,279
+a sort of human readable
+
+354
+00:13:21,279 --> 00:13:22,800
+interpretation of what kind of packet
+
+355
+00:13:22,800 --> 00:13:25,760
+that is and then these next three lines
+
+356
+00:13:25,760 --> 00:13:29,040
+or the this part here is a hex
+
+357
+00:13:29,040 --> 00:13:33,279
+dump of the of the received packet
+
+358
+00:13:33,279 --> 00:13:35,839
+and you can see we can actually follow
+
+359
+00:13:35,839 --> 00:13:37,680
+along with the
+
+360
+00:13:37,680 --> 00:13:41,279
+ethernet header there's these first
+
+361
+00:13:41,279 --> 00:13:44,480
+48 bits or six bytes is a broadcast
+
+362
+00:13:44,480 --> 00:13:45,360
+address all
+
+363
+00:13:45,360 --> 00:13:47,519
+f's and all f's ethernet addresses
+
+364
+00:13:47,519 --> 00:13:49,360
+broadcast all the hosts
+
+365
+00:13:49,360 --> 00:13:53,279
+on the local network the next 48 bits
+
+366
+00:13:53,279 --> 00:13:56,959
+is the sending host's ethernet address
+
+367
+00:13:56,959 --> 00:13:58,320
+which
+
+368
+00:13:58,320 --> 00:14:01,120
+um you know we can't necessarily tell
+
+369
+00:14:01,120 --> 00:14:01,760
+anything about
+
+370
+00:14:01,760 --> 00:14:04,800
+although uh the high bits i mean in fact
+
+371
+00:14:04,800 --> 00:14:06,560
+this was generated by
+
+372
+00:14:06,560 --> 00:14:09,199
+xv6 running under qmu so no real nick
+
+373
+00:14:09,199 --> 00:14:10,000
+was involved
+
+374
+00:14:10,000 --> 00:14:12,079
+so it's not actually a manufacturer
+
+375
+00:14:12,079 --> 00:14:13,839
+number up here it's just something that
+
+376
+00:14:13,839 --> 00:14:18,079
+qmu makes up and then the next 16 bits
+
+377
+00:14:18,079 --> 00:14:18,800
+the next
+
+378
+00:14:18,800 --> 00:14:21,680
+two bytes is the type it's the ethernet
+
+379
+00:14:21,680 --> 00:14:23,800
+type of the packet in this case it's
+
+380
+00:14:23,800 --> 00:14:27,600
+0806 which is a protocol called arp
+
+381
+00:14:27,600 --> 00:14:30,720
+which i'll talk about in a moment
+
+382
+00:14:30,720 --> 00:14:33,760
+and the rest of this stuff is is the
+
+383
+00:14:33,760 --> 00:14:34,959
+payload
+
+384
+00:14:34,959 --> 00:14:38,399
+of an art packet which i'll also talk
+
+385
+00:14:38,399 --> 00:14:39,600
+about
+
+386
+00:14:39,600 --> 00:14:41,360
+any questions about what we're um what
+
+387
+00:14:41,360 --> 00:14:44,560
+we're looking at here
+
+388
+00:14:44,560 --> 00:14:46,079
+this is well worth trying out on your
+
+389
+00:14:46,079 --> 00:14:50,150
+own computer if you care about networks
+
+390
+00:14:50,160 --> 00:14:53,600
+okay so um the next protocol that's of
+
+391
+00:14:53,600 --> 00:14:56,000
+relevance to the lab and communication
+
+392
+00:14:56,000 --> 00:14:57,120
+over an ethernet
+
+393
+00:14:57,120 --> 00:15:00,480
+is called arp so at the ethernet level
+
+394
+00:15:00,480 --> 00:15:03,440
+every host has a 48-bit ethernet address
+
+395
+00:15:03,440 --> 00:15:05,600
+but for communicating over the internet
+
+396
+00:15:05,600 --> 00:15:07,600
+it turns out you need to use a
+
+397
+00:15:07,600 --> 00:15:10,000
+32-bit internet address and the reason
+
+398
+00:15:10,000 --> 00:15:10,720
+why
+
+399
+00:15:10,720 --> 00:15:12,959
+internet addresses are different is that
+
+400
+00:15:12,959 --> 00:15:14,639
+internet addresses have internal
+
+401
+00:15:14,639 --> 00:15:15,440
+structure
+
+402
+00:15:15,440 --> 00:15:18,800
+in the in a 32-bit in a host's 32-bit
+
+403
+00:15:18,800 --> 00:15:19,839
+internet address
+
+404
+00:15:19,839 --> 00:15:22,160
+the high bits are full of all kinds of
+
+405
+00:15:22,160 --> 00:15:22,959
+hints
+
+406
+00:15:22,959 --> 00:15:25,839
+about where in the entire internet this
+
+407
+00:15:25,839 --> 00:15:27,199
+packet needs to go
+
+408
+00:15:27,199 --> 00:15:28,560
+and so you can think of an internet
+
+409
+00:15:28,560 --> 00:15:30,079
+address as having in the high bits a
+
+410
+00:15:30,079 --> 00:15:31,360
+network number
+
+411
+00:15:31,360 --> 00:15:32,560
+it's actually a little more complex than
+
+412
+00:15:32,560 --> 00:15:33,680
+that but it's essentially a network
+
+413
+00:15:33,680 --> 00:15:35,519
+number every network and the internet
+
+414
+00:15:35,519 --> 00:15:37,839
+has a distinct number and routers look
+
+415
+00:15:37,839 --> 00:15:39,759
+at these the high bits in the internet
+
+416
+00:15:39,759 --> 00:15:40,320
+address
+
+417
+00:15:40,320 --> 00:15:42,720
+to decide which router on the internet
+
+418
+00:15:42,720 --> 00:15:44,800
+this packet needs to be forwarded to
+
+419
+00:15:44,800 --> 00:15:47,120
+um and then the low bits in a 32-bit
+
+420
+00:15:47,120 --> 00:15:48,399
+ethernet internet
+
+421
+00:15:48,399 --> 00:15:51,120
+internet address ip address are the
+
+422
+00:15:51,120 --> 00:15:52,160
+number of that
+
+423
+00:15:52,160 --> 00:15:55,360
+of the host we want to talk to on
+
+424
+00:15:55,360 --> 00:15:58,560
+its local network um but when a packet
+
+425
+00:15:58,560 --> 00:16:00,320
+finally arrives
+
+426
+00:16:00,320 --> 00:16:03,839
+um at a when the internet packet arrives
+
+427
+00:16:03,839 --> 00:16:04,480
+at a
+
+428
+00:16:04,480 --> 00:16:07,199
+ethernet we need some way to give in a
+
+429
+00:16:07,199 --> 00:16:09,279
+32-bit ip address
+
+430
+00:16:09,279 --> 00:16:12,160
+figure out the 48-bit ethernet address
+
+431
+00:16:12,160 --> 00:16:14,560
+of that host
+
+432
+00:16:14,560 --> 00:16:17,600
+and the way the internet chooses to do
+
+433
+00:16:17,600 --> 00:16:18,639
+that is to have a
+
+434
+00:16:18,639 --> 00:16:21,040
+dynamic resolution protocol a kind of
+
+435
+00:16:21,040 --> 00:16:23,120
+request response protocol called art
+
+436
+00:16:23,120 --> 00:16:25,920
+for address resolution protocol and the
+
+437
+00:16:25,920 --> 00:16:28,320
+way to think about it is that
+
+438
+00:16:28,320 --> 00:16:31,120
+when a ip packet arrives at a router or
+
+439
+00:16:31,120 --> 00:16:31,759
+it
+
+440
+00:16:31,759 --> 00:16:34,399
+needs to be sent by a host to a host
+
+441
+00:16:34,399 --> 00:16:36,079
+that's known to be on the same lan
+
+442
+00:16:36,079 --> 00:16:39,360
+local area network the sender first
+
+443
+00:16:39,360 --> 00:16:42,880
+broadcasts on that lan an art packet
+
+444
+00:16:42,880 --> 00:16:45,360
+that's a request that says whoever has
+
+445
+00:16:45,360 --> 00:16:47,440
+whoever owns this ip address
+
+446
+00:16:47,440 --> 00:16:49,920
+please respond with your 48-bit ethernet
+
+447
+00:16:49,920 --> 00:16:50,720
+address
+
+448
+00:16:50,720 --> 00:16:52,399
+and assuming that host exists and is
+
+449
+00:16:52,399 --> 00:16:53,759
+turned on
+
+450
+00:16:53,759 --> 00:16:56,320
+it'll respond with an arp response
+
+451
+00:16:56,320 --> 00:16:58,240
+packet
+
+452
+00:16:58,240 --> 00:17:00,480
+and this is the format of the packet of
+
+453
+00:17:00,480 --> 00:17:01,680
+an art packet
+
+454
+00:17:01,680 --> 00:17:04,319
+the way it actually shows up is inside
+
+455
+00:17:04,319 --> 00:17:05,919
+an ethernet packet
+
+456
+00:17:05,919 --> 00:17:08,160
+and so you what you would actually see
+
+457
+00:17:08,160 --> 00:17:09,360
+in the network is
+
+458
+00:17:09,360 --> 00:17:12,160
+first the ethernet header which has the
+
+459
+00:17:12,160 --> 00:17:14,400
+48-bit source field and a 48-bit
+
+460
+00:17:14,400 --> 00:17:16,000
+destination field
+
+461
+00:17:16,000 --> 00:17:18,400
+maybe it's destination source type so
+
+462
+00:17:18,400 --> 00:17:21,120
+this is the ethernet header
+
+463
+00:17:21,120 --> 00:17:24,480
+and then from the ethernet point of view
+
+464
+00:17:24,480 --> 00:17:27,199
+the rest is payload but actually it's an
+
+465
+00:17:27,199 --> 00:17:28,079
+art that in the
+
+466
+00:17:28,079 --> 00:17:30,400
+ethernet payload is an art packet which
+
+467
+00:17:30,400 --> 00:17:31,120
+has
+
+468
+00:17:31,120 --> 00:17:34,640
+these fields um boom boom boom right
+
+469
+00:17:34,640 --> 00:17:36,400
+after the ethernet
+
+470
+00:17:36,400 --> 00:17:38,480
+uh header and the way the receiving host
+
+471
+00:17:38,480 --> 00:17:39,760
+knows is in our packet
+
+472
+00:17:39,760 --> 00:17:41,840
+is by looking at this type field and if
+
+473
+00:17:41,840 --> 00:17:44,000
+it's 0806
+
+474
+00:17:44,000 --> 00:17:46,960
+that's the agreed on ethernet protocol
+
+475
+00:17:46,960 --> 00:17:48,080
+number for arp
+
+476
+00:17:48,080 --> 00:17:49,440
+and then the receiving host software
+
+477
+00:17:49,440 --> 00:17:51,840
+would know to hand this packet to its
+
+478
+00:17:51,840 --> 00:17:56,000
+arp protocol processing code
+
+479
+00:17:56,000 --> 00:17:58,080
+what's in these packets and there's a
+
+480
+00:17:58,080 --> 00:17:59,520
+bunch of junk here that basically
+
+481
+00:17:59,520 --> 00:18:01,280
+amounts to saying
+
+482
+00:18:01,280 --> 00:18:04,799
+i have a internet address i want to turn
+
+483
+00:18:04,799 --> 00:18:06,400
+it into an ethernet address
+
+484
+00:18:06,400 --> 00:18:08,720
+please respond if you own this internet
+
+485
+00:18:08,720 --> 00:18:10,480
+address
+
+486
+00:18:10,480 --> 00:18:14,559
+and then these fields
+
+487
+00:18:14,559 --> 00:18:17,919
+hold the internet and ethernet
+
+488
+00:18:17,919 --> 00:18:21,360
+addresses um of whatever host is sending
+
+489
+00:18:21,360 --> 00:18:22,640
+this art packet and that's enough to
+
+490
+00:18:22,640 --> 00:18:23,600
+figure out the car
+
+491
+00:18:23,600 --> 00:18:27,200
+for who's to build dynamically tables
+
+492
+00:18:27,200 --> 00:18:28,960
+that tell them the correspondence
+
+493
+00:18:28,960 --> 00:18:33,669
+between ethernet and ip addresses
+
+494
+00:18:33,679 --> 00:18:37,840
+again we can use tcp dump in order to
+
+495
+00:18:37,840 --> 00:18:41,280
+see these packets go by and you're
+
+496
+00:18:41,280 --> 00:18:43,360
+highly likely to see them if you run tcp
+
+497
+00:18:43,360 --> 00:18:45,120
+done here's
+
+498
+00:18:45,120 --> 00:18:48,320
+um again a tcp dump output taken
+
+499
+00:18:48,320 --> 00:18:52,400
+from the lab and it turns out that
+
+500
+00:18:52,400 --> 00:18:55,520
+in the lab you're gonna your xv6 will
+
+501
+00:18:55,520 --> 00:18:56,160
+end up
+
+502
+00:18:56,160 --> 00:18:59,840
+talking simulated true but talking
+
+503
+00:18:59,840 --> 00:19:02,720
+ethernet protocol and sending ip packets
+
+504
+00:19:02,720 --> 00:19:03,360
+through
+
+505
+00:19:03,360 --> 00:19:05,360
+ethernet through a simulated ethernet
+
+506
+00:19:05,360 --> 00:19:07,280
+protocol with whatever host you're
+
+507
+00:19:07,280 --> 00:19:09,280
+running qm you want
+
+508
+00:19:09,280 --> 00:19:11,440
+and so when you want you'll actually be
+
+509
+00:19:11,440 --> 00:19:12,640
+able to see these
+
+510
+00:19:12,640 --> 00:19:16,880
+arp exchanges between xv6 and your host
+
+511
+00:19:16,880 --> 00:19:20,000
+and so what we're seeing here is
+
+512
+00:19:20,000 --> 00:19:24,000
+my host wants knows the ip address
+
+513
+00:19:24,000 --> 00:19:27,200
+of my xv6 and wants to wants to figure
+
+514
+00:19:27,200 --> 00:19:28,720
+out its ethernet address
+
+515
+00:19:28,720 --> 00:19:31,840
+on the lan the qmu simulates and
+
+516
+00:19:31,840 --> 00:19:35,520
+this second packet is my xv6
+
+517
+00:19:35,520 --> 00:19:36,799
+and you can see the code for the
+
+518
+00:19:36,799 --> 00:19:39,120
+generates is my xv6 has seen this
+
+519
+00:19:39,120 --> 00:19:40,480
+request
+
+520
+00:19:40,480 --> 00:19:42,480
+realize that it's the owner of the ip
+
+521
+00:19:42,480 --> 00:19:43,679
+address in the request
+
+522
+00:19:43,679 --> 00:19:46,559
+and is sending back the response tcp dub
+
+523
+00:19:46,559 --> 00:19:48,000
+has nicely parsed out
+
+524
+00:19:48,000 --> 00:19:49,679
+the fields in the art packet and printed
+
+525
+00:19:49,679 --> 00:19:52,799
+them here and i think
+
+526
+00:19:52,799 --> 00:19:56,720
+this is the sender's ip address
+
+527
+00:19:56,720 --> 00:20:00,480
+and this is the request sorry
+
+528
+00:20:00,480 --> 00:20:02,480
+this is the sender's ip address this is
+
+529
+00:20:02,480 --> 00:20:03,679
+the
+
+530
+00:20:03,679 --> 00:20:05,520
+ip address that the sender is interested
+
+531
+00:20:05,520 --> 00:20:07,280
+in and those would
+
+532
+00:20:07,280 --> 00:20:10,400
+presumably go in here and here
+
+533
+00:20:10,400 --> 00:20:15,750
+and this is the response
+
+534
+00:20:15,760 --> 00:20:19,039
+with the ethernet address
+
+535
+00:20:19,039 --> 00:20:23,120
+of the owner of this ip address and this
+
+536
+00:20:23,120 --> 00:20:27,029
+ethernet address would probably
+
+537
+00:20:27,039 --> 00:20:28,880
+end up being in this field and if we're
+
+538
+00:20:28,880 --> 00:20:30,320
+clever enough we can pick apart these
+
+539
+00:20:30,320 --> 00:20:32,799
+packets and see some of these fields
+
+540
+00:20:32,799 --> 00:20:36,710
+as we know this part
+
+541
+00:20:36,720 --> 00:20:40,240
+is the ethernet header destination
+
+542
+00:20:40,240 --> 00:20:41,919
+ethernet address source ethernet address
+
+543
+00:20:41,919 --> 00:20:44,200
+and packet type
+
+544
+00:20:44,200 --> 00:20:50,070
+0806 working backwards
+
+545
+00:20:50,080 --> 00:20:53,600
+this is the tip field which is the ip
+
+546
+00:20:53,600 --> 00:20:54,799
+address that the sender
+
+547
+00:20:54,799 --> 00:20:56,880
+wants to find the ethernet address for
+
+548
+00:20:56,880 --> 00:20:57,840
+and
+
+549
+00:20:57,840 --> 00:21:01,200
+if you pick this apart there's one byte
+
+550
+00:21:01,200 --> 00:21:04,159
+for each of the four fields of the ip
+
+551
+00:21:04,159 --> 00:21:04,880
+address
+
+552
+00:21:04,880 --> 00:21:08,640
+sorry it's really looking for 10 0 215
+
+553
+00:21:08,640 --> 00:21:13,919
+this is 10 hex zero hex two hex 15 hex
+
+554
+00:21:13,919 --> 00:21:17,039
+and then there's the targets
+
+555
+00:21:17,039 --> 00:21:19,840
+ethernet address which is not known and
+
+556
+00:21:19,840 --> 00:21:23,039
+then the sender's ip address 1022
+
+557
+00:21:23,039 --> 00:21:26,159
+and the senders ethernet address and a
+
+558
+00:21:26,159 --> 00:21:28,480
+bunch of other junk here saying that
+
+559
+00:21:28,480 --> 00:21:30,080
+we're interested in ethernet and
+
+560
+00:21:30,080 --> 00:21:33,200
+ip address formats
+
+561
+00:21:33,200 --> 00:21:35,200
+and here's the course this is a request
+
+562
+00:21:35,200 --> 00:21:36,720
+this is a response
+
+563
+00:21:36,720 --> 00:21:40,159
+any questions about arp um
+
+564
+00:21:40,159 --> 00:21:43,350
+yeah question um
+
+565
+00:21:43,360 --> 00:21:46,240
+why is it necessary for the sender to
+
+566
+00:21:46,240 --> 00:21:47,520
+include its
+
+567
+00:21:47,520 --> 00:21:50,880
+ip address if it if the its ethernet
+
+568
+00:21:50,880 --> 00:21:52,320
+address is already
+
+569
+00:21:52,320 --> 00:21:54,720
+um included in the packet like to
+
+570
+00:21:54,720 --> 00:21:55,679
+respond to it wouldn't
+
+571
+00:21:55,679 --> 00:21:58,559
+it wouldn't the the receiver only need
+
+572
+00:21:58,559 --> 00:22:00,320
+the ethernet address
+
+573
+00:22:00,320 --> 00:22:01,600
+yeah i don't know why that all this
+
+574
+00:22:01,600 --> 00:22:03,440
+stuff's in there um i think you if you
+
+575
+00:22:03,440 --> 00:22:04,880
+wanted to you could strip this down
+
+576
+00:22:04,880 --> 00:22:05,600
+quite a bit
+
+577
+00:22:05,600 --> 00:22:08,799
+um you know like the scent
+
+578
+00:22:08,799 --> 00:22:12,799
+well okay maybe the answer is that this
+
+579
+00:22:12,799 --> 00:22:16,240
+protocol was designed to be usable on
+
+580
+00:22:16,240 --> 00:22:18,720
+networks other than ethernet and so it
+
+581
+00:22:18,720 --> 00:22:21,600
+was designed to be fairly self-contained
+
+582
+00:22:21,600 --> 00:22:25,360
+so that it didn't depend on anything
+
+583
+00:22:25,360 --> 00:22:28,320
+didn't in on anything else and therefore
+
+584
+00:22:28,320 --> 00:22:30,000
+the arp header has a copy of the
+
+585
+00:22:30,000 --> 00:22:31,200
+ethernet addresses
+
+586
+00:22:31,200 --> 00:22:33,039
+now in fact if you know you're sending
+
+587
+00:22:33,039 --> 00:22:35,200
+arp over ethernet the ethernet packet
+
+588
+00:22:35,200 --> 00:22:37,039
+also has all the ethernet addresses as
+
+589
+00:22:37,039 --> 00:22:38,320
+you can see here
+
+590
+00:22:38,320 --> 00:22:41,840
+um so it's redundant if you
+
+591
+00:22:41,840 --> 00:22:43,919
+running rp over ethernet but maybe if
+
+592
+00:22:43,919 --> 00:22:46,080
+you were running arp over something else
+
+593
+00:22:46,080 --> 00:22:48,559
+um you'd need these fields because maybe
+
+594
+00:22:48,559 --> 00:22:50,080
+something else packet format doesn't
+
+595
+00:22:50,080 --> 00:22:51,280
+have the
+
+596
+00:22:51,280 --> 00:22:53,600
+doesn't already include these addresses
+
+597
+00:22:53,600 --> 00:22:55,120
+i see okay thank you
+
+598
+00:22:55,120 --> 00:22:58,480
+yeah oh sorry what is that part
+
+599
+00:22:58,480 --> 00:23:01,600
+on the right versus are you oh this okay
+
+600
+00:23:01,600 --> 00:23:03,200
+this this is not interesting yet but
+
+601
+00:23:03,200 --> 00:23:03,760
+this is
+
+602
+00:23:03,760 --> 00:23:08,640
+a ascii interpretation of these bytes
+
+603
+00:23:08,640 --> 00:23:12,880
+so well it's a the dot here corresponds
+
+604
+00:23:12,880 --> 00:23:14,080
+to
+
+605
+00:23:14,080 --> 00:23:17,840
+you know a heck a byte that has no ascii
+
+606
+00:23:17,840 --> 00:23:18,720
+equivalent
+
+607
+00:23:18,720 --> 00:23:21,919
+and this i guess somewhere in here 52 or
+
+608
+00:23:21,919 --> 00:23:22,559
+55
+
+609
+00:23:22,559 --> 00:23:26,320
+probably 52 is probably r and 55 is
+
+610
+00:23:26,320 --> 00:23:27,840
+probably you
+
+611
+00:23:27,840 --> 00:23:29,520
+and ascii so this would be more
+
+612
+00:23:29,520 --> 00:23:31,600
+interesting when we start sending
+
+613
+00:23:31,600 --> 00:23:33,440
+packets that have actual ascii text in
+
+614
+00:23:33,440 --> 00:23:35,039
+them rather than
+
+615
+00:23:35,039 --> 00:23:38,720
+binary fields okay i see thank you
+
+616
+00:23:38,720 --> 00:23:41,919
+yes okay and i'm showing you this
+
+617
+00:23:41,919 --> 00:23:43,360
+because you'll see these packets in the
+
+618
+00:23:43,360 --> 00:23:47,750
+lab
+
+619
+00:23:47,760 --> 00:23:50,799
+okay um
+
+620
+00:23:50,799 --> 00:23:52,320
+actually there's something i wanted to
+
+621
+00:23:52,320 --> 00:23:56,950
+uh
+
+622
+00:23:56,960 --> 00:24:01,120
+well there's a
+
+623
+00:24:01,120 --> 00:24:02,400
+something i want to make sure that you
+
+624
+00:24:02,400 --> 00:24:04,880
+all caught in this discussion and
+
+625
+00:24:04,880 --> 00:24:08,159
+that's the habit in um
+
+626
+00:24:08,159 --> 00:24:11,840
+formatting packets of nesting protocols
+
+627
+00:24:11,840 --> 00:24:14,960
+and nesting headers so
+
+628
+00:24:14,960 --> 00:24:17,520
+so what we just saw was a packet that
+
+629
+00:24:17,520 --> 00:24:19,600
+had an ethernet header
+
+630
+00:24:19,600 --> 00:24:21,200
+and ethernet payload the first part of
+
+631
+00:24:21,200 --> 00:24:23,039
+the ethernet payload was
+
+632
+00:24:23,039 --> 00:24:25,600
+you know an r petter and as it happens
+
+633
+00:24:25,600 --> 00:24:27,760
+arp has no remaining payload
+
+634
+00:24:27,760 --> 00:24:29,840
+but there are other what we'll see in a
+
+635
+00:24:29,840 --> 00:24:31,279
+moment is much more complicated
+
+636
+00:24:31,279 --> 00:24:32,480
+structures in which we have an ethernet
+
+637
+00:24:32,480 --> 00:24:33,200
+packet
+
+638
+00:24:33,200 --> 00:24:35,840
+that contains an ip packet and inside
+
+639
+00:24:35,840 --> 00:24:36,960
+the ip packet
+
+640
+00:24:36,960 --> 00:24:40,000
+is a udp packet and so you know udp is
+
+641
+00:24:40,000 --> 00:24:41,440
+another protocol that you can run over
+
+642
+00:24:41,440 --> 00:24:42,320
+ip
+
+643
+00:24:42,320 --> 00:24:48,070
+so there's a udp header it also
+
+644
+00:24:48,080 --> 00:24:49,520
+you know you don't necessarily have to
+
+645
+00:24:49,520 --> 00:24:51,440
+understand these acronyms yet but
+
+646
+00:24:51,440 --> 00:24:54,640
+this udp header a udp packet also has a
+
+647
+00:24:54,640 --> 00:24:57,440
+header and a payload um and there's
+
+648
+00:24:57,440 --> 00:24:58,240
+times when you
+
+649
+00:24:58,240 --> 00:25:00,559
+carry another protocol inside udp so for
+
+650
+00:25:00,559 --> 00:25:02,080
+example the domain name
+
+651
+00:25:02,080 --> 00:25:05,679
+system has yet another format of packet
+
+652
+00:25:05,679 --> 00:25:07,919
+defined that fits inside udp so what you
+
+653
+00:25:07,919 --> 00:25:09,919
+see is that
+
+654
+00:25:09,919 --> 00:25:11,600
+hosts that are sending packets will
+
+655
+00:25:11,600 --> 00:25:13,919
+build up a packet the dns software will
+
+656
+00:25:13,919 --> 00:25:16,400
+say i want to send a packet over udp
+
+657
+00:25:16,400 --> 00:25:18,559
+the udp software will prepend a udp
+
+658
+00:25:18,559 --> 00:25:20,880
+header we need to send that over ip the
+
+659
+00:25:20,880 --> 00:25:21,600
+ip
+
+660
+00:25:21,600 --> 00:25:23,840
+software will prepend an ip header the
+
+661
+00:25:23,840 --> 00:25:25,679
+ethernet software will prepare an
+
+662
+00:25:25,679 --> 00:25:27,440
+ethernet header and gradually build up
+
+663
+00:25:27,440 --> 00:25:29,120
+packets in
+
+664
+00:25:29,120 --> 00:25:30,960
+in that software when it's sending and
+
+665
+00:25:30,960 --> 00:25:33,840
+similarly when a system receives packets
+
+666
+00:25:33,840 --> 00:25:36,240
+it first gets the whole packet inspects
+
+667
+00:25:36,240 --> 00:25:37,520
+the first header
+
+668
+00:25:37,520 --> 00:25:38,799
+and knows it's ethernet because it
+
+669
+00:25:38,799 --> 00:25:40,640
+receives it from an ethernet nic
+
+670
+00:25:40,640 --> 00:25:42,480
+you know check some validity strips off
+
+671
+00:25:42,480 --> 00:25:44,640
+this header to look at the next header
+
+672
+00:25:44,640 --> 00:25:46,799
+and there'll be a type this you know
+
+673
+00:25:46,799 --> 00:25:49,279
+always a either a type field or
+
+674
+00:25:49,279 --> 00:25:52,559
+in this case a protocol field that tells
+
+675
+00:25:52,559 --> 00:25:53,600
+the software
+
+676
+00:25:53,600 --> 00:25:57,039
+what to expect after the ethernet header
+
+677
+00:25:57,039 --> 00:25:58,480
+so there's a tight field that indicates
+
+678
+00:25:58,480 --> 00:26:01,039
+ip versus arp and so this the software
+
+679
+00:26:01,039 --> 00:26:01,760
+will
+
+680
+00:26:01,760 --> 00:26:05,679
+will look at each header validate it
+
+681
+00:26:05,679 --> 00:26:08,320
+strip it off revealing the next header
+
+682
+00:26:08,320 --> 00:26:09,200
+you know
+
+683
+00:26:09,200 --> 00:26:10,720
+check that head or interpret it figure
+
+684
+00:26:10,720 --> 00:26:12,400
+out what it means strip it off revealing
+
+685
+00:26:12,400 --> 00:26:13,760
+the next and sort of hand it on to the
+
+686
+00:26:13,760 --> 00:26:15,360
+next layer of software
+
+687
+00:26:15,360 --> 00:26:18,640
+um i'll talk a bit more about this but
+
+688
+00:26:18,640 --> 00:26:20,960
+this is a sort of universal way of
+
+689
+00:26:20,960 --> 00:26:22,880
+looking at
+
+690
+00:26:22,880 --> 00:26:31,269
+these nested packet headers
+
+691
+00:26:31,279 --> 00:26:32,880
+all right so the ethernet packet the
+
+692
+00:26:32,880 --> 00:26:35,600
+ethernet header
+
+693
+00:26:35,600 --> 00:26:38,159
+is enough to get a packet to a host on
+
+694
+00:26:38,159 --> 00:26:40,080
+the
+
+695
+00:26:40,080 --> 00:26:43,279
+local area network and when especially
+
+696
+00:26:43,279 --> 00:26:43,760
+when
+
+697
+00:26:43,760 --> 00:26:45,440
+and if you want to send an ip packet
+
+698
+00:26:45,440 --> 00:26:46,880
+locally
+
+699
+00:26:46,880 --> 00:26:50,000
+you can use arp but ip is used much more
+
+700
+00:26:50,000 --> 00:26:52,159
+generally ip's the
+
+701
+00:26:52,159 --> 00:26:54,640
+sort of layer of the protocol that helps
+
+702
+00:26:54,640 --> 00:26:56,000
+you deliver a packet anywhere in the
+
+703
+00:26:56,000 --> 00:26:56,559
+internet
+
+704
+00:26:56,559 --> 00:26:59,990
+based on ip addresses
+
+705
+00:27:00,000 --> 00:27:02,480
+and so this is the format of an ip
+
+706
+00:27:02,480 --> 00:27:03,200
+packet again
+
+707
+00:27:03,200 --> 00:27:06,159
+taken you can find it in net.h and the
+
+708
+00:27:06,159 --> 00:27:07,360
+source we give you
+
+709
+00:27:07,360 --> 00:27:10,400
+um and over ethernet at least the way
+
+710
+00:27:10,400 --> 00:27:11,120
+you'd see this
+
+711
+00:27:11,120 --> 00:27:14,799
+is um in an ethernet packet with
+
+712
+00:27:14,799 --> 00:27:20,640
+destination source and type of uh
+
+713
+00:27:20,640 --> 00:27:24,159
+ethernet type equals 0800
+
+714
+00:27:24,159 --> 00:27:31,549
+and then the ip header and then ip
+
+715
+00:27:31,559 --> 00:27:34,080
+payload um
+
+716
+00:27:34,080 --> 00:27:35,919
+when you send a packet to a distant
+
+717
+00:27:35,919 --> 00:27:37,360
+network you know on the other side of
+
+718
+00:27:37,360 --> 00:27:37,919
+the world
+
+719
+00:27:37,919 --> 00:27:40,399
+the ip header gets passed along you know
+
+720
+00:27:40,399 --> 00:27:41,120
+the
+
+721
+00:27:41,120 --> 00:27:43,200
+this ethernet header gets stripped off
+
+722
+00:27:43,200 --> 00:27:44,159
+after you leave
+
+723
+00:27:44,159 --> 00:27:47,279
+the local ethernet maybe a new one gets
+
+724
+00:27:47,279 --> 00:27:48,320
+put on at
+
+725
+00:27:48,320 --> 00:27:51,039
+for each hop that your packet is routed
+
+726
+00:27:51,039 --> 00:27:52,880
+but the ip header stays basically the
+
+727
+00:27:52,880 --> 00:27:53,600
+same
+
+728
+00:27:53,600 --> 00:27:55,840
+uh the whole way from the ultimate the
+
+729
+00:27:55,840 --> 00:27:57,279
+original source host
+
+730
+00:27:57,279 --> 00:27:59,279
+you know your computer all the way to
+
+731
+00:27:59,279 --> 00:28:01,200
+the destination so this
+
+732
+00:28:01,200 --> 00:28:03,360
+header has sort of global significance
+
+733
+00:28:03,360 --> 00:28:04,720
+whereas the ethernet header
+
+734
+00:28:04,720 --> 00:28:08,240
+is really only used for each um
+
+735
+00:28:08,240 --> 00:28:10,159
+for a single local area network so there
+
+736
+00:28:10,159 --> 00:28:11,440
+has to be enough information here to
+
+737
+00:28:11,440 --> 00:28:13,279
+carry a packet all the way to
+
+738
+00:28:13,279 --> 00:28:15,440
+the far side of the internet and the
+
+739
+00:28:15,440 --> 00:28:17,760
+critical fields
+
+740
+00:28:17,760 --> 00:28:20,640
+for our purposes is really three very
+
+741
+00:28:20,640 --> 00:28:22,799
+interesting fields in this packet
+
+742
+00:28:22,799 --> 00:28:26,240
+format the
+
+743
+00:28:26,240 --> 00:28:28,880
+destination field which is the 32-bit ip
+
+744
+00:28:28,880 --> 00:28:29,679
+address
+
+745
+00:28:29,679 --> 00:28:31,679
+of the host that we want to send the
+
+746
+00:28:31,679 --> 00:28:33,279
+pack to and in particular when it's high
+
+747
+00:28:33,279 --> 00:28:34,880
+bits it's going to have
+
+748
+00:28:34,880 --> 00:28:36,320
+network numbers in it that will help
+
+749
+00:28:36,320 --> 00:28:38,080
+routers and then when the packet's
+
+750
+00:28:38,080 --> 00:28:39,679
+delivered this p
+
+751
+00:28:39,679 --> 00:28:42,000
+protocol field will tell the destination
+
+752
+00:28:42,000 --> 00:28:43,039
+host
+
+753
+00:28:43,039 --> 00:28:45,039
+what to do with the packet not what to
+
+754
+00:28:45,039 --> 00:28:46,399
+do with it next after it
+
+755
+00:28:46,399 --> 00:28:51,350
+strips off the ip header
+
+756
+00:28:51,360 --> 00:28:57,440
+and if you've ever seen a mit ip address
+
+757
+00:28:57,440 --> 00:28:59,840
+uh you'll see well there's a couple
+
+758
+00:28:59,840 --> 00:29:01,600
+different ones but for example if you
+
+759
+00:29:01,600 --> 00:29:04,789
+see an
+
+760
+00:29:04,799 --> 00:29:08,080
+uh internet address starting with 18
+
+761
+00:29:08,080 --> 00:29:10,880
+this things have actually changed in the
+
+762
+00:29:10,880 --> 00:29:12,640
+last couple years but
+
+763
+00:29:12,640 --> 00:29:16,000
+this for a long time was the network
+
+764
+00:29:16,000 --> 00:29:16,960
+number of
+
+765
+00:29:16,960 --> 00:29:19,600
+mit and so most hosts at mit would have
+
+766
+00:29:19,600 --> 00:29:21,120
+ip addresses whose high
+
+767
+00:29:21,120 --> 00:29:23,600
+byte was 18 and routers all over the
+
+768
+00:29:23,600 --> 00:29:24,799
+world would have some table
+
+769
+00:29:24,799 --> 00:29:27,039
+they'd look up 18 and say ha i know how
+
+770
+00:29:27,039 --> 00:29:28,960
+to route this packet one step closer to
+
+771
+00:29:28,960 --> 00:29:34,549
+mit
+
+772
+00:29:34,559 --> 00:29:38,840
+so let me let me show you again tcp dump
+
+773
+00:29:38,840 --> 00:29:41,840
+output again actually taken from the lab
+
+774
+00:29:41,840 --> 00:29:47,110
+that includes
+
+775
+00:29:47,120 --> 00:29:52,630
+an ip header okay so
+
+776
+00:29:52,640 --> 00:29:55,200
+we can parse this packet because it was
+
+777
+00:29:55,200 --> 00:29:56,159
+sent over the
+
+778
+00:29:56,159 --> 00:29:58,080
+ethernet it starts with an ethernet
+
+779
+00:29:58,080 --> 00:30:04,389
+header
+
+780
+00:30:04,399 --> 00:30:08,640
+um it actually one
+
+781
+00:30:08,640 --> 00:30:09,840
+thing that's kind of wrong with these
+
+782
+00:30:09,840 --> 00:30:12,000
+tcp dump with these packets that are
+
+783
+00:30:12,000 --> 00:30:14,870
+generated and
+
+784
+00:30:14,880 --> 00:30:16,480
+now that i'm seeing it i'm not sure what
+
+785
+00:30:16,480 --> 00:30:18,559
+the problem is um
+
+786
+00:30:18,559 --> 00:30:20,240
+they should not start with all these
+
+787
+00:30:20,240 --> 00:30:21,760
+ethernet headers shouldn't start with
+
+788
+00:30:21,760 --> 00:30:22,000
+all
+
+789
+00:30:22,000 --> 00:30:24,880
+fs because that's the broadcast address
+
+790
+00:30:24,880 --> 00:30:26,240
+that causes the packet to go to every
+
+791
+00:30:26,240 --> 00:30:27,120
+host
+
+792
+00:30:27,120 --> 00:30:28,960
+and you would not see that for a packet
+
+793
+00:30:28,960 --> 00:30:30,880
+sent between two individual hosts as
+
+794
+00:30:30,880 --> 00:30:31,520
+this one is
+
+795
+00:30:31,520 --> 00:30:33,120
+on a real network so there's something
+
+796
+00:30:33,120 --> 00:30:35,440
+funny going on with my
+
+797
+00:30:35,440 --> 00:30:37,760
+solution to the network lab or with qmu
+
+798
+00:30:37,760 --> 00:30:38,880
+anyway we have the
+
+799
+00:30:38,880 --> 00:30:40,720
+ethernet destination address ethernet
+
+800
+00:30:40,720 --> 00:30:42,399
+source
+
+801
+00:30:42,399 --> 00:30:46,080
+address and the ethernet type and 0800
+
+802
+00:30:46,080 --> 00:30:49,760
+is means that the remaining bytes or
+
+803
+00:30:49,760 --> 00:30:54,320
+ip packet the ip packet
+
+804
+00:30:54,320 --> 00:30:58,320
+header length i think is 20 bytes
+
+805
+00:30:58,320 --> 00:31:02,830
+um let's see if we can find the end
+
+806
+00:31:05,669 --> 00:31:05,679
+215
+
+807
+00:31:05,679 --> 00:31:12,310
+so this must be the end of the ip header
+
+808
+00:31:12,320 --> 00:31:14,000
+and working backwards because these are
+
+809
+00:31:14,000 --> 00:31:15,919
+the fields we really care about
+
+810
+00:31:15,919 --> 00:31:20,509
+the destination ip field is
+
+811
+00:31:20,519 --> 00:31:23,990
+as101022
+
+812
+00:31:24,000 --> 00:31:27,279
+which is i think the in qmu's funny
+
+813
+00:31:27,279 --> 00:31:30,080
+simulated network is the address of the
+
+814
+00:31:30,080 --> 00:31:31,120
+real computer i'm
+
+815
+00:31:31,120 --> 00:31:33,840
+running qmu on and then before that is
+
+816
+00:31:33,840 --> 00:31:34,240
+this
+
+817
+00:31:34,240 --> 00:31:41,029
+ip source address which is 100 215
+
+818
+00:31:41,039 --> 00:31:43,519
+which is the sender which is qmu's
+
+819
+00:31:43,519 --> 00:31:45,200
+address for the
+
+820
+00:31:45,200 --> 00:31:48,000
+for xv6 basically running inside qmu and
+
+821
+00:31:48,000 --> 00:31:48,720
+then
+
+822
+00:31:48,720 --> 00:31:51,279
+this stuff before it is all this other
+
+823
+00:31:51,279 --> 00:31:54,559
+stuff there's a 16-bit checksum
+
+824
+00:31:54,559 --> 00:31:56,640
+which your software is supposed to check
+
+825
+00:31:56,640 --> 00:31:57,919
+to realize that a packet's been
+
+826
+00:31:57,919 --> 00:32:00,159
+corrupted and should be discarded that's
+
+827
+00:32:00,159 --> 00:32:00,799
+this
+
+828
+00:32:00,799 --> 00:32:03,919
+checksum there's a one byte
+
+829
+00:32:03,919 --> 00:32:07,590
+all right mess something up here
+
+830
+00:32:07,600 --> 00:32:10,640
+oh this is this is 16 sorry this is 16
+
+831
+00:32:10,640 --> 00:32:12,000
+bit check sum
+
+832
+00:32:12,000 --> 00:32:16,399
+this 11 is the protocol number which is
+
+833
+00:32:16,399 --> 00:32:17,360
+particularly important
+
+834
+00:32:17,360 --> 00:32:20,799
+11 hex is 16 plus 1 or 17.
+
+835
+00:32:20,799 --> 00:32:24,320
+so that means that this is a udp packet
+
+836
+00:32:24,320 --> 00:32:28,080
+based on the protocol field
+
+837
+00:32:28,080 --> 00:32:29,200
+and then all this other stuff we don't
+
+838
+00:32:29,200 --> 00:32:30,320
+really care about it has things like the
+
+839
+00:32:30,320 --> 00:32:34,870
+length of the packet
+
+840
+00:32:34,880 --> 00:32:43,519
+any questions about ip headers
+
+841
+00:32:43,519 --> 00:32:46,559
+all right again the critical stuff is
+
+842
+00:32:46,559 --> 00:32:47,279
+the
+
+843
+00:32:47,279 --> 00:32:50,240
+ip header has the ip address the source
+
+844
+00:32:50,240 --> 00:32:51,279
+of destination
+
+845
+00:32:51,279 --> 00:32:53,200
+and this protocol field is going to tell
+
+846
+00:32:53,200 --> 00:32:54,320
+the
+
+847
+00:32:54,320 --> 00:32:57,200
+destination hosts networking stack that
+
+848
+00:32:57,200 --> 00:32:58,880
+this package should be processed by its
+
+849
+00:32:58,880 --> 00:33:01,200
+udp software
+
+850
+00:33:01,200 --> 00:33:04,960
+which i'll talk about right now
+
+851
+00:33:04,960 --> 00:33:09,360
+okay the um this this ip header
+
+852
+00:33:09,360 --> 00:33:12,000
+is enough to get a packet to any host on
+
+853
+00:33:12,000 --> 00:33:13,039
+the internet
+
+854
+00:33:13,039 --> 00:33:15,039
+um but we want to do better than that
+
+855
+00:33:15,039 --> 00:33:16,720
+every host you know is running lots and
+
+856
+00:33:16,720 --> 00:33:18,000
+lots of different programs that need to
+
+857
+00:33:18,000 --> 00:33:18,799
+use the network
+
+858
+00:33:18,799 --> 00:33:21,200
+they need to send and receive packets on
+
+859
+00:33:21,200 --> 00:33:22,640
+the network and so we need
+
+860
+00:33:22,640 --> 00:33:24,720
+a way that's not in the eye that's it's
+
+861
+00:33:24,720 --> 00:33:26,399
+not included in the ip field
+
+862
+00:33:26,399 --> 00:33:30,080
+in order to decide which application um
+
+863
+00:33:30,080 --> 00:33:32,720
+needs to which application on the target
+
+864
+00:33:32,720 --> 00:33:33,279
+host
+
+865
+00:33:33,279 --> 00:33:36,840
+this packet ought to be handed off to
+
+866
+00:33:36,840 --> 00:33:40,640
+and there's a couple of protocols that
+
+867
+00:33:40,640 --> 00:33:44,159
+do that job one of them is tcp
+
+868
+00:33:44,159 --> 00:33:48,080
+which is quite complex another is udp
+
+869
+00:33:48,080 --> 00:33:49,919
+tcp is actually what's used mostly for
+
+870
+00:33:49,919 --> 00:33:51,600
+things like the web
+
+871
+00:33:51,600 --> 00:33:54,399
+tcp is a very complex protocol that not
+
+872
+00:33:54,399 --> 00:33:55,039
+only
+
+873
+00:33:55,039 --> 00:33:56,320
+helps your packet be delivered to the
+
+874
+00:33:56,320 --> 00:33:58,159
+right application but also has
+
+875
+00:33:58,159 --> 00:34:00,399
+a lot of things like sequence numbers in
+
+876
+00:34:00,399 --> 00:34:01,279
+order to
+
+877
+00:34:01,279 --> 00:34:04,480
+detect lost packets and re-transmit them
+
+878
+00:34:04,480 --> 00:34:06,880
+make sure packets are data is delivered
+
+879
+00:34:06,880 --> 00:34:09,040
+in order and without gaps if
+
+880
+00:34:09,040 --> 00:34:11,359
+in case anything goes wrong udp is a
+
+881
+00:34:11,359 --> 00:34:13,679
+much simpler protocol
+
+882
+00:34:13,679 --> 00:34:16,560
+that just delivers a sort of best effort
+
+883
+00:34:16,560 --> 00:34:18,320
+delivery of a packet to a particular
+
+884
+00:34:18,320 --> 00:34:20,639
+application but
+
+885
+00:34:20,639 --> 00:34:24,550
+without any error correction or
+
+886
+00:34:24,560 --> 00:34:27,599
+well basically without anything else for
+
+887
+00:34:27,599 --> 00:34:28,240
+us the
+
+888
+00:34:28,240 --> 00:34:30,720
+critical fields are these two port
+
+889
+00:34:30,720 --> 00:34:31,520
+numbers
+
+890
+00:34:31,520 --> 00:34:33,359
+and the game here is that when your
+
+891
+00:34:33,359 --> 00:34:34,560
+application
+
+892
+00:34:34,560 --> 00:34:37,839
+wants to send or receive packets it uses
+
+893
+00:34:37,839 --> 00:34:43,270
+the what's called the sockets api
+
+894
+00:34:43,280 --> 00:34:46,159
+on unix at any rate and this is a set of
+
+895
+00:34:46,159 --> 00:34:47,520
+system calls
+
+896
+00:34:47,520 --> 00:34:49,359
+whereby a process can say look i'm
+
+897
+00:34:49,359 --> 00:34:50,720
+interested in packets
+
+898
+00:34:50,720 --> 00:34:52,960
+addressed to a particular port and it'll
+
+899
+00:34:52,960 --> 00:34:54,399
+say
+
+900
+00:34:54,399 --> 00:34:56,720
+what port number it's interested sorry
+
+901
+00:34:56,720 --> 00:34:58,160
+packets with this particular
+
+902
+00:34:58,160 --> 00:34:59,440
+i want to receive packets with a
+
+903
+00:34:59,440 --> 00:35:01,760
+particular destination port
+
+904
+00:35:01,760 --> 00:35:03,280
+and the operating so you make a system
+
+905
+00:35:03,280 --> 00:35:05,119
+call it
+
+906
+00:35:05,119 --> 00:35:06,560
+sets this up and the operating system
+
+907
+00:35:06,560 --> 00:35:09,280
+will return a file descriptor
+
+908
+00:35:09,280 --> 00:35:11,280
+and every time a packet arrives with the
+
+909
+00:35:11,280 --> 00:35:13,760
+port that the application asks for
+
+910
+00:35:13,760 --> 00:35:15,680
+that packet will appear on the file
+
+911
+00:35:15,680 --> 00:35:17,599
+descriptor and the application can read
+
+912
+00:35:17,599 --> 00:35:19,760
+it
+
+913
+00:35:19,760 --> 00:35:23,119
+and the these ports there's really two
+
+914
+00:35:23,119 --> 00:35:24,079
+kinds of
+
+915
+00:35:24,079 --> 00:35:27,359
+ports some are well known port numbers
+
+916
+00:35:27,359 --> 00:35:28,240
+like
+
+917
+00:35:28,240 --> 00:35:32,960
+i think port 53 is the official
+
+918
+00:35:32,960 --> 00:35:35,119
+well-known universally agreed port
+
+919
+00:35:35,119 --> 00:35:36,079
+number for
+
+920
+00:35:36,079 --> 00:35:38,480
+a dns name server so if you want to send
+
+921
+00:35:38,480 --> 00:35:40,240
+a request to a dns name server
+
+922
+00:35:40,240 --> 00:35:42,160
+you're going to send it in a udp packet
+
+923
+00:35:42,160 --> 00:35:44,320
+addressed to deport 53
+
+924
+00:35:44,320 --> 00:35:46,320
+and there's a bunch of other sort of
+
+925
+00:35:46,320 --> 00:35:48,000
+well-known ports for
+
+926
+00:35:48,000 --> 00:35:51,040
+commonly available services with
+
+927
+00:35:51,040 --> 00:35:53,599
+universally agreed on numbers and then
+
+928
+00:35:53,599 --> 00:35:55,200
+the remaining
+
+929
+00:35:55,200 --> 00:35:57,520
+remainder of the 16-bit port number
+
+930
+00:35:57,520 --> 00:35:58,880
+space
+
+931
+00:35:58,880 --> 00:36:01,839
+is used for the sort of anonymous client
+
+932
+00:36:01,839 --> 00:36:04,000
+and support so if
+
+933
+00:36:04,000 --> 00:36:06,880
+um i want to send a packet to a dns
+
+934
+00:36:06,880 --> 00:36:07,760
+server
+
+935
+00:36:07,760 --> 00:36:09,920
+its d port will be 53 all right but its
+
+936
+00:36:09,920 --> 00:36:10,960
+s port will be
+
+937
+00:36:10,960 --> 00:36:13,040
+a more or less randomly chosen number
+
+938
+00:36:13,040 --> 00:36:14,800
+for my end
+
+939
+00:36:14,800 --> 00:36:17,440
+so that when the that'll be associated
+
+940
+00:36:17,440 --> 00:36:19,040
+with my applications
+
+941
+00:36:19,040 --> 00:36:21,040
+socket so that when the dns server sends
+
+942
+00:36:21,040 --> 00:36:23,119
+a reply it'll be addressed
+
+943
+00:36:23,119 --> 00:36:25,599
+that the dns server will copy the
+
+944
+00:36:25,599 --> 00:36:26,160
+request
+
+945
+00:36:26,160 --> 00:36:28,960
+source port into the destination port
+
+946
+00:36:28,960 --> 00:36:30,079
+field of the reply
+
+947
+00:36:30,079 --> 00:36:32,240
+send it back to my machine and my
+
+948
+00:36:32,240 --> 00:36:35,359
+machine will use this port number to
+
+949
+00:36:35,359 --> 00:36:38,240
+figure out which application should get
+
+950
+00:36:38,240 --> 00:36:41,200
+the reply
+
+951
+00:36:41,200 --> 00:36:43,440
+okay so the main function here is to
+
+952
+00:36:43,440 --> 00:36:45,119
+have these two port numbers
+
+953
+00:36:45,119 --> 00:36:48,720
+in order to hand out be able to hand off
+
+954
+00:36:48,720 --> 00:36:52,640
+packets to individual applications
+
+955
+00:36:52,640 --> 00:36:55,760
+on this machine
+
+956
+00:36:55,760 --> 00:36:59,280
+so feel free to ask questions
+
+957
+00:36:59,280 --> 00:37:03,030
+i have tcp dump output for
+
+958
+00:37:03,040 --> 00:37:08,480
+udp also again taken from the lab um
+
+959
+00:37:08,480 --> 00:37:12,880
+so again we have an ethernet header
+
+960
+00:37:12,880 --> 00:37:15,920
+and a 20 by
+
+961
+00:37:15,920 --> 00:37:18,880
+ip header which probably ends here the
+
+962
+00:37:18,880 --> 00:37:20,800
+11 is
+
+963
+00:37:20,800 --> 00:37:23,920
+ip protocol 17 which is udp so the
+
+964
+00:37:23,920 --> 00:37:25,839
+receiving host will know to
+
+965
+00:37:25,839 --> 00:37:30,560
+process it with its udp software
+
+966
+00:37:30,560 --> 00:37:36,160
+the next eight bytes
+
+967
+00:37:36,160 --> 00:37:38,400
+are the udp header which is shown right
+
+968
+00:37:38,400 --> 00:37:39,680
+here
+
+969
+00:37:39,680 --> 00:37:42,720
+and so who knows what these port numbers
+
+970
+00:37:42,720 --> 00:37:45,030
+are
+
+971
+00:37:45,040 --> 00:37:48,079
+i mean now this this is unfortunately a
+
+972
+00:37:48,079 --> 00:37:51,119
+package is generated by the lab software
+
+973
+00:37:51,119 --> 00:37:52,560
+without any
+
+974
+00:37:52,560 --> 00:37:56,400
+um any special numbers in it so these
+
+975
+00:37:56,400 --> 00:37:57,599
+are just the port numbers that happen to
+
+976
+00:37:57,599 --> 00:37:58,880
+choose
+
+977
+00:37:58,880 --> 00:38:00,480
+this must be the length of the packets
+
+978
+00:38:00,480 --> 00:38:02,000
+1b is
+
+979
+00:38:02,000 --> 00:38:05,119
+20 something and this my you know this
+
+980
+00:38:05,119 --> 00:38:08,640
+our software for udp and xv6 is so lame
+
+981
+00:38:08,640 --> 00:38:09,680
+that it uh
+
+982
+00:38:09,680 --> 00:38:11,920
+doesn't fill in the checksum field but
+
+983
+00:38:11,920 --> 00:38:13,520
+this is the header
+
+984
+00:38:13,520 --> 00:38:15,920
+and then after the udp header is the
+
+985
+00:38:15,920 --> 00:38:17,520
+payload of the udp packet
+
+986
+00:38:17,520 --> 00:38:19,599
+and in this case the application is
+
+987
+00:38:19,599 --> 00:38:20,960
+sending ascii text
+
+988
+00:38:20,960 --> 00:38:26,710
+and that ascii text is right here
+
+989
+00:38:26,720 --> 00:38:28,960
+so this is a masking text placed inside
+
+990
+00:38:28,960 --> 00:38:30,720
+a udp packet place inside an
+
+991
+00:38:30,720 --> 00:38:32,480
+ip packet the police inside an ethernet
+
+992
+00:38:32,480 --> 00:38:35,349
+packet and
+
+993
+00:38:35,359 --> 00:38:41,270
+sent over a simulated ethernet
+
+994
+00:38:41,280 --> 00:38:44,560
+oh sorry i just had a question so when
+
+995
+00:38:44,560 --> 00:38:45,359
+when you
+
+996
+00:38:45,359 --> 00:38:47,200
+when you said when you send a package to
+
+997
+00:38:47,200 --> 00:38:49,280
+someone you don't know their
+
+998
+00:38:49,280 --> 00:38:52,880
+ethernet i like address so do you just
+
+999
+00:38:52,880 --> 00:38:55,520
+send it to your router then and then the
+
+1000
+00:38:55,520 --> 00:38:56,160
+router
+
+1001
+00:38:56,160 --> 00:38:59,440
+figures it out from there if um if
+
+1002
+00:38:59,440 --> 00:39:01,359
+for for most for packets sent somewhere
+
+1003
+00:39:01,359 --> 00:39:03,839
+else on the internet
+
+1004
+00:39:03,839 --> 00:39:07,030
+um let's see
+
+1005
+00:39:07,040 --> 00:39:09,040
+your host if you send a packet to a
+
+1006
+00:39:09,040 --> 00:39:10,560
+particular ip address
+
+1007
+00:39:10,560 --> 00:39:12,000
+your host software will look at the
+
+1008
+00:39:12,000 --> 00:39:14,000
+destination address to figure out
+
+1009
+00:39:14,000 --> 00:39:17,119
+if the target host is on the same local
+
+1010
+00:39:17,119 --> 00:39:18,480
+area network as you are
+
+1011
+00:39:18,480 --> 00:39:21,520
+and if it is it'll use arp
+
+1012
+00:39:21,520 --> 00:39:23,200
+to translate the ip address into an
+
+1013
+00:39:23,200 --> 00:39:24,560
+ethernet address and then send the
+
+1014
+00:39:24,560 --> 00:39:25,280
+packet
+
+1015
+00:39:25,280 --> 00:39:28,079
+over the ethernet to the target host so
+
+1016
+00:39:28,079 --> 00:39:29,359
+that's what happens is sort of in the
+
+1017
+00:39:29,359 --> 00:39:31,280
+special case in which the target host is
+
+1018
+00:39:31,280 --> 00:39:32,560
+on the same network
+
+1019
+00:39:32,560 --> 00:39:33,599
+in the more general case where you're
+
+1020
+00:39:33,599 --> 00:39:34,960
+sending the packet to somewhere else on
+
+1021
+00:39:34,960 --> 00:39:35,920
+the internet
+
+1022
+00:39:35,920 --> 00:39:38,880
+you know across the country you'll send
+
+1023
+00:39:38,880 --> 00:39:40,560
+the packet to
+
+1024
+00:39:40,560 --> 00:39:43,359
+a router on the same local area network
+
+1025
+00:39:43,359 --> 00:39:45,040
+that router will look at the destination
+
+1026
+00:39:45,040 --> 00:39:46,640
+ip
+
+1027
+00:39:46,640 --> 00:39:49,200
+address to pick the next router to
+
+1028
+00:39:49,200 --> 00:39:50,160
+decide
+
+1029
+00:39:50,160 --> 00:39:51,839
+which router it's attached to it should
+
+1030
+00:39:51,839 --> 00:39:53,599
+forward the packet to in the packet will
+
+1031
+00:39:53,599 --> 00:39:55,839
+go hop by hop through routers getting
+
+1032
+00:39:55,839 --> 00:39:57,839
+closer and closer to the target
+
+1033
+00:39:57,839 --> 00:40:00,079
+does that answer your question okay i
+
+1034
+00:40:00,079 --> 00:40:01,839
+see yes thank you so much
+
+1035
+00:40:01,839 --> 00:40:03,119
+someone asked if there's a limit to the
+
+1036
+00:40:03,119 --> 00:40:05,040
+length of a packet and the answer is yes
+
+1037
+00:40:05,040 --> 00:40:07,520
+there's a couple of different limits
+
+1038
+00:40:07,520 --> 00:40:09,520
+every network every underlying network
+
+1039
+00:40:09,520 --> 00:40:11,200
+technology like ethernet
+
+1040
+00:40:11,200 --> 00:40:12,880
+but there are other things that are like
+
+1041
+00:40:12,880 --> 00:40:14,240
+ethernet
+
+1042
+00:40:14,240 --> 00:40:17,359
+has its own maximum packet length
+
+1043
+00:40:17,359 --> 00:40:19,760
+so when today's paper was written the
+
+1044
+00:40:19,760 --> 00:40:21,119
+maximum packet length was
+
+1045
+00:40:21,119 --> 00:40:24,000
+on ethernet it was 1500 bytes i think
+
+1046
+00:40:24,000 --> 00:40:25,520
+modern ethernets
+
+1047
+00:40:25,520 --> 00:40:28,319
+allow packets up to around 9000 or 10
+
+1048
+00:40:28,319 --> 00:40:30,240
+000 bytes
+
+1049
+00:40:30,240 --> 00:40:32,319
+but that's about the highest maximum
+
+1050
+00:40:32,319 --> 00:40:35,040
+packet size i've heard of and the reason
+
+1051
+00:40:35,040 --> 00:40:36,720
+there's a couple of reasons why you
+
+1052
+00:40:36,720 --> 00:40:38,240
+wouldn't want sort of
+
+1053
+00:40:38,240 --> 00:40:40,720
+infinitely long single packets one of
+
+1054
+00:40:40,720 --> 00:40:42,160
+them is that
+
+1055
+00:40:42,160 --> 00:40:44,400
+the packets are you're sending these
+
+1056
+00:40:44,400 --> 00:40:46,240
+packets over wires they could be quite
+
+1057
+00:40:46,240 --> 00:40:48,079
+long and subject to noise and
+
+1058
+00:40:48,079 --> 00:40:50,160
+interference
+
+1059
+00:40:50,160 --> 00:40:52,160
+and so you do get corruption of bits
+
+1060
+00:40:52,160 --> 00:40:53,760
+when you're sending packets
+
+1061
+00:40:53,760 --> 00:40:56,480
+uh basically every networking technology
+
+1062
+00:40:56,480 --> 00:40:57,359
+is some kind of
+
+1063
+00:40:57,359 --> 00:40:58,880
+checksum or error correcting code that
+
+1064
+00:40:58,880 --> 00:41:00,480
+goes along with every packet
+
+1065
+00:41:00,480 --> 00:41:02,319
+but uh checksums and error correcting
+
+1066
+00:41:02,319 --> 00:41:04,160
+codes are only capable of reliably
+
+1067
+00:41:04,160 --> 00:41:06,319
+detecting errors
+
+1068
+00:41:06,319 --> 00:41:08,800
+over a certain number of bits which and
+
+1069
+00:41:08,800 --> 00:41:10,160
+so as you increase the number of bits
+
+1070
+00:41:10,160 --> 00:41:12,800
+the probability of an uncaught error
+
+1071
+00:41:12,800 --> 00:41:14,319
+goes up and up
+
+1072
+00:41:14,319 --> 00:41:16,319
+and so that limits the for a reasonable
+
+1073
+00:41:16,319 --> 00:41:17,680
+size checks on like
+
+1074
+00:41:17,680 --> 00:41:20,640
+16 or 32 bits that limits the maximum
+
+1075
+00:41:20,640 --> 00:41:22,880
+size of a packet
+
+1076
+00:41:22,880 --> 00:41:25,839
+and the other limitation is that if you
+
+1077
+00:41:25,839 --> 00:41:27,040
+send huge packets
+
+1078
+00:41:27,040 --> 00:41:29,599
+that means that all the routers and hose
+
+1079
+00:41:29,599 --> 00:41:30,800
+and volt have to
+
+1080
+00:41:30,800 --> 00:41:33,440
+have huge packet buffers to be prepared
+
+1081
+00:41:33,440 --> 00:41:34,000
+to receive
+
+1082
+00:41:34,000 --> 00:41:37,119
+huge packets and
+
+1083
+00:41:37,119 --> 00:41:39,359
+that starts to get unwieldy and
+
+1084
+00:41:39,359 --> 00:41:40,240
+expensive
+
+1085
+00:41:40,240 --> 00:41:43,440
+because it's difficult to have variable
+
+1086
+00:41:43,440 --> 00:41:44,960
+length buffers it's most convenient to
+
+1087
+00:41:44,960 --> 00:41:45,599
+have just
+
+1088
+00:41:45,599 --> 00:41:48,800
+a single length of buffer and that works
+
+1089
+00:41:48,800 --> 00:41:50,960
+best if the maximum packet length isn't
+
+1090
+00:41:50,960 --> 00:41:55,599
+too enormous anyway so for ethernet for
+
+1091
+00:41:55,599 --> 00:42:00,069
+so ethernet has a 1500 or
+
+1092
+00:42:02,470 --> 00:42:02,480
+9000 byte limit in addition you know for
+
+1093
+00:42:02,480 --> 00:42:04,079
+all these ip protocols have length
+
+1094
+00:42:04,079 --> 00:42:05,520
+fields which are uh
+
+1095
+00:42:05,520 --> 00:42:07,760
+16 bits so even if you are willing to
+
+1096
+00:42:07,760 --> 00:42:09,359
+have ethernet have a larger packet size
+
+1097
+00:42:09,359 --> 00:42:12,079
+ip itself has a kind of baked in
+
+1098
+00:42:12,079 --> 00:42:19,270
+a maximum pack a size of 64 kilobytes
+
+1099
+00:42:19,280 --> 00:42:25,270
+okay
+
+1100
+00:42:25,280 --> 00:42:28,960
+okay good so much for udp
+
+1101
+00:42:28,960 --> 00:42:30,319
+and hopefully when you finish the lab
+
+1102
+00:42:30,319 --> 00:42:34,640
+you'll see output very much like this
+
+1103
+00:42:34,640 --> 00:42:37,839
+in particular the message from xv6 and
+
+1104
+00:42:37,839 --> 00:42:40,960
+a message a reply back from the host
+
+1105
+00:42:40,960 --> 00:42:41,599
+that you're running
+
+1106
+00:42:41,599 --> 00:42:44,720
+running qmu on
+
+1107
+00:42:44,720 --> 00:42:46,640
+in fact actually at the end of the lab
+
+1108
+00:42:46,640 --> 00:42:48,960
+you'll use
+
+1109
+00:42:48,960 --> 00:42:50,480
+you'll run software which we provide
+
+1110
+00:42:50,480 --> 00:42:52,880
+which will actually send a dns query to
+
+1111
+00:42:52,880 --> 00:42:55,200
+google's dns servers
+
+1112
+00:42:55,200 --> 00:42:56,800
+and get the response back and our
+
+1113
+00:42:56,800 --> 00:42:59,200
+software will print the response but
+
+1114
+00:42:59,200 --> 00:43:01,680
+your software will have done the sort of
+
+1115
+00:43:01,680 --> 00:43:03,119
+ethernet level
+
+1116
+00:43:03,119 --> 00:43:07,589
+device driver interactions
+
+1117
+00:43:07,599 --> 00:43:10,319
+all right so that's the story for packet
+
+1118
+00:43:10,319 --> 00:43:11,040
+headers
+
+1119
+00:43:11,040 --> 00:43:13,680
+and protocols on the wire so
+
+1120
+00:43:13,680 --> 00:43:16,560
+corresponding to these packet formats
+
+1121
+00:43:16,560 --> 00:43:20,960
+is this what's called the stack of
+
+1122
+00:43:20,960 --> 00:43:22,880
+network software that runs on the host
+
+1123
+00:43:22,880 --> 00:43:24,640
+so
+
+1124
+00:43:24,640 --> 00:43:26,160
+if you think about what's sitting inside
+
+1125
+00:43:26,160 --> 00:43:28,000
+the host um
+
+1126
+00:43:28,000 --> 00:43:31,040
+and then from now on i'm talking and
+
+1127
+00:43:31,040 --> 00:43:32,079
+mostly talk about sort of
+
+1128
+00:43:32,079 --> 00:43:33,760
+typical software arrangements there's
+
+1129
+00:43:33,760 --> 00:43:35,040
+all kinds of different ways people
+
+1130
+00:43:35,040 --> 00:43:36,880
+structure network software
+
+1131
+00:43:36,880 --> 00:43:40,000
+um and um somewhat
+
+1132
+00:43:40,000 --> 00:43:41,200
+quite different from what i'm going to
+
+1133
+00:43:41,200 --> 00:43:42,560
+talk about but i'm going to talk about
+
+1134
+00:43:42,560 --> 00:43:44,960
+kind of the
+
+1135
+00:43:44,960 --> 00:43:46,640
+what i think of this at least is the
+
+1136
+00:43:46,640 --> 00:43:48,160
+sort of standard approach so
+
+1137
+00:43:48,160 --> 00:43:49,200
+you know let's assume we're running
+
+1138
+00:43:49,200 --> 00:43:51,680
+linux or maybe xv6 um
+
+1139
+00:43:51,680 --> 00:43:53,280
+and we have a bunch of applications
+
+1140
+00:43:53,280 --> 00:43:57,589
+maybe a web browser
+
+1141
+00:43:57,599 --> 00:44:01,920
+maybe a dns server
+
+1142
+00:44:01,920 --> 00:44:04,960
+who knows what a bunch of applications
+
+1143
+00:44:04,960 --> 00:44:07,119
+they'll have used the sockets api to
+
+1144
+00:44:07,119 --> 00:44:08,640
+open up file descriptors
+
+1145
+00:44:08,640 --> 00:44:11,040
+in the sockets layer so this is going to
+
+1146
+00:44:11,040 --> 00:44:12,240
+be this
+
+1147
+00:44:12,240 --> 00:44:16,630
+inside the kernel
+
+1148
+00:44:16,640 --> 00:44:18,160
+a layer software called the sockets
+
+1149
+00:44:18,160 --> 00:44:20,160
+layer that
+
+1150
+00:44:20,160 --> 00:44:21,920
+remember has tables that remembers the
+
+1151
+00:44:21,920 --> 00:44:24,240
+correspondence between file descriptors
+
+1152
+00:44:24,240 --> 00:44:26,319
+which the applications read or write and
+
+1153
+00:44:26,319 --> 00:44:27,280
+um
+
+1154
+00:44:27,280 --> 00:44:30,000
+udp port numbers or tcp port numbers
+
+1155
+00:44:30,000 --> 00:44:30,960
+which is
+
+1156
+00:44:30,960 --> 00:44:34,400
+for the um the sort of end points of
+
+1157
+00:44:34,400 --> 00:44:35,680
+conversations that these file
+
+1158
+00:44:35,680 --> 00:44:37,599
+descriptors refer to so the socket layer
+
+1159
+00:44:37,599 --> 00:44:38,960
+has these
+
+1160
+00:44:38,960 --> 00:44:40,480
+tables of file descriptors and port
+
+1161
+00:44:40,480 --> 00:44:42,720
+numbers and it also typically has a
+
+1162
+00:44:42,720 --> 00:44:46,480
+queue of packets that have arrived and
+
+1163
+00:44:46,480 --> 00:44:47,440
+are waiting
+
+1164
+00:44:47,440 --> 00:44:49,839
+to be read by each socket or file
+
+1165
+00:44:49,839 --> 00:44:54,470
+descriptor
+
+1166
+00:44:54,480 --> 00:44:56,319
+and the software we provide you has a
+
+1167
+00:44:56,319 --> 00:45:00,160
+very primitive sockets layer
+
+1168
+00:45:00,160 --> 00:45:04,319
+underneath that are going to be um
+
+1169
+00:45:04,319 --> 00:45:09,040
+the udp and tcp protocol
+
+1170
+00:45:09,040 --> 00:45:13,190
+layers
+
+1171
+00:45:13,200 --> 00:45:15,359
+udp has almost nothing going on it
+
+1172
+00:45:15,359 --> 00:45:17,040
+basically looks at incoming packets
+
+1173
+00:45:17,040 --> 00:45:18,800
+extracts the destination port number and
+
+1174
+00:45:18,800 --> 00:45:20,560
+hands the packet off to the socket layer
+
+1175
+00:45:20,560 --> 00:45:21,119
+to
+
+1176
+00:45:21,119 --> 00:45:23,359
+so the payload is enqueued on the
+
+1177
+00:45:23,359 --> 00:45:27,119
+correct file descriptor's incoming queue
+
+1178
+00:45:27,119 --> 00:45:29,359
+tcp actually is much more complex it
+
+1179
+00:45:29,359 --> 00:45:31,599
+keeps state for each tcp connection and
+
+1180
+00:45:31,599 --> 00:45:31,920
+it
+
+1181
+00:45:31,920 --> 00:45:33,760
+remembers all kinds of sequence numbers
+
+1182
+00:45:33,760 --> 00:45:35,200
+and packets that haven't been
+
+1183
+00:45:35,200 --> 00:45:36,560
+acknowledged and need to be
+
+1184
+00:45:36,560 --> 00:45:38,400
+transmitted so there's a huge amount of
+
+1185
+00:45:38,400 --> 00:45:39,920
+state in what's called a
+
+1186
+00:45:39,920 --> 00:45:43,200
+protocol control block in tcp
+
+1187
+00:45:43,200 --> 00:45:46,720
+and virtually no state in the udp layer
+
+1188
+00:45:46,720 --> 00:45:48,400
+these are often called transport layers
+
+1189
+00:45:48,400 --> 00:45:50,960
+udp and tcp
+
+1190
+00:45:50,960 --> 00:45:52,960
+and we provide you with a simple udp
+
+1191
+00:45:52,960 --> 00:45:54,160
+layer but not
+
+1192
+00:45:54,160 --> 00:46:01,910
+a tcp layer underneath tcp and ip is a
+
+1193
+00:46:01,920 --> 00:46:05,430
+ip layer
+
+1194
+00:46:05,440 --> 00:46:09,440
+which is often fairly simple
+
+1195
+00:46:09,440 --> 00:46:11,119
+and kind of in parallel with the ip
+
+1196
+00:46:11,119 --> 00:46:12,560
+layer i'm not sure whether i should draw
+
+1197
+00:46:12,560 --> 00:46:14,000
+it on the same level or underneath
+
+1198
+00:46:14,000 --> 00:46:17,920
+it is the r player
+
+1199
+00:46:17,920 --> 00:46:20,319
+under them both we can think of as an
+
+1200
+00:46:20,319 --> 00:46:21,839
+ether layer but it's really
+
+1201
+00:46:21,839 --> 00:46:23,440
+there's not typically a separate
+
+1202
+00:46:23,440 --> 00:46:25,599
+ethernet layer typically there's a
+
+1203
+00:46:25,599 --> 00:46:30,309
+one or more nic drivers
+
+1204
+00:46:30,319 --> 00:46:33,680
+at the lowest layer and these talk to
+
+1205
+00:46:33,680 --> 00:46:37,040
+the actual nik network interface
+
+1206
+00:46:37,040 --> 00:46:37,839
+hardware
+
+1207
+00:46:37,839 --> 00:46:41,440
+which itself has a connection off to the
+
+1208
+00:46:41,440 --> 00:46:44,560
+local area network or
+
+1209
+00:46:44,560 --> 00:46:48,309
+whatever kind of network you're attached
+
+1210
+00:46:48,319 --> 00:46:50,079
+and sort of at this level what happens
+
+1211
+00:46:50,079 --> 00:46:51,839
+is the packet arrives
+
+1212
+00:46:51,839 --> 00:46:54,880
+off the network the nic you know pulls
+
+1213
+00:46:54,880 --> 00:46:56,079
+it off the network
+
+1214
+00:46:56,079 --> 00:46:58,560
+um hands it off to the driver and the
+
+1215
+00:46:58,560 --> 00:46:59,280
+driver
+
+1216
+00:46:59,280 --> 00:47:01,440
+essentially pushes the network to pack
+
+1217
+00:47:01,440 --> 00:47:03,280
+it up the networking stack
+
+1218
+00:47:03,280 --> 00:47:05,359
+um and at each layer in the stack the
+
+1219
+00:47:05,359 --> 00:47:07,920
+you know that layers header
+
+1220
+00:47:07,920 --> 00:47:09,839
+you know the ip layer we'll look the ip
+
+1221
+00:47:09,839 --> 00:47:11,280
+header
+
+1222
+00:47:11,280 --> 00:47:13,119
+verify the header strip it off hand it
+
+1223
+00:47:13,119 --> 00:47:15,839
+to udp udp will figure out
+
+1224
+00:47:15,839 --> 00:47:18,480
+what file descriptor to cue the data on
+
+1225
+00:47:18,480 --> 00:47:20,000
+and add it to that queue
+
+1226
+00:47:20,000 --> 00:47:21,839
+now so packets come in and are parsed
+
+1227
+00:47:21,839 --> 00:47:23,680
+and headers are stripped in the way up
+
+1228
+00:47:23,680 --> 00:47:26,000
+and when a application sends a packet
+
+1229
+00:47:26,000 --> 00:47:27,760
+the reverse thing happens as the packet
+
+1230
+00:47:27,760 --> 00:47:29,520
+moves down through the layers
+
+1231
+00:47:29,520 --> 00:47:31,680
+more and more headers are added on until
+
+1232
+00:47:31,680 --> 00:47:33,599
+you get to the bottom layer and then the
+
+1233
+00:47:33,599 --> 00:47:36,839
+packet's handed to the nic for
+
+1234
+00:47:36,839 --> 00:47:40,950
+transmission
+
+1235
+00:47:40,960 --> 00:47:45,359
+um and so of course the software
+
+1236
+00:47:45,359 --> 00:47:46,800
+the way people think about and design
+
+1237
+00:47:46,800 --> 00:47:48,800
+network software in the kernel is
+
+1238
+00:47:48,800 --> 00:47:49,760
+typically
+
+1239
+00:47:49,760 --> 00:47:52,800
+driven by the nesting of the protocols
+
+1240
+00:47:52,800 --> 00:47:55,990
+inside the packets
+
+1241
+00:47:56,000 --> 00:48:03,190
+any questions about this structure
+
+1242
+00:48:03,200 --> 00:48:04,720
+there's actually one important thing
+
+1243
+00:48:04,720 --> 00:48:06,559
+that i kind of left out here that sits
+
+1244
+00:48:06,559 --> 00:48:08,400
+on the side
+
+1245
+00:48:08,400 --> 00:48:12,240
+there's buffers there's packet buffers
+
+1246
+00:48:12,240 --> 00:48:13,599
+all through this so when a packet
+
+1247
+00:48:13,599 --> 00:48:16,160
+arrives it's copied into a
+
+1248
+00:48:16,160 --> 00:48:19,280
+packet buffer and the packet buffers are
+
+1249
+00:48:19,280 --> 00:48:19,680
+sort of
+
+1250
+00:48:19,680 --> 00:48:20,960
+sent up and down the stack and there's
+
+1251
+00:48:20,960 --> 00:48:22,880
+often quite a few packet buffers
+
+1252
+00:48:22,880 --> 00:48:24,640
+there's often cues between these layers
+
+1253
+00:48:24,640 --> 00:48:26,240
+there's certainly a queue here
+
+1254
+00:48:26,240 --> 00:48:28,800
+a packet's waiting to be processed by
+
+1255
+00:48:28,800 --> 00:48:29,920
+applications
+
+1256
+00:48:29,920 --> 00:48:32,640
+and this will be a linked list of
+
+1257
+00:48:32,640 --> 00:48:33,839
+buffers
+
+1258
+00:48:33,839 --> 00:48:36,319
+and so there's a buffer allocator that's
+
+1259
+00:48:36,319 --> 00:48:37,280
+this
+
+1260
+00:48:37,280 --> 00:48:38,720
+buffer scheme and a buffer allocator
+
+1261
+00:48:38,720 --> 00:48:40,880
+that's used throughout the stack
+
+1262
+00:48:40,880 --> 00:48:43,680
+um and in the software we give you uh
+
+1263
+00:48:43,680 --> 00:48:44,240
+these
+
+1264
+00:48:44,240 --> 00:48:47,040
+the buffer scheme is called m-buffs so
+
+1265
+00:48:47,040 --> 00:48:48,640
+it's kind of a
+
+1266
+00:48:48,640 --> 00:48:52,549
+m-buff
+
+1267
+00:48:52,559 --> 00:48:54,960
+scheme that's not a layer but it's used
+
+1268
+00:48:54,960 --> 00:48:59,349
+all throughout these layers
+
+1269
+00:48:59,359 --> 00:49:01,839
+okay this is the layering diagram of
+
+1270
+00:49:01,839 --> 00:49:05,589
+sort of typical network stack
+
+1271
+00:49:05,599 --> 00:49:07,760
+for this paper it's actually important
+
+1272
+00:49:07,760 --> 00:49:09,680
+to understand how the control flow works
+
+1273
+00:49:09,680 --> 00:49:11,200
+which is
+
+1274
+00:49:11,200 --> 00:49:12,800
+maybe a little bit different from what's
+
+1275
+00:49:12,800 --> 00:49:16,720
+in that diagram um
+
+1276
+00:49:16,720 --> 00:49:18,880
+one thing to know about network stacks
+
+1277
+00:49:18,880 --> 00:49:20,160
+is that there's typically
+
+1278
+00:49:20,160 --> 00:49:23,040
+multiple independent actors that process
+
+1279
+00:49:23,040 --> 00:49:24,720
+packets and take input
+
+1280
+00:49:24,720 --> 00:49:26,319
+think about those packets and produce
+
+1281
+00:49:26,319 --> 00:49:29,520
+output and for various reasons
+
+1282
+00:49:29,520 --> 00:49:31,839
+these different actors are decoupled so
+
+1283
+00:49:31,839 --> 00:49:33,760
+they can run concurrently and have
+
+1284
+00:49:33,760 --> 00:49:37,040
+packet cues connecting them so that's
+
+1285
+00:49:37,040 --> 00:49:38,559
+extremely important from the point of
+
+1286
+00:49:38,559 --> 00:49:39,599
+view of this paper
+
+1287
+00:49:39,599 --> 00:49:43,359
+so within the kernel so again we have a
+
+1288
+00:49:43,359 --> 00:49:45,680
+network interface card and then we have
+
+1289
+00:49:45,680 --> 00:49:48,160
+the kernel
+
+1290
+00:49:48,160 --> 00:49:52,880
+um the uh a classic arrangement here
+
+1291
+00:49:52,880 --> 00:49:55,599
+is for uh the nick to somehow get
+
+1292
+00:49:55,599 --> 00:49:56,480
+packets
+
+1293
+00:49:56,480 --> 00:49:59,280
+um well for the nic when it receives a
+
+1294
+00:49:59,280 --> 00:49:59,839
+packet
+
+1295
+00:49:59,839 --> 00:50:02,960
+to generate and interrupt and there's so
+
+1296
+00:50:02,960 --> 00:50:04,000
+there's this
+
+1297
+00:50:04,000 --> 00:50:07,680
+interrupt routine that gets triggered
+
+1298
+00:50:07,680 --> 00:50:08,960
+whenever there's an interrupt and this
+
+1299
+00:50:08,960 --> 00:50:10,720
+job of the interrupt routine
+
+1300
+00:50:10,720 --> 00:50:14,880
+is to get the packet from the nic
+
+1301
+00:50:14,880 --> 00:50:16,319
+and because we don't want to dedicate
+
+1302
+00:50:16,319 --> 00:50:17,920
+cpu time to
+
+1303
+00:50:17,920 --> 00:50:19,440
+completing the processing of the packet
+
+1304
+00:50:19,440 --> 00:50:22,880
+now the interrupt routine typically just
+
+1305
+00:50:22,880 --> 00:50:26,640
+appends the packet to a queue of packets
+
+1306
+00:50:26,640 --> 00:50:29,760
+um for later processing and then returns
+
+1307
+00:50:29,760 --> 00:50:32,160
+so it sort of does the minimum work
+
+1308
+00:50:32,160 --> 00:50:35,280
+um required to get the packet from the
+
+1309
+00:50:35,280 --> 00:50:36,720
+nic and put it in a queue
+
+1310
+00:50:36,720 --> 00:50:38,480
+and the reason why we want to transfer
+
+1311
+00:50:38,480 --> 00:50:40,079
+or in the sort of
+
+1312
+00:50:40,079 --> 00:50:42,240
+traditional network stack we want to
+
+1313
+00:50:42,240 --> 00:50:44,079
+quickly move the packet out of the nic
+
+1314
+00:50:44,079 --> 00:50:46,000
+and into this software cube is that
+
+1315
+00:50:46,000 --> 00:50:47,520
+nicks typically have a very limited
+
+1316
+00:50:47,520 --> 00:50:49,520
+amount of memory for queuing packets
+
+1317
+00:50:49,520 --> 00:50:51,440
+whereas in the main memory the ram and
+
+1318
+00:50:51,440 --> 00:50:52,960
+the computer we might have gigabytes of
+
+1319
+00:50:52,960 --> 00:50:55,280
+memory we have so far more space here
+
+1320
+00:50:55,280 --> 00:50:57,680
+so the neck so if there's a burst of
+
+1321
+00:50:57,680 --> 00:50:59,040
+packets the neck may actually
+
+1322
+00:50:59,040 --> 00:51:01,839
+run out of space to cue them so we copy
+
+1323
+00:51:01,839 --> 00:51:03,680
+them this cue here to
+
+1324
+00:51:03,680 --> 00:51:06,800
+avoid the nick running out of space and
+
+1325
+00:51:06,800 --> 00:51:07,440
+then
+
+1326
+00:51:07,440 --> 00:51:09,520
+separately perhaps in a separate thread
+
+1327
+00:51:09,520 --> 00:51:12,790
+there's um
+
+1328
+00:51:12,800 --> 00:51:18,549
+what i'll call the ip processing thread
+
+1329
+00:51:18,559 --> 00:51:20,000
+and sometimes it's not a thread
+
+1330
+00:51:20,000 --> 00:51:21,680
+sometimes it's a sort of different kind
+
+1331
+00:51:21,680 --> 00:51:22,400
+of entity
+
+1332
+00:51:22,400 --> 00:51:26,079
+but it's basic job is to to read
+
+1333
+00:51:26,079 --> 00:51:28,079
+packets off these incoming queues and
+
+1334
+00:51:28,079 --> 00:51:30,319
+there may be multiple nics
+
+1335
+00:51:30,319 --> 00:51:31,920
+uh you know appending packets to these
+
+1336
+00:51:31,920 --> 00:51:34,640
+queues so our ip thread runs it
+
+1337
+00:51:34,640 --> 00:51:36,800
+looks at packets that are queued here
+
+1338
+00:51:36,800 --> 00:51:38,079
+and decides what to do
+
+1339
+00:51:38,079 --> 00:51:40,000
+with them one possibility is to send
+
+1340
+00:51:40,000 --> 00:51:45,750
+them up through udp
+
+1341
+00:51:45,760 --> 00:51:47,839
+into the sockets layer to be queued
+
+1342
+00:51:47,839 --> 00:51:49,599
+waiting for some application
+
+1343
+00:51:49,599 --> 00:51:51,440
+and typically this will just be a
+
+1344
+00:51:51,440 --> 00:51:53,280
+function calls here within the
+
+1345
+00:51:53,280 --> 00:51:56,710
+context of this thread
+
+1346
+00:51:56,720 --> 00:51:58,400
+another possibility and this is the
+
+1347
+00:51:58,400 --> 00:52:00,000
+possibility the paper cares most about
+
+1348
+00:52:00,000 --> 00:52:00,480
+is that
+
+1349
+00:52:00,480 --> 00:52:02,960
+this host is actually a router and its
+
+1350
+00:52:02,960 --> 00:52:04,400
+packets are coming in one nic
+
+1351
+00:52:04,400 --> 00:52:06,960
+and routed out one or more other nics
+
+1352
+00:52:06,960 --> 00:52:08,000
+because
+
+1353
+00:52:08,000 --> 00:52:09,920
+it's very common to build routers out of
+
+1354
+00:52:09,920 --> 00:52:11,359
+ordinary
+
+1355
+00:52:11,359 --> 00:52:12,880
+operating systems like linux like if you
+
+1356
+00:52:12,880 --> 00:52:15,040
+buy a wi-fi box now or a cable
+
+1357
+00:52:15,040 --> 00:52:18,000
+modem router or something it's extremely
+
+1358
+00:52:18,000 --> 00:52:19,040
+likely to be running
+
+1359
+00:52:19,040 --> 00:52:21,359
+linux internally and to use the standard
+
+1360
+00:52:21,359 --> 00:52:22,480
+linux stack which
+
+1361
+00:52:22,480 --> 00:52:25,119
+has a complete router implementation
+
+1362
+00:52:25,119 --> 00:52:27,280
+it's highly likely to be using the
+
+1363
+00:52:27,280 --> 00:52:30,400
+standard linux stack in order to do its
+
+1364
+00:52:30,400 --> 00:52:31,599
+routing
+
+1365
+00:52:31,599 --> 00:52:33,280
+so if the ip thread looks at the
+
+1366
+00:52:33,280 --> 00:52:35,200
+destination ip address and decides oh i
+
+1367
+00:52:35,200 --> 00:52:36,559
+should send this out
+
+1368
+00:52:36,559 --> 00:52:38,240
+i should forward this packet out you
+
+1369
+00:52:38,240 --> 00:52:39,680
+know out another
+
+1370
+00:52:39,680 --> 00:52:42,790
+network interface
+
+1371
+00:52:42,800 --> 00:52:44,800
+it'll add the packet to a queue of
+
+1372
+00:52:44,800 --> 00:52:46,240
+outgoing packets
+
+1373
+00:52:46,240 --> 00:52:48,720
+for this outgoing interface and there's
+
+1374
+00:52:48,720 --> 00:52:50,720
+almost certainly so this is a receive
+
+1375
+00:52:50,720 --> 00:52:51,839
+interrupt
+
+1376
+00:52:51,839 --> 00:52:55,359
+or rx for receive um there's usually
+
+1377
+00:52:55,359 --> 00:52:57,839
+some sort of transmit
+
+1378
+00:52:57,839 --> 00:53:02,390
+interrupt scheme
+
+1379
+00:53:02,400 --> 00:53:05,670
+for the outgoing nick
+
+1380
+00:53:05,680 --> 00:53:07,200
+that and the nick will interrupt
+
+1381
+00:53:07,200 --> 00:53:08,880
+whenever it's finished sending one
+
+1382
+00:53:08,880 --> 00:53:10,559
+packet and is ready to be handed
+
+1383
+00:53:10,559 --> 00:53:13,280
+more packets so these outgoing
+
+1384
+00:53:13,280 --> 00:53:14,079
+interrupts
+
+1385
+00:53:14,079 --> 00:53:17,520
+may also be important um and
+
+1386
+00:53:17,520 --> 00:53:20,559
+the point here is that there's a bunch
+
+1387
+00:53:20,559 --> 00:53:22,640
+of concurrent entities
+
+1388
+00:53:22,640 --> 00:53:25,040
+um that are sort of separately scheduled
+
+1389
+00:53:25,040 --> 00:53:26,400
+in various different ways
+
+1390
+00:53:26,400 --> 00:53:27,920
+these interrupts are triggered by the
+
+1391
+00:53:27,920 --> 00:53:29,520
+knicks asking for interrupts when
+
+1392
+00:53:29,520 --> 00:53:31,200
+packets arrive or when packets have been
+
+1393
+00:53:31,200 --> 00:53:32,160
+sent
+
+1394
+00:53:32,160 --> 00:53:35,520
+this thread may be a
+
+1395
+00:53:35,520 --> 00:53:38,480
+kernel thread like we have in xv6 and on
+
+1396
+00:53:38,480 --> 00:53:39,839
+a unit processor
+
+1397
+00:53:39,839 --> 00:53:42,480
+as was the case with today's paper you
+
+1398
+00:53:42,480 --> 00:53:44,079
+know this thread can't run at the same
+
+1399
+00:53:44,079 --> 00:53:45,040
+time as interrupt
+
+1400
+00:53:45,040 --> 00:53:46,960
+interrupts have absolute priority on a
+
+1401
+00:53:46,960 --> 00:53:48,400
+multi-core machine
+
+1402
+00:53:48,400 --> 00:53:50,480
+uh there may be more parallelism and
+
+1403
+00:53:50,480 --> 00:53:52,079
+then if it's important that applications
+
+1404
+00:53:52,079 --> 00:53:53,680
+to be able to read the packets
+
+1405
+00:53:53,680 --> 00:53:56,079
+uh the applications are yet another sort
+
+1406
+00:53:56,079 --> 00:53:58,400
+of independently scheduled entities
+
+1407
+00:53:58,400 --> 00:54:01,680
+um uh that we'd like uh to get their
+
+1408
+00:54:01,680 --> 00:54:02,960
+chance at um
+
+1409
+00:54:02,960 --> 00:54:06,309
+executing on the cpu
+
+1410
+00:54:06,319 --> 00:54:11,750
+so these are all the players in the
+
+1411
+00:54:11,760 --> 00:54:13,520
+in this in the scheduling game
+
+1412
+00:54:13,520 --> 00:54:17,990
+essentially
+
+1413
+00:54:18,000 --> 00:54:21,280
+uh one thing that comes up a lot
+
+1414
+00:54:21,280 --> 00:54:24,480
+is uh buffering so there's
+
+1415
+00:54:24,480 --> 00:54:27,839
+three cues here by buffering i mean
+
+1416
+00:54:27,839 --> 00:54:29,520
+these structures in which one
+
+1417
+00:54:29,520 --> 00:54:31,680
+independent entity appends
+
+1418
+00:54:31,680 --> 00:54:34,079
+input packets and some other entity
+
+1419
+00:54:34,079 --> 00:54:37,119
+pulls packets off the front of the queue
+
+1420
+00:54:37,119 --> 00:54:38,960
+these queues are pervasive in networking
+
+1421
+00:54:38,960 --> 00:54:41,910
+systems
+
+1422
+00:54:41,920 --> 00:54:43,839
+one reason for them is to allow
+
+1423
+00:54:43,839 --> 00:54:46,640
+temporary to cope with temporary bursts
+
+1424
+00:54:46,640 --> 00:54:48,240
+you know this ip thread maybe can only
+
+1425
+00:54:48,240 --> 00:54:49,920
+process packets at however many per
+
+1426
+00:54:49,920 --> 00:54:50,880
+second
+
+1427
+00:54:50,880 --> 00:54:53,040
+but the nick may be able to deliver
+
+1428
+00:54:53,040 --> 00:54:54,880
+packets much more quickly
+
+1429
+00:54:54,880 --> 00:54:56,240
+and so there may be a little sort of
+
+1430
+00:54:56,240 --> 00:54:58,079
+temporary burst of packets we'd like to
+
+1431
+00:54:58,079 --> 00:54:59,680
+have somewhere to put them
+
+1432
+00:54:59,680 --> 00:55:02,160
+um waiting for the ip thread to get
+
+1433
+00:55:02,160 --> 00:55:03,920
+around to processing them and so that
+
+1434
+00:55:03,920 --> 00:55:07,280
+that's one use of cues on the output
+
+1435
+00:55:07,280 --> 00:55:08,240
+side
+
+1436
+00:55:08,240 --> 00:55:10,720
+uh another use of queues is we like to
+
+1437
+00:55:10,720 --> 00:55:12,640
+um especially if packets are bursty we'd
+
+1438
+00:55:12,640 --> 00:55:13,680
+like to be able to
+
+1439
+00:55:13,680 --> 00:55:16,000
+stack up a bunch of packets here ready
+
+1440
+00:55:16,000 --> 00:55:17,920
+for the nick to send to keep the nic
+
+1441
+00:55:17,920 --> 00:55:21,280
+to output nick busy because
+
+1442
+00:55:21,280 --> 00:55:22,559
+depending on the speeds of things it may
+
+1443
+00:55:22,559 --> 00:55:24,720
+be quite important to be able to hunt to
+
+1444
+00:55:24,720 --> 00:55:26,240
+utilize a hundred percent
+
+1445
+00:55:26,240 --> 00:55:30,710
+of the network here
+
+1446
+00:55:30,720 --> 00:55:33,520
+and the other reason for or maybe the
+
+1447
+00:55:33,520 --> 00:55:35,040
+same reason stated differently for
+
+1448
+00:55:35,040 --> 00:55:36,559
+having queues is is to be able to
+
+1449
+00:55:36,559 --> 00:55:38,160
+structure software
+
+1450
+00:55:38,160 --> 00:55:40,000
+into independent parts that are
+
+1451
+00:55:40,000 --> 00:55:41,440
+scheduled separately
+
+1452
+00:55:41,440 --> 00:55:42,880
+like we wouldn't necessarily want to
+
+1453
+00:55:42,880 --> 00:55:45,760
+have our ip thread or the application
+
+1454
+00:55:45,760 --> 00:55:47,520
+know about the other things that have to
+
+1455
+00:55:47,520 --> 00:55:49,599
+go on like interrupt processing
+
+1456
+00:55:49,599 --> 00:55:52,480
+so the ip thread is sort of the
+
+1457
+00:55:52,480 --> 00:55:53,440
+traditional
+
+1458
+00:55:53,440 --> 00:55:55,280
+networking system you know doesn't
+
+1459
+00:55:55,280 --> 00:55:58,549
+necessarily know
+
+1460
+00:55:58,559 --> 00:56:00,880
+when interrupts happen or when
+
+1461
+00:56:00,880 --> 00:56:01,839
+applications run
+
+1462
+00:56:01,839 --> 00:56:04,319
+although we'll see in this paper that
+
+1463
+00:56:04,319 --> 00:56:05,760
+there may be advantages to having a
+
+1464
+00:56:05,760 --> 00:56:11,190
+little bit of knowledge there
+
+1465
+00:56:11,200 --> 00:56:13,599
+questions about this sort of scheduling
+
+1466
+00:56:13,599 --> 00:56:19,510
+control diagram
+
+1467
+00:56:19,520 --> 00:56:22,160
+oh i have a good question so can the
+
+1468
+00:56:22,160 --> 00:56:22,799
+same neck
+
+1469
+00:56:22,799 --> 00:56:25,920
+not be used uh for both transmitting and
+
+1470
+00:56:25,920 --> 00:56:26,640
+receiving
+
+1471
+00:56:26,640 --> 00:56:30,079
+okay okay okay so my laptop really only
+
+1472
+00:56:30,079 --> 00:56:32,240
+has one interface and it
+
+1473
+00:56:32,240 --> 00:56:34,160
+connected to wi-fi when it receives a
+
+1474
+00:56:34,160 --> 00:56:36,400
+packet this so on my laptop this nic is
+
+1475
+00:56:36,400 --> 00:56:38,240
+actually a wi-fi
+
+1476
+00:56:38,240 --> 00:56:41,520
+radio interface packets arrive and go
+
+1477
+00:56:41,520 --> 00:56:43,599
+out on the same deck
+
+1478
+00:56:43,599 --> 00:56:46,720
+the two nick situation is certainly used
+
+1479
+00:56:46,720 --> 00:56:48,720
+for routers
+
+1480
+00:56:48,720 --> 00:56:51,920
+so your home wi-fi i don't know maybe
+
+1481
+00:56:51,920 --> 00:56:53,680
+you have i have wi-fi and cable
+
+1482
+00:56:53,680 --> 00:56:56,880
+and there's a router box that has
+
+1483
+00:56:56,880 --> 00:57:00,640
+two nicks one is the it's connection to
+
+1484
+00:57:00,640 --> 00:57:02,000
+my cable modem which these are the rest
+
+1485
+00:57:02,000 --> 00:57:03,760
+of the internet and the other one is my
+
+1486
+00:57:03,760 --> 00:57:06,799
+the wi-fi interface
+
+1487
+00:57:06,799 --> 00:57:10,079
+so the little box that the cable modem
+
+1488
+00:57:10,079 --> 00:57:12,000
+cable company sent me is a router
+
+1489
+00:57:12,000 --> 00:57:15,270
+with two network interfaces
+
+1490
+00:57:15,280 --> 00:57:17,040
+and there's actually a lot of servers
+
+1491
+00:57:17,040 --> 00:57:20,400
+have multiple interfaces also
+
+1492
+00:57:20,400 --> 00:57:21,920
+especially ones that are web servers
+
+1493
+00:57:21,920 --> 00:57:23,359
+that you know you want to talk to the
+
+1494
+00:57:23,359 --> 00:57:25,359
+outside world
+
+1495
+00:57:25,359 --> 00:57:28,079
+out one winter face and to your private
+
+1496
+00:57:28,079 --> 00:57:29,200
+sensitive database
+
+1497
+00:57:29,200 --> 00:57:31,520
+machine or something on a totally
+
+1498
+00:57:31,520 --> 00:57:32,400
+separate network
+
+1499
+00:57:32,400 --> 00:57:35,440
+on a with another network interface
+
+1500
+00:57:35,440 --> 00:57:37,440
+so this arrangement's pretty common the
+
+1501
+00:57:37,440 --> 00:57:39,280
+criteria for having multiple nics is
+
+1502
+00:57:39,280 --> 00:57:40,160
+just uh
+
+1503
+00:57:40,160 --> 00:57:41,760
+wanting to talk to different networks
+
+1504
+00:57:41,760 --> 00:57:43,599
+then yeah
+
+1505
+00:57:43,599 --> 00:57:44,880
+okay yeah if you want to talk to
+
+1506
+00:57:44,880 --> 00:57:46,319
+different networks then you would have
+
+1507
+00:57:46,319 --> 00:57:51,990
+multiple links yes
+
+1508
+00:57:52,000 --> 00:57:54,000
+all right i want to as an aside talk a
+
+1509
+00:57:54,000 --> 00:57:56,480
+little bit more about um
+
+1510
+00:57:56,480 --> 00:57:58,400
+nick's what nicks do with packets when
+
+1511
+00:57:58,400 --> 00:57:59,520
+they arrive and this is
+
+1512
+00:57:59,520 --> 00:58:02,880
+of a special relevance to the lab
+
+1513
+00:58:02,880 --> 00:58:06,720
+um you uh
+
+1514
+00:58:06,720 --> 00:58:08,480
+you know though what a nick looks like
+
+1515
+00:58:08,480 --> 00:58:09,920
+internally
+
+1516
+00:58:09,920 --> 00:58:13,520
+um you know it's got a a cable leading
+
+1517
+00:58:13,520 --> 00:58:15,520
+or a radio leading to the
+
+1518
+00:58:15,520 --> 00:58:18,319
+from the outside world um you know and
+
+1519
+00:58:18,319 --> 00:58:20,079
+it looks at electrons as they come in
+
+1520
+00:58:20,079 --> 00:58:23,920
+and sort of turns them into packets um
+
+1521
+00:58:23,920 --> 00:58:26,480
+and then there's the host uh and there's
+
+1522
+00:58:26,480 --> 00:58:27,760
+the host has some sort of driver
+
+1523
+00:58:27,760 --> 00:58:29,599
+software in it
+
+1524
+00:58:29,599 --> 00:58:31,920
+and one way or another you know we need
+
+1525
+00:58:31,920 --> 00:58:32,720
+to get a
+
+1526
+00:58:32,720 --> 00:58:35,359
+a packet that's decoded in the nick into
+
+1527
+00:58:35,359 --> 00:58:36,640
+memory
+
+1528
+00:58:36,640 --> 00:58:39,680
+where the ip software in the host
+
+1529
+00:58:39,680 --> 00:58:42,160
+can parse that packet and so there's a
+
+1530
+00:58:42,160 --> 00:58:43,839
+lot of different schemes been designed
+
+1531
+00:58:43,839 --> 00:58:44,720
+over the years
+
+1532
+00:58:44,720 --> 00:58:48,079
+the paper scheme is that the nic has a
+
+1533
+00:58:48,079 --> 00:58:48,640
+lot of
+
+1534
+00:58:48,640 --> 00:58:51,440
+internal memory and as packets arrive
+
+1535
+00:58:51,440 --> 00:58:52,559
+the only thing
+
+1536
+00:58:52,559 --> 00:58:54,160
+the only immediate thing that happens is
+
+1537
+00:58:54,160 --> 00:58:55,680
+the nic puts you know lays down the
+
+1538
+00:58:55,680 --> 00:58:58,000
+packets in its own buffer memory
+
+1539
+00:58:58,000 --> 00:59:02,319
+and that's it and interrupts the uh
+
+1540
+00:59:02,319 --> 00:59:05,280
+host the host and so that the nic has an
+
+1541
+00:59:05,280 --> 00:59:06,400
+internal queue
+
+1542
+00:59:06,400 --> 00:59:08,160
+of packets and a bunch of memory and
+
+1543
+00:59:08,160 --> 00:59:09,599
+then in the interrupt
+
+1544
+00:59:09,599 --> 00:59:12,240
+well in the host driver the host driver
+
+1545
+00:59:12,240 --> 00:59:13,760
+has a loop in it the host driver
+
+1546
+00:59:13,760 --> 00:59:15,040
+will talk to the neck and say you know
+
+1547
+00:59:15,040 --> 00:59:17,920
+many packets buffered and if it does now
+
+1548
+00:59:17,920 --> 00:59:18,880
+the host has a
+
+1549
+00:59:18,880 --> 00:59:20,640
+loop that will just copy you know by
+
+1550
+00:59:20,640 --> 00:59:22,160
+byte or word by word
+
+1551
+00:59:22,160 --> 00:59:25,599
+copy this packet into the um memory of
+
+1552
+00:59:25,599 --> 00:59:28,400
+the host and append it to a queue
+
+1553
+00:59:28,400 --> 00:59:31,599
+inside the host so that's how the papers
+
+1554
+00:59:31,599 --> 00:59:34,799
+nick works the driver
+
+1555
+00:59:34,799 --> 00:59:36,559
+is responsible for doing the copy from
+
+1556
+00:59:36,559 --> 00:59:39,680
+nick memory to host memory
+
+1557
+00:59:39,680 --> 00:59:42,799
+that made a lot of sense 30 years ago
+
+1558
+00:59:42,799 --> 00:59:45,200
+today though it turns out that loops in
+
+1559
+00:59:45,200 --> 00:59:46,000
+the cpu that
+
+1560
+00:59:46,000 --> 00:59:49,599
+copy uh that you know talk to external
+
+1561
+00:59:49,599 --> 00:59:50,640
+hardware or hardware
+
+1562
+00:59:50,640 --> 00:59:52,720
+sitting on buses are very very slow this
+
+1563
+00:59:52,720 --> 00:59:54,000
+sort of there's a
+
+1564
+00:59:54,000 --> 00:59:56,960
+you know in the grand scheme of
+
+1565
+00:59:56,960 --> 00:59:58,319
+microprocessor design
+
+1566
+00:59:58,319 --> 01:00:01,440
+this distance here between the cpu
+
+1567
+01:00:01,440 --> 01:00:04,640
+and an external device even if it's on
+
+1568
+01:00:04,640 --> 01:00:05,920
+the same
+
+1569
+01:00:05,920 --> 01:00:08,000
+computer this is a very long distance
+
+1570
+01:00:08,000 --> 01:00:09,280
+and this each
+
+1571
+01:00:09,280 --> 01:00:11,599
+conversation today takes a long time for
+
+1572
+01:00:11,599 --> 01:00:13,440
+each back and forth chit chat and
+
+1573
+01:00:13,440 --> 01:00:14,880
+so you don't want to have a lot of bite
+
+1574
+01:00:14,880 --> 01:00:16,559
+by by
+
+1575
+01:00:16,559 --> 01:00:19,839
+interaction um so people don't design
+
+1576
+01:00:19,839 --> 01:00:24,309
+high speed interfaces like this anymore
+
+1577
+01:00:24,319 --> 01:00:27,680
+so a much more modern arrangement
+
+1578
+01:00:27,680 --> 01:00:30,640
+looks like this and so now i'm going to
+
+1579
+01:00:30,640 --> 01:00:32,559
+talk about an arrangement which
+
+1580
+01:00:32,559 --> 01:00:38,160
+shows up in the e1000 nick
+
+1581
+01:00:38,160 --> 01:00:41,520
+which you'll use in the lab
+
+1582
+01:00:41,520 --> 01:00:44,160
+or simulation of which uh the way the
+
+1583
+01:00:44,160 --> 01:00:46,799
+e1000 nick works
+
+1584
+01:00:46,799 --> 01:00:48,480
+and so has his wire and it's looking at
+
+1585
+01:00:48,480 --> 01:00:49,920
+the electrons but
+
+1586
+01:00:49,920 --> 01:00:53,359
+as the packets arrive the nick
+
+1587
+01:00:53,359 --> 01:00:56,400
+writes them the nick
+
+1588
+01:00:56,400 --> 01:00:58,079
+doesn't really have significant internal
+
+1589
+01:00:58,079 --> 01:01:00,240
+buffering although it has a little bit
+
+1590
+01:01:00,240 --> 01:01:02,079
+it actually copies the packets directly
+
+1591
+01:01:02,079 --> 01:01:03,680
+into host memory where they'll be
+
+1592
+01:01:03,680 --> 01:01:05,280
+sitting there in host memory
+
+1593
+01:01:05,280 --> 01:01:06,960
+waiting for the driver to pick them up
+
+1594
+01:01:06,960 --> 01:01:08,559
+sort of already copied
+
+1595
+01:01:08,559 --> 01:01:10,480
+um but that means that nick has to know
+
+1596
+01:01:10,480 --> 01:01:12,400
+where in memory it should put each
+
+1597
+01:01:12,400 --> 01:01:14,480
+packet
+
+1598
+01:01:14,480 --> 01:01:18,240
+so the way the e1000
+
+1599
+01:01:18,240 --> 01:01:21,760
+nick works is that the host software
+
+1600
+01:01:21,760 --> 01:01:26,000
+formats up what's called rings dma rings
+
+1601
+01:01:26,000 --> 01:01:28,880
+of packet pointers so dma ring is just
+
+1602
+01:01:28,880 --> 01:01:30,799
+an array
+
+1603
+01:01:30,799 --> 01:01:36,309
+of pointers
+
+1604
+01:01:36,319 --> 01:01:40,069
+to packet buffers
+
+1605
+01:01:40,079 --> 01:01:42,559
+so the post host driver when it's
+
+1606
+01:01:42,559 --> 01:01:44,000
+initialized in the card will allocate
+
+1607
+01:01:44,000 --> 01:01:46,240
+however many say 16
+
+1608
+01:01:46,240 --> 01:01:49,359
+1500 byte packet buffers will create a
+
+1609
+01:01:49,359 --> 01:01:53,280
+array of 15 pointers or 16 pointers and
+
+1610
+01:01:53,280 --> 01:01:54,559
+make these pointers point to there and
+
+1611
+01:01:54,559 --> 01:01:56,480
+then it'll tell the nick in
+
+1612
+01:01:56,480 --> 01:01:57,839
+configuration time
+
+1613
+01:01:57,839 --> 01:02:01,119
+look uh here's the
+
+1614
+01:02:01,119 --> 01:02:04,240
+ring so this is called a dma ring
+
+1615
+01:02:04,240 --> 01:02:07,680
+because uh after you've gone off the end
+
+1616
+01:02:07,680 --> 01:02:10,079
+you start back at the beginning
+
+1617
+01:02:10,079 --> 01:02:11,599
+uh the driver software will tell them
+
+1618
+01:02:11,599 --> 01:02:13,280
+look here's here's a pointer the address
+
+1619
+01:02:13,280 --> 01:02:15,280
+in my ram of the ring
+
+1620
+01:02:15,280 --> 01:02:17,359
+the dma ring that you're supposed to use
+
+1621
+01:02:17,359 --> 01:02:18,400
+to deposit
+
+1622
+01:02:18,400 --> 01:02:19,839
+incoming packets so when a packet
+
+1623
+01:02:19,839 --> 01:02:23,280
+arrives the nick will actually remember
+
+1624
+01:02:23,280 --> 01:02:26,319
+which ring entry is the next one
+
+1625
+01:02:26,319 --> 01:02:29,440
+well it has a little
+
+1626
+01:02:29,440 --> 01:02:31,839
+pointer here that allows it to remember
+
+1627
+01:02:31,839 --> 01:02:33,359
+the next entry that it should dma a
+
+1628
+01:02:33,359 --> 01:02:35,200
+packet into when a packet arrives
+
+1629
+01:02:35,200 --> 01:02:36,880
+the nick will fetch the pointer out of
+
+1630
+01:02:36,880 --> 01:02:39,599
+this fetch this buffer point or out of
+
+1631
+01:02:39,599 --> 01:02:41,680
+the host ram
+
+1632
+01:02:41,680 --> 01:02:44,880
+copy the pack and bytes into this buffer
+
+1633
+01:02:44,880 --> 01:02:48,160
+and then advance its internal
+
+1634
+01:02:48,160 --> 01:02:50,319
+index here to point to the next ring
+
+1635
+01:02:50,319 --> 01:02:53,359
+slot which we'll use for the next packet
+
+1636
+01:02:53,359 --> 01:02:56,319
+and there's a similar so this will be
+
+1637
+01:02:56,319 --> 01:02:57,920
+the rx ring
+
+1638
+01:02:57,920 --> 01:02:59,920
+for receive there's a similar ring that
+
+1639
+01:02:59,920 --> 01:03:03,039
+the driver sets up
+
+1640
+01:03:03,039 --> 01:03:06,640
+in which the driver puts packets
+
+1641
+01:03:06,640 --> 01:03:09,359
+that it wants the nic to send so that
+
+1642
+01:03:09,359 --> 01:03:11,200
+nick also has a pointer to the
+
+1643
+01:03:11,200 --> 01:03:15,440
+tx ring and so you'll learn your job in
+
+1644
+01:03:15,440 --> 01:03:17,440
+the lab is basically to write the
+
+1645
+01:03:17,440 --> 01:03:22,470
+driver software that handle these rings
+
+1646
+01:03:22,480 --> 01:03:29,430
+any questions about this arrangement
+
+1647
+01:03:29,440 --> 01:03:32,480
+yeah uh how does the e1000
+
+1648
+01:03:32,480 --> 01:03:35,520
+compare with you know production level
+
+1649
+01:03:35,520 --> 01:03:37,440
+mix that may be used in high performance
+
+1650
+01:03:37,440 --> 01:03:38,160
+environments
+
+1651
+01:03:38,160 --> 01:03:40,079
+like that well when the u1000 came out
+
+1652
+01:03:40,079 --> 01:03:41,280
+it was the
+
+1653
+01:03:41,280 --> 01:03:44,400
+absolute best nick available
+
+1654
+01:03:44,400 --> 01:03:48,400
+and it was the neck that was used in
+
+1655
+01:03:48,400 --> 01:03:50,079
+serious production environments but that
+
+1656
+01:03:50,079 --> 01:03:51,599
+was however many years ago
+
+1657
+01:03:51,599 --> 01:03:55,920
+modern knicks um are quite a bit clever
+
+1658
+01:03:55,920 --> 01:03:59,440
+the what hasn't changed that much is
+
+1659
+01:03:59,440 --> 01:04:00,640
+this dma ring
+
+1660
+01:04:00,640 --> 01:04:03,680
+structure you still find that nicks
+
+1661
+01:04:03,680 --> 01:04:05,680
+they use dma to deliver packets and the
+
+1662
+01:04:05,680 --> 01:04:07,440
+way they find the place to deliver the
+
+1663
+01:04:07,440 --> 01:04:09,200
+packet is by these
+
+1664
+01:04:09,200 --> 01:04:12,240
+rings of buffer pointers the
+
+1665
+01:04:12,240 --> 01:04:14,240
+main there's a couple things that are
+
+1666
+01:04:14,240 --> 01:04:16,240
+that modern knicks are
+
+1667
+01:04:16,240 --> 01:04:18,559
+more clever about um one is that modern
+
+1668
+01:04:18,559 --> 01:04:20,079
+knicks you can set them up with many
+
+1669
+01:04:20,079 --> 01:04:20,559
+many
+
+1670
+01:04:20,559 --> 01:04:23,680
+cues the e1000 i think just has a single
+
+1671
+01:04:23,680 --> 01:04:24,559
+receive queue
+
+1672
+01:04:24,559 --> 01:04:26,799
+but you can tell a modern nick look you
+
+1673
+01:04:26,799 --> 01:04:29,520
+know i i want you to split my packets up
+
+1674
+01:04:29,520 --> 01:04:30,799
+into 32 different
+
+1675
+01:04:30,799 --> 01:04:33,520
+incoming queues and here's how to decide
+
+1676
+01:04:33,520 --> 01:04:35,039
+for each packet you know look at this
+
+1677
+01:04:35,039 --> 01:04:37,119
+field and use that to
+
+1678
+01:04:37,119 --> 01:04:40,799
+choose which ring to dma the packet into
+
+1679
+01:04:40,799 --> 01:04:42,960
+um and there's a whole bunch of clever
+
+1680
+01:04:42,960 --> 01:04:45,119
+ways that people use that capability
+
+1681
+01:04:45,119 --> 01:04:45,599
+like
+
+1682
+01:04:45,599 --> 01:04:47,119
+if you have multiple virtual machines
+
+1683
+01:04:47,119 --> 01:04:49,359
+you're amazon and you're running many
+
+1684
+01:04:49,359 --> 01:04:51,760
+guest virtual machines you may use that
+
+1685
+01:04:51,760 --> 01:04:53,039
+capability to
+
+1686
+01:04:53,039 --> 01:04:55,839
+sort of direct each packet to the queue
+
+1687
+01:04:55,839 --> 01:04:58,079
+corresponding to the virtual machine
+
+1688
+01:04:58,079 --> 01:05:01,119
+that that packet should be read by
+
+1689
+01:05:01,119 --> 01:05:02,480
+and another way in which modern licks
+
+1690
+01:05:02,480 --> 01:05:04,160
+are more clever is that they'll do some
+
+1691
+01:05:04,160 --> 01:05:05,359
+of the
+
+1692
+01:05:05,359 --> 01:05:08,480
+tcp processing on the nic like maybe
+
+1693
+01:05:08,480 --> 01:05:10,160
+typically check some calculations the
+
+1694
+01:05:10,160 --> 01:05:12,160
+most
+
+1695
+01:05:12,160 --> 01:05:16,240
+thing anyway yeah so
+
+1696
+01:05:16,240 --> 01:05:20,079
+modern x would like the e1000 but more
+
+1697
+01:05:20,079 --> 01:05:23,839
+okay thanks
+
+1698
+01:05:23,839 --> 01:05:26,000
+sorry go ahead oh yeah i just wanted to
+
+1699
+01:05:26,000 --> 01:05:28,559
+ask so in our scheme in the lab
+
+1700
+01:05:28,559 --> 01:05:32,400
+um there there is no cue between the ip
+
+1701
+01:05:32,400 --> 01:05:35,680
+layer and the driver right
+
+1702
+01:05:35,680 --> 01:05:39,440
+yeah yeah the lab network stack is
+
+1703
+01:05:39,440 --> 01:05:41,520
+stripped down to the absolute minimum
+
+1704
+01:05:41,520 --> 01:05:42,480
+this okay far
+
+1705
+01:05:42,480 --> 01:05:44,000
+simpler and structured than a real
+
+1706
+01:05:44,000 --> 01:05:45,599
+network stack
+
+1707
+01:05:45,599 --> 01:05:49,680
+but this is worse in terms of
+
+1708
+01:05:49,680 --> 01:05:52,480
+oh i don't know okay i never run it in
+
+1709
+01:05:52,480 --> 01:05:53,760
+real life i'm sure
+
+1710
+01:05:53,760 --> 01:05:56,480
+i mean they've certainly we paid zero
+
+1711
+01:05:56,480 --> 01:05:58,079
+attention to performance
+
+1712
+01:05:58,079 --> 01:05:59,760
+when writing the lab network stack so it
+
+1713
+01:05:59,760 --> 01:06:02,789
+would be surprising
+
+1714
+01:06:02,799 --> 01:06:03,760
+mostly it's not a question of
+
+1715
+01:06:03,760 --> 01:06:05,200
+performance there's limitations it
+
+1716
+01:06:05,200 --> 01:06:06,400
+doesn't do
+
+1717
+01:06:06,400 --> 01:06:08,400
+95 of what you need a network stack to
+
+1718
+01:06:08,400 --> 01:06:09,920
+do like
+
+1719
+01:06:09,920 --> 01:06:13,039
+uh handle multiple nics or
+
+1720
+01:06:13,039 --> 01:06:16,400
+have tcp right right
+
+1721
+01:06:16,400 --> 01:06:19,920
+okay i see thank you okay
+
+1722
+01:06:19,920 --> 01:06:23,359
+um uh sorry uh so
+
+1723
+01:06:23,359 --> 01:06:25,760
+uh were there any like hardware changes
+
+1724
+01:06:25,760 --> 01:06:26,880
+to
+
+1725
+01:06:26,880 --> 01:06:30,079
+um like the overall system that were
+
+1726
+01:06:30,079 --> 01:06:30,799
+needed to
+
+1727
+01:06:30,799 --> 01:06:34,079
+to enable like nyx to have direct memory
+
+1728
+01:06:34,079 --> 01:06:34,640
+access
+
+1729
+01:06:34,640 --> 01:06:37,760
+like in the previous picture um was
+
+1730
+01:06:37,760 --> 01:06:39,760
+everything mediated through the cpu or
+
+1731
+01:06:39,760 --> 01:06:41,920
+or could nix also like reach it that
+
+1732
+01:06:41,920 --> 01:06:43,119
+memory directly
+
+1733
+01:06:43,119 --> 01:06:44,799
+in the picture i showed before now the
+
+1734
+01:06:44,799 --> 01:06:46,559
+neck doesn't reach in the memory at all
+
+1735
+01:06:46,559 --> 01:06:49,839
+um the the okay
+
+1736
+01:06:49,839 --> 01:06:53,119
+um i actually don't know i mean
+
+1737
+01:06:53,119 --> 01:06:55,520
+the the maybe the most important
+
+1738
+01:06:55,520 --> 01:06:57,680
+question is how virtual memory whether
+
+1739
+01:06:57,680 --> 01:06:58,160
+and how
+
+1740
+01:06:58,160 --> 01:07:01,039
+virtual memory translation works when
+
+1741
+01:07:01,039 --> 01:07:01,760
+nick
+
+1742
+01:07:01,760 --> 01:07:03,520
+wants to use an address that refers to
+
+1743
+01:07:03,520 --> 01:07:05,200
+host memory and
+
+1744
+01:07:05,200 --> 01:07:07,280
+i don't actually know how that works i
+
+1745
+01:07:07,280 --> 01:07:09,039
+don't know how that works
+
+1746
+01:07:09,039 --> 01:07:13,119
+i suspect there's a translation
+
+1747
+01:07:13,119 --> 01:07:14,880
+you know the nick is really sitting on a
+
+1748
+01:07:14,880 --> 01:07:18,240
+bus that's connected with
+
+1749
+01:07:18,240 --> 01:07:20,000
+you know through some fairly intelligent
+
+1750
+01:07:20,000 --> 01:07:21,520
+silicon to the
+
+1751
+01:07:21,520 --> 01:07:23,680
+to the dram system and i believe in
+
+1752
+01:07:23,680 --> 01:07:24,960
+modern machines you can set up
+
+1753
+01:07:24,960 --> 01:07:27,680
+translation tables so that the nic
+
+1754
+01:07:27,680 --> 01:07:30,319
+could use virtual addresses or addresses
+
+1755
+01:07:30,319 --> 01:07:32,720
+that are translated
+
+1756
+01:07:32,720 --> 01:07:34,319
+by this hardware that sits between it
+
+1757
+01:07:34,319 --> 01:07:36,720
+and ran and that could be very valuable
+
+1758
+01:07:36,720 --> 01:07:39,440
+for some situations
+
+1759
+01:07:39,440 --> 01:07:42,710
+the other thing
+
+1760
+01:07:42,720 --> 01:07:46,319
+another thing that i'm aware of is that
+
+1761
+01:07:46,319 --> 01:07:47,520
+if the nick is going to write some
+
+1762
+01:07:47,520 --> 01:07:49,119
+memory or read some memory and the
+
+1763
+01:07:49,119 --> 01:07:49,760
+memory is
+
+1764
+01:07:49,760 --> 01:07:53,839
+cached on the cpu
+
+1765
+01:07:53,839 --> 01:07:55,920
+you you know you want the nick to read
+
+1766
+01:07:55,920 --> 01:07:58,240
+if if the software just you know wrote
+
+1767
+01:07:58,240 --> 01:08:01,920
+a packet buffer but the cpu hasn't
+
+1768
+01:08:01,920 --> 01:08:05,200
+the cpu is merely cached uh the right
+
+1769
+01:08:05,200 --> 01:08:06,640
+because after all
+
+1770
+01:08:06,640 --> 01:08:10,240
+uh most memory is right back um
+
+1771
+01:08:10,240 --> 01:08:12,160
+that means that the real latest version
+
+1772
+01:08:12,160 --> 01:08:13,520
+of that memory is sitting on the cpu
+
+1773
+01:08:13,520 --> 01:08:15,359
+cache not in ram and in that case
+
+1774
+01:08:15,359 --> 01:08:17,520
+we'd like the nick to be reading the cpu
+
+1775
+01:08:17,520 --> 01:08:21,040
+cache not the ram if it does dma
+
+1776
+01:08:21,040 --> 01:08:23,120
+and certainly on intel machines and
+
+1777
+01:08:23,120 --> 01:08:24,319
+probably on others
+
+1778
+01:08:24,319 --> 01:08:26,080
+there's some fairly elaborate machinery
+
+1779
+01:08:26,080 --> 01:08:27,520
+so that if the nic
+
+1780
+01:08:27,520 --> 01:08:29,920
+reads some memory but the latest copy of
+
+1781
+01:08:29,920 --> 01:08:32,000
+that memories in the cpu cache this it's
+
+1782
+01:08:32,000 --> 01:08:34,239
+the cpu cache that will produce the data
+
+1783
+01:08:34,239 --> 01:08:38,159
+and not ram and that's
+
+1784
+01:08:38,159 --> 01:08:39,520
+yeah that's that's actually a facility
+
+1785
+01:08:39,520 --> 01:08:41,600
+you can that some clever
+
+1786
+01:08:41,600 --> 01:08:44,480
+software uses to get high performance
+
+1787
+01:08:44,480 --> 01:08:45,199
+that is to
+
+1788
+01:08:45,199 --> 01:08:46,719
+have the effect of having them this
+
+1789
+01:08:46,719 --> 01:08:48,640
+happens for writes also that the nic
+
+1790
+01:08:48,640 --> 01:08:50,319
+will essentially directly write cache
+
+1791
+01:08:50,319 --> 01:08:52,719
+lines in the cache where it's
+
+1792
+01:08:52,719 --> 01:08:57,669
+the cpu can get at the data very quickly
+
+1793
+01:08:57,679 --> 01:08:59,839
+yeah so they're simple but the real life
+
+1794
+01:08:59,839 --> 01:09:01,359
+it's
+
+1795
+01:09:01,359 --> 01:09:07,679
+pretty involved other questions about
+
+1796
+01:09:07,679 --> 01:09:12,149
+about anything
+
+1797
+01:09:12,159 --> 01:09:15,920
+okay um i'd like to switch gears now to
+
+1798
+01:09:15,920 --> 01:09:19,349
+today's paper
+
+1799
+01:09:19,359 --> 01:09:21,359
+and i'm just gonna like because we've
+
+1800
+01:09:21,359 --> 01:09:22,960
+already talked about the
+
+1801
+01:09:22,960 --> 01:09:24,799
+sort of a lot of the background of this
+
+1802
+01:09:24,799 --> 01:09:26,799
+paper i'm just gonna go directly
+
+1803
+01:09:26,799 --> 01:09:29,839
+to the first graph in the paper
+
+1804
+01:09:29,839 --> 01:09:33,600
+um and essentially drive
+
+1805
+01:09:33,600 --> 01:09:36,960
+the discussion off of the paper's graphs
+
+1806
+01:09:36,960 --> 01:09:38,799
+um and so what we're looking at here is
+
+1807
+01:09:38,799 --> 01:09:41,040
+the performance graph for a router
+
+1808
+01:09:41,040 --> 01:09:43,440
+um on the x-axis there's a router with
+
+1809
+01:09:43,440 --> 01:09:45,520
+two nicks so it's job is to package them
+
+1810
+01:09:45,520 --> 01:09:47,199
+in one nick and it's supposed to just
+
+1811
+01:09:47,199 --> 01:09:50,640
+send them out the other nick the x-axis
+
+1812
+01:09:50,640 --> 01:09:51,839
+is the arrival rate
+
+1813
+01:09:51,839 --> 01:09:55,120
+which packets arrive at the input nic
+
+1814
+01:09:55,120 --> 01:09:57,040
+and the y-axis is the output rate at
+
+1815
+01:09:57,040 --> 01:09:58,480
+which packets are observed
+
+1816
+01:09:58,480 --> 01:10:01,679
+to leave the output nick
+
+1817
+01:10:01,679 --> 01:10:04,960
+and the line we care about is the
+
+1818
+01:10:04,960 --> 01:10:08,229
+is the um
+
+1819
+01:10:08,239 --> 01:10:10,480
+filled circles which goes up and then
+
+1820
+01:10:10,480 --> 01:10:12,239
+down
+
+1821
+01:10:12,239 --> 01:10:15,280
+so even without knowing
+
+1822
+01:10:15,280 --> 01:10:16,719
+anything about what's going on here we
+
+1823
+01:10:16,719 --> 01:10:18,080
+can look at this graph and we can ask
+
+1824
+01:10:18,080 --> 01:10:19,120
+ourselves gosh
+
+1825
+01:10:19,120 --> 01:10:22,159
+why does it go up why does it go down
+
+1826
+01:10:22,159 --> 01:10:24,480
+you know what's special about this point
+
+1827
+01:10:24,480 --> 01:10:25,360
+that's an
+
+1828
+01:10:25,360 --> 01:10:27,840
+inflection you know what is it that
+
+1829
+01:10:27,840 --> 01:10:29,679
+governs how fast it goes up or how fast
+
+1830
+01:10:29,679 --> 01:10:30,000
+it goes
+
+1831
+01:10:30,000 --> 01:10:33,840
+down right so even with zero knowledge
+
+1832
+01:10:33,840 --> 01:10:34,239
+we
+
+1833
+01:10:34,239 --> 01:10:35,600
+kind of have a good clue about what
+
+1834
+01:10:35,600 --> 01:10:41,350
+questions to ask so why does it go up
+
+1835
+01:10:41,360 --> 01:10:48,310
+why do these thoughts go about
+
+1836
+01:10:48,320 --> 01:10:54,229
+it's not a very deep question
+
+1837
+01:10:54,239 --> 01:10:57,199
+they go up sorry go ahead oh because
+
+1838
+01:10:57,199 --> 01:10:57,679
+when they're
+
+1839
+01:10:57,679 --> 01:11:00,800
+like until it gets like saturated you
+
+1840
+01:11:00,800 --> 01:11:01,760
+can
+
+1841
+01:11:01,760 --> 01:11:04,880
+process more input packages and produce
+
+1842
+01:11:04,880 --> 01:11:06,320
+more output packages
+
+1843
+01:11:06,320 --> 01:11:08,320
+absolutely like until something starts
+
+1844
+01:11:08,320 --> 01:11:09,679
+to go wrong
+
+1845
+01:11:09,679 --> 01:11:11,360
+um for every packet that comes in the
+
+1846
+01:11:11,360 --> 01:11:12,800
+router just forwards it out
+
+1847
+01:11:12,800 --> 01:11:15,040
+so you know until things go wrong if
+
+1848
+01:11:15,040 --> 01:11:16,960
+packets arrive at 2000 packets per
+
+1849
+01:11:16,960 --> 01:11:18,560
+second well it just copies every input
+
+1850
+01:11:18,560 --> 01:11:20,480
+packet to the output and that means that
+
+1851
+01:11:20,480 --> 01:11:22,080
+the output rate is just equal to the
+
+1852
+01:11:22,080 --> 01:11:25,679
+input rate so this is just y equals x
+
+1853
+01:11:25,679 --> 01:11:27,199
+you know because every input packet gets
+
+1854
+01:11:27,199 --> 01:11:30,000
+sent out so it's y equals x for a while
+
+1855
+01:11:30,000 --> 01:11:39,590
+and so why does it stop going up
+
+1856
+01:11:39,600 --> 01:11:41,679
+isn't this the the one thing they
+
+1857
+01:11:41,679 --> 01:11:44,400
+mentioned in the paper about
+
+1858
+01:11:44,400 --> 01:11:47,840
+uh the there being
+
+1859
+01:11:47,840 --> 01:11:51,120
+interrupts that can't be processed
+
+1860
+01:11:51,120 --> 01:11:53,760
+at the necessary rate that's the answer
+
+1861
+01:11:53,760 --> 01:11:55,120
+to the question
+
+1862
+01:11:55,120 --> 01:11:58,390
+why does it go down
+
+1863
+01:11:58,400 --> 01:12:01,600
+my question is why does it stop going up
+
+1864
+01:12:01,600 --> 01:12:03,280
+what is it that could this line in a
+
+1865
+01:12:03,280 --> 01:12:04,960
+well-designed system supposing that they
+
+1866
+01:12:04,960 --> 01:12:07,040
+hadn't messed up the design
+
+1867
+01:12:07,040 --> 01:12:08,800
+right you and i would design a system
+
+1868
+01:12:08,800 --> 01:12:10,400
+that didn't have problems
+
+1869
+01:12:10,400 --> 01:12:12,960
+right would r in our system with a line
+
+1870
+01:12:12,960 --> 01:12:18,630
+just keep going up
+
+1871
+01:12:18,640 --> 01:12:23,040
+um i guess not because at some point the
+
+1872
+01:12:23,040 --> 01:12:26,080
+rate at which packets come
+
+1873
+01:12:26,080 --> 01:12:29,440
+will um if
+
+1874
+01:12:29,440 --> 01:12:32,560
+if you can process packets fast enough
+
+1875
+01:12:32,560 --> 01:12:33,520
+then
+
+1876
+01:12:33,520 --> 01:12:36,719
+at some point um the
+
+1877
+01:12:36,719 --> 01:12:38,320
+the bottleneck will be the rate at which
+
+1878
+01:12:38,320 --> 01:12:40,080
+packets arrive
+
+1879
+01:12:40,080 --> 01:12:41,600
+that's right the the system we're
+
+1880
+01:12:41,600 --> 01:12:43,280
+talking about has has some
+
+1881
+01:12:43,280 --> 01:12:45,520
+as sort of limits it's not the cpu is
+
+1882
+01:12:45,520 --> 01:12:48,159
+not infinitely fast the cpu executes
+
+1883
+01:12:48,159 --> 01:12:49,679
+however many instructions per second and
+
+1884
+01:12:49,679 --> 01:12:51,199
+no more so
+
+1885
+01:12:51,199 --> 01:12:52,480
+each of these packets has to be
+
+1886
+01:12:52,480 --> 01:12:54,800
+processed the ip software has to look at
+
+1887
+01:12:54,800 --> 01:12:56,719
+the header and check the checksum
+
+1888
+01:12:56,719 --> 01:12:58,640
+and look up the destination addresses
+
+1889
+01:12:58,640 --> 01:13:00,080
+and table whatever it takes
+
+1890
+01:13:00,080 --> 01:13:02,400
+hundreds of thousands of cpu cycles per
+
+1891
+01:13:02,400 --> 01:13:04,719
+packet
+
+1892
+01:13:04,719 --> 01:13:07,120
+and so we can never never expect these
+
+1893
+01:13:07,120 --> 01:13:08,640
+lines to go up indefinitely they must
+
+1894
+01:13:08,640 --> 01:13:10,560
+stop somewhere
+
+1895
+01:13:10,560 --> 01:13:13,679
+right and we can sort of tell what we
+
+1896
+01:13:13,679 --> 01:13:14,880
+can make some guesses
+
+1897
+01:13:14,880 --> 01:13:16,960
+on this system it goes up to 5000 and no
+
+1898
+01:13:16,960 --> 01:13:18,239
+more
+
+1899
+01:13:18,239 --> 01:13:21,199
+and what that basically suggests to us
+
+1900
+01:13:21,199 --> 01:13:23,120
+is that it takes about 200 microseconds
+
+1901
+01:13:23,120 --> 01:13:24,400
+on this computer to
+
+1902
+01:13:24,400 --> 01:13:27,360
+process each packet right that's what
+
+1903
+01:13:27,360 --> 01:13:27,760
+this
+
+1904
+01:13:27,760 --> 01:13:29,679
+point the fact that the inflection point
+
+1905
+01:13:29,679 --> 01:13:31,440
+is here means suggests
+
+1906
+01:13:31,440 --> 01:13:32,960
+that the total cost of processing a
+
+1907
+01:13:32,960 --> 01:13:35,520
+packet is around 200 microseconds of cpu
+
+1908
+01:13:35,520 --> 01:13:36,159
+time
+
+1909
+01:13:36,159 --> 01:13:39,520
+yeah that it's a guess but it's likely
+
+1910
+01:13:39,520 --> 01:13:40,640
+to be close to correct
+
+1911
+01:13:40,640 --> 01:13:42,159
+and so there's just no way we could get
+
+1912
+01:13:42,159 --> 01:13:43,040
+you know maybe we could make the
+
+1913
+01:13:43,040 --> 01:13:44,400
+software a little more efficient maybe
+
+1914
+01:13:44,400 --> 01:13:47,040
+we could reduce that to 150 microseconds
+
+1915
+01:13:47,040 --> 01:13:48,800
+per packet or something and
+
+1916
+01:13:48,800 --> 01:13:50,159
+so maybe we could move the inflection
+
+1917
+01:13:50,159 --> 01:13:52,400
+point up a bit but we're certainly faced
+
+1918
+01:13:52,400 --> 01:13:53,520
+with
+
+1919
+01:13:53,520 --> 01:13:55,679
+some point at which well that's just how
+
+1920
+01:13:55,679 --> 01:13:57,280
+many packets
+
+1921
+01:13:57,280 --> 01:14:00,800
+this system can process um
+
+1922
+01:14:00,800 --> 01:14:04,800
+now um that's not necessarily what's
+
+1923
+01:14:04,800 --> 01:14:06,480
+going on here it happens to be what's
+
+1924
+01:14:06,480 --> 01:14:08,239
+going on here but it didn't it's not
+
+1925
+01:14:08,239 --> 01:14:12,000
+written in stone um in fact the
+
+1926
+01:14:12,000 --> 01:14:14,080
+there's other bottlenecks that could be
+
+1927
+01:14:14,080 --> 01:14:15,520
+the limit other than
+
+1928
+01:14:15,520 --> 01:14:17,760
+uh cpu time which are worth considering
+
+1929
+01:14:17,760 --> 01:14:19,520
+the most obvious is the speed of the
+
+1930
+01:14:19,520 --> 01:14:21,040
+network the network they were using ran
+
+1931
+01:14:21,040 --> 01:14:22,880
+at only 10 megabits per second that's
+
+1932
+01:14:22,880 --> 01:14:25,040
+just how fast the
+
+1933
+01:14:25,040 --> 01:14:28,480
+low level networking hardware
+
+1934
+01:14:28,480 --> 01:14:30,800
+sent bits and so it can never transmit
+
+1935
+01:14:30,800 --> 01:14:31,679
+more than 10 000
+
+1936
+01:14:31,679 --> 01:14:35,600
+10 million bits per second um
+
+1937
+01:14:35,600 --> 01:14:37,760
+and so that may also constitute a limit
+
+1938
+01:14:37,760 --> 01:14:39,040
+and so we're thinking about whether
+
+1939
+01:14:39,040 --> 01:14:40,800
+maybe that's actually what's determining
+
+1940
+01:14:40,800 --> 01:14:42,159
+this 5000.
+
+1941
+01:14:42,159 --> 01:14:45,430
+um
+
+1942
+01:14:45,440 --> 01:14:47,360
+i don't act the paper doesn't quite say
+
+1943
+01:14:47,360 --> 01:14:48,480
+enough to know
+
+1944
+01:14:48,480 --> 01:14:50,800
+whether it's whether it's cpu or the nic
+
+1945
+01:14:50,800 --> 01:14:52,480
+that's the limiting factor here
+
+1946
+01:14:52,480 --> 01:14:55,199
+um but the fact is with the with their
+
+1947
+01:14:55,199 --> 01:14:57,120
+10 megabit network
+
+1948
+01:14:57,120 --> 01:15:00,320
+if you send small packets it can
+
+1949
+01:15:00,320 --> 01:15:02,480
+the 10 megabits translates into
+
+1950
+01:15:02,480 --> 01:15:04,000
+something like 10 or 15
+
+1951
+01:15:04,000 --> 01:15:06,159
+000 packets per second so that's the
+
+1952
+01:15:06,159 --> 01:15:07,760
+limit that the
+
+1953
+01:15:07,760 --> 01:15:11,520
+networking cable puts on the input
+
+1954
+01:15:11,520 --> 01:15:14,960
+rate and so this is well under uh
+
+1955
+01:15:14,960 --> 01:15:17,199
+the 10 or 15 000 packets per second that
+
+1956
+01:15:17,199 --> 01:15:18,880
+the network is capable of so almost
+
+1957
+01:15:18,880 --> 01:15:20,480
+certainly the limit has to do with
+
+1958
+01:15:20,480 --> 01:15:23,760
+cpu or memory or something and not the
+
+1959
+01:15:23,760 --> 01:15:27,199
+not the network itself okay
+
+1960
+01:15:27,199 --> 01:15:31,600
+um what we love to see
+
+1961
+01:15:31,600 --> 01:15:34,640
+in a well-designed router is that um
+
+1962
+01:15:34,640 --> 01:15:36,320
+that it can actually have you know if it
+
+1963
+01:15:36,320 --> 01:15:38,080
+takes 200 microseconds to forward a
+
+1964
+01:15:38,080 --> 01:15:38,560
+packet
+
+1965
+01:15:38,560 --> 01:15:40,239
+to process a packet what we'd like to
+
+1966
+01:15:40,239 --> 01:15:41,679
+see is that the thing the router can
+
+1967
+01:15:41,679 --> 01:15:44,159
+actually forward 5000 packets per second
+
+1968
+01:15:44,159 --> 01:15:46,159
+no matter what even if the load is high
+
+1969
+01:15:46,159 --> 01:15:47,199
+so what we'd
+
+1970
+01:15:47,199 --> 01:15:51,920
+like to have seen is this line here
+
+1971
+01:15:51,920 --> 01:15:53,199
+where the
+
+1972
+01:15:53,199 --> 01:15:54,880
+output rate matches the input rate until
+
+1973
+01:15:54,880 --> 01:15:57,920
+you get up to the capacity of the system
+
+1974
+01:15:57,920 --> 01:15:59,840
+you know 5000 packs per second and then
+
+1975
+01:15:59,840 --> 01:16:01,120
+it just continues to
+
+1976
+01:16:01,120 --> 01:16:03,120
+forward 5000 packets per second and
+
+1977
+01:16:03,120 --> 01:16:04,239
+presumably drops
+
+1978
+01:16:04,239 --> 01:16:08,390
+discards the rest
+
+1979
+01:16:08,400 --> 01:16:10,800
+so this is what we'd like to design but
+
+1980
+01:16:10,800 --> 01:16:12,080
+what actually happened is much worse
+
+1981
+01:16:12,080 --> 01:16:13,280
+than that
+
+1982
+01:16:13,280 --> 01:16:16,000
+as you increase the rate beyond 5000 uh
+
+1983
+01:16:16,000 --> 01:16:16,320
+the
+
+1984
+01:16:16,320 --> 01:16:17,520
+number of packets that it manages the
+
+1985
+01:16:17,520 --> 01:16:20,640
+forward goes down towards zero
+
+1986
+01:16:20,640 --> 01:16:22,320
+so why does this line go down i think
+
+1987
+01:16:22,320 --> 01:16:35,120
+somebody mentioned this before
+
+1988
+01:16:35,120 --> 01:16:38,159
+well the the the
+
+1989
+01:16:38,159 --> 01:16:41,120
+reason that the authors figured out is
+
+1990
+01:16:41,120 --> 01:16:41,840
+that
+
+1991
+01:16:41,840 --> 01:16:43,520
+as you increase the input rate each of
+
+1992
+01:16:43,520 --> 01:16:45,280
+these input packets generates an
+
+1993
+01:16:45,280 --> 01:16:47,280
+interrupt
+
+1994
+01:16:47,280 --> 01:16:49,360
+and the interrupts take time actually on
+
+1995
+01:16:49,360 --> 01:16:50,480
+their system the interrupts are quite
+
+1996
+01:16:50,480 --> 01:16:52,320
+expensive because they involved
+
+1997
+01:16:52,320 --> 01:16:54,640
+uh copying a packet off of the network
+
+1998
+01:16:54,640 --> 01:16:56,480
+interface card and in domain memory
+
+1999
+01:16:56,480 --> 01:16:56,800
+which
+
+2000
+01:16:56,800 --> 01:16:58,400
+took a long time because the cpu was
+
+2001
+01:16:58,400 --> 01:17:00,640
+doing it so each
+
+2002
+01:17:00,640 --> 01:17:02,560
+so you know we know if packets arriving
+
+2003
+01:17:02,560 --> 01:17:03,760
+at ten thousand per second we certainly
+
+2004
+01:17:03,760 --> 01:17:05,199
+can't forward ten thousand
+
+2005
+01:17:05,199 --> 01:17:07,520
+um that means the best we can hope for
+
+2006
+01:17:07,520 --> 01:17:09,040
+is to forward five thousand
+
+2007
+01:17:09,040 --> 01:17:11,280
+and simply discard the other five
+
+2008
+01:17:11,280 --> 01:17:13,040
+thousand but in fact
+
+2009
+01:17:13,040 --> 01:17:15,520
+the extra five thousand packets each a
+
+2010
+01:17:15,520 --> 01:17:17,600
+very expensive interrupt
+
+2011
+01:17:17,600 --> 01:17:20,000
+so for each additional packet over 5000
+
+2012
+01:17:20,000 --> 01:17:21,520
+per second
+
+2013
+01:17:21,520 --> 01:17:23,520
+we're generating more and more expensive
+
+2014
+01:17:23,520 --> 01:17:25,520
+interrupts which have priority like
+
+2015
+01:17:25,520 --> 01:17:27,360
+interrupts boy whatever you're doing
+
+2016
+01:17:27,360 --> 01:17:32,310
+it stops the machine takes the interrupt
+
+2017
+01:17:32,320 --> 01:17:33,760
+because the machine is essentially
+
+2018
+01:17:33,760 --> 01:17:35,360
+giving priority these interrupts
+
+2019
+01:17:35,360 --> 01:17:37,120
+that means every additional packet per
+
+2020
+01:17:37,120 --> 01:17:39,760
+second is taking cpu time away
+
+2021
+01:17:39,760 --> 01:17:43,840
+from the forwarding code
+
+2022
+01:17:43,840 --> 01:17:46,000
+until finally 100 of the cpu time is
+
+2023
+01:17:46,000 --> 01:17:48,000
+used up in the input interrupt routine
+
+2024
+01:17:48,000 --> 01:17:51,440
+and no cpu time is used uh in the thread
+
+2025
+01:17:51,440 --> 01:17:52,960
+that
+
+2026
+01:17:52,960 --> 01:17:56,550
+forwards packets
+
+2027
+01:17:56,560 --> 01:18:02,550
+is everyone happy with this explanation
+
+2028
+01:18:02,560 --> 01:18:07,040
+and this going down um
+
+2029
+01:18:07,040 --> 01:18:11,510
+is called interrupt live lock
+
+2030
+01:18:11,520 --> 01:18:13,440
+the fact that this line goes down
+
+2031
+01:18:13,440 --> 01:18:15,280
+instead of steering flags is what people
+
+2032
+01:18:15,280 --> 01:18:15,760
+mean
+
+2033
+01:18:15,760 --> 01:18:18,800
+by interrupt live lock um and
+
+2034
+01:18:18,800 --> 01:18:20,719
+it's it's actually a phenomenon that
+
+2035
+01:18:20,719 --> 01:18:22,000
+occurs
+
+2036
+01:18:22,000 --> 01:18:25,440
+um in many systems
+
+2037
+01:18:25,440 --> 01:18:27,040
+i mean the sort of thing that's driving
+
+2038
+01:18:27,040 --> 01:18:29,520
+it is that there's two separate tasks
+
+2039
+01:18:29,520 --> 01:18:31,520
+like the input interrupt task and the
+
+2040
+01:18:31,520 --> 01:18:32,560
+forwarding task
+
+2041
+01:18:32,560 --> 01:18:37,669
+and because of a scheduling problem
+
+2042
+01:18:37,679 --> 01:18:39,280
+essentially priority is given to the
+
+2043
+01:18:39,280 --> 01:18:41,679
+input task which can starve
+
+2044
+01:18:41,679 --> 01:18:44,320
+the packet processing task and in pretty
+
+2045
+01:18:44,320 --> 01:18:45,840
+much any system
+
+2046
+01:18:45,840 --> 01:18:49,280
+that has multiple independent tasks
+
+2047
+01:18:49,280 --> 01:18:51,199
+or sort of sequence of independent tasks
+
+2048
+01:18:51,199 --> 01:18:53,040
+that need to be done to each input
+
+2049
+01:18:53,040 --> 01:18:54,880
+and in which the input rate can't
+
+2050
+01:18:54,880 --> 01:18:56,800
+necessarily be controlled
+
+2051
+01:18:56,800 --> 01:18:59,360
+many systems like that will exhibit live
+
+2052
+01:18:59,360 --> 01:19:03,189
+lock if you push them too hard
+
+2053
+01:19:03,199 --> 01:19:05,840
+and you can get live lock due to many
+
+2054
+01:19:05,840 --> 01:19:08,000
+resources not just cpu but it could be
+
+2055
+01:19:08,000 --> 01:19:11,520
+that the nic you know a nick that dmas
+
+2056
+01:19:11,520 --> 01:19:14,719
+uses up ram cycles to do the dmas
+
+2057
+01:19:14,719 --> 01:19:17,199
+and if the nic is using the ram the cpu
+
+2058
+01:19:17,199 --> 01:19:18,080
+can't use the ram
+
+2059
+01:19:18,080 --> 01:19:20,320
+so another way to get live lock even if
+
+2060
+01:19:20,320 --> 01:19:22,239
+you have lots of cpu time
+
+2061
+01:19:22,239 --> 01:19:24,000
+you know in some other design you might
+
+2062
+01:19:24,000 --> 01:19:25,760
+get live lock because the nic
+
+2063
+01:19:25,760 --> 01:19:29,040
+is using up uh
+
+2064
+01:19:29,040 --> 01:19:31,440
+uh ram resources ram performance
+
+2065
+01:19:31,440 --> 01:19:33,199
+resources so the cpu
+
+2066
+01:19:33,199 --> 01:19:36,560
+is less able to use the ram anyway this
+
+2067
+01:19:36,560 --> 01:19:38,000
+line going down is
+
+2068
+01:19:38,000 --> 01:19:40,640
+is what they mean by live lock you may
+
+2069
+01:19:40,640 --> 01:19:43,360
+ask what happens to the excess packets
+
+2070
+01:19:43,360 --> 01:19:46,480
+um and if you recall the s
+
+2071
+01:19:46,480 --> 01:19:48,800
+structure of their software was that
+
+2072
+01:19:48,800 --> 01:19:50,800
+they have a nic
+
+2073
+01:19:50,800 --> 01:19:52,640
+that basically feeds the receive
+
+2074
+01:19:52,640 --> 01:19:54,719
+interrupt the received interrupt
+
+2075
+01:19:54,719 --> 01:19:55,600
+software
+
+2076
+01:19:55,600 --> 01:19:58,800
+copies each packet into a queue and then
+
+2077
+01:19:58,800 --> 01:19:59,520
+there's
+
+2078
+01:19:59,520 --> 01:20:04,080
+some sort of network thread um
+
+2079
+01:20:04,080 --> 01:20:06,800
+that pulls packets off the queue the
+
+2080
+01:20:06,800 --> 01:20:08,880
+exact place where packets are lost
+
+2081
+01:20:08,880 --> 01:20:12,159
+are right here what's going to happen is
+
+2082
+01:20:12,159 --> 01:20:13,920
+that the interrupt routine
+
+2083
+01:20:13,920 --> 01:20:16,840
+um you know once we get down here was
+
+2084
+01:20:16,840 --> 01:20:18,320
+serious
+
+2085
+01:20:18,320 --> 01:20:20,639
+live lock the interrupt routine is going
+
+2086
+01:20:20,639 --> 01:20:21,920
+to fill this q there's going to be some
+
+2087
+01:20:21,920 --> 01:20:23,520
+maximum q length here you know
+
+2088
+01:20:23,520 --> 01:20:25,679
+at least all the ram but probably much
+
+2089
+01:20:25,679 --> 01:20:27,520
+less
+
+2090
+01:20:27,520 --> 01:20:29,199
+and the interrupt routine is going to
+
+2091
+01:20:29,199 --> 01:20:30,639
+pull a packet off the neck and see that
+
+2092
+01:20:30,639 --> 01:20:32,400
+this queue
+
+2093
+01:20:32,400 --> 01:20:34,239
+is already as long as it's allowed to be
+
+2094
+01:20:34,239 --> 01:20:35,920
+and the interrupt routine will discard
+
+2095
+01:20:35,920 --> 01:20:36,800
+the packet
+
+2096
+01:20:36,800 --> 01:20:38,400
+um but then of course immediately after
+
+2097
+01:20:38,400 --> 01:20:41,120
+that there'll be another interrupt
+
+2098
+01:20:41,120 --> 01:20:43,600
+the rough routine will again discard the
+
+2099
+01:20:43,600 --> 01:20:45,280
+next packet because
+
+2100
+01:20:45,280 --> 01:20:48,320
+the network thread is always interrupted
+
+2101
+01:20:48,320 --> 01:20:52,070
+and never allowed to run
+
+2102
+01:20:52,080 --> 01:20:57,830
+questions about this diagram
+
+2103
+01:20:57,840 --> 01:21:00,239
+is the most important diagram in the
+
+2104
+01:21:00,239 --> 01:21:04,950
+paper
+
+2105
+01:21:04,960 --> 01:21:07,920
+all right well um we've basically run
+
+2106
+01:21:07,920 --> 01:21:09,520
+out of time so i'll try to compress
+
+2107
+01:21:09,520 --> 01:21:13,440
+the answer to this problem into a minute
+
+2108
+01:21:13,440 --> 01:21:16,960
+um the authors propose a solution
+
+2109
+01:21:16,960 --> 01:21:18,560
+uh the most immediate good news about
+
+2110
+01:21:18,560 --> 01:21:20,239
+the solution is that this is the
+
+2111
+01:21:20,239 --> 01:21:22,080
+performance of their solution that is as
+
+2112
+01:21:22,080 --> 01:21:23,520
+the input rate goes up
+
+2113
+01:21:23,520 --> 01:21:25,840
+goes up to 5000 and then it's flat at
+
+2114
+01:21:25,840 --> 01:21:29,910
+5000 regardless of input rate
+
+2115
+01:21:29,920 --> 01:21:33,120
+so this is sort of a perfect non-live
+
+2116
+01:21:33,120 --> 01:21:33,840
+lock
+
+2117
+01:21:33,840 --> 01:21:36,239
+performance line of course it's going to
+
+2118
+01:21:36,239 --> 01:21:37,600
+be flat because
+
+2119
+01:21:37,600 --> 01:21:40,159
+you can only process 5000 packets per
+
+2120
+01:21:40,159 --> 01:21:41,280
+second due to
+
+2121
+01:21:41,280 --> 01:21:43,840
+the speed of the cpu and the way they
+
+2122
+01:21:43,840 --> 01:21:44,639
+get this
+
+2123
+01:21:44,639 --> 01:21:49,350
+they still have this network thread
+
+2124
+01:21:49,360 --> 01:21:54,840
+and they still have an interrupt routine
+
+2125
+01:21:54,840 --> 01:21:56,000
+um
+
+2126
+01:21:56,000 --> 01:21:57,520
+and so the very first time the nick
+
+2127
+01:21:57,520 --> 01:21:59,280
+interrupts um
+
+2128
+01:21:59,280 --> 01:22:00,719
+it'll run the interrupt routine but the
+
+2129
+01:22:00,719 --> 01:22:02,480
+interrupt routine does not copy
+
+2130
+01:22:02,480 --> 01:22:03,600
+pakistanic
+
+2131
+01:22:03,600 --> 01:22:05,840
+it wakes up the network thread and then
+
+2132
+01:22:05,840 --> 01:22:06,719
+retr and
+
+2133
+01:22:06,719 --> 01:22:09,040
+leaves interrupts on the neck disabled
+
+2134
+01:22:09,040 --> 01:22:11,840
+so we'll get no more interrupts
+
+2135
+01:22:11,840 --> 01:22:13,440
+wake up the networking thread and then
+
+2136
+01:22:13,440 --> 01:22:15,440
+the interrupt routine will return so now
+
+2137
+01:22:15,440 --> 01:22:17,840
+interrupts in the snake are turned off
+
+2138
+01:22:17,840 --> 01:22:22,830
+the network thread basically has a loop
+
+2139
+01:22:22,840 --> 01:22:24,719
+um that
+
+2140
+01:22:24,719 --> 01:22:27,360
+uh it'll check the nick you know pull a
+
+2141
+01:22:27,360 --> 01:22:30,470
+few packets
+
+2142
+01:22:30,480 --> 01:22:34,149
+from the nic
+
+2143
+01:22:34,159 --> 01:22:36,080
+five i think is what they ended up using
+
+2144
+01:22:36,080 --> 01:22:40,229
+and then process those packets
+
+2145
+01:22:40,239 --> 01:22:43,840
+um and then if there were none
+
+2146
+01:22:43,840 --> 01:22:46,719
+if this uh it'll check that so it's this
+
+2147
+01:22:46,719 --> 01:22:48,400
+networking thread now that reads packets
+
+2148
+01:22:48,400 --> 01:22:50,639
+off the nick not the interrupt routine
+
+2149
+01:22:50,639 --> 01:22:53,360
+if there were not no packets waiting it
+
+2150
+01:22:53,360 --> 01:22:59,750
+enables interrupts
+
+2151
+01:22:59,760 --> 01:23:03,830
+and then goes to sleep
+
+2152
+01:23:03,840 --> 01:23:06,639
+because it's enabled interrupts um the
+
+2153
+01:23:06,639 --> 01:23:08,159
+next time my packet arrives the inner
+
+2154
+01:23:08,159 --> 01:23:10,159
+protein will wake up this thread
+
+2155
+01:23:10,159 --> 01:23:11,440
+and i'll come out of sleep and go back
+
+2156
+01:23:11,440 --> 01:23:13,280
+to the top of the loop so this just
+
+2157
+01:23:13,280 --> 01:23:16,239
+this is the structure of their solution
+
+2158
+01:23:16,239 --> 01:23:17,920
+and one way to view this
+
+2159
+01:23:17,920 --> 01:23:20,560
+is that they turn an interrupt scheme
+
+2160
+01:23:20,560 --> 01:23:22,080
+into a polling scheme
+
+2161
+01:23:22,080 --> 01:23:24,880
+that is under high load they just sit in
+
+2162
+01:23:24,880 --> 01:23:26,239
+this loop
+
+2163
+01:23:26,239 --> 01:23:28,080
+and they read a packet process it read a
+
+2164
+01:23:28,080 --> 01:23:29,280
+packet process it
+
+2165
+01:23:29,280 --> 01:23:33,440
+with interrupts turned off so they did
+
+2166
+01:23:33,440 --> 01:23:34,880
+since the interrupts are turned off they
+
+2167
+01:23:34,880 --> 01:23:36,000
+never get this effect where they
+
+2168
+01:23:36,000 --> 01:23:37,760
+interrupt steel time from the main
+
+2169
+01:23:37,760 --> 01:23:38,560
+thread
+
+2170
+01:23:38,560 --> 01:23:40,480
+whereas under low load they enable
+
+2171
+01:23:40,480 --> 01:23:41,679
+interrupts
+
+2172
+01:23:41,679 --> 01:23:44,080
+and maybe a while till packets arrive
+
+2173
+01:23:44,080 --> 01:23:45,280
+but they'll be woken up
+
+2174
+01:23:45,280 --> 01:23:46,719
+by the interrupt routine immediately if
+
+2175
+01:23:46,719 --> 01:23:50,310
+a packet does right
+
+2176
+01:23:50,320 --> 01:23:53,440
+and that's all i have to say any
+
+2177
+01:23:53,440 --> 01:23:56,470
+questions
+
+2178
+01:23:56,480 --> 01:24:00,639
+i have a question um is that loop
+
+2179
+01:24:00,639 --> 01:24:03,120
+looking at all of the devices or only
+
+2180
+01:24:03,120 --> 01:24:04,639
+the one that generated
+
+2181
+01:24:04,639 --> 01:24:10,239
+the interrupt if there's multiple nics
+
+2182
+01:24:10,239 --> 01:24:14,800
+so um there's a good question
+
+2183
+01:24:14,800 --> 01:24:17,600
+if there's multiple nicks the loop i
+
+2184
+01:24:17,600 --> 01:24:18,560
+don't actually know how the
+
+2185
+01:24:18,560 --> 01:24:21,440
+how the loop worked um a very reasonable
+
+2186
+01:24:21,440 --> 01:24:23,520
+design is for this network thread
+
+2187
+01:24:23,520 --> 01:24:27,360
+to keep track of um for every
+
+2188
+01:24:27,360 --> 01:24:29,840
+nic whether it's an interrupting mode or
+
+2189
+01:24:29,840 --> 01:24:33,350
+polling mode
+
+2190
+01:24:33,360 --> 01:24:36,639
+um and then it will only
+
+2191
+01:24:36,639 --> 01:24:40,560
+actually because the interrupt routines
+
+2192
+01:24:40,560 --> 01:24:42,320
+no longer read packets from the neck
+
+2193
+01:24:42,320 --> 01:24:43,920
+that means the loop probably checks
+
+2194
+01:24:43,920 --> 01:24:46,080
+every interface at this point
+
+2195
+01:24:46,080 --> 01:24:48,639
+every probably checks every nick at this
+
+2196
+01:24:48,639 --> 01:24:49,840
+point and
+
+2197
+01:24:49,840 --> 01:24:52,560
+pulls up for every nick if it has a few
+
+2198
+01:24:52,560 --> 01:24:53,199
+pack as
+
+2199
+01:24:53,199 --> 01:24:56,159
+pack if that nick has packets waiting
+
+2200
+01:24:56,159 --> 01:24:57,920
+the loop will pull a few out of the neck
+
+2201
+01:24:57,920 --> 01:24:59,360
+and process them
+
+2202
+01:24:59,360 --> 01:25:02,080
+and then if none of the nicks had
+
+2203
+01:25:02,080 --> 01:25:04,239
+anything
+
+2204
+01:25:04,239 --> 01:25:05,600
+if it checked all the necks and none of
+
+2205
+01:25:05,600 --> 01:25:07,440
+them had any packets waiting
+
+2206
+01:25:07,440 --> 01:25:09,040
+the loop will enable interrupts on all
+
+2207
+01:25:09,040 --> 01:25:10,480
+the nicks and
+
+2208
+01:25:10,480 --> 01:25:12,880
+sleep and any nick that interrupts will
+
+2209
+01:25:12,880 --> 01:25:14,800
+wake it up
+
+2210
+01:25:14,800 --> 01:25:18,480
+that's my guess okay yeah sounds
+
+2211
+01:25:18,480 --> 01:25:22,560
+reasonable um i had a quick question
+
+2212
+01:25:22,560 --> 01:25:23,920
+then so
+
+2213
+01:25:23,920 --> 01:25:26,239
+how did the so so while the loop is
+
+2214
+01:25:26,239 --> 01:25:27,679
+running how do packets
+
+2215
+01:25:27,679 --> 01:25:31,120
+actually get into the cues to be
+
+2216
+01:25:31,120 --> 01:25:33,440
+pulled i felt like there would only be
+
+2217
+01:25:33,440 --> 01:25:35,440
+one at a time
+
+2218
+01:25:35,440 --> 01:25:39,120
+initially then initially the packets are
+
+2219
+01:25:39,120 --> 01:25:41,280
+cued inside the nic in its own private
+
+2220
+01:25:41,280 --> 01:25:43,360
+memory
+
+2221
+01:25:43,360 --> 01:25:45,760
+then this loop you know when it when it
+
+2222
+01:25:45,760 --> 01:25:47,360
+goes back to the top of the loop
+
+2223
+01:25:47,360 --> 01:25:50,480
+it'll look at each nick and
+
+2224
+01:25:50,480 --> 01:25:52,480
+actually talk to the nik hardware and
+
+2225
+01:25:52,480 --> 01:25:54,239
+ask it do you have any input packets
+
+2226
+01:25:54,239 --> 01:25:55,600
+waiting in your memory
+
+2227
+01:25:55,600 --> 01:25:58,320
+and if it does then this loop will will
+
+2228
+01:25:58,320 --> 01:26:01,280
+you know allocate a packet buffer in ram
+
+2229
+01:26:01,280 --> 01:26:04,000
+and copy the bytes of the packet out of
+
+2230
+01:26:04,000 --> 01:26:05,920
+the nic
+
+2231
+01:26:05,920 --> 01:26:07,600
+the packet buffer and then process that
+
+2232
+01:26:07,600 --> 01:26:09,760
+packet buffer so you can copy
+
+2233
+01:26:09,760 --> 01:26:11,840
+more than one packet yeah i think they
+
+2234
+01:26:11,840 --> 01:26:14,400
+okay do do it in groups of five in order
+
+2235
+01:26:14,400 --> 01:26:15,360
+to
+
+2236
+01:26:15,360 --> 01:26:16,560
+even if there's a hundred packets
+
+2237
+01:26:16,560 --> 01:26:18,159
+waiting here it would just process the
+
+2238
+01:26:18,159 --> 01:26:19,920
+next five in order to be fair among
+
+2239
+01:26:19,920 --> 01:26:22,480
+input nicks and to avoid
+
+2240
+01:26:22,480 --> 01:26:24,719
+starting the output but this requires
+
+2241
+01:26:24,719 --> 01:26:26,560
+increasing the memory capacity of the
+
+2242
+01:26:26,560 --> 01:26:27,040
+nic
+
+2243
+01:26:27,040 --> 01:26:33,110
+right possibly well
+
+2244
+01:26:33,120 --> 01:26:36,320
+i don't know i don't know how much
+
+2245
+01:26:36,320 --> 01:26:37,600
+the nick might have had a reasonable
+
+2246
+01:26:37,600 --> 01:26:40,310
+amount of
+
+2247
+01:26:40,320 --> 01:26:43,199
+the thing is this interrupt you know
+
+2248
+01:26:43,199 --> 01:26:45,199
+this live lock phenomenon
+
+2249
+01:26:45,199 --> 01:26:48,840
+like below this point we're probably
+
+2250
+01:26:48,840 --> 01:26:50,239
+interrupting
+
+2251
+01:26:50,239 --> 01:26:53,280
+and if a packet arrives
+
+2252
+01:26:53,280 --> 01:26:54,480
+the network thread will almost
+
+2253
+01:26:54,480 --> 01:26:56,239
+immediately be woken up and pull the
+
+2254
+01:26:56,239 --> 01:26:57,520
+packet out
+
+2255
+01:26:57,520 --> 01:26:59,199
+we're over here in this regime where too
+
+2256
+01:26:59,199 --> 01:27:02,239
+many packets are arriving
+
+2257
+01:27:02,239 --> 01:27:03,920
+and the this loop is polling instead of
+
+2258
+01:27:03,920 --> 01:27:06,159
+interrupting
+
+2259
+01:27:06,159 --> 01:27:07,600
+packets are going to be lost we just
+
+2260
+01:27:07,600 --> 01:27:09,600
+know that because the difference
+
+2261
+01:27:09,600 --> 01:27:13,520
+you know this difference between
+
+2262
+01:27:13,520 --> 01:27:16,080
+the id the input rate and the output
+
+2263
+01:27:16,080 --> 01:27:16,639
+rate
+
+2264
+01:27:16,639 --> 01:27:22,629
+this is all dropped packets yep yep and
+
+2265
+01:27:22,639 --> 01:27:26,960
+um adding i don't think adding because
+
+2266
+01:27:26,960 --> 01:27:28,159
+these packers are going to be dropped
+
+2267
+01:27:28,159 --> 01:27:29,120
+anyway
+
+2268
+01:27:29,120 --> 01:27:30,400
+adding buffering to the neck doesn't
+
+2269
+01:27:30,400 --> 01:27:32,560
+probably doesn't help very much
+
+2270
+01:27:32,560 --> 01:27:37,750
+i i don't know i think it's a nick
+
+2271
+01:27:37,760 --> 01:27:40,400
+it's not clear that nick needs more than
+
+2272
+01:27:40,400 --> 01:27:42,719
+a small amount of buffering
+
+2273
+01:27:42,719 --> 01:27:44,719
+yeah that that makes sense yeah you only
+
+2274
+01:27:44,719 --> 01:27:46,080
+need as much as it would need
+
+2275
+01:27:46,080 --> 01:27:49,360
+to take yeah to get saturated so
+
+2276
+01:27:49,360 --> 01:27:50,639
+you know i think in their design they
+
+2277
+01:27:50,639 --> 01:27:52,560
+would pull five packets of either quota
+
+2278
+01:27:52,560 --> 01:27:54,080
+was five packets and so the next
+
+2279
+01:27:54,080 --> 01:27:55,280
+certainly needs five packets of
+
+2280
+01:27:55,280 --> 01:27:56,080
+buffering
+
+2281
+01:27:56,080 --> 01:27:58,480
+oh that to make sense but it probably
+
+2282
+01:27:58,480 --> 01:27:59,280
+anyway
+
+2283
+01:27:59,280 --> 01:28:00,719
+it's not clear that more than that would
+
+2284
+01:28:00,719 --> 01:28:02,320
+be very beneficial
+
+2285
+01:28:02,320 --> 01:28:05,360
+um really the purpose of buffering is to
+
+2286
+01:28:05,360 --> 01:28:06,400
+absorb
+
+2287
+01:28:06,400 --> 01:28:10,639
+transient bursts um
+
+2288
+01:28:10,639 --> 01:28:12,320
+so hold the packets long enough that the
+
+2289
+01:28:12,320 --> 01:28:13,600
+software can get along to reading them
+
+2290
+01:28:13,600 --> 01:28:14,000
+but we're not
+
+2291
+01:28:14,000 --> 01:28:16,000
+talking about transient anything in this
+
+2292
+01:28:16,000 --> 01:28:17,600
+situation we're talking about persistent
+
+2293
+01:28:17,600 --> 01:28:18,960
+overload
+
+2294
+01:28:18,960 --> 01:28:21,440
+so there's so that means there's not
+
+2295
+01:28:21,440 --> 01:28:22,960
+really much function for a lot of
+
+2296
+01:28:22,960 --> 01:28:23,920
+buffering
+
+2297
+01:28:23,920 --> 01:28:28,239
+yeah makes sense thank you
+
+2298
+01:28:28,239 --> 01:28:30,239
+um i think my question is related to
+
+2299
+01:28:30,239 --> 01:28:31,280
+that it's
+
+2300
+01:28:31,280 --> 01:28:34,000
+so if the difference between interrupts
+
+2301
+01:28:34,000 --> 01:28:35,040
+on it in terms
+
+2302
+01:28:35,040 --> 01:28:38,159
+of here is that it's going to be the
+
+2303
+01:28:38,159 --> 01:28:38,719
+same but
+
+2304
+01:28:38,719 --> 01:28:40,719
+like it's it's still going to be putting
+
+2305
+01:28:40,719 --> 01:28:42,159
+things on the queue if it's
+
+2306
+01:28:42,159 --> 01:28:45,520
+able to but it will just not issue an
+
+2307
+01:28:45,520 --> 01:28:46,400
+interrupt but
+
+2308
+01:28:46,400 --> 01:28:49,120
+if there is no place on the queue then
+
+2309
+01:28:49,120 --> 01:28:50,560
+it will just drop
+
+2310
+01:28:50,560 --> 01:28:52,639
+the interrupt the interrupt routine in
+
+2311
+01:28:52,639 --> 01:28:54,080
+this new scheme
+
+2312
+01:28:54,080 --> 01:28:57,040
+never looks at packets oh yes yeah i
+
+2313
+01:28:57,040 --> 01:28:57,760
+mean like
+
+2314
+01:28:57,760 --> 01:29:00,239
+uh you said that you turned off the
+
+2315
+01:29:00,239 --> 01:29:01,040
+interrupts
+
+2316
+01:29:01,040 --> 01:29:04,400
+for the nick right yeah so this what
+
+2317
+01:29:04,400 --> 01:29:08,830
+happens in the interrupt handler is it
+
+2318
+01:29:08,840 --> 01:29:10,159
+disables
+
+2319
+01:29:10,159 --> 01:29:13,040
+um interrupts on this nick and then
+
+2320
+01:29:13,040 --> 01:29:13,840
+wakes up
+
+2321
+01:29:13,840 --> 01:29:16,560
+the network thread and that's all it
+
+2322
+01:29:16,560 --> 01:29:18,239
+does
+
+2323
+01:29:18,239 --> 01:29:20,960
+and it returns right i guess my question
+
+2324
+01:29:20,960 --> 01:29:23,040
+is when the interrupts are disabled
+
+2325
+01:29:23,040 --> 01:29:25,760
+can the nick still put packets on its
+
+2326
+01:29:25,760 --> 01:29:26,239
+own
+
+2327
+01:29:26,239 --> 01:29:29,679
+buffer yes the nick is self-contained
+
+2328
+01:29:29,679 --> 01:29:32,239
+so it has internal buffering whether or
+
+2329
+01:29:32,239 --> 01:29:32,800
+not
+
+2330
+01:29:32,800 --> 01:29:34,080
+regardless of whether interrupts are
+
+2331
+01:29:34,080 --> 01:29:36,159
+enabled or disabled the only
+
+2332
+01:29:36,159 --> 01:29:38,000
+all that happens when a packet arrives
+
+2333
+01:29:38,000 --> 01:29:39,280
+is that the nick
+
+2334
+01:29:39,280 --> 01:29:42,960
+uh adds appends the packet to
+
+2335
+01:29:42,960 --> 01:29:45,199
+its queue of packets in its own internal
+
+2336
+01:29:45,199 --> 01:29:46,719
+memory that's all that ever happens when
+
+2337
+01:29:46,719 --> 01:29:48,560
+a packet arrives
+
+2338
+01:29:48,560 --> 01:29:51,280
+so it never the nickname in this paper's
+
+2339
+01:29:51,280 --> 01:29:52,800
+nick i mean different neck designs are
+
+2340
+01:29:52,800 --> 01:29:53,840
+very different but
+
+2341
+01:29:53,840 --> 01:29:56,880
+for this paper their neck never did dma
+
+2342
+01:29:56,880 --> 01:29:58,719
+it never reached out and touched host
+
+2343
+01:29:58,719 --> 01:29:59,280
+memory
+
+2344
+01:29:59,280 --> 01:30:02,880
+ever okay just kept an internal cue in
+
+2345
+01:30:02,880 --> 01:30:04,480
+its own memory and the hosts could read
+
+2346
+01:30:04,480 --> 01:30:07,040
+packets out if it wanted to
+
+2347
+01:30:07,040 --> 01:30:10,560
+okay i see and if there's no memory then
+
+2348
+01:30:10,560 --> 01:30:14,080
+drop okay so in this design
+
+2349
+01:30:14,080 --> 01:30:16,719
+if packets are these excess packets the
+
+2350
+01:30:16,719 --> 01:30:17,760
+place they're dropped
+
+2351
+01:30:17,760 --> 01:30:20,480
+is actually is inside the nick what will
+
+2352
+01:30:20,480 --> 01:30:21,120
+happen is
+
+2353
+01:30:21,120 --> 01:30:23,760
+a packet will rot you know if if we're
+
+2354
+01:30:23,760 --> 01:30:25,120
+in an overload situation
+
+2355
+01:30:25,120 --> 01:30:27,840
+then the next queue will be full always
+
+2356
+01:30:27,840 --> 01:30:29,520
+or almost always and so when a packet
+
+2357
+01:30:29,520 --> 01:30:31,120
+arrives the next q will typically be
+
+2358
+01:30:31,120 --> 01:30:32,159
+full and it'll drop
+
+2359
+01:30:32,159 --> 01:30:34,239
+the nick will drop the packet without
+
+2360
+01:30:34,239 --> 01:30:37,920
+wasting any cpu time on the main machine
+
+2361
+01:30:37,920 --> 01:30:40,000
+okay yeah okay yeah that the fact that
+
+2362
+01:30:40,000 --> 01:30:42,480
+it can drop without burning up cpu time
+
+2363
+01:30:42,480 --> 01:30:43,199
+here
+
+2364
+01:30:43,199 --> 01:30:46,080
+is one way of explaining how they avoid
+
+2365
+01:30:46,080 --> 01:30:46,400
+uh
+
+2366
+01:30:46,400 --> 01:30:49,840
+live lock right right okay thank you so
+
+2367
+01:30:49,840 --> 01:30:55,510
+much
+
+2368
+01:30:55,520 --> 01:30:57,520
+i had a quick question uh will there
+
+2369
+01:30:57,520 --> 01:31:00,639
+ever be scenario in which
+
+2370
+01:31:00,639 --> 01:31:04,239
+the cpu loop will pull a few packets
+
+2371
+01:31:04,239 --> 01:31:06,560
+but the like internal software cues are
+
+2372
+01:31:06,560 --> 01:31:08,639
+all like full
+
+2373
+01:31:08,639 --> 01:31:11,360
+oh sure yeah there's some other
+
+2374
+01:31:11,360 --> 01:31:12,719
+bottleneck
+
+2375
+01:31:12,719 --> 01:31:16,400
+so for example suppose
+
+2376
+01:31:16,400 --> 01:31:18,000
+these incoming packets some of them need
+
+2377
+01:31:18,000 --> 01:31:20,639
+to be delivered to some application
+
+2378
+01:31:20,639 --> 01:31:22,800
+on a socket if that application isn't
+
+2379
+01:31:22,800 --> 01:31:25,440
+reading packets fast enough
+
+2380
+01:31:25,440 --> 01:31:29,280
+then the socket buffer
+
+2381
+01:31:29,280 --> 01:31:31,360
+leading to you know that that
+
+2382
+01:31:31,360 --> 01:31:32,560
+application should be reading
+
+2383
+01:31:32,560 --> 01:31:34,960
+will get full and then packets may be
+
+2384
+01:31:34,960 --> 01:31:36,000
+dropped
+
+2385
+01:31:36,000 --> 01:31:39,199
+in the networking thread
+
+2386
+01:31:39,199 --> 01:31:43,199
+and that can also lead to live lock
+
+2387
+01:31:43,199 --> 01:31:44,800
+because now because we have the same the
+
+2388
+01:31:44,800 --> 01:31:46,400
+you know the reason live lot comes up is
+
+2389
+01:31:46,400 --> 01:31:46,719
+that
+
+2390
+01:31:46,719 --> 01:31:48,639
+we expended resources processing a
+
+2391
+01:31:48,639 --> 01:31:51,440
+packet that was later dropped
+
+2392
+01:31:51,440 --> 01:31:54,320
+so it was wasted effort um if the
+
+2393
+01:31:54,320 --> 01:31:55,760
+application is not reading it's
+
+2394
+01:31:55,760 --> 01:31:58,960
+well one way we can get live lock is
+
+2395
+01:31:58,960 --> 01:32:01,840
+um as the load goes up maybe we end up
+
+2396
+01:32:01,840 --> 01:32:03,520
+spending a hundred percent of our time
+
+2397
+01:32:03,520 --> 01:32:05,920
+in the networking thread
+
+2398
+01:32:05,920 --> 01:32:07,760
+leaving zero percent of the time for
+
+2399
+01:32:07,760 --> 01:32:09,199
+whatever applications supposed to be
+
+2400
+01:32:09,199 --> 01:32:10,159
+reading the packets
+
+2401
+01:32:10,159 --> 01:32:13,679
+and then we'll again get live lock um
+
+2402
+01:32:13,679 --> 01:32:15,600
+but but it won't be interrupt live lock
+
+2403
+01:32:15,600 --> 01:32:16,719
+it'll be
+
+2404
+01:32:16,719 --> 01:32:18,320
+network processing live lock or
+
+2405
+01:32:18,320 --> 01:32:20,560
+something um the paper actually had a
+
+2406
+01:32:20,560 --> 01:32:21,760
+story for
+
+2407
+01:32:21,760 --> 01:32:26,000
+that um somewhere in section six
+
+2408
+01:32:26,000 --> 01:32:28,239
+they talk about the network if packets
+
+2409
+01:32:28,239 --> 01:32:29,840
+are being delivered to a local
+
+2410
+01:32:29,840 --> 01:32:30,880
+application
+
+2411
+01:32:30,880 --> 01:32:32,480
+the network thread would look at the
+
+2412
+01:32:32,480 --> 01:32:35,040
+socket queue for that application and if
+
+2413
+01:32:35,040 --> 01:32:36,560
+it was getting long
+
+2414
+01:32:36,560 --> 01:32:38,880
+it would turn off it would turn off
+
+2415
+01:32:38,880 --> 01:32:40,000
+interrupts and stop
+
+2416
+01:32:40,000 --> 01:32:41,360
+pulling packets off the network
+
+2417
+01:32:41,360 --> 01:32:43,679
+interface until the queue got shorter
+
+2418
+01:32:43,679 --> 01:32:46,960
+um and so that means that network thread
+
+2419
+01:32:46,960 --> 01:32:48,159
+would stop running and give the
+
+2420
+01:32:48,159 --> 01:32:49,840
+application a chance to run and process
+
+2421
+01:32:49,840 --> 01:32:50,639
+the packets
+
+2422
+01:32:50,639 --> 01:32:54,239
+so you can get live lock-like situations
+
+2423
+01:32:54,239 --> 01:32:56,239
+at any stage if you're not careful in a
+
+2424
+01:32:56,239 --> 01:32:58,000
+kind of multi-stage
+
+2425
+01:32:58,000 --> 01:33:01,120
+processing scheme okay that makes sense
+
+2426
+01:33:01,120 --> 01:33:04,709
+thank you yeah
+

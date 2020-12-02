@@ -30,7 +30,7 @@
 |  18  |  1  |
 |  19  |  1  |
 |  20  |  1  |
-|  21  |     |
+|  21  |  1  |
 |  22  |     |
 |  23  |     |
 |  24  |     |
@@ -51,6 +51,6 @@
 
 - preview - 对自动生成字幕转换格式、去重后，生成的字幕文件
 
-- asr-res - 使用腾讯云[语音识别](https://cloud.tencent.com/document/product/1093/37139)生成的结果文件
+- asr-res - 使用腾讯云 [语音识别](https://cloud.tencent.com/document/product/1093/37139) 生成的结果文件
 
-- draft - 自定义的[草稿字幕（.draft.srt）](https://github.com/mayf09/subtitle-tools/blob/develop/draft.srt.md)文件
+- draft - 自定义的 [草稿字幕（.draft.srt）](https://github.com/mayf09/subtitle-tools/blob/develop/draft.srt.md) 文件
