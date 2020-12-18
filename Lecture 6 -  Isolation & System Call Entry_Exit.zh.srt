@@ -1,0 +1,7190 @@
+1
+00:00:02,310 --> 00:00:03,120
+好的。
+Alright.
+
+2
+00:00:03,780 --> 00:00:05,490
+我准备开始了。
+Um, I'd like to get started.
+
+3
+00:00:05,820 --> 00:00:07,770
+首先，大家都能听到我说话吗？
+First, can anyone hear me?
+
+4
+00:00:09,150 --> 00:00:09,840
+是的。
+Yes.
+
+5
+00:00:10,320 --> 00:00:11,910
+好的，非常感谢。
+Good, thank you very much.
+
+6
+00:00:13,300 --> 00:00:15,370
+好，今天我要讲的是，
+Alright, today I want to talk about,
+
+7
+00:00:15,640 --> 00:00:19,750
+在用户代码中运行程序
+the transition between running in user code,
+
+8
+00:00:19,780 --> 00:00:23,050
+和在内核中执行之间的转换，
+running programs in user code and executing in the kernel,
+
+9
+00:00:23,410 --> 00:00:25,330
+这就是必须要发生的转换，
+and this is the transition that has to happen
+
+10
+00:00:25,330 --> 00:00:27,340
+每当程序进行系统调用时，
+whenever a program makes a system call
+
+11
+00:00:27,370 --> 00:00:30,820
+通过一个错误，比如页面错误，除零错误，
+where it experiences a fault like a page fault, a divide by zero
+
+12
+00:00:30,910 --> 00:00:33,700
+或者设备决定中断
+or if a device decides to interrupt
+
+13
+00:00:33,700 --> 00:00:36,550
+并且由内核设备驱动程序提供服务。
+and needs to be served by a kernel device driver.
+
+14
+00:00:38,020 --> 00:00:41,710
+这里面有很多精心的设计和一些重要的细节，
+There's a lot of careful design and some important details
+
+15
+00:00:41,710 --> 00:00:46,540
+深入了解这些 trap 是如何从用户到内核的，
+that go into how these traps, from user to kernel happen
+
+16
+00:00:46,660 --> 00:00:48,790
+细节很重要，
+and the details are pretty important
+
+17
+00:00:48,790 --> 00:00:53,800
+对于实施隔离安全和性能，
+for enforcing isolation security and also performance,
+
+18
+00:00:53,800 --> 00:00:57,280
+有很多程序进行了大量的内核转换，
+there's many programs that transition of the kernel a lot,
+
+19
+00:00:57,310 --> 00:01:00,400
+或者由于系统调用页面错误，
+either due to system calls a page page faults,
+
+20
+00:01:01,000 --> 00:01:02,770
+它可以是非常重要的
+and it can be super important
+
+21
+00:01:02,770 --> 00:01:06,330
+trap 机制尽可能地[]。
+that the trap mechanism is as [] as possible.
+
+22
+00:01:07,530 --> 00:01:12,450
+好的，开始的情况是比较熟悉的，
+Alright, so starting situation is pretty familiar
+
+23
+00:01:12,840 --> 00:01:16,800
+我们有用户程序，
+where we have our user program,
+
+24
+00:01:16,800 --> 00:01:18,600
+我使用 shell 作为示例。
+I use the shell as an example.
+
+25
+00:01:19,570 --> 00:01:21,130
+在用户空间中运行。
+Running in user space .
+
+26
+00:01:21,520 --> 00:01:24,620
+嗯，我们有一个内核，
+Um, we have a kernel ,
+
+27
+00:01:24,620 --> 00:01:28,490
+shell 希望进行系统调用进入内核。
+the shell would like to do make a system call into the kernel.
+
+28
+00:01:29,100 --> 00:01:32,490
+将使用 write ，使用 shell 输出其提示符，
+And going to use write, use this shell writing its prompt
+
+29
+00:01:32,490 --> 00:01:35,850
+引导 xv6 之后发生的第一次写入，
+the very first write that happens after you boot xv6,
+
+30
+00:01:36,120 --> 00:01:39,330
+使用 shell 用来写入的 write 系统调用作为示例。
+use the shell trying to write to make the write system calls an example.
+
+31
+00:01:39,840 --> 00:01:41,070
+所以我们需要弄清楚，
+And so we need to figure out
+
+32
+00:01:41,070 --> 00:01:45,330
+如何真正从 shell 运行中转换，
+how to actually get execution to transfer from running in the shell
+
+33
+00:01:45,330 --> 00:01:48,030
+具有用户权限的用户空间，
+and user space with user privileges,
+
+34
+00:01:48,450 --> 00:01:50,760
+在内核中运行则具有管理员权限，
+after running in the kernel supervisor privileges,
+
+35
+00:01:51,060 --> 00:01:55,230
+硬件的状态将非常重要，
+the state of the hardware is going to be very important,
+
+36
+00:01:55,230 --> 00:01:56,100
+因为我们所做的很多事情
+because a lot of what we're doing
+
+37
+00:01:56,100 --> 00:01:58,200
+都在某种程度上改变了硬件状态，
+is kind of changing the hardware state
+
+38
+00:01:58,200 --> 00:02:01,260
+从适合运行用户代码的状态
+from state appropriate for running user code
+
+39
+00:02:01,260 --> 00:02:04,950
+到适合运行内核代码的状态。
+to a state appropriate for running kernel code.
+
+40
+00:02:06,060 --> 00:02:07,560
+我们所关心的状态，
+The state that we care about,
+
+41
+00:02:07,890 --> 00:02:12,960
+最重要的可能是 32 个用户寄存器。
+the biggest state maybe the 32 user registers.
+
+42
+00:02:13,440 --> 00:02:16,590
+你还记得周一的讨论中提到的这一点，
+As you remember this from monday's discussion,
+
+43
+00:02:16,740 --> 00:02:21,270
+我们有所有的用户寄存器，比如 a0 和 a1 。
+we have all the user registers seems like a0 and a1.
+
+44
+00:02:22,910 --> 00:02:26,030
+RISC-V 总共有 32 个，
+RISC-V has a whole lot of these 32 in total
+
+45
+00:02:26,090 --> 00:02:28,190
+我们可以在用户代码使用它们。
+and we can expect user code to use all of them.
+
+46
+00:02:28,720 --> 00:02:31,720
+如果它们全部使用，将获得最高的性能，
+It's going to get the highest performance if it uses all of them,
+
+47
+00:02:31,720 --> 00:02:33,250
+它们中的许多有特殊的目的，
+many of them have special purposes,
+
+48
+00:02:33,250 --> 00:02:37,510
+我们将看到的，特别有趣的一个是栈指针，
+a few which we'll see a particularly interesting one is the stack pointer,
+
+49
+00:02:37,540 --> 00:02:41,290
+实际上是这 32 个通用寄存器中的一个。
+is actually one of these 32 general purpose registers.
+
+50
+00:02:42,340 --> 00:02:47,230
+好的，我们有这些寄存器，包括栈指针，
+Okay, we have these registers including stack pointer,
+
+51
+00:02:47,350 --> 00:02:51,130
+硬件中有单独的程序计数器寄存器。
+there's a separate program counter register in the hardware.
+
+52
+00:02:51,580 --> 00:02:56,260
+当前模式可以是管理员模式，
+There's the current mode either supervisor
+
+53
+00:02:56,260 --> 00:02:58,300
+当然也可以是用户模式。
+or user and of course it's user mode.
+
+54
+00:02:58,700 --> 00:03:01,160
+我们在 shell 里执行。
+We're executing up in the shell.
+
+55
+00:03:02,840 --> 00:03:05,660
+然后是许多寄存器，特殊寄存器，
+And then there's a bunch of registers special registers
+
+56
+00:03:05,660 --> 00:03:08,120
+它们控制着 CPU 的工作方式，
+that control how the CPU works,
+
+57
+00:03:08,120 --> 00:03:12,890
+比如 satp 寄存器，它包含指向页表的指针，
+like there's the satp register, that contains a pointer to the page table
+
+58
+00:03:12,980 --> 00:03:14,480
+还有其他几个
+and it'll turn out there's a couple of others
+
+59
+00:03:14,480 --> 00:03:16,370
+对这场讨论非常重要，
+that are super important for this discussion,
+
+60
+00:03:16,550 --> 00:03:21,130
+有 stvec ，它是（处理中断）指令的地址，
+there's stvec which is the  address the instruction
+
+61
+00:03:21,130 --> 00:03:24,640
+该指令处理内核中的 trap 。
+that should handle traps in the kernel .
+
+62
+00:03:25,450 --> 00:03:29,800
+有一个名为 SEPC 的寄存器，用于在 trap 期间保存程序计数器，
+There's a register called SEPC for saving the program counter during a trap
+
+63
+00:03:29,800 --> 00:03:34,690
+还有一个叫 sscratch 的寄存器也很重要，
+and we'll see there's another one called sscratch is also very important,
+
+64
+00:03:34,990 --> 00:03:39,010
+这是系统调用时正在运行的计算机的状态，
+so this is the state of the running machine at the time of the system call
+
+65
+00:03:39,010 --> 00:03:41,080
+实际上我们需要改变这种状态，
+and we actually need to change a bunch of this state,
+
+66
+00:03:41,080 --> 00:03:44,950
+或者作为进入内核的一部分对状态执行操作，
+or do things to the state as part of getting into the kernel,
+
+67
+00:03:45,280 --> 00:03:49,720
+并设置为只在内核中运行普通的 C 函数。
+and setting ourself up to run just ordinary C functions in the kernel.
+
+68
+00:03:50,210 --> 00:03:52,580
+当然在 trap 发生的时候，
+Certainly at the instant of the trap,
+
+69
+00:03:52,850 --> 00:03:57,260
+CPU 的所有状态都设置为运行用户代码，而不是内核代码。
+all the state of the CPU is set up to run user code not not kernel code.
+
+70
+00:03:57,880 --> 00:03:59,590
+因此，发生的事情
+So the things that are going to need to happen
+
+71
+00:03:59,590 --> 00:04:01,390
+在某种程度上是我将要谈论的内容的预览，
+is kind of a preview of what I'll talk about,
+
+72
+00:04:01,720 --> 00:04:05,980
+一个是，我们需要保存全部的 32 个寄存器，
+one is that , we need to save all 32 registers,
+
+73
+00:04:05,980 --> 00:04:10,510
+因为我们希望透明地恢复用户代码，
+because we want to resume the user code transparently,
+
+74
+00:04:10,660 --> 00:04:14,110
+特别是在不是用户代码预期的设备中断的情况下，
+particularly if there's a device interrupt which the user code isn't expecting
+
+75
+00:04:14,440 --> 00:04:16,510
+我们希望能够让内核为中断提供服务，
+and we want to be able to have the kernel serve the interrupt,
+
+76
+00:04:16,510 --> 00:04:20,590
+然后恢复用户代码，而不会注意到任何差异，
+and then resume the user code without ever noticing any difference
+
+77
+00:04:20,590 --> 00:04:23,710
+这意味着这 32 个寄存器不能被内核干扰，
+and that means that these 32 registers can't be disturbed by the kernel,
+
+78
+00:04:24,100 --> 00:04:26,680
+从内核开始，你需要使用它拥有的寄存器
+which since the kernel, you need to use the registers
+
+79
+00:04:26,680 --> 00:04:28,000
+将它们全部保存在某个地方，
+it has to save them all somewhere,
+
+80
+00:04:28,000 --> 00:04:29,590
+首先，这些需要保存。
+first these need to be saved.
+
+81
+00:04:30,460 --> 00:04:33,250
+程序计数器也需要保存在某个地方，
+The program counter also needs to be saved somewhere,
+
+82
+00:04:33,310 --> 00:04:36,790
+因为我们需要一个用户寄存器，
+because we need a user, it's almost like a user register,
+
+83
+00:04:36,790 --> 00:04:40,930
+因此，我们需要在用户程序停止的地方继续执行，
+so, we need to continue executing the user program where it left off,
+
+84
+00:04:41,140 --> 00:04:44,020
+我们将模式切换到管理者模式，
+we switch the mode to supervisor mode,
+
+85
+00:04:44,600 --> 00:04:47,960
+因为我们需要使用内核中的各种权限。
+because we need to use various privileges in the kernel.
+
+86
+00:04:48,920 --> 00:04:54,300
+页表指针目前指向用户页表，
+Um just, page table pointer is currently pointing towards the user page table,
+
+87
+00:04:54,300 --> 00:04:58,920
+它只包含用户程序需要的映射。
+which only contains just the mapping is that user programs need.
+
+88
+00:04:59,350 --> 00:05:00,790
+再加上一两个，我们会看到的，
+Plus one or two more as we'll see,
+
+89
+00:05:00,790 --> 00:05:02,950
+但是用户页表不包含
+but the user page table does not contain
+
+90
+00:05:02,950 --> 00:05:05,020
+大量内核数据的映射，
+the mappings for the bulk of the kernel data,
+
+91
+00:05:05,320 --> 00:05:08,980
+因此，在运行大多数内核代码之前，我们需要切换页表。
+so we need to switch page tables before we can run most kernel code.
+
+92
+00:05:10,430 --> 00:05:12,200
+我们需要将栈指针切换
+We need to switch the stack pointer
+
+93
+00:05:12,200 --> 00:05:14,240
+指向内核中某个位置的栈，
+to point to a stack that's in the kernel somewhere,
+
+94
+00:05:14,240 --> 00:05:17,300
+因为我们需要调用 C 函数使用的栈。
+because we need to stack the call C functions on.
+
+95
+00:05:17,920 --> 00:05:18,370
+嗯。
+Um.
+
+96
+00:05:19,830 --> 00:05:21,780
+最后，我们需要跳进，
+And finally, we need to jump into,
+
+97
+00:05:21,810 --> 00:05:22,770
+一旦我们把这些都设置好了，
+once we've set all this up
+
+98
+00:05:22,770 --> 00:05:24,900
+并将所有这些资源
+and switched all this all these resources
+
+99
+00:05:24,900 --> 00:05:27,420
+转换为适合在内核中使用的资源，
+to be appropriate for use in the kernel,
+
+100
+00:05:27,540 --> 00:05:29,640
+我们需要跳到内核 C 代码，
+we need to jump to kernel C code,
+
+101
+00:05:29,640 --> 00:05:32,160
+一旦我们进入 C 代码，
+and once we're in C code,
+
+102
+00:05:32,520 --> 00:05:36,660
+事情就像往常一样，
+life is much more sort of business as usual,
+
+103
+00:05:36,660 --> 00:05:38,700
+我们只是在内核中运行 C 程序，
+we're just running C program in this kernel,
+
+104
+00:05:38,940 --> 00:05:40,560
+至少到目前为止，
+and so far today at least,
+
+105
+00:05:40,560 --> 00:05:44,460
+我们稍后会讨论内核中 C 代码做了什么，
+we'll talk about what the kernel does C code later,
+
+106
+00:05:44,490 --> 00:05:46,680
+但今天的讨论是
+but today the discussion is really
+
+107
+00:05:46,680 --> 00:05:49,140
+如何从用户空间进入内核，
+how to get from user space into the kernel into a position,
+
+108
+00:05:49,140 --> 00:05:52,680
+在那里我们可以在内核中运行 C 代码。
+where we can run C code in the kernel.
+
+109
+00:05:53,510 --> 00:05:55,340
+有几个高层次的目标，
+There's a couple of high-level goals,
+
+110
+00:05:55,340 --> 00:05:57,920
+这限制了我们在这方面的设计选择，
+that constrain our design options for this,
+
+111
+00:05:58,310 --> 00:06:00,860
+一个是为了安全和隔离，
+one is that for security and isolation,
+
+112
+00:06:00,860 --> 00:06:02,090
+我们不想让
+we really don't want to let
+
+113
+00:06:02,090 --> 00:06:06,140
+用户代码干扰这个用户内核转换，
+user code interfere with this user kernel transition,
+
+114
+00:06:06,140 --> 00:06:08,270
+在某种程度上可能会破坏安全
+in a way that could be damaging to security
+
+115
+00:06:08,390 --> 00:06:10,250
+所以这意味着，
+and so that means that's
+
+116
+00:06:10,250 --> 00:06:14,630
+trap 中涉及的各种硬件和内核机制，
+sort of hardware and kernel mechanisms that are involved in traps
+
+117
+00:06:14,750 --> 00:06:17,750
+不能指望任何来自用户空间的东西，
+really can't count on anything from user space,
+
+118
+00:06:17,870 --> 00:06:20,450
+我们不能对这些寄存器做任何假设，
+you know we can't assume anything about these registers,
+
+119
+00:06:20,450 --> 00:06:23,270
+它们可能包含恶意值，
+they could be just filled with terribly malicious values,
+
+120
+00:06:23,480 --> 00:06:26,180
+所以基本上 xv6 trap 处理程序
+so basically the xv6 trap handler
+
+121
+00:06:26,180 --> 00:06:30,200
+甚至不会真正查看这些寄存器，只是将它们保存起来。
+doesn't really even look at these registers just saves them away .
+
+122
+00:06:31,340 --> 00:06:34,070
+好的，所以我们要小心，
+Okay so we're going to want to be careful
+
+123
+00:06:34,340 --> 00:06:36,470
+在 trap 机制期间
+to preserve isolation during this trap mechanism
+
+124
+00:06:36,470 --> 00:06:39,660
+针对故意恶意的用户代码保持隔离，
+against intentionally malicious user code
+
+125
+00:06:39,900 --> 00:06:41,880
+另一件重要的事是，
+and the other thing that's important is that,
+
+126
+00:06:42,060 --> 00:06:44,130
+我们希望这个对用户代码是透明的，
+we want to be transparent to user code,
+
+127
+00:06:44,160 --> 00:06:46,350
+我们希望能够处理 trap ，
+we'd like to be able to take the trap
+
+128
+00:06:46,350 --> 00:06:47,520
+并在内核中处理我们的事情，
+and do our business in the kernel
+
+129
+00:06:47,520 --> 00:06:48,930
+并恢复用户代码，
+and resume the user code
+
+130
+00:06:48,930 --> 00:06:51,690
+而用户代码不会注意到发生了什么。
+without it ever having to notice that anything funny happened.
+
+131
+00:06:52,060 --> 00:06:54,100
+这是为了让编写用户代码变得更容易。
+And that's just to make it easier to write user code.
+
+132
+00:06:56,770 --> 00:06:59,170
+而且，要注意的是，
+And, something to note to,
+
+133
+00:06:59,200 --> 00:07:01,720
+我们这里关心的是隔离安全，
+we care about isolation security here,
+
+134
+00:07:01,720 --> 00:07:03,310
+今天我们想谈谈。
+today we're just gonna talk about the.
+
+135
+00:07:04,690 --> 00:07:07,360
+这些涉及进入内核的安全方面，
+Those sort of aspects of security that involves getting into the kernel,
+
+136
+00:07:07,390 --> 00:07:09,940
+当然，这个系统调用实现，
+but of course this system called implementations,
+
+137
+00:07:09,940 --> 00:07:12,520
+内核中实际的 write 实现，
+the actual write implementation in the kernel,
+
+138
+00:07:12,670 --> 00:07:15,280
+此外，内核中的所有内容都必须小心，
+also everything in the kernel has to be careful,
+
+139
+00:07:15,310 --> 00:07:17,500
+也必须写得仔细和安全，
+has to be written carefully and securely also,
+
+140
+00:07:18,310 --> 00:07:22,870
+因此，即使这种向内核的转换是完全安全的，
+so even if this transition into the kernel is perfectly secure,
+
+141
+00:07:22,900 --> 00:07:25,810
+内核的其他部分都必须安全地编写，
+the whole rest of the kernel has to be written securely
+
+142
+00:07:25,810 --> 00:07:28,930
+而且要注意，用户代码可能会试图欺骗它。
+and so mindful that user code may be trying to trick it.
+
+143
+00:07:30,810 --> 00:07:34,410
+我想说的一件特别重要的事情是，
+A particularly important thing I want to talk about is
+
+144
+00:07:34,410 --> 00:07:38,190
+模式标志控制的是什么，
+what it is that the mode flag controls,
+
+145
+00:07:39,180 --> 00:07:41,400
+模式可以是用户模式或管理员模式，
+this mode is either user or supervisor,
+
+146
+00:07:41,400 --> 00:07:44,040
+当然，用户可以使用任何用户空间，
+of course user whatever user space
+
+147
+00:07:44,040 --> 00:07:47,340
+模式标志被设置管理员，则在内核中执行，
+and the mode flag is set to supervisor were executing in the kernel,
+
+148
+00:07:47,460 --> 00:07:52,710
+但重要的是要确切地知道我们获得了什么特权，
+but it's important to know exactly what privileges we gain,
+
+149
+00:07:52,740 --> 00:07:55,080
+通过将模式从用户改变为管理员，
+by changing the mode from user to supervisor,
+
+150
+00:07:55,140 --> 00:07:56,790
+结果是。
+and it turns out .
+
+151
+00:07:57,320 --> 00:08:00,650
+这些额外的特权是相当有限的，
+These extra privileges are fairly restrictive,
+
+152
+00:08:00,920 --> 00:08:03,260
+这是你在管理员模式下可以做的，
+that is what you can do in supervisor mode,
+
+153
+00:08:03,260 --> 00:08:04,880
+在用户模式下不能做，
+you couldn't do in user mode,
+
+154
+00:08:05,180 --> 00:08:11,030
+可能不是你想的那样的特权，
+not maybe as a privilege as you might think so,
+
+155
+00:08:11,030 --> 00:08:14,750
+这正是它所控制的管理员模式。
+this is supervisor mode exactly what it controls.
+
+156
+00:08:15,760 --> 00:08:22,240
+它所做的一件事是你可以读写控制寄存器。
+One thing it does is you can now read and write the control registers.
+
+157
+00:08:23,110 --> 00:08:26,720
+而且，如果你在管理员模式，
+And, that is, if your supervisor mode,
+
+158
+00:08:26,720 --> 00:08:30,520
+你可以读写 SATP ，即页表指针，
+you can read and write satp, the page table pointer,
+
+159
+00:08:30,520 --> 00:08:34,570
+这个 stvec 指针，控制 trap 进入内核的位置，
+this stvec pointer which controls where traps going the kernel,
+
+160
+00:08:36,080 --> 00:08:39,290
+这个寄存器在 trap 期间保存程序计数器，
+This register that holds the save program counter during a trap
+
+161
+00:08:39,290 --> 00:08:42,450
+到 sscatch 寄存器加某些值，
+in sscratch register plus a few others,
+
+162
+00:08:42,930 --> 00:08:45,120
+因此管理员模式可以读写这些寄存器，
+so supervisor could read and write these registers
+
+163
+00:08:45,120 --> 00:08:46,230
+而用户代码则不能。
+and user code could not.
+
+164
+00:08:46,590 --> 00:08:50,160
+另一件事，管理员模式代码可以做的是，
+The only other thing, supervisor code can do is,
+
+165
+00:08:50,250 --> 00:08:53,070
+它可以使用 PTE ，
+it can use ptes,
+
+166
+00:08:54,620 --> 00:08:58,010
+设置了 PTE_U 标志。
+they have the pte_u flag set.
+
+167
+00:08:59,100 --> 00:08:59,910
+我不知道你是否还记得，
+I don't know if you remember
+
+168
+00:08:59,910 --> 00:09:02,640
+但是在每个页表条目上都有
+but there's this pte_u flag be set or not set
+
+169
+00:09:02,640 --> 00:09:04,230
+这个 PTE_U 标志被设置或不被设置。
+on each page table entry.
+
+170
+00:09:05,870 --> 00:09:07,880
+带有此标志的，
+A flag that has this,
+
+171
+00:09:07,880 --> 00:09:10,010
+不好意思，
+sorry, sorry,
+
+172
+00:09:10,040 --> 00:09:11,480
+可以使用 PTE 。
+can use ptes.
+
+173
+00:09:12,450 --> 00:09:15,480
+它们没有设置 PTE_U 标志，
+They don't have the pte_u flag set,
+
+174
+00:09:15,510 --> 00:09:17,430
+如果 PTE_U 标志被设置，
+if the pte_u flag is set,
+
+175
+00:09:17,430 --> 00:09:19,980
+这意味着用户代码可以使用该页表项，
+it means that user code can use that page table entry,
+
+176
+00:09:20,670 --> 00:09:22,530
+如果在页表条目中没有设置该标志，
+if this flag isn't set in a page table entry,
+
+177
+00:09:22,530 --> 00:09:24,990
+这意味着只有管理者模式才能使用它。
+it means only supervisor mode can use it.
+
+178
+00:09:25,560 --> 00:09:29,040
+你会发现这有点重要，
+And you will see that's important a little bit,
+
+179
+00:09:29,040 --> 00:09:32,490
+但是，这些确实是管理者模式唯一可以做的事情，
+but, these are really the only things that supervisor mode can do
+
+180
+00:09:32,490 --> 00:09:34,020
+它不能特别做其他任何事情，
+it can't do anything else in particular,
+
+181
+00:09:34,020 --> 00:09:37,980
+例如，管理者模式代码不能
+for example a supervisor mode code can't
+
+182
+00:09:37,980 --> 00:09:40,620
+读写任意地址，
+just read and write arbitrary addresses,
+
+183
+00:09:40,810 --> 00:09:42,520
+比如物理地址，
+say physical addresses,
+
+184
+00:09:42,520 --> 00:09:46,360
+管理者模式被强制通过页表（访问内存），
+you know supervisor mode is forced to go through the page table
+
+185
+00:09:46,420 --> 00:09:47,650
+就像任何其他代码一样，
+just like any other code,
+
+186
+00:09:47,740 --> 00:09:49,960
+如果虚拟地址不在页面中，
+if a virtual address isn't in the page,
+
+187
+00:09:49,990 --> 00:09:52,660
+不在 satp 指向的当前页表中，
+isn't in the current page table pointed to by satp,
+
+188
+00:09:53,050 --> 00:09:56,920
+或者它设置了 PTE_U 标志，
+or if it has a pte_u bit flags set,
+
+189
+00:09:56,950 --> 00:09:58,390
+这意味着它是用户 PTE ，
+which means it's the user pte,
+
+190
+00:09:58,390 --> 00:10:01,300
+则管理员模式不能使用该地址，
+then supervisor mode cannot use that address,
+
+191
+00:10:01,540 --> 00:10:07,570
+所以我们在管理模式下也被限制到任何虚拟地址，
+so we're even in supervisor mode were restricted to whatever virtual address,
+
+192
+00:10:07,850 --> 00:10:10,490
+在当前页表上设置了虚拟地址。
+virtual addresses were set up on the current page table.
+
+193
+00:10:11,990 --> 00:10:15,890
+就是这样，所以我们就被允许做这些事情，
+And that's it, so we were just allowed to do these things,
+
+194
+00:10:15,890 --> 00:10:17,000
+因此，我们将看到，
+so you know we'll see,
+
+195
+00:10:17,330 --> 00:10:22,160
+trap 代码可以做什么，这是一个重要的约束。
+as a significant constraint on what the trap code can do.
+
+196
+00:10:22,760 --> 00:10:26,230
+当我们进入内核的时候，什么都不能做，
+When we're entering the kernel, can't do just anything,
+
+197
+00:10:27,070 --> 00:10:28,240
+预习一下，
+going to preview a bit,
+
+198
+00:10:28,480 --> 00:10:32,740
+这节课中，我将在 gdb 中花大部分时间，
+I'm gonna spend most of this lecture in gdb ,
+
+199
+00:10:32,740 --> 00:10:35,080
+跟踪整个执行过程
+actually tracing through the execution
+
+200
+00:10:35,560 --> 00:10:39,520
+内核中的 trap 条目的返回值，
+of a trap entry into the kernel in return ,
+
+201
+00:10:39,760 --> 00:10:43,240
+这里有很多细节，以便。
+this can be a lot of details in order to.
+
+202
+00:10:45,300 --> 00:10:50,220
+也许对你有点帮助，看看接下来会发生什么，
+Um, maybe sort of help you, see head what's coming,
+
+203
+00:10:50,940 --> 00:10:56,950
+我们将跟踪 shell 调用以进行写入，
+we're gonna be tracing a shell's call to a write,
+
+204
+00:10:57,160 --> 00:10:58,210
+从 shell 的角度来看，
+which from the shell's point of view
+
+205
+00:10:58,210 --> 00:11:00,760
+只是作为 shell 的一部分的 C 函数调用，
+is just a C function call as part of the shell,
+
+206
+00:11:01,030 --> 00:11:03,700
+实际上 write 实现了这一点，
+in fact write makes this,
+
+207
+00:11:03,700 --> 00:11:05,920
+write 会发出系统调用，
+write issues a system call
+
+208
+00:11:05,950 --> 00:11:07,810
+通过发出 ecall 指令，
+by issuing the ecall instruction,
+
+209
+00:11:09,680 --> 00:11:15,140
+直接跳转到内核管理者模式，
+which switch is another kernel supervisor mode where that goes immediately,
+
+210
+00:11:15,140 --> 00:11:17,000
+这是第一条指令
+that is the very first instruction
+
+211
+00:11:17,300 --> 00:11:19,610
+在内核和管理者模式中执行，
+is executed in the kernel and supervisor mode,
+
+212
+00:11:19,790 --> 00:11:24,800
+是用汇编语言编写的函数 uservec 。
+is a function written in assembler called uservec.
+
+213
+00:11:26,140 --> 00:11:28,870
+这是 trampoline 的一部分，
+And this is in the part of the trampoline,
+
+214
+00:11:33,400 --> 00:11:36,160
+在内核代码的 trampoline.S 中，
+in trampoline.S in the kernel source,
+
+215
+00:11:36,160 --> 00:11:37,930
+所以第一个被执行的代码，
+so the very first code that's executed,
+
+216
+00:11:37,930 --> 00:11:40,090
+是这个 uservec 汇编函数。
+this uservec assembler function.
+
+217
+00:11:40,620 --> 00:11:45,240
+接下来，汇编函数跳转到 C 代码，
+And next, that assembler function jumps into C code,
+
+218
+00:11:45,240 --> 00:11:49,670
+特别是 trap.c 中名为 usertrap 的函数。
+in particular a function called usertrap, in trap.c.
+
+219
+00:11:50,850 --> 00:11:55,260
+现在我们开始 C 代码，所以事情就容易理解了，
+And now we're getting into C code, so things are much easier to understand,
+
+220
+00:11:55,440 --> 00:11:58,680
+usertrap 执行系统调用，
+usertrap sees oh we're executing a system call,
+
+221
+00:11:58,990 --> 00:12:00,730
+它调用一个名为 syscall 的函数。
+and it calls a function called syscall,
+
+222
+00:12:02,580 --> 00:12:04,740
+它查看表中的系统调用号，
+which looks at the system call number in a table
+
+223
+00:12:04,890 --> 00:12:07,980
+并调用内核内的特定函数，
+and calls the particular function inside the kernel
+
+224
+00:12:07,980 --> 00:12:11,910
+它实现了调用我们系统，就是 write ，
+that implements that system calling for us it's going to be write
+
+225
+00:12:11,910 --> 00:12:13,590
+write 来做这件事，
+and write does this business it happens,
+
+226
+00:12:13,590 --> 00:12:19,020
+安排写入的任何字节显示在控制台上，
+to arrange for whatever bytes were written to appear on the console
+
+227
+00:12:20,130 --> 00:12:24,300
+并且当它完成时，返回到这个系统调用函数，
+and when it's finished it returns back up to this system call function
+
+228
+00:12:24,660 --> 00:12:28,080
+然后系统调用函数返回到用户空间，
+and then the system call function in order to return back to user space,
+
+229
+00:12:28,080 --> 00:12:29,370
+因为我们想恢复。
+because we want to resume.
+
+230
+00:12:29,740 --> 00:12:32,890
+在这个 ecall 之后，有很多东西，
+After this ecall, there's a bunch of stuff,
+
+231
+00:12:32,920 --> 00:12:34,270
+是必须要发生的。
+we'll see, that has to happen.
+
+232
+00:12:34,790 --> 00:12:36,440
+为了返回用户空间，
+In order to return to user space,
+
+233
+00:12:36,440 --> 00:12:41,530
+有一个单独的函数 usertrapret ，
+there's a separate function called usertrapret,
+
+234
+00:12:42,900 --> 00:12:45,090
+它是用 C 写的，在 trap.c 中，
+it's written in C, it's in trap.c,
+
+235
+00:12:45,090 --> 00:12:48,450
+这一部分确实会返回到用户空间，
+that does the part of this return to user space,
+
+236
+00:12:48,450 --> 00:12:50,460
+这在 C 代码中很方便，
+that's convenient to do in C code,
+
+237
+00:12:50,550 --> 00:12:54,240
+有一些最后的事情只能在汇编代码中完成，
+there's some final things that really can only be done in assembly code ,
+
+238
+00:12:55,000 --> 00:12:56,710
+这方面的代码是在汇编程序期间编写的，
+the code for that is during an assembler
+
+239
+00:12:56,710 --> 00:13:00,400
+在这个 trampoline 页面中，有一个名为 userret 的函数。
+and again in this trampoline page in a function called userret.
+
+240
+00:13:03,710 --> 00:13:07,790
+最后的汇编工作，
+The last last assembly stuff has to happen
+
+241
+00:13:07,790 --> 00:13:11,680
+最后这个汇编函数执行，
+and finally,  this assembly function issues,
+
+242
+00:13:11,680 --> 00:13:14,620
+机器指令返回到用户空间，
+the machine instruction that returns back in user space
+
+243
+00:13:14,620 --> 00:13:19,030
+并在 ecall 之后恢复执行。
+and resume execution after the ecall.
+
+244
+00:13:20,770 --> 00:13:22,840
+好的，有没有什么问题，
+Right, does anybody want to ask a question,
+
+245
+00:13:22,840 --> 00:13:25,960
+我要换成用 gdb 查看代码，
+I'm about just switch into looking stuff with gdb,
+
+246
+00:13:26,860 --> 00:13:29,080
+关于高层次图示有什么问题吗？
+any questions about the sort of high-level picture?
+
+247
+00:13:36,970 --> 00:13:38,980
+好的，我要进行。
+Alright I am going to.
+
+248
+00:13:40,820 --> 00:13:41,570
+对不起，我听不清。
+Sorry I can't.
+
+249
+00:13:42,270 --> 00:13:46,650
+嗯，我想一下， vm.c 函数是在什么模式下运行？
+Um, let me see what mode are vm.c functions running?
+
+250
+00:13:47,690 --> 00:13:50,660
+vm.c 中的函数，其中的所有内容都是内核的一部分，
+vm.c functions, everything in there is part of the kernel,
+
+251
+00:13:50,660 --> 00:13:52,100
+它运行在管理者模式。
+and it's running supervisor mode.
+
+252
+00:13:56,200 --> 00:13:56,620
+明白了。
+Got it.
+
+253
+00:13:57,700 --> 00:13:58,210
+好的。
+Yeah.
+
+254
+00:14:00,440 --> 00:14:03,350
+好的，有人问为什么这些函数要这样命名？
+OK, somebody asked why these functions are named this way?
+
+255
+00:14:03,710 --> 00:14:04,340
+嗯。
+Um.
+
+256
+00:14:05,960 --> 00:14:07,760
+命名有点灾难，
+The naming is a bit of a disaster
+
+257
+00:14:07,760 --> 00:14:11,090
+明年我决定让它们变得更好理解。
+and for next year, I'm resolved to make them more rational.
+
+258
+00:14:13,830 --> 00:14:17,280
+我想命名问题可能与寄存器的名称有关，
+I think the naming question might have referred to the name of the registers
+
+259
+00:14:17,280 --> 00:14:18,840
+在前一块页上显示的寄存器。
+in the previous board.
+
+260
+00:14:19,740 --> 00:14:21,420
+管理者模式都是以 s 开头。
+They all start s for supervisor.
+
+261
+00:14:24,180 --> 00:14:28,680
+另外，有五个人选了这些名字。
+Other than it, there's five people pick these names.
+
+262
+00:14:29,040 --> 00:14:34,320
+有人问 vm.c 函数不是直接访问物理内存吗？
+Somebody's asking don't vm.c functions access physical memory directly?
+
+263
+00:14:34,380 --> 00:14:35,760
+这是绝对正确的，
+That's absolutely true,
+
+264
+00:14:35,880 --> 00:14:37,380
+它们被允许这样做的原因是，
+the reason why they're allowed to do that
+
+265
+00:14:37,380 --> 00:14:42,240
+内核在页表中精心设置了直接的映射，
+though is that the kernel carefully sets up direct mapping's in the page table,
+
+266
+00:14:42,510 --> 00:14:44,640
+页表中有很多 PTE ，
+there's been many many ptes in the page table,
+
+267
+00:14:44,640 --> 00:14:50,340
+这导致每当内核试图读取或写入物理地址时，
+which cause, whenever the kernel tries to read or write a physical address,
+
+268
+00:14:50,340 --> 00:14:54,360
+它实际上是由内核页表转换的虚拟地址
+it actually is a virtual address that's translated by the kernel page table
+
+269
+00:14:54,360 --> 00:14:58,110
+并且是与发出的虚拟地址相等的物理地址。
+and is a physical address that's equal to the virtual address who was issued.
+
+270
+00:14:58,760 --> 00:15:01,130
+所以这在内核中非常方便，
+So it's like super convenient in the kernel,
+
+271
+00:15:01,370 --> 00:15:03,680
+一旦你使用内核页表，
+what once you're using the kernel page table,
+
+272
+00:15:03,710 --> 00:15:06,020
+这个内核有所有这些直接映射，
+this kernel has all these direct mappings,
+
+273
+00:15:06,260 --> 00:15:08,450
+但在我们准备好之前，
+but until we've set up,
+
+274
+00:15:08,940 --> 00:15:13,410
+当前直到 trap 机制切换到内核页表，
+the current until the trap machinery has switched to the kernel page table,
+
+275
+00:15:13,500 --> 00:15:15,180
+这些映射都不可用，
+none of those mappings are available
+
+276
+00:15:15,780 --> 00:15:18,930
+在内核 trap 代码切换到内核页表之前，
+until the kernel trap code is switched to the kernel page table,
+
+277
+00:15:18,930 --> 00:15:20,220
+我们仍在使用用户页表，
+we're still using the user page table
+
+278
+00:15:20,220 --> 00:15:24,630
+对于物理地址，它没有这些方便的映射。
+which has none of these convenient mappings for physical addresses.
+
+279
+00:15:29,580 --> 00:15:30,600
+好的。
+Okay.
+
+280
+00:15:34,400 --> 00:15:35,690
+我可以问个问题吗？
+Can I ask a question?
+
+281
+00:15:36,140 --> 00:15:36,770
+请问。
+Please.
+
+282
+00:15:37,220 --> 00:15:44,730
+嗯，我不知道这可能跟刚才说的不太相关，
+Um, so,  I don't know this is maybe not exactly relevant to what was just said,
+
+283
+00:15:44,730 --> 00:15:47,970
+但是，读写系统调用，
+but um, the read and write system calls
+
+284
+00:15:47,970 --> 00:15:52,620
+与内存存储相比是相当昂贵的，
+right like those are pretty expensive compared to just the memory store,
+
+285
+00:15:52,620 --> 00:15:55,110
+因为你必须实际切换模式并来回切换，
+because you have to actually switch mode and go back and forth,
+
+286
+00:15:55,410 --> 00:15:57,420
+有没有可能就像，
+would it be possible to just like,
+
+287
+00:15:57,800 --> 00:16:02,030
+当你打开文件时不是取回文件描述符，
+instead of when when you open a file instead of getting back a file descriptor,
+
+288
+00:16:02,030 --> 00:16:07,100
+而是可以使用系统调用来调用它来获取页表映射，
+that you call with a system call to get a page table mapping,
+
+289
+00:16:07,190 --> 00:16:10,130
+然后你只需写到某个地址，
+and then you would just write to a certain address,
+
+290
+00:16:10,340 --> 00:16:13,040
+刚刚映射到设备的（的地址），
+that's just mapped to the device,
+
+291
+00:16:13,280 --> 00:16:14,870
+你可以设置这些限制，
+and you can set up the restrictions,
+
+292
+00:16:14,870 --> 00:16:19,910
+这样程序就只能写入，就像文件描述符一样，
+so that the program can only write to a, to like a file descriptor
+
+293
+00:16:19,910 --> 00:16:23,810
+它被允许通过虚拟页表映射，
+that it's allowed to which is allowed to through the virtual page table mapping,
+
+294
+00:16:23,810 --> 00:16:25,670
+而不是跳回内核。
+instead of jumping to the kernel back.
+
+295
+00:16:26,210 --> 00:16:27,800
+是的，这是一个很好的观察，
+Yeah that's a good observation
+
+296
+00:16:27,830 --> 00:16:31,310
+事实上，许多操作系统都提供
+and indeed many operating systems provide this
+
+297
+00:16:31,310 --> 00:16:33,830
+what's called memory mapped file access,
+
+298
+00:16:33,830 --> 00:16:37,860
+其中与文件内容相对应的映射页，
+where indeed the map pages that correspond to the file contents
+
+299
+00:16:37,950 --> 00:16:41,490
+进入用户虚拟地址空间，
+into the into your virtual into user virtual address space,
+
+300
+00:16:41,490 --> 00:16:43,770
+所以你可以直接通过内存读取或写入它们，
+so you can read or write them directly through memory,
+
+301
+00:16:44,190 --> 00:16:46,950
+事实上，你将在几周内的
+in fact you'll be implementing a version of this
+
+302
+00:16:46,950 --> 00:16:49,860
+mmap 实验中实现此版本。
+in the mmap lab, in a couple of weeks.
+
+303
+00:16:51,230 --> 00:16:54,710
+事实上，正如你所说的那样，它要快得多，
+And indeed as you imply it's a good deal faster,
+
+304
+00:16:54,980 --> 00:16:56,810
+对于许多程序的调用读取和写入。
+for many programs that calling read and write.
+
+305
+00:16:59,100 --> 00:16:59,610
+好的。
+Okay.
+
+306
+00:17:02,380 --> 00:17:06,070
+我要切换到 gdb 了。
+I am switch to the gdb world.
+
+307
+00:17:19,540 --> 00:17:21,490
+好的，现在大家都应该，
+Alright, at this point, everybody should, um,
+
+308
+00:17:26,200 --> 00:17:28,240
+能看到我的屏幕共享。
+see my screen share.
+
+309
+00:17:29,660 --> 00:17:30,320
+嗯。
+Um.
+
+310
+00:17:31,210 --> 00:17:34,150
+我们将查看 xv6 系统的 write 。
+We're going to watch an xv6 system called the write.
+
+311
+00:17:34,770 --> 00:17:37,470
+shell 对其初始提示符的写入，
+The shell's write of its initial prompt,
+
+312
+00:17:37,890 --> 00:17:39,120
+在系统中使用的方式，
+make its way through the system,
+
+313
+00:17:39,120 --> 00:17:44,460
+你可以在 sh.c 中看到发起此操作的用户代码。
+you can see the user code that initiates this in sh.c .
+
+314
+00:17:44,960 --> 00:17:48,670
+我确信在进行 write 系统调用，
+I'm sure that was just making the write system call,
+
+315
+00:17:49,090 --> 00:17:58,270
+使用美元符号，提示我们启动 gdb 。
+with this dollar sign, prompt we fire up gdb.
+
+316
+00:18:03,330 --> 00:18:09,270
+太好了，那么当用户代码在 shell 调用 write 时实际发生了什么呢？
+Excellent, so what actually happens when user code when the shell calls write,
+
+317
+00:18:09,270 --> 00:18:11,850
+write 只是一个库函数，
+write is just a it's a library function
+
+318
+00:18:11,850 --> 00:18:17,160
+是一部分，连接到 shell ，
+that's part of the, that's linked into the shell,
+
+319
+00:18:17,520 --> 00:18:23,500
+你可以在 usys.S 中看到它的源码。
+ and you can see the source for it in usys.S.
+
+320
+00:18:24,660 --> 00:18:26,520
+就是这些指令，
+So it's this couple of instructions,
+
+321
+00:18:26,520 --> 00:18:30,120
+这是 write 函数的实现，
+here's the implementation of the write function,
+
+322
+00:18:30,390 --> 00:18:31,680
+shell 实际上调用的，
+that the shell is actually calling,
+
+323
+00:18:32,100 --> 00:18:34,950
+这是一个非常短的函数，
+and this is a very short function,
+
+324
+00:18:35,070 --> 00:18:39,300
+它所做的就是将一个数字 SYS_write 加载到 a7 中，
+all it's doing is loading into a7 a number SYS_write,
+
+325
+00:18:39,300 --> 00:18:42,840
+它定义为 16 ，这告诉内核，
+it's just symbolically defined to be sixteen that tells the kernel,
+
+326
+00:18:43,350 --> 00:18:48,000
+我想运行第 16 个系统调用，就是 write 。
+I want to run the sixteenth system call which happens to be write.
+
+327
+00:18:48,340 --> 00:18:51,880
+然后这个函数使用 ecall 指令，
+And then this little function uses the ecall instruction,
+
+328
+00:18:52,120 --> 00:18:55,780
+实际上就是将代码转入内核，
+which is what actually gets the code into the kernel,
+
+329
+00:18:55,810 --> 00:18:59,860
+内核做这件事，然后当内核完成时，
+the kernel does this thing and then when the kernel can be done,
+
+330
+00:18:59,860 --> 00:19:04,690
+它返回到用户空间，执行 ecall 之后的指令，
+it returns back into user space to execute the instruction after the ecall,
+
+331
+00:19:04,840 --> 00:19:08,410
+这里是返回到 shell 的 write 操作，
+which is that write that returns back to the shell,
+
+332
+00:19:09,010 --> 00:19:11,710
+从 write 库函数返回到 shell 中。
+returns from that write library function back into the shell.
+
+333
+00:19:12,960 --> 00:19:13,980
+所以我想要做的
+So what I'd like to do
+
+334
+00:19:13,980 --> 00:19:15,870
+是展示系统调用的一部分，
+in order to show the system call part of this,
+
+335
+00:19:15,990 --> 00:19:20,670
+我将首先在 ecall 指令上设置一个断点，
+I'm going to start by putting a break point on that ecall instruction,
+
+336
+00:19:21,120 --> 00:19:24,120
+我们当然需要知道它的地址，
+and we need to know its address, of course,
+
+337
+00:19:24,420 --> 00:19:27,390
+我们可以通过查看 sh.asm 找到，
+but we can find that out by looking in sh.asm,
+
+338
+00:19:27,390 --> 00:19:30,690
+是 xv6 编译过程产生的，
+which xv6 compilation process produces,
+
+339
+00:19:32,420 --> 00:19:36,080
+sh.asm 是汇编代码，
+sh.asm, there's assembly code
+
+340
+00:19:36,080 --> 00:19:42,690
+包含 shell 指令地址，
+with addresses of the, the instructions for the shell,
+
+341
+00:19:43,050 --> 00:19:45,480
+我将在 ecall 指令上设置一个断点，
+I'm going to put a break point on the ecall instruction,
+
+342
+00:19:45,480 --> 00:19:49,230
+即地址 0xde6 。
+which is d address de6.
+
+343
+00:19:51,310 --> 00:19:54,250
+我要开始运行 xv6 ，
+Actually, I'm gonna actually start xv6 running,
+
+344
+00:19:54,670 --> 00:19:58,570
+我希望让系统在 shell 中断，
+and I'm hoping to have the system break in the shell
+
+345
+00:19:58,630 --> 00:20:00,280
+在执行 ecall 之前。
+just before executing ecall.
+
+346
+00:20:02,100 --> 00:20:05,580
+好的，太好了，现在你可以从 gdb 上看到，
+Alright, excellent, now, you can see from gdb,
+
+347
+00:20:05,580 --> 00:20:09,480
+我们即将执行那个 ecall 。
+we're about to about to execute that ecall.
+
+348
+00:20:10,330 --> 00:20:15,880
+让我们检查一下，我们是不是在想的那里，
+Let's just check, there we are where we think we are,
+
+349
+00:20:16,240 --> 00:20:18,520
+打印，我们可以打印程序计数器，
+print, we can print the program counter,
+
+350
+00:20:18,730 --> 00:20:21,040
+就是我们设置断点的 0xde6 。
+0xde6 just what we asked for.
+
+351
+00:20:24,750 --> 00:20:29,430
+我们也可以把所有的 32 个寄存器打印出来。
+Um, we can also print the all 32 registers,
+
+352
+00:20:30,060 --> 00:20:32,340
+其中一些值，
+and some of these values
+
+353
+00:20:32,340 --> 00:20:34,410
+我们不知道，也不关心它们是什么，
+whatever we don't know we don't care what they are,
+
+354
+00:20:34,440 --> 00:20:39,510
+但是 a0 a1 和 a2 是 shell 传递给 write 的三个参数，
+but a0 a1 and a2 are the three arguments that the shell passed write,
+
+355
+00:20:40,590 --> 00:20:41,490
+所以这些参数是，
+so those arguments are
+
+356
+00:20:41,490 --> 00:20:43,620
+a0 中的文件描述符 2 ，
+a file descriptor two in a0,
+
+357
+00:20:44,040 --> 00:20:48,390
+a1 中指向 shell 要写入的字符缓冲区的指针，
+the pointer to the buffer of characters the shell wants to write in a1
+
+358
+00:20:48,750 --> 00:20:51,570
+以及 a2 中它要写入的字符数。
+and the number of characters it wants to write in a2.
+
+359
+00:20:52,150 --> 00:20:53,620
+我们可以确信，
+And we can convince ourselves
+
+360
+00:20:53,620 --> 00:20:55,900
+查看的代码就是我们想要看的。
+that we're looking at a code we think we're looking at,
+
+361
+00:20:56,820 --> 00:21:03,160
+通过打印 shell 要写入的缓冲区中的字节，
+by actually printing out the bytes in that buffer, the shell wants to write
+
+362
+00:21:03,160 --> 00:21:05,950
+事实上，这是一个美元符号和一个空格，
+and indeed, it's a dollar sign and a space,
+
+363
+00:21:05,950 --> 00:21:10,670
+所以，我们在我们希望在的系统调用。
+so, we're at the system call that we, we hope to be at.
+
+364
+00:21:11,350 --> 00:21:12,250
+需要注意的一件事是
+One thing to notice is
+
+365
+00:21:12,250 --> 00:21:15,790
+程序计数器和堆栈指针都在低地址，
+that the program counter and stack pointer both at low addresses,
+
+366
+00:21:15,910 --> 00:21:17,350
+地址非常接近于零，
+addresses quite close to zero,
+
+367
+00:21:17,350 --> 00:21:21,430
+这强化了我们的信念，
+and just reinforces our belief,
+
+368
+00:21:21,430 --> 00:21:23,410
+我们仍然在用户地址运行，
+that we're still executing in user
+
+369
+00:21:23,410 --> 00:21:26,470
+用户地址空间中的地址都很小，
+and the user address space where all the addresses are quite small,
+
+370
+00:21:26,500 --> 00:21:28,420
+一旦我们到达内核，就会看到地址是，
+once we get to the kernel's, see the addresses are,
+
+371
+00:21:28,800 --> 00:21:31,680
+内核在内存中的要高得多。
+the kernel is actually loaded much much higher in memory .
+
+372
+00:21:35,020 --> 00:21:40,930
+好的，系统调用的要点是要切换很多状态，
+Okay, we, the point of the system calls to switch around a lot of state,
+
+373
+00:21:40,930 --> 00:21:44,170
+必须切换的最重要的状态之一
+one of the most important pieces of state that has to get switched
+
+374
+00:21:44,170 --> 00:21:47,740
+在它被切换之前，我们不得不使用当前的页表。
+and we have to live with before it's switched is the current page table,
+
+375
+00:21:48,280 --> 00:21:51,400
+我们可以查看 satp 。
+of course we can look at satp.
+
+376
+00:21:52,860 --> 00:21:56,430
+但是我们在那里得到的只是物理内存页表中的地址，
+But all we get there is the address in physical memory page tables,
+
+377
+00:21:56,430 --> 00:21:57,810
+并没有告诉我们
+doesn't actually tell us much about
+
+378
+00:21:57,840 --> 00:22:01,230
+页表的映射是什么样子，
+what the mappings are with the page table looks like ,
+
+379
+00:22:01,260 --> 00:22:06,960
+幸好 QEMU 有办法打印当前页表，
+luckily there's a way in QEMU ask it to print the current page table
+
+380
+00:22:06,990 --> 00:22:12,990
+如果我按下 control-a c ，我进入 QEMU 监视器或控制台，
+and if I print control-a c, I get into the QEMU monitor or console,
+
+381
+00:22:13,410 --> 00:22:18,550
+如果我输入 info mem ，它会打印完整的页表，
+and if I then type info mem, it'll print the complete page table,
+
+382
+00:22:19,150 --> 00:22:21,010
+{}这是一个非常小的页表，
+this is a very small page table
+
+383
+00:22:21,010 --> 00:22:23,050
+只包含 6 个映射，
+that contains only six mappings,
+
+384
+00:22:23,650 --> 00:22:25,780
+当然这是 shell 的页表。
+of course it's the page table for the shell.
+
+385
+00:22:26,290 --> 00:22:28,810
+Shell 是一个相当小的程序，
+Shell's a pretty small program
+
+386
+00:22:29,080 --> 00:22:33,850
+这 6 个映射是按 shell 指令的顺序排列的，
+and these six mappings are in order the shell's instructions,
+
+387
+00:22:34,230 --> 00:22:40,850
+shell 的数据，访问栈保护页的无效页，
+the shell's data, an invalid page which access the stack guard page,
+
+388
+00:22:40,850 --> 00:22:43,250
+以防 shell 试图使用过多的栈空间，
+in case the shell tries to use too much stack space
+
+389
+00:22:43,400 --> 00:22:44,660
+我们可以看到它是无效的，
+and we can see it's invalid
+
+390
+00:22:44,660 --> 00:22:47,360
+因为它没有设置 U 标志，
+because it doesn't have the u flag set,
+
+391
+00:22:47,390 --> 00:22:51,350
+在这里，在属性或标志列中，
+over here, in this attribute or flag column,
+
+392
+00:22:52,330 --> 00:22:55,660
+这些都是 PTE 下划线标志 r w 和 x ，
+these are all the pte underscore flags r w and x,
+
+393
+00:22:55,660 --> 00:22:59,290
+控制 PTE 是否可以读、写或执行，
+are just control whether a pte can be read or written or executed,
+
+394
+00:22:59,920 --> 00:23:01,120
+下一列是 u ，
+the next column is u,
+
+395
+00:23:01,120 --> 00:23:03,610
+这就是是否设置了 PTE_U 标志
+and that's whether or not the pte_u flag is set
+
+396
+00:23:03,610 --> 00:23:08,930
+并且用户代码只能使用设置了 U 标志的 PTE 条目，
+and user code can only get at pte entries for which the u flag is set ,
+
+397
+00:23:12,880 --> 00:23:15,640
+我不知道下一栏是什么，我得承认，
+I don't know what the next column is, I have to admit ,
+
+398
+00:23:15,640 --> 00:23:16,750
+再下一栏是 a ，
+and the next column is a,
+
+399
+00:23:16,750 --> 00:23:19,360
+表示 PTE 条目是否使用过，
+for whether the pte entries ever been used
+
+400
+00:23:19,360 --> 00:23:23,990
+以及 d 表示是否曾经对该地址写入。
+and d for whether a write has ever been issued for this address.
+
+401
+00:23:28,260 --> 00:23:29,490
+好的，那么我们有这个小的页表，
+Okay, so we have this tiny page table,
+
+402
+00:23:29,490 --> 00:23:32,010
+顺便说一下，在最后两个页表条目中，
+in the last two page table entries by the way,
+
+403
+00:23:32,010 --> 00:23:36,030
+都位于一个很大的虚拟地址上，
+are way up at an enormous virtual addresses,
+
+404
+00:23:36,410 --> 00:23:40,340
+非常接近虚拟地址空间的顶部，
+close to the very close to the top of the virtual address space
+
+405
+00:23:40,610 --> 00:23:44,090
+这就是你们在书中读到的这两个，
+and this is these two as you read about in the book,
+
+406
+00:23:44,090 --> 00:23:46,730
+我会听到更多关于 trapframe 的页面，
+I will hear much more about the trapframe page
+
+407
+00:23:46,730 --> 00:23:48,830
+这个是 trampoline 页面，
+and now the trampoline page,
+
+408
+00:23:48,830 --> 00:23:52,250
+你可以看到，它们都没有设置 u 标志，
+as you can see neither of them has the u bit set,
+
+409
+00:23:52,520 --> 00:23:57,110
+所以用户代码不能访问这两个地址中的任何一个，
+so user code can't get at either of these can use either of these addresses,
+
+410
+00:23:57,560 --> 00:24:00,530
+但是一旦我们进入管理者模式，我们就可以进入这两个页面。
+but once we enter supervisor mode, we can get at these two pages.
+
+411
+00:24:05,130 --> 00:24:05,760
+好的。
+Alright.
+
+412
+00:24:07,120 --> 00:24:08,620
+嗯，有一点需要注意，
+Um, one thing this notice about
+
+413
+00:24:08,620 --> 00:24:12,130
+这个页表没有内核中的任何东西的映射，
+this page table is there's no mapping for anything in the kernel,
+
+414
+00:24:12,610 --> 00:24:14,170
+没有物理地址映射，
+there's no physical address mapping,
+
+415
+00:24:14,170 --> 00:24:16,090
+没有内核数据映射，
+there's no mapping for the kernel's data,
+
+416
+00:24:16,120 --> 00:24:18,190
+内核指令或其他任何东西，
+the kernel's instructions or anything else,
+
+417
+00:24:18,190 --> 00:24:21,610
+这只接受最后两页，
+this is accepted the last just the very last two pages,
+
+418
+00:24:21,880 --> 00:24:25,390
+现在，这是几乎完全专用于用户执行的页表，
+now, this is the page table almost entirely dedicated to user execution
+
+419
+00:24:25,570 --> 00:24:28,870
+并且对于执行内核并不特别有用。
+and is not directly particularly useful for executing the kernel.
+
+420
+00:24:30,410 --> 00:24:33,800
+好的，在页表顶部
+All right what's the what's the attribute
+
+421
+00:24:33,800 --> 00:24:37,100
+列出的属性是什么？
+on the on the page table listing on the top?
+
+422
+00:24:37,160 --> 00:24:39,590
+我相信这意味着页表曾经，
+I believe this means the page tables ever been,
+
+423
+00:24:40,110 --> 00:24:44,040
+该页表项曾经被代码访问过，
+this page table entry has ever been accessed by code,
+
+424
+00:24:44,720 --> 00:24:48,140
+就是有没有访问地址
+that is, whether it's ever issued an address
+
+425
+00:24:48,140 --> 00:24:50,110
+到这个页表。
+that refers to the page table.
+
+426
+00:24:52,160 --> 00:24:55,370
+d 是程序是否曾经写过。
+And the d is whether the programs ever written.
+
+427
+00:24:57,270 --> 00:25:00,940
+他们已经通过这个页表条目进行了存储，
+They've done a store through this page table entry
+
+428
+00:25:01,030 --> 00:25:04,270
+这些都是硬件
+and these are this the hardware maintains
+
+429
+00:25:04,270 --> 00:25:06,070
+为了操作系统的方便而维护的，
+for the convenience of the operating system
+
+430
+00:25:06,070 --> 00:25:10,000
+以及比 xv6 更复杂的操作系统。
+and operating systems more sophisticated than xv6 .
+
+431
+00:25:10,650 --> 00:25:14,100
+如果页面的物理内存不足，我们需要将其逐出，
+We need to evict pages if they're running short on physical memory,
+
+432
+00:25:14,100 --> 00:25:17,640
+它们可能需要将一些内存页面写入磁盘，
+they may need to write some pages of memory to disk,
+
+433
+00:25:18,040 --> 00:25:22,360
+并使页面条目无效以释放物理内存，
+and invalidate the page entries to free up the physical memory,
+
+434
+00:25:22,450 --> 00:25:24,520
+很多策略，
+and many policies,
+
+435
+00:25:24,520 --> 00:25:28,510
+你可以想象一个操作系统使用的 pic 页面存在，
+you can imagine a operating system using the [pic] which pages to exist,
+
+436
+00:25:28,660 --> 00:25:30,640
+现在我们查看比特，
+now we'll consult the bits to see
+
+437
+00:25:30,640 --> 00:25:33,370
+看看这个页表条目是否曾经被使用过，
+whether this page table entry has ever even been used
+
+438
+00:25:33,580 --> 00:25:35,860
+它最近还没有用过或者已经用过了，
+and it hasn't been used or have been used recently
+
+439
+00:25:35,860 --> 00:25:39,490
+那么这是一个很好的驱逐到磁盘的候选对象。
+then that's a good candidate for evicting to disk.
+
+440
+00:25:40,470 --> 00:25:43,800
+d 告诉内核
+And d tells the kernel
+
+441
+00:25:43,800 --> 00:25:48,840
+这一页实际上是从磁盘读取后写入的，
+that oh this page has actually been written since it was read from disk,
+
+442
+00:25:50,780 --> 00:25:52,490
+xv6 实际上并不使用这些标志。
+xv6 doesn't actually use either of these.
+
+443
+00:25:55,520 --> 00:25:57,500
+好的，还有其他问题吗？
+Alright, other questions?
+
+444
+00:26:02,390 --> 00:26:06,050
+好的，我们来执行这个。
+Alright, let's execute the um.
+
+445
+00:26:06,950 --> 00:26:11,480
+我来提醒一下，我们将在哪里打印出 write 的内容，
+Let me just remind us where we are going to print out the contents of the write,
+
+446
+00:26:11,480 --> 00:26:17,690
+我们在 write 库函数，在一个 shell 中，
+we're in the write library function, in a, in the shell,
+
+447
+00:26:18,170 --> 00:26:20,570
+并且程序计数器指向 ecall 指令，
+and the program counter is pointed to the ecall instruction,
+
+448
+00:26:20,570 --> 00:26:22,280
+我们即将执行 ecall 指令，
+we're about to execute the ecall instruction,
+
+449
+00:26:23,000 --> 00:26:25,370
+仍在用户空间，但不会持续很长时间。
+still in user space but won't be for long.
+
+450
+00:26:27,310 --> 00:26:28,900
+我执行了 ecall 指令，
+I executed the ecall instruction,
+
+451
+00:26:30,380 --> 00:26:32,600
+好的，那么第一个问题是我们在哪里。
+okay so first question is where are we.
+
+452
+00:26:33,440 --> 00:26:37,190
+在 ecall 之后，我们可以查看程序计数器。
+After the ecall, we can look at the program counter.
+
+453
+00:26:38,660 --> 00:26:41,510
+我们看到，现在这是一个非常低的数字 d6 ，
+We see this now used to be a very low number d
+
+454
+00:26:41,510 --> 00:26:42,710
+那是非常高的数字，
+that's very high number,
+
+455
+00:26:42,800 --> 00:26:45,770
+事实上，我们看到程序计数器是一个虚拟地址，
+in fact we look at the program counter is a virtual address
+
+456
+00:26:45,860 --> 00:26:49,050
+就像指令使用的所有地址一样。
+like all addresses that instructions use.
+
+457
+00:26:50,240 --> 00:26:52,100
+我们可以看看页表，
+And we can look at the page table,
+
+458
+00:26:52,430 --> 00:26:55,550
+实际上，为了确保正确，让我们检查一下页表，
+actually let's just check what the page table is just to be sure,
+
+459
+00:26:55,550 --> 00:26:59,150
+我再次对 QEMU 输入 info mem ，
+I'm gonna ask you QEMU for info mem again,
+
+460
+00:26:59,660 --> 00:27:01,010
+这是完全相同的页表，
+it's the very same page table,
+
+461
+00:27:02,220 --> 00:27:03,390
+那里什么都没变，
+nothing's changed there,
+
+462
+00:27:03,480 --> 00:27:06,240
+我们将查找新的当前程序计数器，
+we'll look up our new current program counter,
+
+463
+00:27:06,240 --> 00:27:07,620
+程序计数器
+there are the program counter
+
+464
+00:27:07,830 --> 00:27:12,570
+在这个 trampoline 页面开头处，
+is at the right at the beginning of this trampoline page,
+
+465
+00:27:12,570 --> 00:27:16,560
+这在用户内存中映射了高地址。
+this mapped a way up high in the user memory.
+
+466
+00:27:17,460 --> 00:27:21,000
+这是正在执行的，我们可以看到指令在那里，
+That's were executing, we can see the instructions that are there,
+
+467
+00:27:21,350 --> 00:27:22,550
+那些我要用的指令。
+I'm going to use.
+
+468
+00:27:24,620 --> 00:27:25,460
+嗯。
+Um.
+
+469
+00:27:31,340 --> 00:27:33,050
+这些都是指令，
+These are the instructions,
+
+470
+00:27:34,020 --> 00:27:38,550
+内核在管理者模式下执行的第一条指令，
+the very first instructions that the kernel executes in supervisor mode
+
+471
+00:27:38,550 --> 00:27:40,350
+在 trap 刚开始的时候，
+at the beginning very beginning of a trap
+
+472
+00:27:40,560 --> 00:27:42,300
+并在 gdb 中抛出了一些奇怪的东西，
+and threw some weirdness in gdb,
+
+473
+00:27:42,300 --> 00:27:44,730
+我们实际上已经执行了第一条指令，
+we've actually already executed, the first instruction,
+
+474
+00:27:45,210 --> 00:27:47,100
+在本页的开头。
+at the very beginning of this page.
+
+475
+00:27:49,050 --> 00:27:51,870
+我们即将执行第二条指令。
+And we're about to execute the second instruction.
+
+476
+00:27:53,560 --> 00:27:55,000
+我们可以看看寄存器。
+We can look at the registers.
+
+477
+00:27:57,060 --> 00:28:00,450
+我不知道你是否还记得这些寄存器值，但是这里什么都没有改变，
+I don't know if you remember these register values but nothing has changed here,
+
+478
+00:28:00,450 --> 00:28:04,200
+这些与用户程序具有的寄存器内容完全相同，
+these are exactly the same register contents that the user program has,
+
+479
+00:28:04,470 --> 00:28:07,680
+所以这些都充满了用户的值，对他们中的许多人来说
+so these are all full of user values for many of them
+
+480
+00:28:07,710 --> 00:28:11,220
+就我们所知它们都是唯一值存在的地方，
+are all of them for all we know they're the only locations value exists,
+
+481
+00:28:11,220 --> 00:28:12,450
+因此，我们必须非常小心，
+so we have to be very careful
+
+482
+00:28:12,450 --> 00:28:15,660
+在这一点上不能实际使用任何寄存器，
+when we can't actually use any registers at this point,
+
+483
+00:28:16,220 --> 00:28:20,210
+如果没有先将这些寄存器保存在某个地方以便我们可以恢复它们，
+without first saving those registers somewhere so we can restore them,
+
+484
+00:28:20,390 --> 00:28:21,920
+因为如果内核在此时
+because if the kernel was to use
+
+485
+00:28:21,920 --> 00:28:24,740
+使用这些寄存器中的任何一个，它将被重写。
+any of these registers at this point it would overwrite.
+
+486
+00:28:25,100 --> 00:28:28,010
+不管用户值是多少，
+Um, whatever the user value is
+
+487
+00:28:28,010 --> 00:28:30,020
+然后如果我们试图恢复用户程序，
+and then if we tried to resume the user program,
+
+488
+00:28:30,020 --> 00:28:32,870
+我们就不能用正确的值设置它的寄存器，
+we wouldn't be able to set up its registers with the correct values
+
+489
+00:28:32,870 --> 00:28:36,020
+用户程序会做一些完全错误的事情。
+and the user program or just do something totally wrong.
+
+490
+00:28:37,500 --> 00:28:38,160
+有问题吗？
+Question?
+
+491
+00:28:38,310 --> 00:28:39,060
+是。
+Yes.
+
+492
+00:28:39,390 --> 00:28:43,290
+您能回到之前看到的说明面板上吗？
+Could you return to the instructions panel that you had before,
+
+493
+00:28:43,320 --> 00:28:47,280
+我想知道 csrrw 指令在做什么。
+I'm wondering what the csrrw instruction is doing.
+
+494
+00:28:51,070 --> 00:28:52,570
+csrrw ，
+The csrrw,
+
+495
+00:28:52,570 --> 00:28:55,480
+好的，我们几分钟后会谈到，
+OK we'll talk about this, in a few minutes,
+
+496
+00:28:56,080 --> 00:28:57,310
+但你问题的答案是，
+but the answer to your question is
+
+497
+00:28:57,310 --> 00:29:03,940
+该指令将 a0 与特殊临时寄存器的内容交换。
+that instruction swaps a0 with the contents of the special scratch register.
+
+498
+00:29:04,780 --> 00:29:09,730
+所以是的，这是很重要的。
+Um, and so in yeah yeah, this is like super important.
+
+499
+00:29:10,390 --> 00:29:12,700
+基本上回答了这样一个问题，
+And basically answers the question
+
+500
+00:29:12,700 --> 00:29:17,020
+如果内核 trap 代码不能使用任何寄存器，它怎么能做任何事情，
+how can the this kernel trap code do anything if it can't use any registers,
+
+501
+00:29:17,560 --> 00:29:20,980
+这个问题的答案是，出口确实必须执行这个，
+the answer that question is that exec- really has to execute this,
+
+502
+00:29:21,320 --> 00:29:24,590
+csrrw a0 sscratch 指令，
+csrrw a0 sscratch instruction,
+
+503
+00:29:24,920 --> 00:29:28,280
+这在 scratch 时保存 a0 ，
+that simultaneously saves a0 when scratch
+
+504
+00:29:28,310 --> 00:29:30,800
+并且将 scratch 加载到 a0 中。
+and happens to load scratch into a0.
+
+505
+00:29:31,880 --> 00:29:36,170
+因此，现在内核可以在此指令之后使用 a0 进行任何操作。
+So now the kernel can use a0 for whatever it wants to after this instruction.
+
+506
+00:29:38,890 --> 00:29:39,790
+好的，谢谢。
+Okay, Thanks.
+
+507
+00:29:39,970 --> 00:29:40,570
+好的。
+Yeah.
+
+508
+00:29:41,710 --> 00:29:45,970
+好的，我们目前的地址是 0x3ffffff000 ，
+Okay so we're currently this addresses 0x3ffffff000,
+
+509
+00:29:46,090 --> 00:29:48,160
+现在这最后一个页面是 trampoline 页面，
+now this last page is the trampoline page
+
+510
+00:29:48,160 --> 00:29:50,950
+我们目前正在 trampoline 页面中执行，
+and we're currently executing in the trampoline page
+
+511
+00:29:50,980 --> 00:29:56,230
+它包含内核 trap 处理代码的第一条指令。
+which contains the very first instructions of the kernel's trap handling code.
+
+512
+00:29:58,000 --> 00:30:02,200
+ecall 不会切换页表，这是 ecall 非常重要的一点，
+Ecall doesn't switch page tables that's a very important thing about ecall
+
+513
+00:30:02,200 --> 00:30:04,780
+这意味着这些最早的指令
+and what that means is that these very first instructions
+
+514
+00:30:04,780 --> 00:30:07,570
+必须出现在每个用户页表中。
+have to be present in every user page table.
+
+515
+00:30:08,080 --> 00:30:10,240
+因为 ecall 不切换页表，
+Because ecall doesn't switch page tables,
+
+516
+00:30:10,240 --> 00:30:12,610
+我们需要执行内核的第一位，
+we need to be executing the first bit of the kernel
+
+517
+00:30:12,820 --> 00:30:14,470
+在用户页表中的某个位置，
+somewhere in the user page table
+
+518
+00:30:14,470 --> 00:30:16,000
+这个 trampoline 页面，
+and it's this trampoline page
+
+519
+00:30:16,090 --> 00:30:19,240
+内核仔细地映射到每个用户页表中，
+which the kernel carefully maps into every user page table
+
+520
+00:30:19,840 --> 00:30:23,380
+这为内核提供了在 trap 开始时执行的位置，
+that gives the kernel a place to execute at the very beginning of a trap
+
+521
+00:30:23,380 --> 00:30:25,060
+当我们仍在使用用户页表时，
+when we're still using the user page table
+
+522
+00:30:25,300 --> 00:30:30,370
+其控制方式是通过 stvec 寄存器，
+and the way this is controlled is through the stvec register,
+
+523
+00:30:30,370 --> 00:30:32,940
+这是另一个特权寄存器，
+this is another privileged register
+
+524
+00:30:32,940 --> 00:30:35,520
+仅管理者模式可读写，
+only readable by the writable by the supervisor
+
+525
+00:30:36,000 --> 00:30:39,450
+内核在进入用户空间之前设置 stvec ，
+and the kernel before it entered user space set up the stvec
+
+526
+00:30:39,660 --> 00:30:42,780
+指向内核希望 trap 放置的位置。
+to point to the place where the kernel wanted traps to go.
+
+527
+00:30:43,110 --> 00:30:44,310
+所以你可以看到内核，
+And so as you can see the kernel
+
+528
+00:30:44,310 --> 00:30:49,710
+之前已将 stvec 设置为 0x3ffffff000 地址，
+has previously set up this stvec to this 0x3ffffff000 address
+
+529
+00:30:49,710 --> 00:30:51,810
+这是 trampoline 页面的开始。
+which is the beginning of the trampoline page.
+
+530
+00:30:52,360 --> 00:30:54,310
+就是这个 stvec 寄存器，
+And it's this stvec register
+
+531
+00:30:54,520 --> 00:30:57,910
+它的内容就是为什么在 ecall 之后，
+that its content is the reason why after the ecall,
+
+532
+00:30:58,060 --> 00:31:01,750
+我们最终在这个特定的地方执行。
+we ended up executing at this particular place.
+
+533
+00:31:05,060 --> 00:31:06,410
+最后我只想提醒你们，
+And finally I just want to remind you that
+
+534
+00:31:06,410 --> 00:31:08,600
+即使 trampoline 和 trap 帧页面
+even though the trampoline and trap frame pages
+
+535
+00:31:08,600 --> 00:31:11,690
+被映射到用户页表用户地址空间，
+are mapped into the user page table user address space,
+
+536
+00:31:11,930 --> 00:31:14,150
+用户代码也不能写入它们，
+the user code cannot write them,
+
+537
+00:31:14,580 --> 00:31:18,540
+因为它们的 PTE 没有 u 标志，
+because the ptes for them don't have the pte_u flag,
+
+538
+00:31:18,540 --> 00:31:21,090
+因此，它们受到保护，不受用户代码的影响。
+so they're protected against user code.
+
+539
+00:31:21,880 --> 00:31:24,940
+这就是为什么这个小技巧是安全的原因。
+And that's why this trick is a part of the reason why this trick is safe.
+
+540
+00:31:27,120 --> 00:31:30,030
+我一直在告诉你，假设
+I've been sort of telling you in assuming
+
+541
+00:31:30,060 --> 00:31:31,620
+我们处于管理者模式，
+that we're in supervisor mode,
+
+542
+00:31:31,650 --> 00:31:35,250
+我不知道有什么方法可以直接找出机器处于什么模式，
+I don't know any way of finding out what mode the machine is in directly,
+
+543
+00:31:35,700 --> 00:31:40,470
+但我确实观察到程序计数器当前在页面中执行，
+but I do observe that the program counter is currently executing in a page,
+
+544
+00:31:40,470 --> 00:31:44,580
+没有设置 PTE_U 标志的 trampoline 页面，
+the trampoline page that doesn't have a pte_u flag set
+
+545
+00:31:44,880 --> 00:31:48,450
+这只能在没有崩溃的情况下发生，如果我们处于管理者模式，
+and that can only happen without a crash, if we are in supervisor mode,
+
+546
+00:31:48,480 --> 00:31:53,490
+所以我从没有崩溃以及程序计数器值推断，
+so I deduce from the lack of a crash and the value of the program counter
+
+547
+00:31:53,490 --> 00:31:55,440
+我们肯定处于管理者模式。
+that we must be in supervisor mode.
+
+548
+00:31:57,790 --> 00:32:00,970
+我们是怎么走到这的，当然是通过 ecall ，
+How we got here, of course I through ecall,
+
+549
+00:32:00,970 --> 00:32:03,340
+ecall 实际上改变了三件事。
+ecall really just changes three things.
+
+550
+00:32:03,640 --> 00:32:07,060
+首先， ecall 将模式从用户模式更改为管理者模式，
+First, ecall changes mode from user to supervisor,
+
+551
+00:32:07,630 --> 00:32:12,850
+第二， ecall 将程序计数器寄存器保存在 sepc 寄存器中，
+second ecall saves the program counter register in the sepc register,
+
+552
+00:32:12,880 --> 00:32:14,290
+所以我们可以看到它的效果。
+so we can see the effect of that.
+
+553
+00:32:14,900 --> 00:32:17,180
+我想程序计数器，
+I think the program registers program counter,
+
+554
+00:32:17,180 --> 00:32:19,340
+它当然不再是用户程序计数器，
+it's certainly no longer the user program counter,
+
+555
+00:32:19,430 --> 00:32:21,140
+即使当其他寄存器在，
+even though while the other registers were,
+
+556
+00:32:21,580 --> 00:32:25,300
+这个值是从 stvec 复制过来的。
+this, this value copied from stvec.
+
+557
+00:32:26,010 --> 00:32:30,340
+我们还可以打印，保存的，
+And we can also print, the saved,
+
+558
+00:32:30,760 --> 00:32:35,260
+这是管理者模式例外程序的计数器，
+it's the supervisor exception program counter what that stands for,
+
+559
+00:32:35,290 --> 00:32:38,620
+但这是 ecall 保存用户程序计数器，
+but this is where ecall saves the user program, program counter,
+
+560
+00:32:38,920 --> 00:32:42,070
+它具有熟悉的值 0xde6 ，
+and that has a familiar value 0xde6
+
+561
+00:32:42,070 --> 00:32:46,390
+该地址是 ecall 指令在用户空间中的地址。
+which is the address in user space of the ecall instruction.
+
+562
+00:32:47,130 --> 00:32:49,860
+所以我们至少有一个寄存器被 ecall 存起来了。
+So we got that one register at least saved away by ecall.
+
+563
+00:32:50,510 --> 00:32:52,520
+最后一件事， ecall 做的第三件事，
+And the final thing that ecall does the third thing,
+
+564
+00:32:52,520 --> 00:32:57,020
+它跳转到 stvec 指向的指令。
+it does is jump to the instruction that stvec points to.
+
+565
+00:33:02,270 --> 00:33:04,190
+好的，嗯。
+Alright, um.
+
+566
+00:33:04,940 --> 00:33:06,050
+所以现在需要做的是，
+So what needs to happen now,
+
+567
+00:33:06,050 --> 00:33:07,610
+ecall 为我们做了点工作，
+ecall down a little bit of work for us,
+
+568
+00:33:07,610 --> 00:33:09,620
+但事实证明，我们还远没有准备好
+but it turns out we are nowhere near ready
+
+569
+00:33:09,620 --> 00:33:12,560
+在内核中执行普通的 C 代码，
+to actually execute ordinary C code in the kernel ,
+
+570
+00:33:12,560 --> 00:33:17,660
+现在要做的是我们需要保存 32 个用户寄存器内容，
+what has to happen now do we need to save the 32 user register contents,
+
+571
+00:33:17,990 --> 00:33:19,310
+这样我们以后就可以恢复它们，
+so we can later restore them
+
+572
+00:33:19,310 --> 00:33:21,320
+当我们想恢复用户代码时，
+and when we want to resume the user code,
+
+573
+00:33:21,920 --> 00:33:24,110
+现在我们需要切换到内核页表，
+now we need to switch to the kernel page table,
+
+574
+00:33:24,110 --> 00:33:26,150
+因为目前我们使用的是用户页表，
+because currently we use the user page table,
+
+575
+00:33:26,510 --> 00:33:29,030
+我们需要创建栈或查找栈，
+we need to create a stack or find a stack
+
+576
+00:33:29,030 --> 00:33:32,360
+并将栈指针寄存器设置为指向内核栈，
+and set the stack pointer register to point to the kernel stack,
+
+577
+00:33:32,360 --> 00:33:34,850
+让我们可以运行需要栈的 C 代码，
+so we can run the C code which requires a stack
+
+578
+00:33:35,000 --> 00:33:36,320
+然后，我们需要跳转到
+and then we need to actually jump to
+
+579
+00:33:36,320 --> 00:33:39,920
+内核中 C 代码的某个合理位置。
+some sensible place in the C code in the kernel.
+
+580
+00:33:40,700 --> 00:33:42,530
+现在顺便说一句，
+Now as an aside,
+
+581
+00:33:43,580 --> 00:33:46,580
+ecall 没有为我们做任何这些事情。
+you know ecall didn't do any of these things for us .
+
+582
+00:33:47,070 --> 00:33:49,290
+但是你可以让硬件
+You know, but you could have the hardware
+
+583
+00:33:49,290 --> 00:33:51,540
+定义 ecall 来做更多事情。
+could have defined ecall to do much more.
+
+584
+00:33:53,390 --> 00:33:56,330
+对于我们来说，这些步骤要多得多，而不是把它们留给软件，
+Many more of these steps for us instead of leaving them to software
+
+585
+00:33:56,330 --> 00:34:00,620
+正如我们将在软件过程中看到的，这并不是特别简单，
+and as we'll see the during the software, it's not particularly straightforward,
+
+586
+00:34:01,310 --> 00:34:04,640
+所以你应该问问你自己，为什么 ecall 不能做更多的工作，
+so you should ask yourself why the ecall doesn't do more of the work
+
+587
+00:34:04,670 --> 00:34:06,800
+从用户空间进入内核，
+of getting from user space into the kernel,
+
+588
+00:34:06,920 --> 00:34:10,020
+为什么不保存它们的用户寄存器，
+you know why doesn't it save their user registers
+
+589
+00:34:10,020 --> 00:34:14,460
+或者切换页表指针指向内核页表，
+or switch page table pointers to point to the kernel page table
+
+590
+00:34:14,460 --> 00:34:18,570
+或者自动将栈指针设置为指向内核栈，
+or automatically set the stack pointer to point to the kernel stack,
+
+591
+00:34:19,020 --> 00:34:21,630
+或者直接跳转到内核 C 代码，
+or jump right to kernel C code []
+
+592
+00:34:21,630 --> 00:34:25,260
+而不必经历所有这些复杂的汇编代码。
+rather than having to go through all this complicated assembly code.
+
+593
+00:34:26,990 --> 00:34:30,170
+实际上已经有机器完成了所有这些事情，
+And there's actually been machines that have done all of these things,
+
+594
+00:34:30,530 --> 00:34:34,730
+在系统调用期间的硬件中实现，
+in hardware during system calls,
+
+595
+00:34:35,840 --> 00:34:37,100
+RISC-V 不会做任何一件事，
+the RISC-V doesn't do any of them,
+
+596
+00:34:37,100 --> 00:34:38,930
+RISC-V 实际上采取的态度是，
+RISC-V really the attitude they've taken is
+
+597
+00:34:38,930 --> 00:34:43,820
+ecall 做了它可能做的最低要求，
+the ecall does the absolute minimum that's required that it could possibly do
+
+598
+00:34:43,820 --> 00:34:45,440
+而把其他的一切都留给软件。
+and leave everything else up to software.
+
+599
+00:34:45,860 --> 00:34:47,000
+这样做的原因是，
+And the reason for this is
+
+600
+00:34:47,000 --> 00:34:52,280
+因为 RISC-V 设计者希望允许软件具有最大的灵活性，
+because the RISC-V designers want to allow maximum flexibility to the software,
+
+601
+00:34:52,280 --> 00:34:53,960
+操作系统程序员
+the operating system programmers
+
+602
+00:34:53,960 --> 00:34:57,080
+可以随心所欲地设计程序操作系统。
+to design the program operating system, however they like.
+
+603
+00:34:57,540 --> 00:35:02,550
+所以虽然 xv6 没有使用这种自由的方式，
+And so you can imagine ways xv6 really doesn't use this freedom,
+
+604
+00:35:02,760 --> 00:35:04,560
+但是其他操作系统是这样做的，
+but other operating systems do,
+
+605
+00:35:04,590 --> 00:35:09,840
+我们可以举几个软件可以做的事情的例子，
+so some examples of things that are kind of enabled for the software to do,
+
+606
+00:35:10,170 --> 00:35:11,910
+因为 ecall 太简单了，
+because ecall so simple,
+
+607
+00:35:12,300 --> 00:35:12,780
+嗯。
+Um.
+
+608
+00:35:14,540 --> 00:35:17,000
+也许一些操作系统可以执行，
+Maybe some operating systems can execute
+
+609
+00:35:17,000 --> 00:35:21,320
+在不切换页表的情况下执行 trap 或系统调用，
+some trap some system calls without switching page tables,
+
+610
+00:35:21,470 --> 00:35:25,220
+搜索页面表，如果 ecall 强迫你这样做的话会很昂贵，
+the searching page page tables, expensive if ecall forces you to do it,
+
+611
+00:35:25,400 --> 00:35:29,060
+现在这就排除了非常精简的可能性，
+now that rules out the possibility of very streamlined,
+
+612
+00:35:29,420 --> 00:35:32,870
+一些不切换页表的系统调用的实现。
+implementations for some system calls that don't switch page tables.
+
+613
+00:35:33,360 --> 00:35:38,840
+有些操作系统既有用户虚拟地址，也有内核虚拟地址，
+Um, some operating systems both user and kernel virtual addresses
+
+614
+00:35:38,840 --> 00:35:39,950
+放入单个页表中，
+into a single page table
+
+615
+00:35:39,950 --> 00:35:42,350
+并对用户和内核使用相同的页表，
+and use the same page table for both user and kernel
+
+616
+00:35:42,350 --> 00:35:44,360
+因此甚至不必切换页表，
+and therefore don't even have to switch page tables
+
+617
+00:35:44,360 --> 00:35:47,300
+当在用户和内核之间转换时，
+ever when transitioning between user and kernel,
+
+618
+00:35:47,930 --> 00:35:50,030
+对于它们，如果你调用交换页表，
+and for them also if you call switch page tables
+
+619
+00:35:50,030 --> 00:35:52,190
+只会是一种浪费，让事情慢下来。
+would just be a waste and slow things down.
+
+620
+00:35:52,620 --> 00:35:56,640
+可能在某些情况下，比如系统调用，
+Maybe in some circumstances, system calls for example,
+
+621
+00:35:57,180 --> 00:35:59,370
+某些寄存器不需要保存，
+some registers don't have to be saved
+
+622
+00:35:59,400 --> 00:36:00,900
+以及哪些必须被保存，
+and which ones have to be saved ,
+
+623
+00:36:00,900 --> 00:36:03,750
+这取决于软件或语言和编译器，
+it depends on the software or the language and the compiler
+
+624
+00:36:03,750 --> 00:36:07,770
+但是可以通过少于 32 个寄存器来节省大量时间，
+but might be able to save a lot of time by saving fewer than 32 registers,
+
+625
+00:36:07,800 --> 00:36:09,540
+所以你不想让 ecall 强迫你，
+so you don't want ecall to kind of force you,
+
+626
+00:36:10,080 --> 00:36:14,220
+你不一定希望 ecall 强制保存所有寄存器。
+you don't necessarily want ecall to force you to save all the registers .
+
+627
+00:36:14,720 --> 00:36:18,200
+最后，一些简单的系统调用可能根本不需要栈，
+And finally, maybe no stack at all is required for some simple system calls,
+
+628
+00:36:18,200 --> 00:36:22,520
+所以再说一次，操作系统非常关心性能，
+so again operating systems that care a lot about performance,
+
+629
+00:36:22,520 --> 00:36:26,000
+这很好， ecall 不会将任何特定的栈策略强加给你。
+it's good, the ecall doesn't force any particular stack policy on you.
+
+630
+00:36:26,810 --> 00:36:33,060
+再说一遍，有很多聪明的硬件或软件方案，
+And again there's many clever hardware, software schemes
+
+631
+00:36:33,060 --> 00:36:37,350
+用于非常精简的高性能系统调用和跟踪，
+for very streamlined high performance system calls and tracks
+
+632
+00:36:37,380 --> 00:36:40,380
+因为这个东西的性能是非常重要的，
+just because the performance of this stuff is super important
+
+633
+00:36:40,380 --> 00:36:41,640
+人们对此非常关心。
+and people worry about it a lot.
+
+634
+00:36:43,080 --> 00:36:46,560
+好的，那么回到 xv6 和 RISC-V 。
+Okay, so back to xv6 and RISC-V.
+
+635
+00:36:48,360 --> 00:36:50,550
+我们首先要做的是保存一些寄存器，
+The first thing we need to do is save some registers,
+
+636
+00:36:50,550 --> 00:36:55,410
+如果没有寄存器，我们几乎不能在 RISC-V 上做任何事情，
+we can do hardly anything on the RISC-V without a few registers,
+
+637
+00:36:56,290 --> 00:36:57,580
+在不能使用寄存器的情况下，
+without being able to use registers,
+
+638
+00:36:57,580 --> 00:37:00,280
+那么，保存用户寄存器的选项有哪些呢？
+so what are options for saving user registers.
+
+639
+00:37:01,130 --> 00:37:03,740
+在其他机器上，我们也许可以，
+In on some other machine, we might be able to
+
+640
+00:37:03,740 --> 00:37:06,140
+只需将 32 个寄存器的内容
+just write the contents of the 32 registers
+
+641
+00:37:06,140 --> 00:37:08,000
+写入物理内存中方便的位置即可。
+somewhere convenient in physical memory.
+
+642
+00:37:08,400 --> 00:37:11,040
+我们不能在 RISC-V 上真正做到这一点，
+We cant actually really do that on the RISC-V
+
+643
+00:37:11,040 --> 00:37:15,000
+因为管理者代码不允许直接访问物理内存，
+because supervisor code isn't allowed to directly access physical memory,
+
+644
+00:37:15,030 --> 00:37:16,800
+我们只能使用页表中的内容，
+we can only use what's in the page table,
+
+645
+00:37:16,800 --> 00:37:18,450
+页表中的内容不多。
+there's not much in the page table.
+
+646
+00:37:19,290 --> 00:37:24,060
+xv6 做不到的另一种可能性是，
+Another possibility that xv6 doesn't do is
+
+647
+00:37:24,090 --> 00:37:27,840
+只需将 satp 设置为内核页表，
+simply setting the satp to the kernel page table
+
+648
+00:37:27,990 --> 00:37:30,180
+然后我们可以使用所有内核映射，
+and then we could use all the kernel mappings
+
+649
+00:37:30,180 --> 00:37:33,570
+或许可以用它们来帮助我们保存用户寄存器，
+and use them maybe to help us save the user registers
+
+650
+00:37:33,930 --> 00:37:36,750
+而且这是合法的，管理者模式当然可以修改 satp 。
+and that be legal, the supervisor can certainly change satp.
+
+651
+00:37:37,950 --> 00:37:41,700
+然而，在 trap 处理程序中的这一点，即在开始处，
+However, at this point in the trap handler namely at the beginning,
+
+652
+00:37:42,270 --> 00:37:44,640
+我们甚至不知道内核页表的地址，
+we don't even know the address of the kernel page table,
+
+653
+00:37:44,730 --> 00:37:49,410
+以及执行修改 satp 的指令，
+and furthermore the instruction that you execute to change satp
+
+654
+00:37:49,590 --> 00:37:53,400
+要求从寄存器加载到 satp 的地址，
+require that the address that you're loading into satp come from a register,
+
+655
+00:37:53,700 --> 00:37:58,200
+所以我们甚至执行指令来改变页表，
+so we even execute the instruction to change page tables ,
+
+656
+00:37:58,200 --> 00:38:00,090
+we need some spare registers
+
+657
+00:38:00,120 --> 00:38:03,410
+in order to put the new page table address in those registers,
+
+658
+00:38:03,410 --> 00:38:07,010
+因此，我们可以执行 satp 修改指令。
+so we can execute the satp modifying instruction.
+
+659
+00:38:08,920 --> 00:38:12,130
+好的，我们需要保存用户寄存器，
+Alright, so we really need to save the user registers,
+
+660
+00:38:12,400 --> 00:38:19,690
+对于 xv6 如何在 RISC-V 上执行此操作，解决方案分为两个部分。
+there's two parts to the solution for how xv6 does this on the RISC-V.
+
+661
+00:38:19,750 --> 00:38:22,720
+一个是解决方案的一部分，
+One is part of the solution is that,
+
+662
+00:38:23,870 --> 00:38:27,890
+xv6 到每个用户地址，每个用户页表映射，
+xv6 into every user address, every user page table maps,
+
+663
+00:38:27,890 --> 00:38:33,650
+这个 trapframe 页和每个进程都有自己的 trapframe 页。
+this trapframe page and every processes has its own trapframe page.
+
+664
+00:38:34,180 --> 00:38:34,960
+嗯，还有。
+Um, and.
+
+665
+00:38:35,820 --> 00:38:38,130
+trapframe 页实际上包含
+Trapframe page actually contains
+
+666
+00:38:38,130 --> 00:38:39,990
+一些有趣的不同类型的数据，
+some interesting bunch of different kinds of data,
+
+667
+00:38:39,990 --> 00:38:44,700
+但是现在包含的最重要的数据是 32 个插槽，
+but at this point the most important data contains is 32 slots,
+
+668
+00:38:44,910 --> 00:38:49,290
+内存中用于保存 32 个寄存器的空插槽。
+empty slots in memory in which to save the 32 registers.
+
+669
+00:38:49,410 --> 00:38:53,880
+所以，现在 trap 处理代码中的好消息是我们有了一个映射，
+So, the good news right now in the trap handling code is we have a mapping,
+
+670
+00:38:53,880 --> 00:38:57,240
+我们保证之前由内核设置了一个映射，
+we're guaranteed to have a mapping set up by the kernel previously
+
+671
+00:38:57,300 --> 00:39:00,680
+在指向某个位置的用户页表中，
+in the user page table that points to a place
+
+672
+00:39:00,680 --> 00:39:05,420
+为我们保存进程、用户寄存器做好了准备。
+where, that's prepared for us to save this processes, user registers.
+
+673
+00:39:07,740 --> 00:39:14,160
+可以肯定的是，它始终是 0x3ffffff000 虚拟地址。
+And it's sure it's three is always 0x3ffffff000 virtual address.
+
+674
+00:39:14,770 --> 00:39:18,250
+如果你想看看它们在那个 trapframe 里到底是什么，
+If you want to see what they are actually in that trapframe,
+
+675
+00:39:18,250 --> 00:39:19,180
+它是，嗯。
+it's um.
+
+676
+00:39:20,540 --> 00:39:30,070
+xv6 放在那里的内容在 proc.h 中定义，
+What xv6 puts there is defined in, proc.h
+
+677
+00:39:30,070 --> 00:39:31,690
+trapframe 结构体就在这里，
+and struct trapframe which is right here,
+
+678
+00:39:31,690 --> 00:39:33,790
+所以你可以看到，嗯。
+so you can see, um.
+
+679
+00:39:34,710 --> 00:39:36,270
+每个插槽里应该放些什么，
+What's supposed to go in each slot
+
+680
+00:39:36,300 --> 00:39:38,760
+这里有 32 个插槽，
+and there's a 32 slots,
+
+681
+00:39:38,760 --> 00:39:42,930
+你需要 ra sp gp 等用来保存寄存器的位置，
+you need a ra sp gp whatever which are places to save registers,
+
+682
+00:39:42,930 --> 00:39:45,660
+开头的这五个，
+there's also these five things at the beginning ,
+
+683
+00:39:45,660 --> 00:39:47,730
+很快就会派上用场，
+which will see will come in handy very soon,
+
+684
+00:39:47,730 --> 00:39:49,830
+这些值是内核预先放置在
+which are values that the kernel
+
+685
+00:39:49,830 --> 00:39:53,070
+trapframe 的插槽中。
+previously placed in the slots in the trapframe.
+
+686
+00:39:53,800 --> 00:39:56,560
+例如 trapframe 中的第一个插槽
+Like, for example this very first slot in the trapframe
+
+687
+00:39:56,770 --> 00:39:58,660
+包含指向内核页表的指针，
+contains a pointer to the kernel page table,
+
+688
+00:39:58,870 --> 00:40:01,870
+这将是我们很快要达到的值。
+and this will be the value that we're very soon going .
+
+689
+00:40:02,490 --> 00:40:04,980
+trap 处理代码将加载到 satp 中。
+The trap handling code is going to load into satp.
+
+690
+00:40:06,270 --> 00:40:10,060
+好的，那么，如何保存寄存器的部分答案是，
+Okay so, half the answer to how to save the registers is that
+
+691
+00:40:10,240 --> 00:40:15,610
+内核方便地映射了 trapframe 和每个用户页表，
+kernel is conveniently mapped this trapframe and every user page table,
+
+692
+00:40:15,610 --> 00:40:21,190
+另一个是，这个指令，之前提到过的 sscratch 寄存器，
+the other is this instructions, sscratch register which we measured before,
+
+693
+00:40:21,610 --> 00:40:23,800
+所以有专门的 sscratch 寄存器，
+so there's the specialist sscratch register,
+
+694
+00:40:24,190 --> 00:40:27,070
+由 RISC-V 提供，
+provided by RISC-V for exactly the purpose,
+
+695
+00:40:27,070 --> 00:40:29,050
+我们将把它用于。
+we're about to use it for .
+
+696
+00:40:30,150 --> 00:40:32,190
+内核在进入用户空间之前，
+The kernel went before it goes into user space
+
+697
+00:40:32,190 --> 00:40:33,870
+在那里放置一个指向 trapframe 的指针，
+puts a pointer there to the trapframe
+
+698
+00:40:33,870 --> 00:40:39,450
+基本上就是指向，放入 satp ，这个地址，
+basically just point, puts into satp, this this address
+
+699
+00:40:39,780 --> 00:40:42,060
+为了方便 trap 处理代码，
+just for the convenience of the trap handling code,
+
+700
+00:40:42,120 --> 00:40:44,700
+更重要的是，有一个 RISC-V 指令，
+more importantly though there's an instruction of the RISC-V
+
+701
+00:40:44,850 --> 00:40:47,310
+它允许我们交换任何寄存器，
+that it's going to allow us to swap any register
+
+702
+00:40:47,550 --> 00:40:49,980
+以及将保存 sscratch 寄存器，
+and that sscratch which will save that register
+
+703
+00:40:49,980 --> 00:40:56,070
+将 sscatch 的值加载到我们指定的任何寄存器中。
+as well as loads value of sscratch into whatever register we specified.
+
+704
+00:40:56,620 --> 00:41:00,670
+如你所见，如果我看一下 trampoline 代码。
+As you can see, if I look at the trampoline code.
+
+705
+00:41:01,860 --> 00:41:05,280
+我们现在就在 trampoline 代码的开头。
+We're right at the beginning of trampoline code here.
+
+706
+00:41:06,120 --> 00:41:08,940
+它做的第一件事是 csrrw 指令，
+The very first thing it does is this csrrw
+
+707
+00:41:11,060 --> 00:41:11,870
+说明，
+instructions,
+
+708
+00:41:11,870 --> 00:41:14,780
+这是源码窗口，
+this is the source of this window over this window,
+
+709
+00:41:14,780 --> 00:41:17,000
+我们可以看到 gdb 在内核中看到的内容，
+we can actually see what gdb sees in the kernel
+
+710
+00:41:17,180 --> 00:41:21,380
+我们刚刚执行了这个交换指令。
+and we've actually just executed this swap instruction.
+
+711
+00:41:22,260 --> 00:41:24,000
+让我们将 a0 和 sscratch 互换，
+Let's swap a0 with sscratch,
+
+712
+00:41:24,240 --> 00:41:27,990
+为了看看它做了什么，让我们打印出 a0 ，
+in order to see what it did, let's print out a0,
+
+713
+00:41:28,500 --> 00:41:33,840
+a0 现在是这个 0x3fffffe000 值，它是一个指针。
+a0 is now this three f f e zero zero zero value which is a pointer.
+
+714
+00:41:34,680 --> 00:41:36,750
+是 trapframe 的虚拟地址，
+Which is the virtual address of the trapframe
+
+715
+00:41:36,870 --> 00:41:38,970
+它之前在 sscratch 里，我们刚把它交换了。
+which used to be in sscratch, but we just swapped it.
+
+716
+00:41:39,590 --> 00:41:41,930
+然后我们可以把 sscratch 中的内容打印出来，
+And then we can print out what's in sscratch,
+
+717
+00:41:43,790 --> 00:41:46,730
+它是 2 ，这是 a0 寄存器的旧值，
+and it's two which is the old value of the a0 register,
+
+718
+00:41:46,730 --> 00:41:50,510
+当然， a0 保存 write 函数的第一个参数，
+of course a zero held the first argument to the write function,
+
+719
+00:41:50,970 --> 00:41:54,360
+是 shell 传递到的文件描述符，
+just file descriptor to which you put the shell passed,
+
+720
+00:41:54,390 --> 00:41:58,680
+所以我们保存了 a0 ，并且有一个指向 trapframe 的指针。
+so we saved you a0 and we have a pointer to the trapframe.
+
+721
+00:41:59,630 --> 00:42:01,520
+现在，
+And it turns out now that
+
+722
+00:42:01,580 --> 00:42:04,040
+我们可以很好地保存寄存器了，
+we're well on our way to be able to save the registers,
+
+723
+00:42:04,040 --> 00:42:08,960
+事实上，这就是 trampoline 代码中
+in fact that's what the very next thirty odd instructions
+
+724
+00:42:08,960 --> 00:42:11,300
+接下来的 30 多条指令，
+due in this trampoline code
+
+725
+00:42:11,420 --> 00:42:15,140
+它是系统的个 sd 指令，
+which is systematically sd instructions,
+
+726
+00:42:15,140 --> 00:42:18,560
+保存 64 位存储指令，
+you just save 64 bit store instructions
+
+727
+00:42:18,560 --> 00:42:20,120
+将每个寄存器
+to store every single register
+
+728
+00:42:20,600 --> 00:42:25,760
+保存到 trapframe 中 a0 的不同偏移量，
+to a different offset in the trapframe a0 to recall,
+
+729
+00:42:25,760 --> 00:42:29,300
+现在在交换后包含指向 trapframe 的指针，
+now contains after the swap contains a pointer to the trapframe
+
+730
+00:42:29,510 --> 00:42:33,530
+这可以更改此页面的虚拟地址。
+that is could change the virtual address of this page.
+
+731
+00:42:34,510 --> 00:42:39,550
+我们只是保存每个寄存器到 trapframe 的不同偏移量，
+And we're just storing each registered a different offset in the trapframe ,
+
+732
+00:42:42,130 --> 00:42:44,740
+所有的保存有点无聊，所以我跳过它们。
+all the stores a bit boring, so I'm gonna skip over them.
+
+733
+00:42:45,410 --> 00:42:50,590
+嗯。让我设定一个中断点，再往前走。
+Um. Let me set a break point, go further on.
+
+734
+00:42:55,880 --> 00:42:56,780
+教授，有个问题。
+Professor question?
+
+735
+00:42:56,810 --> 00:42:57,410
+好的。
+Yes.
+
+736
+00:42:58,200 --> 00:43:01,830
+当我们用 a0 交换它时，
+How did the address of the trapframe
+
+737
+00:43:02,470 --> 00:43:05,140
+trapframe 的地址怎么会出现在 sscratch 中呢？
+end up in sscratch when we swapped it with a0.
+
+738
+00:43:05,910 --> 00:43:13,020
+好的，在内核过渡到用户空间之前，
+Okay before the kernel, before it previously transitioned to user space,
+
+739
+00:43:14,120 --> 00:43:21,890
+将 sscratch 设置为等于 0x3fffffe000 ，这个虚拟地址是 trapframe 。
+set sscratch to be equal to 0x3fffffe000, the virtual addresses the trapframe.
+
+740
+00:43:22,730 --> 00:43:25,400
+因此，当我们在 shell 中执行用户空间时，
+So all the time when we are executing a user space in the shell,
+
+741
+00:43:25,400 --> 00:43:28,610
+sscratch 具有指向 trapframe 的指针，
+sscratch had this pointer to the trapframe ,
+
+742
+00:43:29,140 --> 00:43:35,480
+然后 shell 执行 ecall ，
+and then the shell executes ecall,
+
+743
+00:43:36,140 --> 00:43:38,390
+它跳到 trampoline 的起始处，
+which jumps to the beginning of the trampoline
+
+744
+00:43:38,390 --> 00:43:40,100
+trampoline 的第一个指令，
+and the very first instruction of the trampoline,
+
+745
+00:43:40,100 --> 00:43:44,390
+csrrw 指令交换 a0 和 sscratch ，
+is this csrrw instruction which swaps a0 on the sscratch
+
+746
+00:43:44,900 --> 00:43:46,310
+所以现在 sscratch 的旧值，
+and so now the old value of the scratch,
+
+747
+00:43:46,310 --> 00:43:48,590
+也就是说， trapframe 现在在 a0 。
+namely the point of the trapframe is now in a0.
+
+748
+00:43:50,190 --> 00:43:51,180
+这回答了你的问题吗。
+Does that answer your question.
+
+749
+00:43:53,230 --> 00:43:55,960
+我想我在想在什么地方，
+I guess I'm wondering where in the alloc-,
+
+750
+00:43:56,020 --> 00:44:00,010
+在分配进程期间会发生这种情况吗，
+does this happen during the allocation of the process
+
+751
+00:44:00,040 --> 00:44:01,960
+比如 sscratch 寄存器在哪里。
+like where do the sscratch register live.
+
+752
+00:44:02,080 --> 00:44:06,100
+这个 sscratch 寄存器，它本身就在 CPU 上。
+Where does this well scratch itself lives on the CPU,
+
+753
+00:44:06,620 --> 00:44:08,360
+CPU 中的特殊寄存器。
+the special register in the CPU,
+
+754
+00:44:08,970 --> 00:44:12,810
+内核设置它，嗯，好的，
+where and the kernel sets it, um well,
+
+755
+00:44:14,370 --> 00:44:18,420
+有点牵扯进去，就是它设置的实际位置，
+a little bit involved, the actual place where it's set
+
+756
+00:44:18,420 --> 00:44:20,370
+我现在在右边给你们展示的是
+and what I'm now showing you on the right here
+
+757
+00:44:20,820 --> 00:44:24,160
+是内核（执行）的代码，
+is the code that the kernel ,
+
+758
+00:44:24,160 --> 00:44:29,710
+内核在返回用户空间时执行的最后两条指令，
+the last two instructions that the kernel executes while returning a user space,
+
+759
+00:44:30,340 --> 00:44:34,030
+发生的是它在内核之后做的最后一件事，
+and what's happening is that the very last thing it does after the kernel
+
+760
+00:44:34,030 --> 00:44:37,000
+恢复所有用户寄存器，
+restores all the user registers
+
+761
+00:44:37,000 --> 00:44:39,580
+并且准备好返回到用户空间，
+and it's just about ready to return to user space,
+
+762
+00:44:39,760 --> 00:44:41,890
+它实际上又进行了一次交换，
+it actually does another one of these swaps,
+
+763
+00:44:42,160 --> 00:44:44,770
+内核设置 a0 为 trap 帧，
+the kernel is setup a0 to be equal to the trap frame,
+
+764
+00:44:45,280 --> 00:44:49,090
+sscratch 仍然保存的用户 a0 。
+sscratch still holds the saved user a0.
+
+765
+00:44:49,980 --> 00:44:53,520
+所以内核会进行这种交换，结果是 sscratch 有一个指针，
+So the kernel does this swap which ends up with that sscratch having a pointer
+
+766
+00:44:53,520 --> 00:44:57,130
+在 a0 中的 trapframe ，
+that trapframe in a0 having received,
+
+767
+00:44:57,920 --> 00:45:02,030
+用户 a0 ，然后 sret 返回到用户空间，
+user a0 and then this sret returns to user space,
+
+768
+00:45:02,180 --> 00:45:04,700
+所以你可能会想， a0 怎么会有这样的值，
+so you may wonder how a0 ever got to have the value
+
+769
+00:45:04,700 --> 00:45:08,040
+有 trap 帧的地址，
+of the, the address of the trap frame
+
+770
+00:45:08,520 --> 00:45:10,950
+回答这个问题是，嗯，
+answer that question is that, um,
+
+771
+00:45:13,130 --> 00:45:15,950
+我们现在看 trap.c ，
+we're now looking in trap.c,
+
+772
+00:45:17,120 --> 00:45:20,150
+在这最后一个 C 函数中，
+at this last C function to run
+
+773
+00:45:20,270 --> 00:45:23,640
+它将转移到用户空间。
+on the way out to user space.
+
+774
+00:45:24,710 --> 00:45:28,550
+这个 C 函数做的最后一件事，是在这里调用这个函数。
+The last thing this C function does is calls this function here.
+
+775
+00:45:29,460 --> 00:45:33,240
+无论这个 fn 是什么，它传递的参数
+Whatever this fn is and the arguments it passes
+
+776
+00:45:33,660 --> 00:45:38,020
+都是 trapframe 和用户页表，
+are the trapframe and the user page table
+
+777
+00:45:38,560 --> 00:45:41,680
+所以在 C 代码中，当你调用一个函数时，
+and so in C code, when you call a function,
+
+778
+00:45:41,680 --> 00:45:43,660
+第一个参数进入 a0 ，
+the first argument goes into a0,
+
+779
+00:45:44,170 --> 00:45:48,000
+这就是 a0 在 trapframe 上保持指针的原因。
+that's basically why a0 held a pointer at the trapframe.
+
+780
+00:45:49,120 --> 00:45:51,910
+这个函数，它的值在这里设置为，
+And this function, its value is set up here to be,
+
+781
+00:45:52,650 --> 00:45:56,970
+在接近末尾的 trampoline 页面中，我向你展示了代码。
+in that trampoline page towards the end that code I showed you .
+
+782
+00:45:59,690 --> 00:46:00,740
+这个代码。
+This code.
+
+783
+00:46:02,220 --> 00:46:04,980
+这是不是你要的答案。
+Is that, that's a good answer.
+
+784
+00:46:06,120 --> 00:46:07,020
+谢谢。
+Thanks.
+
+785
+00:46:07,620 --> 00:46:11,760
+不好意思，我也搞不清楚我不确定，
+Sorry, I also was confused about that I was not sure,
+
+786
+00:46:11,880 --> 00:46:14,850
+所以当你开始你的过程时，
+so when you start when you start your process,
+
+787
+00:46:15,290 --> 00:46:17,930
+它运行，然后在某些时候，
+and it's good at running and then at some point
+
+788
+00:46:17,930 --> 00:46:21,500
+我猜这不等于什么，
+it doesn't equal I guess or something
+
+789
+00:46:21,500 --> 00:46:26,180
+那么在什么时候调用这个返回函数的呢，
+and then when did you call this return function
+
+790
+00:46:26,270 --> 00:46:29,150
+因为它应该在 ecall 之前调用，
+because it should have been called before the ecall,
+
+791
+00:46:30,000 --> 00:46:34,140
+但是它没有回来，你之前没有返回，
+but it didn't return from, you didn't return before,
+
+792
+00:46:34,350 --> 00:46:37,830
+我不知道我不明白你说的 usertrapret 。
+I I don't know I don't understand what you call the usertrapret.
+
+793
+00:46:39,000 --> 00:46:41,940
+好的，这个问题的一个答案可能是，
+Okay, what may be one answer to this question is that
+
+794
+00:46:41,970 --> 00:46:48,450
+内核总是或机器在内核中引导，
+the kernel always or that the machine boots up in the kernel,
+
+795
+00:46:49,850 --> 00:46:51,680
+因此，当机器在内核中启动时，
+so when the machine starts in the kernel,
+
+796
+00:46:51,950 --> 00:46:56,230
+任何时候进入用户空间的唯一途径，
+anytime the only way to get into user space,
+
+797
+00:46:56,880 --> 00:47:00,720
+你知道第一次或从系统调用返回时，
+you know the very first time or when returning from a system call
+
+798
+00:47:01,080 --> 00:47:04,200
+实际上是执行这个 sret 指令，
+is in fact to execute this sret instruction,
+
+799
+00:47:05,440 --> 00:47:07,750
+这条 sret 指令就是解决问题的方法，
+that this sret instruction is the way
+
+800
+00:47:07,750 --> 00:47:13,780
+RISC-V 定义为从管理者模式转换到用户模式，
+that the RISC-V defines to transition from supervisor mode into user mode,
+
+801
+00:47:14,530 --> 00:47:18,830
+因此在任何用户代码执行之前，
+and so before any user code ever executes,
+
+802
+00:47:18,950 --> 00:47:22,030
+内核执行我在这里展示的代码，
+the kernel executes the code I'm showing you here,
+
+803
+00:47:22,030 --> 00:47:24,280
+在这两个编辑器缓冲区中，
+in these these two editor buffers,
+
+804
+00:47:24,820 --> 00:47:29,620
+设置所有内容，比如 sscratch stvec 。
+that set up all kinds of things like sscratch stvec.
+
+805
+00:47:33,200 --> 00:47:34,820
+好的，我明白了，谢谢。
+Okay I see, thank you.
+
+806
+00:47:35,270 --> 00:47:35,660
+不用谢。
+You're welcome.
+
+807
+00:47:36,730 --> 00:47:38,020
+我有个问题，
+I have a question,
+
+808
+00:47:38,020 --> 00:47:41,020
+我不确定我们是谈到这个了还是我错过了
+I'm not sure if we touched on this or I missed it,
+
+809
+00:47:41,020 --> 00:47:44,620
+但是当我们在汇编代码中调用 ecall 指令时，
+but when we call the ecall instruction in the assembly code,
+
+810
+00:47:45,220 --> 00:47:47,680
+是什么触发 trampoline 代码启动，
+what triggers the trampoline code to start,
+
+811
+00:47:47,770 --> 00:47:52,570
+比如 CPU 模式是从管理者模式切换过来的，
+like is it the switch of the CPU mode from supervisor,
+
+812
+00:47:52,570 --> 00:47:55,090
+对不起，是从用户模式切换过来的吗？管理者模式是另一回事。
+I'm sorry from user, supervisor is something else.
+
+813
+00:47:55,480 --> 00:47:56,860
+好的，嗯。
+Okay, um.
+
+814
+00:47:57,990 --> 00:48:00,570
+所以我们正在执行的代码是 ecall ，
+So the code we're executing is this ecall,
+
+815
+00:48:01,010 --> 00:48:03,020
+shell 在用户空间中执行它，
+the shell executes it in user space
+
+816
+00:48:03,290 --> 00:48:05,000
+ecall 做了几件事，
+and ecall does a couple things,
+
+817
+00:48:05,120 --> 00:48:08,750
+ecall 指令将模式设置为管理者模式，
+the ecall instruction sets the mode to supervisor,
+
+818
+00:48:09,400 --> 00:48:16,000
+并且 ecall 指令将程序计数器保存在 sepc 中，
+and the ecall instruction saves the program counter in sepc
+
+819
+00:48:16,360 --> 00:48:20,440
+并且 ecall 指令将程序计数器设置为等于
+and the ecall instruction sets the program counter equal to
+
+820
+00:48:21,560 --> 00:48:23,930
+名为 stvec 的控制寄存器，
+the control register called stvec,
+
+821
+00:48:24,260 --> 00:48:26,450
+stvec 是内核在进入用户空间之前
+so stvec is one of the many things
+
+822
+00:48:26,450 --> 00:48:29,060
+设置的众多东西之一。
+which the kernel sets up before entering user space.
+
+823
+00:48:31,750 --> 00:48:35,140
+这里是 stvec ，内核设置它，
+And so here's stvec, stvec is just the kernel set it
+
+824
+00:48:35,470 --> 00:48:37,600
+到 trampoline 页面的开头，
+to the beginning of the trampoline page
+
+825
+00:48:37,630 --> 00:48:39,860
+就是这里的地址。
+that is this address here.
+
+826
+00:48:40,680 --> 00:48:42,450
+所以当 ecall 发生时，
+So when ecall happens,
+
+827
+00:48:42,450 --> 00:48:46,320
+ecall 只是将 stvec 复制到程序计数器中并继续，
+ecall just copies stvec into the program counter and continues,
+
+828
+00:48:46,320 --> 00:48:51,510
+但是现在程序计数器正在 trampoline 页面中执行这个地址。
+but now the program counter is executing this address in the trampoline page.
+
+829
+00:48:54,500 --> 00:48:55,970
+清楚了，谢谢。
+That clarifies it, thank you.
+
+830
+00:48:56,990 --> 00:48:57,320
+好的。
+Okay.
+
+831
+00:49:00,520 --> 00:49:02,050
+我也有一个问题。
+I also have a question.
+
+832
+00:49:02,620 --> 00:49:09,460
+为什么，所以一些寄存器保存在 trap 帧中，
+Why, so some of the registers are saved in the trap frame,
+
+833
+00:49:09,520 --> 00:49:11,290
+是否应该，
+should not ,
+
+834
+00:49:11,900 --> 00:49:17,030
+也是用户程序可以访问的寄存器，
+are also registers that the user program had access to,
+
+835
+00:49:19,510 --> 00:49:29,000
+为什么我们要把这个作为内存中的一个新的区域，
+why, why do we need to, um, use as a new region in memory
+
+836
+00:49:29,000 --> 00:49:31,790
+而不是使用程序栈。
+and not use the program stack.
+
+837
+00:49:34,660 --> 00:49:37,660
+好吧，嗯，伙计，这里可能有两个问题。
+Okay, um, boy, there's maybe two questions here.
+
+838
+00:49:37,660 --> 00:49:42,420
+一个是，也许我们为什么要保存这些寄存器。
+One is, maybe why do we have to save the registers at all.
+
+839
+00:49:43,700 --> 00:49:46,160
+内核必须保存寄存器的原因是，
+The the reason why the kernel has to save the registers
+
+840
+00:49:46,160 --> 00:49:48,680
+内核即将运行 C 代码，
+is that the kernel is about to run C code
+
+841
+00:49:48,680 --> 00:49:51,700
+它会覆盖那些寄存器，
+that it overwrites those registers
+
+842
+00:49:52,060 --> 00:49:55,480
+如果我们想要正确恢复用户代码，
+and if we ever want to resume the user code correctly,
+
+843
+00:49:55,480 --> 00:49:57,550
+我们恢复它需要寄存器
+we need to resume it with its registers
+
+844
+00:49:57,550 --> 00:50:01,060
+保持其从 ecall 开始原始值，
+having their original values as of when the ecall,
+
+845
+00:50:01,090 --> 00:50:02,050
+让我们执行它，
+let's execute it,
+
+846
+00:50:02,260 --> 00:50:06,440
+我们必须保存 trapframe 中的所有寄存器，
+we have to save all the registers in the trapframe ,
+
+847
+00:50:06,980 --> 00:50:10,040
+这样以后，我们就可以恢复它们的值，
+so that later on, we can restore all of their values
+
+848
+00:50:10,250 --> 00:50:12,930
+在恢复用户代码之前。
+just before resuming the user code.
+
+849
+00:50:14,280 --> 00:50:15,570
+也许你问题的另一半是，
+Maybe the other half of your question is
+
+850
+00:50:15,570 --> 00:50:17,760
+为什么它们保存在 trap 帧中，
+how come they're saved in the trap frame
+
+851
+00:50:17,760 --> 00:50:20,040
+and not on the user stack .
+
+852
+00:50:20,580 --> 00:50:21,570
+这个问题的答案是，
+The answer to that is
+
+853
+00:50:21,570 --> 00:50:24,420
+我们甚至不确定用户程序是否有栈。
+that we're not sure the user program even has a stack.
+
+854
+00:50:24,820 --> 00:50:28,330
+当然，有些编程语言没有栈，
+There are certainly programming languages that don't have a stack
+
+855
+00:50:28,810 --> 00:50:31,750
+栈指针没有特别指向任何东西，
+and the stack pointer doesn't point to anything in particular
+
+856
+00:50:31,810 --> 00:50:33,130
+可能是零值，
+might be a value zero,
+
+857
+00:50:33,460 --> 00:50:35,770
+还有一些编程语言，它们有一个栈，
+there's also programming languages that yeah they have a stack
+
+858
+00:50:35,770 --> 00:50:38,260
+但它的格式是，
+but it's in a format that's,
+
+859
+00:50:38,580 --> 00:50:42,120
+一些奇怪的格式，内核无法理解，
+you know some weird format, the kernel doesn't understand ,
+
+860
+00:50:42,120 --> 00:50:43,800
+可能因为编程语言
+maybe because the programming language
+
+861
+00:50:43,800 --> 00:50:47,860
+从堆中以小块的形式分配栈，
+allocates stack in small blocks from the heap,
+
+862
+00:50:48,550 --> 00:50:50,830
+编程语言运行库可以理解，
+and the programming language runtime understands
+
+863
+00:50:50,830 --> 00:50:53,650
+如何将这些小的内存块用作栈，
+how to use these small blocks of memory as a stack,
+
+864
+00:50:53,650 --> 00:50:57,000
+但是你知道，内核并不知道。
+but you know, the kernel has no idea .
+
+865
+00:50:57,610 --> 00:51:00,580
+因此，如果我们想要能够任意地运行，
+So we if we want to be able to run sort of arbitrary
+
+866
+00:51:00,580 --> 00:51:02,500
+用多种不同语言编写的用户程序，
+user programs written in lots of different languages
+
+867
+00:51:02,740 --> 00:51:07,930
+内核不能对用户内存的部分做出任何假设，
+that kernel can't make any assumptions about what parts of user memory,
+
+868
+00:51:07,930 --> 00:51:11,710
+它被允许存在或有效，或者被允许读或写，
+it's allowed to exist or valid or is allowed to read or write,
+
+869
+00:51:12,220 --> 00:51:13,330
+因此内核必须
+and so the kernel has to be
+
+870
+00:51:13,330 --> 00:51:16,510
+在某种程度上独立保存它们，保存寄存器。
+sort of self-contained in saving them, storing the registers.
+
+871
+00:51:17,200 --> 00:51:21,010
+这就是内核在自己的内存中保存内容的原因，
+That's why the kernel saves stuff in its own memory
+
+872
+00:51:21,010 --> 00:51:23,730
+保存在 trapframe ，而不是在用户内存中。
+and the trapframe rather than in user memory.
+
+873
+00:51:24,610 --> 00:51:25,510
+好的，有道理。
+Okay, makes sense.
+
+874
+00:51:29,820 --> 00:51:30,300
+好的。
+Okay.
+
+875
+00:51:31,930 --> 00:51:32,950
+还有别的问题吗。
+Anything else.
+
+876
+00:51:40,120 --> 00:51:47,880
+好的，我们还在阅读 trampoline 代码的开头。
+Okay, we're still reading the beginning of of the code in trampoline,
+
+877
+00:51:48,120 --> 00:51:51,540
+这些代码，不幸的是，我们将其称为
+this code unfortunately we refer to it
+
+878
+00:51:51,540 --> 00:51:56,160
+uservec 和 trampoline 代码，
+both as uservec and as the trampoline code,
+
+879
+00:51:56,490 --> 00:51:57,990
+我们刚刚开始执行它，
+we barely started executing it
+
+880
+00:51:58,050 --> 00:52:02,010
+我想我刚刚在这段代码中设置了一个断点，
+I think I just set a break point in this code,
+
+881
+00:52:02,970 --> 00:52:06,180
+在保存了所有寄存器后，
+after all the registers have been saved,
+
+882
+00:52:06,210 --> 00:52:11,750
+我想我给这个指令设置了一个断点，
+I think I set a break point of this instruction,
+
+883
+00:52:12,200 --> 00:52:14,900
+我们将继续执行，跳过所有这些保存
+we'll continue executing skip over all these saves
+
+884
+00:52:14,900 --> 00:52:16,940
+所有用户寄存器的 trapframe 。
+of all the user registers the trapframe.
+
+885
+00:52:17,630 --> 00:52:20,960
+好的，现在我们执行加载指令，
+Okay and now, we're executing this load instruction,
+
+886
+00:52:20,960 --> 00:52:25,430
+加载指令正在加载到栈指针寄存器，
+this load instruction is loading into the stack pointer register
+
+887
+00:52:25,490 --> 00:52:28,670
+作为值加载的是第八个插槽。
+and what is loading as the value is the eighth slot.
+
+888
+00:52:29,370 --> 00:52:32,310
+由 a0 指向的内存中的块，
+In the block of memory pointed to by a0,
+
+889
+00:52:32,430 --> 00:52:35,280
+我们记得 a0 指向，这个 trapframe ，
+we remember a0 points, this trapframe
+
+890
+00:52:35,700 --> 00:52:39,900
+到这个虚拟地址的倒数第二页。
+to this virtual address the second last page.
+
+891
+00:52:40,600 --> 00:52:45,790
+trap 页面的格式，但 trapframe 。
+And the format of the trap page, but the trapframe.
+
+892
+00:52:46,880 --> 00:52:47,930
+这是 trap 页的首页，
+Here's the front of the trap page,
+
+893
+00:52:47,930 --> 00:52:53,090
+我们已经方便地将每个字段以字节为单位标记为其偏移量，
+my we've conveniently labeled each field with its offset in bytes,
+
+894
+00:52:53,450 --> 00:52:55,550
+所以这意味着他们在第八个装载，
+so that means they load in the eighth,
+
+895
+00:52:56,280 --> 00:52:58,050
+从 trapframe 的第八个字节开始，
+starting at the eighth byte of the trapframe
+
+896
+00:52:58,050 --> 00:53:00,720
+意味着我们正在加载内核栈指针，
+means we're loading the kernel stack pointer
+
+897
+00:53:00,720 --> 00:53:04,620
+内核在进入用户空间之前设置的事情之一，
+and one of the things the kernel sets up before entering user spaces,
+
+898
+00:53:04,620 --> 00:53:06,840
+它将 trapframe 中的这个插槽
+it sets this slot in the trapframe
+
+899
+00:53:07,050 --> 00:53:11,200
+设置为等于此进程的内核栈，
+to be equal to this process's kernel stack,
+
+900
+00:53:11,620 --> 00:53:16,810
+所以这里的这条指令是初始化栈指针，
+so this instruction here is doing is initializing the stack pointer
+
+901
+00:53:16,810 --> 00:53:20,140
+指向此进程的内核栈的顶部，
+to point to the top of this process's kernel stack,
+
+902
+00:53:20,380 --> 00:53:23,900
+是运行用户代码所需执行的操作的一部分。
+is part of what you need to do in order to to run user code.
+
+903
+00:53:25,930 --> 00:53:27,070
+好的，那么剩下的，
+Alright, so what's left,
+
+904
+00:53:27,070 --> 00:53:31,450
+在到达 trampoline 代码末尾的几条指令。
+within a few instructions of getting to the end of the trampoline code .
+
+905
+00:53:32,220 --> 00:53:34,050
+我们加载了栈指针，
+We loaded the stack pointer,
+
+906
+00:53:34,650 --> 00:53:37,050
+因此，也许我可以打印栈指针，并查看。
+so maybe I can print the stack pointer for you and see.
+
+907
+00:53:39,160 --> 00:53:40,000
+是的，这是。
+Yeah, this is.
+
+908
+00:53:40,770 --> 00:53:50,520
+嗯。好的，这就是内核，
+Um. All right, well this is the kernels,
+
+909
+00:53:50,520 --> 00:53:52,920
+这个进程的内核栈位于高内存上，
+this processes kernel stack is up on high memory
+
+910
+00:53:52,920 --> 00:53:58,930
+因为 xv6 特别对待内核设置，
+because xv6 treat kernel sets especially,
+
+911
+00:53:58,930 --> 00:54:02,470
+这样你就可以在每个内核栈下放置一个保护页。
+so that you can put a guard page under each kernel stack.
+
+912
+00:54:03,810 --> 00:54:06,270
+嗯，好的，这个加载到 tp ，
+Um, okay, so this load into tp,
+
+913
+00:54:06,870 --> 00:54:11,190
+因为 RISC-V 没有直接的方式，
+it turns out that because there's no direct way in RISC-V
+
+914
+00:54:11,190 --> 00:54:15,330
+找出你在多个内核中的哪个内核上运行，
+to figure out what core which of the multiple cores you're running on,
+
+915
+00:54:15,630 --> 00:54:22,830
+xv6 实际上将称为 hart id 的内核编号保存在 tp 寄存器中。
+xv6 actually keeps the core number called the hart id in the tp register
+
+916
+00:54:22,920 --> 00:54:25,050
+这在内核中的很多地方都有使用，
+and this is used in a bunch of places in the kernel,
+
+917
+00:54:25,050 --> 00:54:28,080
+举个例子，它是一种机制，
+for example, it's part of the machinery
+
+918
+00:54:28,080 --> 00:54:34,070
+让内核代码找出当前在该内核上运行的进程，
+for kernel code to figure out what process is currently running on that core.
+
+919
+00:54:35,220 --> 00:54:39,540
+好的，如果我们执行这个，
+OK, and if we execute this, hopefully ,
+
+920
+00:54:41,070 --> 00:54:43,530
+tp ，运行在内核 0 上，这是有意义的，
+tp or running on core zero and that makes sense
+
+921
+00:54:43,530 --> 00:54:45,360
+因为我已经将 QEMU 设置为
+because I've configured QEMU to
+
+922
+00:54:45,360 --> 00:54:49,950
+仅将一个内核分配给 xv6 或实际上在内核 0 上运行。
+only give one core to xv6 or indeed running on core zero.
+
+923
+00:54:51,830 --> 00:54:58,010
+嗯，下一件事是加载地址，
+Um, this next thing, is loading the address of,
+
+924
+00:54:59,620 --> 00:55:02,290
+实际加载到 t0 。
+actually the loaded to t0.
+
+925
+00:55:06,180 --> 00:55:13,260
+我想加载了指向我们要执行的第一个 C 函数的指针，
+I think loaded a pointer to the first C function that we're going to execute
+
+926
+00:55:13,290 --> 00:55:14,370
+就是 usertrap ，
+which is user,
+
+927
+00:55:14,370 --> 00:55:15,810
+所以我们在几条指令中使用它，
+so we use that in a few instructions
+
+928
+00:55:15,810 --> 00:55:19,170
+只需跳到 usertrap C 函数。
+just jump to the usertrap C function.
+
+929
+00:55:19,870 --> 00:55:22,630
+加载到 t1 ，
+Load into t1 here,
+
+930
+00:55:23,260 --> 00:55:28,140
+正在加载内核页表的地址，
+is loading the address of the kernel page table,
+
+931
+00:55:28,590 --> 00:55:32,060
+你可以打印，即将切换页表，
+you can print, about to switch page tables,
+
+932
+00:55:32,660 --> 00:55:35,180
+这个东西，
+turns out the, this thing,
+
+933
+00:55:35,180 --> 00:55:38,030
+其实不是字面上的内核页表地址，
+it was not actually literally the address of the kernel page table,
+
+934
+00:55:38,030 --> 00:55:41,570
+这是你需要放入 satp 的东西，
+it's the thing you need to put into satp ,
+
+935
+00:55:42,100 --> 00:55:44,830
+即具有内核页表的地址，
+which is, has the address of the kernel page table,
+
+936
+00:55:44,830 --> 00:55:47,140
+但是对一些额外的标志位的情况下进行了移位。
+but shifted around with some extra flag bit set.
+
+937
+00:55:47,760 --> 00:55:50,820
+但只要执行 csrrw 指令，
+But as soon as the csrrw instruction executes
+
+938
+00:55:50,820 --> 00:55:54,210
+将交换用户页表和内核页表，
+will switch page tables from the user page table, the kernel page table,
+
+939
+00:55:54,420 --> 00:55:58,260
+现在让我查看当前页表确认一下。
+let me just reinforce that by looking at the current page table right now.
+
+940
+00:55:58,660 --> 00:56:02,050
+我们仍在使用这个非常小的用户页表执行，
+We're still executing with this very small user page table
+
+941
+00:56:02,350 --> 00:56:06,400
+并单步运行以执行加载和 satp 。
+and run step by to execute the load and satp.
+
+942
+00:56:08,770 --> 00:56:09,430
+嗯。
+Um.
+
+943
+00:56:11,140 --> 00:56:12,400
+我们将再次查看内核页面，
+And we'll look again at the kernel page,
+
+944
+00:56:12,400 --> 00:56:14,500
+现在我们在完全不同的页表中，
+now we're at completely different page table right,
+
+945
+00:56:14,500 --> 00:56:15,790
+这是内核页表，
+this is the kernel page table,
+
+946
+00:56:16,330 --> 00:56:18,700
+然后你可以看到所有这些不同的内存区域，
+then you can see all these different regions of memory
+
+947
+00:56:18,700 --> 00:56:20,200
+和设备控制寄存器，
+and device control registers
+
+948
+00:56:20,200 --> 00:56:26,660
+现在内核设置在自己的大内核页表中，
+and what now that the  kernel sets up in its own big kernel page table,
+
+949
+00:56:26,870 --> 00:56:29,090
+所以我们成功地交换了页表。
+so we successfully switch page tables.
+
+950
+00:56:29,740 --> 00:56:31,000
+现在是内核页表，
+And now the kernel page tables,
+
+951
+00:56:31,450 --> 00:56:33,010
+所以现在我们处于相当好的状态，
+so we're in pretty good shape at this point,
+
+952
+00:56:33,010 --> 00:56:34,090
+因为我们有栈，
+because we have a stack,
+
+953
+00:56:34,480 --> 00:56:36,310
+我们有内核页表，
+we have the kernel page table,
+
+954
+00:56:36,310 --> 00:56:37,570
+我们可以读到内核数据
+we can read my kernel data
+
+955
+00:56:37,600 --> 00:56:42,580
+已经准备好在内核中执行 C 代码了，
+were really pretty much ready to execute C code in the kernel,
+
+956
+00:56:43,210 --> 00:56:48,200
+但有一个问题是，为什么我们不是崩溃了，
+one puzzle though is, how come, we didn't just crash,
+
+957
+00:56:48,560 --> 00:56:50,780
+毕竟我们是在内存中的某个地方执行，
+after all we are executing somewhere in memory,
+
+958
+00:56:50,810 --> 00:56:53,270
+并且程序计数器保存虚拟地址，
+and the program counter holds a virtual address,
+
+959
+00:56:53,390 --> 00:56:55,940
+如果我们交换页表，
+if we switch page tables,
+
+960
+00:56:56,170 --> 00:56:59,350
+为什么不会造成一些随机的垃圾数据
+why doesn't that just cause some random garbage
+
+961
+00:56:59,350 --> 00:57:03,040
+或者没有东西映射到新页表中，
+or nothing at all to be mapped in the new page table
+
+962
+00:57:03,070 --> 00:57:04,720
+在我们执行之后。
+underfoot where we were executing.
+
+963
+00:57:05,470 --> 00:57:07,990
+我们没有崩溃，也没有实际执行这些指令。
+We're not crashing or actually execute these instructions.
+
+964
+00:57:08,660 --> 00:57:10,490
+有谁能猜到发生了什么事吗？
+Any guesses what's going on.
+
+965
+00:57:13,280 --> 00:57:15,680
+我想是因为，哦，对不起，
+I think it's because, oh sorry,
+
+966
+00:57:17,040 --> 00:57:20,040
+因为我们还在 trampoline 代码里，
+because we're still in the trampoline code
+
+967
+00:57:20,040 --> 00:57:25,710
+并且 trampoline 被映射到用户和内核的相同虚拟地址。
+and the trampoline is mapped the same virtual address both user and kernel.
+
+968
+00:57:26,260 --> 00:57:27,460
+绝对正确，
+That's absolutely correct
+
+969
+00:57:27,820 --> 00:57:29,950
+我不知道你是否还记得，
+and say you, I don't know if you remember
+
+970
+00:57:29,950 --> 00:57:31,720
+这里映射的是用户页面表中的内容，
+what was mapped here in the user page table,
+
+971
+00:57:31,840 --> 00:57:34,780
+但是内核页表末尾的这个映射，
+but this mapping here at the end of the kernel page table
+
+972
+00:57:34,810 --> 00:57:37,690
+在相同的地方是完全相同的映射，
+is exactly the same mapping in the same place,
+
+973
+00:57:38,080 --> 00:57:40,270
+与 trampoline 映射一样，
+as as the trampoline mapping
+
+974
+00:57:40,840 --> 00:57:42,340
+在用户页表的末尾，
+at the end of the user page table,
+
+975
+00:57:42,370 --> 00:57:43,750
+所有其他映射都不同，
+all the other mappings are different,
+
+976
+00:57:44,480 --> 00:57:45,740
+但是这个映射是一样的，
+But this mapping is the same,
+
+977
+00:57:45,740 --> 00:57:48,050
+这是保存正在执行的指令的映射，
+this is the mapping that holds the instructions were executing,
+
+978
+00:57:48,050 --> 00:57:50,870
+因为当我们交换页表时它没有改变，
+and because it didn't change when we switch page tables,
+
+979
+00:57:51,800 --> 00:57:53,600
+我们实际上继续执行，
+we actually continue executing
+
+980
+00:57:53,600 --> 00:57:58,040
+我们仍然在执行相同的指令序列，也没有崩溃。
+and we're still executing the same sequence of instructions and not crashing.
+
+981
+00:57:59,140 --> 00:58:03,550
+这就是 trampoline 页面的特殊之处，
+And so that's the sort of special thing about the trampoline page,
+
+982
+00:58:03,580 --> 00:58:10,680
+它在用户页表和内核页表中都有映射，
+it's mapped both in the user page tables and kernel page table
+
+983
+00:58:10,950 --> 00:58:13,110
+这也是被称为 trampoline （蹦床） 页面的原因，
+and the reason it's called a trampoline pages,
+
+984
+00:58:13,200 --> 00:58:15,120
+因为你可以在上面弹跳，
+because you sort of bounce on it
+
+985
+00:58:15,810 --> 00:58:18,960
+从用户空间到内核空间。
+on the way from user space to kernel space.
+
+986
+00:58:20,760 --> 00:58:23,820
+下一条指令，这个 jr 将要弹跳，
+And the next instruction, this jr were about to bounce
+
+987
+00:58:24,030 --> 00:58:27,900
+直接走出 trampoline 进入内核 C 代码。
+right out of the trampoline into kernel C code.
+
+988
+00:58:28,430 --> 00:58:32,360
+看看我们要去哪里， jr 就像跳到一个子程序，
+And see where we're going, jr is just like jump to a subroutine,
+
+989
+00:58:32,450 --> 00:58:34,940
+由寄存器 t0 指向的子程序，
+subroutine this point to by register t0,
+
+990
+00:58:35,930 --> 00:58:37,610
+打印 t0 查看我们要去哪里。
+print t0 to see where we're going.
+
+991
+00:58:39,420 --> 00:58:44,170
+嗯，也许我们在那里打印指令。
+Um, maybe we'll print instructions there.
+
+992
+00:58:46,520 --> 00:58:49,010
+好的，这些就是我们要跳到那里的指令，
+Okay, so these are the instructions were about to jump to there
+
+993
+00:58:49,010 --> 00:58:52,100
+在 usertrap 函数的开头，
+in the beginning of the function called usertrap,
+
+994
+00:58:53,560 --> 00:58:57,100
+usertrap 只是一个 C 函数，
+usertrap is just a C function,
+
+995
+00:58:57,480 --> 00:58:58,830
+定义在 trap.c 中。
+defined in trap.c.
+
+996
+00:59:01,040 --> 00:59:04,730
+这是 usertrap ，我们将从汇编代码跳到使用 trap ，
+Here's usertrap, we're about to jump from assembly code to use a trap
+
+997
+00:59:04,730 --> 00:59:06,770
+利用具有内核页表的栈，
+with a stack with a kernel page table,
+
+998
+00:59:07,220 --> 00:59:11,360
+让我来执行指令。
+let me actually do the execute the instruction.
+
+999
+00:59:12,040 --> 00:59:18,990
+我要打开，打开 C 代码的显示，
+And I'm gonna turn on, turn on display of C code
+
+1000
+00:59:18,990 --> 00:59:21,540
+gdb 现在[] C 代码。
+and gdb now [] C code.
+
+1001
+00:59:23,820 --> 00:59:25,440
+好的，现在我们处在一个更加理智的世界里，
+Okay, so now we're in a much more sane world,
+
+1002
+00:59:25,440 --> 00:59:26,880
+我们只是在执行 C 代码，
+we're just executing C code,
+
+1003
+00:59:27,120 --> 00:59:28,950
+应该更容易理解一点，
+should be a little bit easier to understand
+
+1004
+00:59:29,220 --> 00:59:32,370
+还有你知道的，仍然要花一些时间
+and there's you know still spend some time
+
+1005
+00:59:32,370 --> 00:59:35,550
+读写各种有趣的控制寄存器，
+reading and writing various interesting control registers,
+
+1006
+00:59:35,550 --> 00:59:39,490
+但是，环境更好，
+but the environment is hopefully a good deal
+
+1007
+00:59:39,490 --> 00:59:41,770
+比在 trap 帧的神秘程度要低得多。
+less mysterious than it was in the trapframe.
+
+1008
+00:59:43,420 --> 00:59:44,020
+好的。
+Alright.
+
+1009
+00:59:48,140 --> 00:59:50,300
+对于这一点，有什么问题吗。
+Any function, any any questions at this point.
+
+1010
+00:59:53,890 --> 00:59:55,510
+嗯，我有个问题，
+Um, I have a question,
+
+1011
+00:59:55,510 --> 01:00:00,460
+为什么我们没有在 gdb 看到 ecall 是做什么的，
+why didn't we see with the gdb, what ecall does,
+
+1012
+01:00:03,010 --> 01:00:04,630
+也许我错过了，
+I I maybe I missed it,
+
+1013
+01:00:04,630 --> 01:00:09,280
+但是我想我们已经直接跳到 trampoline 上了。
+but I I think we've jumped directly into the trampoline.
+
+1014
+01:00:11,930 --> 01:00:19,560
+ecall 确实跳了， ecall 做的是，
+Ecall ecall did jump, what ecall does is ,
+
+1015
+01:00:19,740 --> 01:00:23,340
+只需切换，将模式位更改为管理员模式，
+just switch just changes the mode bit to be supervisor
+
+1016
+01:00:23,820 --> 01:00:31,370
+而 ecall 设置程序计数器寄存器等于，
+and ecall sets the program counter register to be equal to
+
+1017
+01:00:31,370 --> 01:00:35,390
+无论内核发生什么，存储在 stvec 中的值。
+the whatever happens, whatever the kernel happened to store in stvec.
+
+1018
+01:00:36,400 --> 01:00:40,000
+我将存储刚刚打印的值 0x3ffffff000 ，
+I'll store this value I just printed 0x3ffffff000
+
+1019
+01:00:40,000 --> 01:00:43,510
+这是 trampoline 页面内核存储的开始。
+which is the beginning of the trampoline page kernel stores.
+
+1020
+01:00:43,740 --> 01:00:46,680
+在进入用户空间之前在 stvec 中的编号，
+This number in stvec before entering user space,
+
+1021
+01:00:47,130 --> 01:00:53,430
+因此， ecall 所处的位置就是 stvec 的程序计数器。
+so where eccall goes that is where it's just the program counter to stvec,
+
+1022
+01:00:53,820 --> 01:00:55,860
+这是 trampoline 页面的开始。
+which is the beginning of the trampoline page.
+
+1023
+01:00:58,560 --> 01:00:59,700
+这回答了你的问题吗。
+That answer your question.
+
+1024
+01:01:02,240 --> 01:01:03,920
+是的，我想是的。
+Yes I think so.
+
+1025
+01:01:08,610 --> 01:01:14,370
+好的，现在我们在 usertrap ， usertrap 就像一个 trampoline 页面，
+Okay, so now we're in user, usertrap are actually just like a trampoline page
+
+1026
+01:01:14,370 --> 01:01:20,630
+就像 trampoline 页面上为一些不同种类的 trap ，
+and just like the trampoline page for a number of different kinds of traps,
+
+1027
+01:01:20,630 --> 01:01:23,780
+有系统调用异常，比如被零除，
+there system calls there's exceptions like dividing by zero
+
+1028
+01:01:23,780 --> 01:01:25,940
+或使用未映射的虚拟地址，
+or using a unmapped virtual address
+
+1029
+01:01:26,150 --> 01:01:27,440
+或有设备中断，
+and there's a device interrupts
+
+1030
+01:01:27,440 --> 01:01:28,460
+它们都来到这里
+and they all come here
+
+1031
+01:01:28,730 --> 01:01:33,550
+因此 usertrap 可以保存和恢复一些硬件状态，
+and so user sort of saves and restores some hardware state,
+
+1032
+01:01:33,550 --> 01:01:38,470
+但它也需要查看引起 trap 的状态，
+but it also needs to look at the state at the cause of the trap
+
+1033
+01:01:38,500 --> 01:01:41,410
+弄清楚如何处理它。
+to figure out what to do with it .
+
+1034
+01:01:42,220 --> 01:01:45,700
+所以当我们在用户陷阱中执行时，我们会看到这两种情况，
+And so we're gonna see both things as we execute along in usertrap,
+
+1035
+01:01:45,880 --> 01:01:50,730
+让我运行一下 usertrap ，
+let me just run stuff user,
+
+1036
+01:01:50,730 --> 01:01:54,240
+让我们看看，它在这里做的第一件事是，
+let's see, the first thing it does here is that
+
+1037
+01:01:54,330 --> 01:01:57,210
+它改变 stvec 寄存器，
+it changes that stvec register,
+
+1038
+01:01:57,390 --> 01:02:03,550
+xv6 处理 trap 的方式不同，
+it turns out that the the way xv6 handles traps is different
+
+1039
+01:02:03,550 --> 01:02:06,310
+取决于它们是来自用户空间还是来自内核，
+depending on whether they come from user space or from the kernel
+
+1040
+01:02:06,640 --> 01:02:10,810
+我们只讨论了如果用户空间发生 trap 会发生什么，
+and we've only been talking about what happens if a trap occurs from user space,
+
+1041
+01:02:10,960 --> 01:02:13,360
+事件的顺序完全不同，
+there's a quite different sequence of events,
+
+1042
+01:02:13,750 --> 01:02:17,260
+对于内核中发生的，来自内核的 trap ，
+for traps that come from the kernel that occur while in the kernel,
+
+1043
+01:02:17,260 --> 01:02:19,540
+因为毕竟，比如说内核，
+because after all, for example the kernel,
+
+1044
+01:02:20,120 --> 01:02:21,950
+我已经在使用内核页表了，
+I was already using the kernel page table,
+
+1045
+01:02:22,040 --> 01:02:24,830
+当你在内核中发生 trap ，
+a trap occurs while you're in the kernel,
+
+1046
+01:02:24,830 --> 01:02:26,180
+你已经有了内核页表，
+you already have the kernel page tables,
+
+1047
+01:02:26,180 --> 01:02:28,010
+有很多事情是不一定要发生，
+there's a whole bunch of stuff that doesn't have to happen
+
+1048
+01:02:28,430 --> 01:02:31,010
+如果 trap 在内核中发生，
+if the trap occurred while in the kernel,
+
+1049
+01:02:31,520 --> 01:02:34,580
+所以在深入了解内核代码之前，
+so before getting much further in the kernel code,
+
+1050
+01:02:34,730 --> 01:02:37,370
+我们将 stvec 更改为指向 kernelvec ，
+we change stvec to point to this kernelvec
+
+1051
+01:02:37,370 --> 01:02:39,620
+它是内核 trap 处理程序，
+which is the kernel trap handler,
+
+1052
+01:02:39,710 --> 01:02:41,240
+而不是用户 trap 处理程序。
+rather than the user trap handler.
+
+1053
+01:02:43,250 --> 01:02:46,040
+出于各种原因，我们需要，
+We need for various reasons,
+
+1054
+01:02:46,040 --> 01:02:47,900
+我们需要找出我们正在运行的进程，
+we need to figure out what process we're running
+
+1055
+01:02:48,080 --> 01:02:50,120
+我们通过调用这个 myproc 函数来实现这一点，
+and we do that by calling this myproc function
+
+1056
+01:02:50,570 --> 01:02:52,190
+并且 myproc 实际上查看一个列表，
+and myproc actually looks at an array
+
+1057
+01:02:52,190 --> 01:02:55,940
+由当前内核编号， hart id ，
+indexed by the current core number, hart id,
+
+1058
+01:02:56,180 --> 01:02:58,490
+你记得我们把它放入 tp 。
+do you remember we put in tp.
+
+1059
+01:02:59,300 --> 01:03:02,630
+嗯，这就是 myproc 计算出当前正在运行的进程的过程。
+Um, that's how myproc figures out what process is currently running.
+
+1060
+01:03:07,150 --> 01:03:08,830
+我们需要保存，
+We need to save that save
+
+1061
+01:03:08,830 --> 01:03:14,890
+用户程序计数器还在 sepc 中，
+user program counter is still sitting there in in sepc,
+
+1062
+01:03:14,950 --> 01:03:18,820
+但是因为当我们在内核中时可能发生的一件事是，
+but because one of things that could happen while we're in the kernel is
+
+1063
+01:03:18,820 --> 01:03:21,340
+我们可能会切换到另一个进程，
+that we might switch to another process
+
+1064
+01:03:21,400 --> 01:03:25,710
+而另一个进程可能进入该进程用户空间，
+and that other process might go into that process user space
+
+1065
+01:03:25,920 --> 01:03:29,170
+而另一个进程可能会进行系统调用，
+and that other process might make a system call,
+
+1066
+01:03:29,170 --> 01:03:31,390
+这使得 sepc 被重写，
+which causes sepc to be overwritten,
+
+1067
+01:03:31,480 --> 01:03:37,690
+我们必须保存 sepc 和与此过程相关的一些内存，
+we have to save our sepc and some memories associated with this process,
+
+1068
+01:03:37,720 --> 01:03:38,830
+这样它就不会被覆盖，
+so it doesn't get overwritten
+
+1069
+01:03:39,190 --> 01:03:43,060
+我们用这个 trapframe 来保存 epc ，
+and yet we use this trapframe to save epc
+
+1070
+01:03:43,060 --> 01:03:44,350
+还有很多其他的东西，
+as well as lots of other stuff,
+
+1071
+01:03:44,770 --> 01:03:48,530
+不管怎样，这就是当前代码行正在做的事情。
+anyway that's with this current line of code is doing.
+
+1072
+01:03:49,520 --> 01:03:50,540
+接下来的事情，
+The next thing happens,
+
+1073
+01:03:50,540 --> 01:03:57,590
+我们需要弄清楚我们为什么来这里，
+we need to figure out, why we came here,
+
+1074
+01:03:57,770 --> 01:04:00,770
+scause RISC-V 的 scause 寄存器，
+the scause, the RISC-V scause register
+
+1075
+01:04:00,950 --> 01:04:03,860
+根据 trap 发生的原因，具有不同的数字。
+has a different number depending on why this trap occurred.
+
+1076
+01:04:05,340 --> 01:04:09,090
+某种异常或系统调用或设备中断，
+Some kind of exception versus system call versus device interrupt,
+
+1077
+01:04:09,150 --> 01:04:13,170
+8 表示我们因为系统调用而进入 trap 。
+value eight means we're here we took a trap because of a system call.
+
+1078
+01:04:15,430 --> 01:04:20,590
+事实上， scause 8 ，它在这是 8 就是因为系统调用，
+Indeed scause eight it does have eight were here because a system call,
+
+1079
+01:04:21,100 --> 01:04:23,680
+所以我们将执行这条语句。
+so we're gonna execute this statement.
+
+1080
+01:04:24,770 --> 01:04:28,670
+第一件事是，如果某个其他进程杀死这个进程，
+First thing is if some other process is killed this process,
+
+1081
+01:04:28,670 --> 01:04:33,320
+我们不想继续，但 shell 并非如此。
+we don't want to continue but that's not the case for shell .
+
+1082
+01:04:33,940 --> 01:04:39,880
+RISC-V 程序计数器保存在 spec ，
+It turns out that the RISC-V the program counter that gets stored in sepc
+
+1083
+01:04:39,970 --> 01:04:44,440
+是引起 trap 的指令的地址，
+is the address of the instruction that caused the trap,
+
+1084
+01:04:45,410 --> 01:04:50,210
+但是当我们恢复时，我们想要恢复 ecall 之后的下一条指令，
+but when we resume we want to resume at the next instruction after the ecall,
+
+1085
+01:04:50,600 --> 01:04:55,130
+因此，这个代码持久化需要返回的调用。
+so therefore we this code persistent calls which need to return .
+
+1086
+01:04:56,080 --> 01:04:59,440
+我们将保存的用户程序计数器加 4 ，
+We add four to the saved user program counter,
+
+1087
+01:04:59,440 --> 01:05:02,290
+这样我们就可以在下一条指令中继续，
+so that we resume in the next instruction
+
+1088
+01:05:02,290 --> 01:05:04,990
+而不要重新执行 ecall 。
+and don't just re-execute the ecall.
+
+1089
+01:05:08,140 --> 01:05:13,000
+好的，接下来， xv6 启用中断，
+Alright next, turns out that xv6 enables interrupts
+
+1090
+01:05:13,000 --> 01:05:15,520
+在处理系统调用时，只有中断
+while handling system calls just that interrupts
+
+1091
+01:05:15,850 --> 01:05:20,500
+可以更快地提供服务，某些系统调用需要很长时间。
+can be served faster some system calls take a lot of time .
+
+1092
+01:05:21,190 --> 01:05:25,630
+中断始终由 RISC-V trap 硬件关闭，
+Interrupts are always turned off by the RISC-V trap hardware,
+
+1093
+01:05:26,200 --> 01:05:29,380
+因此我们必须在这里显式地重新打开它们。
+and so we have to explicitly turn them back on at this point.
+
+1094
+01:05:30,250 --> 01:05:34,120
+接下来发生的是，我们调用这个 syscall 函数，
+And the next thing that happens is we call this syscall function,
+
+1095
+01:05:34,120 --> 01:05:41,450
+syscall 是在 syscall.c 中定义的。
+the job of syscall just entering defined in just syscall.c.
+
+1096
+01:05:42,820 --> 01:05:45,700
+这就是它所做的，它查找 syscall 编号，
+Here we are what it does, is it looks up the syscall number
+
+1097
+01:05:45,700 --> 01:05:50,850
+在页面顶部的这个系统调用表中，
+in this big table of system calls about at the top of the page,
+
+1098
+01:05:51,750 --> 01:05:54,840
+如果你还记得 shell write 函数，
+if you remember the shells write function
+
+1099
+01:05:54,840 --> 01:06:00,000
+将寄存器 a7 设置为系统调用号 16 进行写入，
+set register a7 to the system call number namely sixteen for write,
+
+1100
+01:06:00,270 --> 01:06:04,380
+所以 syscall 的作用是获取保存的 a7 ，
+so what syscall does is it retrieves the saved a7
+
+1101
+01:06:04,560 --> 01:06:08,130
+被 trampoline 代码保存在 trapframe 里，
+that was saved away in the trapframe by the trampoline code,
+
+1102
+01:06:09,230 --> 01:06:14,470
+并使用它来索引此指向函数的指针表，
+and use that to index into this table of pointers to functions
+
+1103
+01:06:14,470 --> 01:06:15,970
+这些函数实现了每个系统调用。
+that implement each system call.
+
+1104
+01:06:17,420 --> 01:06:22,700
+所以我们现在要[]这个数字， print num ，
+So we're gonna [] this number gonna print num now,
+
+1105
+01:06:22,790 --> 01:06:25,640
+这就是保存在 a7 中的，实际上是 16 ，
+that's the saved a seven indeed sixteen
+
+1106
+01:06:25,760 --> 01:06:28,610
+和 shell 原来放在那里的 16 一样。
+the same sixteen the shell originally put there.
+
+1107
+01:06:30,530 --> 01:06:31,250
+嗯。
+Um.
+
+1108
+01:06:32,610 --> 01:06:36,600
+系统调用代码索引调用表，
+The system call code indexes indices calls table,
+
+1109
+01:06:37,110 --> 01:06:38,670
+我们可以找出哪些函数可以，
+we can find out what function can,
+
+1110
+01:06:39,600 --> 01:06:41,580
+它是从系统调用表中取出的，
+it got out of the system call table,
+
+1111
+01:06:42,380 --> 01:06:43,610
+通过单步进入，
+by stepping into it,
+
+1112
+01:06:43,700 --> 01:06:45,950
+现在我们在 write ，或 SYS_write 。
+right now we're in write or SYS_write.
+
+1113
+01:06:46,040 --> 01:06:50,690
+所以，在 sysfile.c 文件中，
+So, in this sysfile.c,
+
+1114
+01:06:52,560 --> 01:06:56,910
+sys_write 是 write 系统调用的内核实现。
+sys_write is the kernel implementation of the write system call.
+
+1115
+01:06:57,810 --> 01:07:00,570
+我就不详细说了，这里很复杂，
+I'm not gonna go into this, it's like fairly complicated,
+
+1116
+01:07:00,570 --> 01:07:02,700
+从外面和里面会发生什么，
+what happens from here out and in
+
+1117
+01:07:02,700 --> 01:07:04,530
+而且这个系统调用的实现，
+and the implementation of this system call
+
+1118
+01:07:04,710 --> 01:07:05,460
+对于本课程，
+for this lecture,
+
+1119
+01:07:05,460 --> 01:07:07,770
+我只对进出内核感兴趣，
+I'm only really interested in getting into and out of the kernel,
+
+1120
+01:07:08,970 --> 01:07:16,100
+所以我要跳过，
+so I'm going to step over,
+
+1121
+01:07:25,860 --> 01:07:28,170
+实际的系统调用实现。
+the actual implementation system call.
+
+1122
+01:07:28,200 --> 01:07:30,060
+有一件有趣的事情需要注意，
+One thing an interesting thing to note is
+
+1123
+01:07:30,060 --> 01:07:32,820
+系统调用需要找到它们的参数，
+that the system calls need to find their arguments
+
+1124
+01:07:32,850 --> 01:07:34,890
+你还记得 write 的参数，
+so you remember the arguments to write
+
+1125
+01:07:34,890 --> 01:07:37,350
+一个 buff 指针还有其他两个，
+or to add a buff pointer and another two,
+
+1126
+01:07:37,560 --> 01:07:40,140
+系统调用代码获取它们的方式，
+and the way that the system call code gets at them
+
+1127
+01:07:40,140 --> 01:07:42,090
+就是查看这些，
+is just looking at these ,
+
+1128
+01:07:43,430 --> 01:07:49,230
+好的，查看这个 trapframe ，
+well, looking at the trapframe,
+
+1129
+01:07:49,560 --> 01:07:51,870
+就像我们可以在 trapframe 中查找 a7 ，
+so just like we could look in the trapframe for a7,
+
+1130
+01:07:51,990 --> 01:07:54,810
+我们可以查找 a0 ，这是第一个参数，
+we can look for a0 and that's the first argument,
+
+1131
+01:07:54,810 --> 01:07:56,580
+我们查看 a1 ，这就是 buff 指针，
+we look at a1, that's that buff pointer,
+
+1132
+01:07:56,580 --> 01:07:58,500
+我们可以查看 a2 ，这是第二个参数，
+we can look at a2 that's the second argument,
+
+1133
+01:07:58,710 --> 01:08:03,490
+也就是要写入的字节数。
+the number of  bytes to write.
+
+1134
+01:08:05,020 --> 01:08:06,940
+好的，那么系统调用就完成它的工作，
+Okay, so the system call does its job
+
+1135
+01:08:06,940 --> 01:08:09,760
+然后，最终 sys_write 返回。
+and then a sys_write finally returns.
+
+1136
+01:08:13,190 --> 01:08:15,110
+看看会发生什么，
+And watch what happens,
+
+1137
+01:08:15,170 --> 01:08:17,120
+这个分配的原因是，
+the reason for this assignment here,
+
+1138
+01:08:17,120 --> 01:08:21,680
+我们将 trapframe 中的 a0 赋值的原因是，
+the reason why we're assigning to a0 in the trapframe is
+
+1139
+01:08:21,680 --> 01:08:24,980
+这个系统调用都有返回值。
+that this system calls all have a return value.
+
+1140
+01:08:26,030 --> 01:08:28,100
+比如 write 返回，写入的字节数，
+Like write returns, the number of bytes written,
+
+1141
+01:08:28,310 --> 01:08:31,250
+约定，并针对 RISC-V 上的 C 代码，
+and the convention and for C code on the RISC-V
+
+1142
+01:08:31,250 --> 01:08:35,090
+将返回值放入寄存器 a0 ，
+is that return values are placed in register a0
+
+1143
+01:08:35,120 --> 01:08:36,440
+通过你正在调用的任何函数，
+by whatever function you're calling
+
+1144
+01:08:36,800 --> 01:08:38,780
+因此，要模拟返回值，
+and so to simulate a return value,
+
+1145
+01:08:38,780 --> 01:08:42,170
+我们只需将返回值放入 trapframe 中的 a0 中，
+we just stick the return value in a0 in the trapframe
+
+1146
+01:08:42,560 --> 01:08:45,500
+当我们回到用户空间时，我们会看到它，
+and we'll see by and by that when we return to user space,
+
+1147
+01:08:45,800 --> 01:08:50,900
+trapframe 中的 a0 插槽恢复到真正的 a0 寄存器，
+this a0 slot in the trapframe is restored back into the actually a zero register
+
+1148
+01:08:50,900 --> 01:08:58,080
+并且 shell 将 a0 的值看作从 write 返回的值，
+and the shell sees that a0 value as as the return value from write
+
+1149
+01:08:58,590 --> 01:09:05,510
+并通过这个执行，print p->trapframe->a0 ，
+and execute through this and print p trapframe a0,
+
+1150
+01:09:05,900 --> 01:09:09,740
+我们也会看到值，也就是 write 的返回值，
+we'll see the value to what that means is that write return values too,
+
+1151
+01:09:09,740 --> 01:09:13,250
+表示它实际上是按照指令写了两个字节。
+saying that it actually wrote two bytes just as instructed.
+
+1152
+01:09:13,980 --> 01:09:19,850
+好的，现在我们又回到了 trap.c ，
+Okay, at this point, we're back in trap.c
+
+1153
+01:09:19,850 --> 01:09:24,750
+usertrap 紧接在对 syscall 调用之后，
+and usertrap just after the call to syscall,
+
+1154
+01:09:24,750 --> 01:09:27,060
+现在，使用这个 p ，
+for now with this p
+
+1155
+01:09:27,060 --> 01:09:29,790
+它检查进程是否已终止，
+which checking if the func if the process been killed,
+
+1156
+01:09:29,790 --> 01:09:32,340
+因为你不想恢复已经被终止的进程，
+because you don't want to resume executing have already been killed,
+
+1157
+01:09:32,340 --> 01:09:34,620
+当然，我们的 shell 没有终止。
+of course, our shell not been killed.
+
+1158
+01:09:35,790 --> 01:09:38,940
+跳过这个然后，
+Skip over this and then,
+
+1159
+01:09:40,570 --> 01:09:44,020
+usertrap 调用单独的函数 usertrapret ，
+usertrap calls a separate function usertrapret
+
+1160
+01:09:44,050 --> 01:09:47,380
+为了设置我之前谈到的所有东西，
+in order to set up all the stuff that I talked about previously
+
+1161
+01:09:47,380 --> 01:09:50,140
+每当我在进入用户空间之前，
+whenever I said well before entering user space,
+
+1162
+01:09:50,140 --> 01:09:51,880
+内核做这个那个，
+the kernel does blah blah,
+
+1163
+01:09:52,240 --> 01:09:54,220
+usertrapret ，
+it's usertrapret,
+
+1164
+01:09:54,700 --> 01:09:57,550
+负责设置所有这些东西。
+that's responsible for setting all that stuff up.
+
+1165
+01:10:00,490 --> 01:10:03,580
+所以我们可以看到所有不同的东西，它做，
+And so we can look at all the different things, it does ,
+
+1166
+01:10:11,440 --> 01:10:13,630
+它关闭中断，
+it turns interrupts off
+
+1167
+01:10:13,720 --> 01:10:16,150
+并且当它们在系统调用期间被打开，
+and when they were turned on for the duration of a system call
+
+1168
+01:10:16,330 --> 01:10:17,140
+现在被关闭，
+were turned off now,
+
+1169
+01:10:17,140 --> 01:10:19,810
+因为我们即将修改 stvec
+because we're about to change the stvec
+
+1170
+01:10:20,020 --> 01:10:25,120
+指向用户 trap 处理程序，
+to point to the user trap handler,
+
+1171
+01:10:25,510 --> 01:10:28,510
+而当我们在内核时，指向内核 trap 处理程序，
+whereas while we're in the kernel was pointing to the kernel trap handler,
+
+1172
+01:10:28,780 --> 01:10:29,800
+所以我们关闭了中断，
+so we turn off interrupts,
+
+1173
+01:10:29,800 --> 01:10:33,430
+因为一旦我们将 stvec 更改为指向用户 trap 处理程序，
+because once we changed stvec to point to the user trap handler,
+
+1174
+01:10:33,430 --> 01:10:34,870
+我们仍然在内核中执行，
+we're still executing in the kernel,
+
+1175
+01:10:34,990 --> 01:10:38,950
+如果中断发生，则我们转到用户 trap 处理程序，
+and if an interruption occur then we go to the user trap handler,
+
+1176
+01:10:39,010 --> 01:10:40,570
+即使我们在内核中执行，
+even though we're executing in the kernel
+
+1177
+01:10:40,660 --> 01:10:46,280
+由于各种原因，会导致内核故障。
+and for various detailed reasons, that would cause the kernel to malfunction.
+
+1178
+01:10:46,520 --> 01:10:50,720
+因此，我们关闭中断，并在这两个时间之间保持关闭。
+So we turn off interrupts and their left off from between the time.
+
+1179
+01:10:51,140 --> 01:10:54,170
+从我们设置 stvec 的下一行开始，
+From the very next line where we set up the stvec
+
+1180
+01:10:54,410 --> 01:10:59,120
+在最后的 sret 指令中指向 trampoline ，
+to point to the trampoline all the way through the final sret instruction
+
+1181
+01:10:59,120 --> 01:11:00,710
+返回到用户空间。
+that returns to user space.
+
+1182
+01:11:01,220 --> 01:11:03,860
+trampoline 最后的 sret 指令，
+It turns out that sret instruction at the end of the trampoline,
+
+1183
+01:11:04,430 --> 01:11:06,620
+重新打开中断。
+turns interrupts back on.
+
+1184
+01:11:07,200 --> 01:11:11,190
+所以当我们在用户代码中执行时，中断是开启的，
+So the interrupts are on when we're executing in a user code,
+
+1185
+01:11:11,190 --> 01:11:12,480
+即使我们刚把它们关掉。
+even though we just turn them off.
+
+1186
+01:11:13,350 --> 01:11:18,300
+接下来的几行，填充我们之前看到的 trapframe 插槽，
+The next couple of lines, fill in those trapframe slots that we saw before
+
+1187
+01:11:18,300 --> 01:11:23,260
+包含对 trampoline 代码方便的各种值。
+that hold various values that are convenient for the trampoline code.
+
+1188
+01:11:23,290 --> 01:11:27,230
+所以，这里的代码，存放一个指针
+So, the code here, stash away a pointer
+
+1189
+01:11:27,230 --> 01:11:30,860
+到 trapframe 中的内核页表，
+to the kernel page table in the trapframe,
+
+1190
+01:11:31,190 --> 01:11:35,750
+它存放指向此进程、内核栈指针，
+its stash away a pointer to this processes, kernel stack,
+
+1191
+01:11:36,940 --> 01:11:38,980
+存放在 trapframe 里。
+Stashed away in the trapframe.
+
+1192
+01:11:40,890 --> 01:11:42,960
+指向 usertrap 函数的指针，
+A pointer to the usertrap function,
+
+1193
+01:11:42,960 --> 01:11:46,050
+这是 trampoline 代码最后跳转的地方。
+which is what the trampoline code jump to at the very end.
+
+1194
+01:11:47,440 --> 01:11:50,020
+存放当前的内核编号，
+Stash away, the current core number,
+
+1195
+01:11:50,530 --> 01:11:52,360
+从 tp 寄存器读取，
+read from the tp register,
+
+1196
+01:11:52,360 --> 01:11:56,710
+使得 trampoline 代码可以恢复相同的值，
+so that the trampoline code can just restore that same value,
+
+1197
+01:11:57,010 --> 01:11:58,900
+因为用户代码可能会干扰它。
+because user code may have disturbed it.
+
+1198
+01:12:01,320 --> 01:12:02,130
+有一个问题。
+Question?
+
+1199
+01:12:02,280 --> 01:12:02,790
+是。
+Yes.
+
+1200
+01:12:03,000 --> 01:12:06,000
+我们为什么不把 sepc 保存到 trampoline ？
+Why didn't we save the sepc in the trampoline?
+
+1201
+01:12:08,370 --> 01:12:09,030
+可以这样。
+It could have.
+
+1202
+01:12:11,420 --> 01:12:15,560
+是的， sepc 可以保存在 trampoline ，
+Yeah that that the sepc could have been trampoline code happens
+
+1203
+01:12:15,560 --> 01:12:17,420
+而不是将其与其他寄存器一起保存，
+not to save it along with other registers,
+
+1204
+01:12:17,810 --> 01:12:22,440
+我们完全可以修改 xv6 来保存它，
+we perfectly well could modify the xv6 to save it,
+
+1205
+01:12:22,440 --> 01:12:23,760
+它为你保存的。
+where it is actually saves you.
+
+1206
+01:12:24,840 --> 01:12:28,040
+可能记得是，只是碰巧保存了一下，
+Probably remember is, just happened to save it
+
+1207
+01:12:28,040 --> 01:12:32,820
+以及 usertrap 和 C 代码，而不是汇编代码，在 trampoline 代码中。
+and usertrap and C code instead of an assembly code, in the trampoline code.
+
+1208
+01:12:34,950 --> 01:12:38,850
+我不认为，我想不出一个好的理由来做这件事。
+I don't think, I can't think of a good reason to do it one way or the other.
+
+1209
+01:12:40,240 --> 01:12:44,560
+用户寄存器确实需要在在汇编代码中保存。
+The user registers really have to be saved in the assembly code.
+
+1210
+01:12:45,300 --> 01:12:49,260
+因为据我所知，任何 C 代码都是由编译器生成代码，
+Because any C code is entitled for all we know the compiler generates code
+
+1211
+01:12:49,260 --> 01:12:53,990
+修改任何用户寄存器，
+which modifies any user registers,
+
+1212
+01:12:53,990 --> 01:12:56,540
+保存这些用户寄存器很重要，
+those user registers are pretty important to save them
+
+1213
+01:12:56,540 --> 01:12:58,340
+在汇编代码中，在进入 C 代码之前。
+in assembly code before entering C.
+
+1214
+01:12:59,160 --> 01:13:01,950
+但是我们可以早点或晚点保存 sepc 。
+But the sepc we could have saved earlier or later.
+
+1215
+01:13:04,470 --> 01:13:07,680
+好的，所以当 usertrapret 准备 trap 时，
+Okay, so when usertrapret sort of preparing the trap,
+
+1216
+01:13:07,680 --> 01:13:10,230
+我们准备了 trapframe ，
+we prepared the trapframe with all these values
+
+1217
+01:13:10,230 --> 01:13:13,260
+that are going to be needed next time.
+
+1218
+01:13:13,950 --> 01:13:17,460
+有一个从用户空间到内核 trap 的转换。
+There's a transition from user space to kernel next trap.
+
+1219
+01:13:19,760 --> 01:13:24,740
+我们在 sstatus 控制寄存器中设置了几项内容，
+There's a couple things we have set up in the sstatus control register,
+
+1220
+01:13:24,920 --> 01:13:30,050
+结果是 sstatus 中的这个 spp 位，
+it turns out this spp bit in sstatus,
+
+1221
+01:13:30,080 --> 01:13:36,240
+控制 sret 返回的模式，
+controls whether controls the mode that sret return ,
+
+1222
+01:13:36,240 --> 01:13:40,810
+通过清除它，我们是说下次执行 sret 时，
+by clearing it we're just saying look next time you execute sret,
+
+1223
+01:13:40,900 --> 01:13:43,840
+我们希望进入用户模式，而不是管理者模式，
+we want to go to user mode instead of supervisor mode
+
+1224
+01:13:44,290 --> 01:13:50,120
+这个 spie 位控制是否启用中断，
+and this spie bit controls whether interrupts will be enabled,
+
+1225
+01:13:51,290 --> 01:13:55,280
+在我们执行 sret 之后，然后进入用户空间，
+after we execute sret and then after we get into user space,
+
+1226
+01:13:55,280 --> 01:13:56,780
+我们确实希望它们能够启用。
+and we do want them to be enabled.
+
+1227
+01:13:56,780 --> 01:13:59,320
+所以，我要设置 spie 位，
+So, gonna set that spie bit
+
+1228
+01:13:59,650 --> 01:14:01,870
+我将把这个新的修改状态
+and I'm going to write this new modified status
+
+1229
+01:14:01,870 --> 01:14:04,360
+写入实际硬件状态寄存器。
+into the actual hardware status register.
+
+1230
+01:14:06,590 --> 01:14:08,540
+它证明了 sret 是做什么的。
+It turns out what sret does.
+
+1231
+01:14:10,450 --> 01:14:13,120
+你知道我们要执行的 trampoline 代码末尾的 sret ，
+You know the sret we're gonna execute write at the end of the trampoline code,
+
+1232
+01:14:13,120 --> 01:14:14,800
+sret 做的是，
+what that sret does is,
+
+1233
+01:14:14,800 --> 01:14:19,120
+将程序计数器设置为等于 sepc 寄存器，
+sets the program counter equal to the sepc register,
+
+1234
+01:14:19,900 --> 01:14:22,510
+所以我们现在要设置 sepc 寄存器，
+so we're now going to set up the sepc register
+
+1235
+01:14:22,510 --> 01:14:26,170
+以保存用户程序计数器。
+to have the saved user program counter.
+
+1236
+01:14:27,170 --> 01:14:30,680
+如果你记得我们最近保存了 trapframe ，
+Which, if you recall we recently saved the trapframe,
+
+1237
+01:14:30,770 --> 01:14:31,880
+这就是这里正在发生的事情。
+that's what's happening here.
+
+1238
+01:14:33,480 --> 01:14:40,960
+你还记得 trampoline 包含指向内核页表的指针，
+You remember also the trap frame contain a pointer to a kernel page table
+
+1239
+01:14:40,960 --> 01:14:42,790
+因为 trampoline 需要转换成这个，
+because the trampoline needs to switch to it,
+
+1240
+01:14:43,240 --> 01:14:46,210
+我们需要准备出特殊的位模式，
+we need to cook up the special bit pattern
+
+1241
+01:14:46,210 --> 01:14:49,150
+你需要写入 satp 的操作已在此完成。
+that you need to write to satp has done here.
+
+1242
+01:14:50,290 --> 01:14:51,160
+而且。
+And.
+
+1243
+01:14:52,740 --> 01:14:57,210
+很抱歉，我们现在正在准备一个指向用户页表的指针。
+I'm sorry, we're now preparing a pointer to the user page table.
+
+1244
+01:14:57,950 --> 01:15:00,890
+我们需要在进入用户空间的过程中切换到它。
+Which we need to switch to on the way into user space.
+
+1245
+01:15:02,350 --> 01:15:05,290
+我们实际上要在汇编代码中进行切换，
+We're actually going to do that switch in assembly code,
+
+1246
+01:15:05,320 --> 01:15:07,720
+因为它必须在 trampoline 上进行，
+because it has to happen in the trampoline,
+
+1247
+01:15:07,960 --> 01:15:11,980
+因为只有 trampoline 中的代码在用户空间和内核空间中都被映射，
+because only code in the trampoline is mapped in both user and kernel space,
+
+1248
+01:15:12,370 --> 01:15:15,240
+所以我们只能真正交换页表，
+so we can only really switch page tables,
+
+1249
+01:15:15,240 --> 01:15:16,530
+我们在 trampoline 上执行，
+we're executing on the trampoline,
+
+1250
+01:15:16,530 --> 01:15:18,450
+但我们还没有在 trampoline 上执行，
+but we're not executing on the trampoline yet,
+
+1251
+01:15:18,720 --> 01:15:20,610
+我们仍然只是在一个普通的 C 函数中，
+we're still just in an ordinary C function,
+
+1252
+01:15:20,610 --> 01:15:22,020
+所以我们准备了这个指针，
+so we prepared this pointer
+
+1253
+01:15:22,620 --> 01:15:27,240
+我们将把它作为 a1 中的第二个参数传递给汇编代码。
+and we're going to pass it to the assembly code as the second argument in a1.
+
+1254
+01:15:28,250 --> 01:15:34,010
+这里的这一行所做的就是计算地址，
+ With this line here doing is just calculating the address
+
+1255
+01:15:34,010 --> 01:15:38,010
+我们想要跳到 trampoline 代码末尾的地方，
+of where we want to jump to at the end of the trampoline code
+
+1256
+01:15:38,010 --> 01:15:43,460
+这里有一个，我们要用 userret ，
+and it turns out there's a, that we want to go with userret
+
+1257
+01:15:43,460 --> 01:15:45,530
+这是将我们
+user, that's the address of the instructions
+
+1258
+01:15:45,530 --> 01:15:47,120
+带回用户空间的指令地址，
+that will take us back to user space
+
+1259
+01:15:47,450 --> 01:15:51,020
+这个小公式计算出，
+and this little formula works out ,
+
+1260
+01:15:52,500 --> 01:15:56,100
+trampoline 中虚拟地址
+the address the virtual address in the trampoline
+
+1261
+01:15:56,310 --> 01:15:58,440
+对应于 userret 函数。
+that corresponds to that userret function.
+
+1262
+01:16:02,980 --> 01:16:03,730
+哎呀。
+Oops.
+
+1263
+01:16:05,930 --> 01:16:07,910
+好的，我们来计算一下它的地址。
+Okay, so we calculate the address of that.
+
+1264
+01:16:09,640 --> 01:16:13,540
+userret 函数，然后这个乱七八糟的，这个下一行，
+userret function, and then this mess, this next line,
+
+1265
+01:16:14,030 --> 01:16:18,740
+调用使用 fn 变量作为函数指针，
+call uses this fn variable as a function pointer
+
+1266
+01:16:18,740 --> 01:16:23,420
+并跳转到 a0 a1 中带有这两个参数的函数。
+and jumps to that function with these two arguments in a0 a1.
+
+1267
+01:16:24,240 --> 01:16:29,950
+现在我们可以直接去 trampoline 代码了。
+And we can now just go to trampoline code.
+
+1268
+01:16:33,790 --> 01:16:36,850
+trampoline 代码，有。
+The trampoline code, there's .
+
+1269
+01:16:38,820 --> 01:16:40,350
+好的，首先我们切换到用户页表，
+Well first we switch to the user page tables,
+
+1270
+01:16:40,350 --> 01:16:41,490
+我的意思是，实际上执行这个命令，
+I mean actually execute this
+
+1271
+01:16:41,490 --> 01:16:43,350
+我们可以看到页表发生了变化，
+and we can see the page tables change,
+
+1272
+01:16:43,470 --> 01:16:47,490
+作为验证，我们仍然使用大的内核页表。
+just for [], we're still using the giant kernel page table.
+
+1273
+01:16:48,400 --> 01:16:49,180
+嗯。
+Um.
+
+1274
+01:16:50,750 --> 01:16:53,060
+我将快速浏览 usertrapret ，
+I'm gonna run through usertrapret quickly
+
+1275
+01:16:53,090 --> 01:16:55,580
+直到我们到了它跳到 trampoline 。
+until we get to the point where it jumps to the trampoline.
+
+1276
+01:16:57,240 --> 01:16:58,110
+噢。
+Oh.
+
+1277
+01:16:59,200 --> 01:17:00,280
+好的，我们在 trampoline 了。
+Alright we're in the trampoline.
+
+1278
+01:17:01,380 --> 01:17:02,070
+嗯。
+Um.
+
+1279
+01:17:07,350 --> 01:17:09,030
+这些指令即将
+These instructions are about to start
+
+1280
+01:17:09,030 --> 01:17:10,860
+在这里开始执行 trampoline 代码，
+executing the trampoline code there right here,
+
+1281
+01:17:10,860 --> 01:17:16,160
+我们现在可以，再次，打印页表，
+we can now, again,  printed page table
+
+1282
+01:17:16,310 --> 01:17:18,950
+仍然是内核页表。
+is still the kernel page table .
+
+1283
+01:17:20,080 --> 01:17:22,000
+不过，这里要发生的第一件事是，
+The first thing that's gonna happen here though is
+
+1284
+01:17:22,000 --> 01:17:24,760
+trampoline 代码将会加载，
+that the trampoline code is going to load the,
+
+1285
+01:17:25,070 --> 01:17:29,060
+指向用户页表的指针到 satp 寄存器。
+that pointer to the user page table into the satp register.
+
+1286
+01:17:30,000 --> 01:17:33,090
+所以我们现在交换页表，我输入 info mem ，
+So we switch page tables, I typed info mem now,
+
+1287
+01:17:33,500 --> 01:17:35,510
+我们现在有一个小得多的用户页表，
+we now have a much smaller user page table,
+
+1288
+01:17:35,510 --> 01:17:38,420
+但幸运的是还有 trampoline 页面映射，
+but luckily still with the trampoline page map,
+
+1289
+01:17:38,420 --> 01:17:40,460
+这样我们就不会在下一条指令上崩溃。
+so we don't crash on the next instruction.
+
+1290
+01:17:41,790 --> 01:17:45,360
+接下来会发生什么，是。
+The next thing happens, is this a.
+
+1291
+01:17:47,090 --> 01:17:51,080
+刚才我给大家看的，
+The I showed you a while ago,
+
+1292
+01:17:51,080 --> 01:17:54,560
+这段代码的第二件最后一件事是
+the second last thing that this sequence of code does
+
+1293
+01:17:54,560 --> 01:17:58,490
+在跳入用户空间时交换 sscratch 和 a0 ，
+on the way to user spaces swaps sscratch with a zero,
+
+1294
+01:17:58,700 --> 01:18:00,470
+所以我们需要设置 sscratch ，
+so we need to setup sscratch,
+
+1295
+01:18:00,500 --> 01:18:02,450
+它是保存的用户 a0 ，
+it's saved user a0,
+
+1296
+01:18:02,450 --> 01:18:03,950
+所以当我们交换的时候，
+so that when we do that swap,
+
+1297
+01:18:04,690 --> 01:18:07,510
+a0 具有接收到的用户 a0 ，
+a0 will end up having received user a0,
+
+1298
+01:18:07,540 --> 01:18:10,640
+最终 a0 指向 trampoline ，
+turns out a0 pointer to the trap frame,
+
+1299
+01:18:10,640 --> 01:18:14,150
+因为 C 代码传递的是第一个参数，
+because the C code pass that is the first argument,
+
+1300
+01:18:14,390 --> 01:18:18,410
+112(a0) 是保存的 a0 的地址，
+one twelve a0 is the address of the saved a0
+
+1301
+01:18:18,800 --> 01:18:20,540
+在要加载的 trapframe 中。
+in the trapframe going to load that.
+
+1302
+01:18:21,170 --> 01:18:24,260
+然后放入 t0 ，然后将其加载到 sscratch 。
+And then into t0 and then load that into sscratch.
+
+1303
+01:18:24,630 --> 01:18:30,100
+此时，我们仍在运行内核内容和所有寄存器。
+At this point, we're still running with kernel stuff and all the registers.
+
+1304
+01:18:31,230 --> 01:18:35,340
+接下来的 32 条指令，是从 trapframe 加载出来，
+The next 32 instructions, though load out of the trapframe
+
+1305
+01:18:35,340 --> 01:18:40,260
+a0 将所有保存的用户寄存器
+which is a0 points to load all of the saved user registers
+
+1306
+01:18:40,470 --> 01:18:46,570
+从 trapframe 加载到实际寄存器中，
+out of the trapframe into the actual registers,
+
+1307
+01:18:46,570 --> 01:18:50,470
+已经接近能够运行用户代码，
+were really close to being able to the point where we can run user code,
+
+1308
+01:18:50,500 --> 01:18:53,560
+我将跳过所有这些加载。
+I'm going to skip over all these loads .
+
+1309
+01:18:56,140 --> 01:19:00,440
+在我们接近用户空间之前，有什么问题吗。
+Any questions before we approach closer to user space.
+
+1310
+01:19:02,440 --> 01:19:04,000
+有一个简短的问题，
+And one quick question ,
+
+1311
+01:19:04,000 --> 01:19:06,640
+trapframe a0 中的值，
+is the value in the trapframe a zero,
+
+1312
+01:19:06,640 --> 01:19:09,460
+现在是我们进行的那个系统调用的返回值吗？
+now the return value of that system call that we made.
+
+1313
+01:19:11,330 --> 01:19:12,500
+嗯。
+Um.
+
+1314
+01:19:14,800 --> 01:19:19,090
+是的，现在 a0 控制着 tramframe ，
+Yeah yeah, the really a zero holds this point of the trap frame,
+
+1315
+01:19:19,090 --> 01:19:21,970
+但是在我们执行完之后，
+but the after we execute the,
+
+1316
+01:19:21,970 --> 01:19:28,440
+好的，用户保存的当前位置，
+well s, OK the current location of the user's saved,
+
+1317
+01:19:29,120 --> 01:19:33,020
+是的，我在调用用户保存的 a0 ，
+yes I was calling at the user saved a0
+
+1318
+01:19:33,020 --> 01:19:36,470
+但实际上系统调用返回的内容会覆盖它，
+but in fact the system call returns stuff overrode it,
+
+1319
+01:19:36,830 --> 01:19:40,940
+使用我们希望 shell 在 a0 中看到的返回值，
+with the return value that we want the shell to see in a0,
+
+1320
+01:19:41,540 --> 01:19:44,990
+所以我们用 2 覆盖了 a0 的当前位置。
+so the current location of that a0 which we overwrote with two.
+
+1321
+01:19:45,780 --> 01:19:48,750
+因为返回值为 sscatch ，
+As the return value is sscratch appoints sscratch
+
+1322
+01:19:48,750 --> 01:19:50,160
+希望它等于2，
+and hope that it's equal to two,
+
+1323
+01:19:51,160 --> 01:19:53,380
+它等于 2 。
+it is equal to two.
+
+1324
+01:19:55,980 --> 01:19:56,970
+这回答了你的问题吗？
+Does that answer your question?
+
+1325
+01:19:57,960 --> 01:19:58,740
+是的，我想是的。
+Yes I think so.
+
+1326
+01:19:58,890 --> 01:19:59,400
+好的。
+Okay.
+
+1327
+01:19:59,460 --> 01:20:03,660
+我会跳过所有这些加载恢复，
+I'm gonna skip over all these loads restore,
+
+1328
+01:20:04,180 --> 01:20:07,000
+为了将用户值从 trapframe 保存到寄存器中，
+to save user values out of the trapframe into the registers,
+
+1329
+01:20:07,390 --> 01:20:10,090
+我现在要打印寄存器。
+I'm going to print out the registers at this point.
+
+1330
+01:20:11,180 --> 01:20:12,890
+嗯，实际上。
+Um, actually gonna.
+
+1331
+01:20:16,620 --> 01:20:19,080
+打印寄存器，我不知道这些看起来是不是很眼熟，
+Print the registers I don't know if these look familiar,
+
+1332
+01:20:19,080 --> 01:20:21,990
+但是它们是同一组用户寄存器，
+but they happen to be the same set of user registers,
+
+1333
+01:20:21,990 --> 01:20:24,450
+你在这个练习开始的时候就看到了，
+you saw way back at the beginning of this exercise,
+
+1334
+01:20:24,630 --> 01:20:29,960
+例如 a1 或栈指针在存储器中保持这个值，
+for example a1 or the stack pointer holds this small value
+
+1335
+01:20:29,960 --> 01:20:32,150
+在内存中适合于用户栈的小值，
+appropriate for user stack low in memory,
+
+1336
+01:20:32,860 --> 01:20:36,190
+a1 是我们向 write 传递的缓冲区指针，
+a1 is that buff pointer that we passed write
+
+1337
+01:20:36,520 --> 01:20:38,260
+2 是字节数，
+two is that number of bytes,
+
+1338
+01:20:38,530 --> 01:20:44,210
+然而， a0 是个例外，不是接收到的用户值，
+a0, however is the exception is not received user value,
+
+1339
+01:20:44,210 --> 01:20:46,460
+因为它仍然有指向 trapframe 的指针。
+because it still has the pointer to trapframe in it.
+
+1340
+01:20:49,100 --> 01:20:50,780
+让我们看看我们即将执行的，
+But let's look we're about to execute,
+
+1341
+01:20:52,830 --> 01:20:59,320
+要执行的 csrrw a0 sscratch ，
+rather execute is this csrrw a0 sscratch,
+
+1342
+01:20:59,320 --> 01:21:03,400
+就在 trampoline 的尽头，在返回用户空间之前，
+right at the end of trampoline just before returning to user space
+
+1343
+01:21:03,400 --> 01:21:05,440
+将交换 a0 和 sscratch ，
+is going to swap a0 and scratch,
+
+1344
+01:21:06,280 --> 01:21:08,460
+scratch 包含。
+scratch indeed has.
+
+1345
+01:21:12,680 --> 01:21:14,240
+嗯，是这个 sscratch 。
+Um, that's sscratch.
+
+1346
+01:21:16,640 --> 01:21:22,390
+2 是关于该内核指针的返回值 a0 ，
+As two which is going to be the return value a0 as this kernel pointer,
+
+1347
+01:21:22,390 --> 01:21:27,580
+它指向 trapframe ，
+and it points to, point to the trapframe,
+
+1348
+01:21:27,580 --> 01:21:31,420
+但是在执行 csrrw 指令交换它们之后，
+but after executing the csrrw instruction to swap them,
+
+1349
+01:21:31,450 --> 01:21:36,460
+我们能看到 a0 包含这个返回值 2 ，
+hopefully we'll see that a0 holds this return value of two,
+
+1350
+01:21:36,820 --> 01:21:43,140
+而 sscratch 保存指向 trapframe 的指针，
+and sscratch holds a pointer to the trap frame
+
+1351
+01:21:43,140 --> 01:21:46,110
+这是内存中倒数第二页，
+which is the second last page in memory,
+
+1352
+01:21:46,500 --> 01:21:49,680
+该值将保留在 sscratch ，
+and that value is going to stay in sscratch
+
+1353
+01:21:49,680 --> 01:21:52,050
+直到用户程序执行另一个 trap ，
+until the user program does another trap
+
+1354
+01:21:52,050 --> 01:21:55,510
+那时 trap 控制代码，我们之前讨论的，
+and at that point, the trap handling code, we talked about before,
+
+1355
+01:21:55,510 --> 01:21:58,270
+我们能在 trapframe 使用 sscratch 。
+we'll be able to use sscratch at the trapframe.
+
+1356
+01:21:59,080 --> 01:22:02,300
+好的，我们还在内核中，
+Alright, we're still in the kernel,
+
+1357
+01:22:02,690 --> 01:22:05,060
+这是我们在内核中的最后一条指令，
+that is our last instruction in the kernel,
+
+1358
+01:22:05,930 --> 01:22:08,240
+当我执行这个 sret 时，
+and when I execute this sret,
+
+1359
+01:22:09,280 --> 01:22:12,340
+它将切换到用户模式，
+it will switch to user mode,
+
+1360
+01:22:12,550 --> 01:22:14,950
+在我这样做之前，让我们先来看看。
+before I do that let's look at.
+
+1361
+01:22:17,300 --> 01:22:21,260
+它将切换用户模式，将 sepc 复制到 pc ，
+It'll switch user mode, it'll copy sepc to PC,
+
+1362
+01:22:21,260 --> 01:22:30,330
+因为我们还在用 trampoline 上的 pc 执行任务，
+because we're still, we're still executing with the pc that's in the trampoline,
+
+1363
+01:22:30,510 --> 01:22:36,000
+因此， sret 将切换用户模式，复制 sepc 到 pc 。
+so sret gonna switch the user mode copy sepc to pc.
+
+1364
+01:22:36,350 --> 01:22:41,810
+然后继续执行，所以我将运行 sret 。
+And then resume executing, so I'm gonna run the sret.
+
+1365
+01:22:42,480 --> 01:22:46,860
+砰，我们现在又回到原点了。
+Boom, I'm now we're back at.
+
+1366
+01:22:48,640 --> 01:22:52,060
+我可以寻址 0xdea ，它是一个低地址，
+I could address 0xdea which is a low address
+
+1367
+01:22:52,210 --> 01:22:55,240
+很可能是用户内存，它是。
+likely be user memory, and it's the.
+
+1368
+01:22:55,980 --> 01:23:00,960
+回顾 sh.asm 和地址 0xdea 。
+Look back in sh.asm and address 0xdea.
+
+1369
+01:23:03,970 --> 01:23:08,290
+实际上是 write 结束时返回函数的地址。
+Is indeed the address of the return function at the end of write.
+
+1370
+01:23:09,870 --> 01:23:15,550
+a0 是这个它们应该返回的返回值。
+And, a0 is this return value, they're supposed to be returning.
+
+1371
+01:23:16,730 --> 01:23:18,110
+所以我们回到了用户空间，
+So we're back in user space
+
+1372
+01:23:18,110 --> 01:23:21,710
+我们可以执行从 write 系统返回到 shell 的操作，
+and we can about to do the return back to the shell from the write system,
+
+1373
+01:23:22,350 --> 01:23:24,360
+从进行系统调用的 write 库函数。
+from the write library function that made the system call.
+
+1374
+01:23:25,020 --> 01:23:26,310
+好的，有什么问题吗？
+OK, any questions?
+
+1375
+01:23:28,880 --> 01:23:30,530
+嗯，不好意思，你能再重复一遍吗，
+Um, sorry, can you repeat again,
+
+1376
+01:23:30,530 --> 01:23:34,400
+在 sret 期间中断发生了什么。
+what happens with the interrupt during sret.
+
+1377
+01:23:37,750 --> 01:23:39,400
+中断之后发生了什么。
+What happened with interrupts.
+
+1378
+01:23:39,520 --> 01:23:42,010
+你说我们把它们关了，
+You, you say we are turning them off,
+
+1379
+01:23:42,130 --> 01:23:44,890
+然后又有别的东西把它们打开了。
+but then something else turns them back on.
+
+1380
+01:23:45,840 --> 01:23:50,020
+sret ， sret 重新启用中断，
+sret, sret re-enables interrupts,
+
+1381
+01:23:50,410 --> 01:23:53,080
+所以 sret ，最后一条指令，
+so this sret, the very last instruction
+
+1382
+01:23:53,080 --> 01:23:55,270
+我们在内核中以管理者模式执行的，
+that we're executing in supervisor mode in the kernel,
+
+1383
+01:23:56,260 --> 01:23:58,000
+刚才我忘了说，
+I forgot to say that just now,
+
+1384
+01:23:58,000 --> 01:24:01,600
+但也将程序计数器设置为等于 sepc ，
+but as well as setting the program counter equal to the sepc
+
+1385
+01:24:01,600 --> 01:24:06,950
+切换到用户模式 sret 将重新启用中断。
+and switching to user mode sret is going to re-enable interrupts.
+
+1386
+01:24:07,840 --> 01:24:10,330
+这意味着你知道，
+So that means you know that's you know
+
+1387
+01:24:10,330 --> 01:24:11,980
+用户程序可能会运行很长时间，
+user programs may run for a long time,
+
+1388
+01:24:11,980 --> 01:24:14,320
+能够接受磁盘中断或其他任何情况很好，
+it would be nice to be able to take disk interrupts or whatever,
+
+1389
+01:24:15,040 --> 01:24:17,140
+当用户程序正在运行时。
+while user programs are running.
+
+1390
+01:24:18,320 --> 01:24:19,460
+我明白了，谢谢你。
+I see, thank you.
+
+1391
+01:24:20,770 --> 01:24:21,730
+还有其他问题吗？
+Other questions?
+
+1392
+01:24:25,860 --> 01:24:26,010
+好的。
+Okay.
+
+1393
+01:24:28,100 --> 01:24:31,520
+好的，总结一下系统调用，
+Okay to, to wrap up the system calls,
+
+1394
+01:24:31,550 --> 01:24:32,990
+看起来有点像函数调用，
+sort of look like function calls
+
+1395
+01:24:32,990 --> 01:24:36,290
+它们在某种程度上被认为很像函数调用，
+and are kind of meant to be thought of a lot like function calls,
+
+1396
+01:24:36,290 --> 01:24:42,020
+但是用户内核转换比函数调用要复杂得多，
+but the user kernel transitions are much more complex than than function calls
+
+1397
+01:24:42,020 --> 01:24:46,460
+由于隔离的要求有很大的复杂性，
+are a lot of complexities due to the requirement for isolation,
+
+1398
+01:24:46,460 --> 01:24:48,860
+内核就不能信任用户空间中的任何东西。
+the kernel just can't trust anything in user space.
+
+1399
+01:24:49,330 --> 01:24:53,860
+并且还希望具有简单且非常快速的硬件机制，
+And also the desire to have simple and very fast hardware mechanisms,
+
+1400
+01:24:53,860 --> 01:24:56,950
+xv6 不太关心性能，
+really xv6 doesn't care that much about performance,
+
+1401
+01:24:56,950 --> 01:25:00,670
+但是在一般的操作系统设计者和 CPU 设计者中，
+but in general operating system designers and the CPU designers,
+
+1402
+01:25:00,850 --> 01:25:02,320
+他们非常感兴趣的是
+they're very interested in
+
+1403
+01:25:02,320 --> 01:25:06,310
+你能以多快的速度，以及 trap 的效率。
+the sort of speed at which you can do efficiency of traps.
+
+1404
+01:25:08,040 --> 01:25:10,980
+xv6 以一种特殊的方式做所有这些事情，
+xv6 does it does all these things in a particular way,
+
+1405
+01:25:10,980 --> 01:25:12,660
+当然还有其他方法可以做到这一点，
+there's certainly other ways to do them,
+
+1406
+01:25:13,110 --> 01:25:16,530
+几个问题如果你设计问题替代方案，
+a few questions if you design questions alternatives,
+
+1407
+01:25:16,530 --> 01:25:17,370
+你可以想一想，
+you could think about,
+
+1408
+01:25:17,820 --> 01:25:24,180
+一个就是你能不能想办法把硬件方面或者软件方面，
+one is can you think of ways to make the hardware or software aspects,
+
+1409
+01:25:24,180 --> 01:25:28,650
+你重新设计 xv6 ，重新设计 RISC-V 以使整个序列更简单，
+you redesign xv6, redesign the RISC-V to make this whole sequence simpler
+
+1410
+01:25:29,490 --> 01:25:32,850
+或者你能想出让整个过程更快的方法吗？
+or could you think of ways to make the whole sequence faster.
+
+1411
+01:25:33,640 --> 01:25:36,190
+另一组问题让你保持头脑清醒，
+Another sort of set of questions to keep the back your head,
+
+1412
+01:25:36,730 --> 01:25:41,260
+恶意程序是否可以
+is whether or not a malicious programs
+
+1413
+01:25:41,260 --> 01:25:46,310
+滥用这些机制中的任何一个来破坏隔离。
+could abuse any of these mechanisms to break isolation.
+
+1414
+01:25:48,090 --> 01:25:50,790
+好了，这就是我对这堂课要说的全部内容。
+Alright that is all I have to say for this lecture.
+
+1415
+01:25:50,820 --> 01:25:52,530
+我很乐意回答大家的问题。
+I'm happy to take questions.
+
+1416
+01:25:54,650 --> 01:25:56,420
+嗯，对不起，我还有另一个问题。
+Um, sorry I have another question.
+
+1417
+01:25:56,570 --> 01:25:56,990
+请问。
+Please.
+
+1418
+01:25:56,990 --> 01:26:02,250
+我看到有一个 uie 寄存器，
+I saw there is a uie registers are,
+
+1419
+01:26:02,490 --> 01:26:04,890
+是的，我想它在 sstatus ，
+yeah I think register in sstatus,
+
+1420
+01:26:05,280 --> 01:26:06,480
+但是我们不使用它，
+but we don't use it,
+
+1421
+01:26:07,320 --> 01:26:11,430
+我们只使用 sie ，并在用户空间中将其设置为 false ，
+we just use, sie and we set it to false in user space,
+
+1422
+01:26:11,430 --> 01:26:14,630
+为什么我们不使用 uie 。
+why couldn't we use the uie.
+
+1423
+01:26:14,630 --> 01:26:18,610
+uie ，天啊，答案是我不知道。
+Uie gosh, the answer is gonna be I don't know.
+
+1424
+01:26:21,640 --> 01:26:22,360
+嗯。
+Um.
+
+1425
+01:26:24,720 --> 01:26:29,460
+我们 s p ，我们说的是 spie 。
+We're s p what we said is s, what we said is spie.
+
+1426
+01:26:30,550 --> 01:26:32,470
+我们实际上可能最终会设置。
+We may actually end up setting.
+
+1427
+01:26:33,810 --> 01:26:37,410
+嗯，我对 uie 一无所知，我只能猜一下，
+Um I know nothing about uie, I'm gonna guess,
+
+1428
+01:26:37,590 --> 01:26:40,890
+让我想想，我要猜猜这里到底发生了什么。
+let me see, I'm gonna guess that what actually happens here.
+
+1429
+01:26:42,510 --> 01:26:44,220
+在此代码中，我们所在的位置。
+In this code where we're.
+
+1430
+01:26:45,800 --> 01:26:51,500
+嗯，好的，那么我们现在在 usertrapret ，
+Um, OK, so here we are in usertrapret
+
+1431
+01:26:51,500 --> 01:26:55,640
+返回或设置 spie sstatus ，
+returning or setting spie sstatus
+
+1432
+01:26:56,150 --> 01:27:02,360
+我相信 sret 指令会复制这个 spie ，
+and I believe the sret instruction will copy this spie
+
+1433
+01:27:02,810 --> 01:27:05,450
+这是这个以前的名字，
+and this is this previous name of this,
+
+1434
+01:27:05,450 --> 01:27:07,910
+管理者以前终端开启（spie），
+the supervisor previous interrupt enable,
+
+1435
+01:27:08,210 --> 01:27:12,340
+我怀疑 sret 将该位复制到，
+I suspect sret copies that bit into the ,
+
+1436
+01:27:15,120 --> 01:27:17,370
+复制到任何控制中断和用户模式，
+into whatever controls interrupts and user mode,
+
+1437
+01:27:17,370 --> 01:27:21,070
+这可能是 uie ， sstatus 的一个位，
+which is possibly the uie, bit of sstatus,
+
+1438
+01:27:21,970 --> 01:27:23,080
+这就是我的猜想。
+as that for guess.
+
+1439
+01:27:24,420 --> 01:27:25,590
+我明白了，谢谢你。
+I see, thank you.
+
