@@ -1,0 +1,5756 @@
+1
+00:00:02,310 --> 00:00:03,120
+Alright.
+
+2
+00:00:03,780 --> 00:00:05,490
+Um, I'd like to get started.
+
+3
+00:00:05,820 --> 00:00:07,770
+First, can anyone hear me?
+
+4
+00:00:09,150 --> 00:00:09,840
+Yes.
+
+5
+00:00:10,320 --> 00:00:11,910
+Good, thank you very much.
+
+6
+00:00:13,300 --> 00:00:15,370
+Alright, today I want to talk about,
+
+7
+00:00:15,640 --> 00:00:19,750
+the transition between running in user code,
+
+8
+00:00:19,780 --> 00:00:23,050
+running programs in user code and executing in the kernel,
+
+9
+00:00:23,410 --> 00:00:25,330
+and this is the transition that has to happen
+
+10
+00:00:25,330 --> 00:00:27,340
+whenever a program makes a system call
+
+11
+00:00:27,370 --> 00:00:30,820
+where it experiences a fault like a page fault, a divide by zero
+
+12
+00:00:30,910 --> 00:00:33,700
+or if a device decides to interrupt
+
+13
+00:00:33,700 --> 00:00:36,550
+and needs to be served by a kernel device driver.
+
+14
+00:00:38,020 --> 00:00:41,710
+There's a lot of careful design and some important details
+
+15
+00:00:41,710 --> 00:00:46,540
+that go into how these traps, from user to kernel happen
+
+16
+00:00:46,660 --> 00:00:48,790
+and the details are pretty important
+
+17
+00:00:48,790 --> 00:00:53,800
+for enforcing isolation security and also performance,
+
+18
+00:00:53,800 --> 00:00:57,280
+there's many programs that transition of the kernel a lot,
+
+19
+00:00:57,310 --> 00:01:00,400
+either due to system calls a page page faults,
+
+20
+00:01:01,000 --> 00:01:02,770
+and it can be super important
+
+21
+00:01:02,770 --> 00:01:06,330
+that the trap mechanism is as [] as possible.
+
+22
+00:01:07,530 --> 00:01:12,450
+Alright, so starting situation is pretty familiar
+
+23
+00:01:12,840 --> 00:01:16,800
+where we have our user program,
+
+24
+00:01:16,800 --> 00:01:18,600
+I use the shell as an example.
+
+25
+00:01:19,570 --> 00:01:21,130
+Running in user space .
+
+26
+00:01:21,520 --> 00:01:24,620
+Um, we have a kernel ,
+
+27
+00:01:24,620 --> 00:01:28,490
+the shell would like to do make a system call into the kernel.
+
+28
+00:01:29,100 --> 00:01:32,490
+And going to use write, use this shell writing its prompt
+
+29
+00:01:32,490 --> 00:01:35,850
+the very first write that happens after you boot xv6,
+
+30
+00:01:36,120 --> 00:01:39,330
+use the shell trying to write to make the write system calls an example.
+
+31
+00:01:39,840 --> 00:01:41,070
+And so we need to figure out
+
+32
+00:01:41,070 --> 00:01:45,330
+how to actually get execution to transfer from running in the shell
+
+33
+00:01:45,330 --> 00:01:48,030
+and user space with user privileges,
+
+34
+00:01:48,450 --> 00:01:50,760
+after running in the kernel supervisor privileges,
+
+35
+00:01:51,060 --> 00:01:55,230
+the state of the hardware is going to be very important,
+
+36
+00:01:55,230 --> 00:01:56,100
+because a lot of what we're doing
+
+37
+00:01:56,100 --> 00:01:58,200
+is kind of changing the hardware state
+
+38
+00:01:58,200 --> 00:02:01,260
+from state appropriate for running user code
+
+39
+00:02:01,260 --> 00:02:04,950
+to a state appropriate for running kernel code.
+
+40
+00:02:06,060 --> 00:02:07,560
+The state that we care about,
+
+41
+00:02:07,890 --> 00:02:12,960
+the biggest state maybe the 32 user registers.
+
+42
+00:02:13,440 --> 00:02:16,590
+As you remember this from monday's discussion,
+
+43
+00:02:16,740 --> 00:02:21,270
+we have all the user registers seems like a0 and a1.
+
+44
+00:02:22,910 --> 00:02:26,030
+RISC-V has a whole lot of these 32 in total
+
+45
+00:02:26,090 --> 00:02:28,190
+and we can expect user code to use all of them.
+
+46
+00:02:28,720 --> 00:02:31,720
+It's going to get the highest performance if it uses all of them,
+
+47
+00:02:31,720 --> 00:02:33,250
+many of them have special purposes,
+
+48
+00:02:33,250 --> 00:02:37,510
+a few which we'll see a particularly interesting one is the stack pointer,
+
+49
+00:02:37,540 --> 00:02:41,290
+is actually one of these 32 general purpose registers.
+
+50
+00:02:42,340 --> 00:02:47,230
+Okay, we have these registers including stack pointer,
+
+51
+00:02:47,350 --> 00:02:51,130
+there's a separate program counter register in the hardware.
+
+52
+00:02:51,580 --> 00:02:56,260
+There's the current mode either supervisor
+
+53
+00:02:56,260 --> 00:02:58,300
+or user and of course it's user mode.
+
+54
+00:02:58,700 --> 00:03:01,160
+We're executing up in the shell.
+
+55
+00:03:02,840 --> 00:03:05,660
+And then there's a bunch of registers special registers
+
+56
+00:03:05,660 --> 00:03:08,120
+that control how the CPU works,
+
+57
+00:03:08,120 --> 00:03:12,890
+like there's the satp register, that contains a pointer to the page table
+
+58
+00:03:12,980 --> 00:03:14,480
+and it'll turn out there's a couple of others
+
+59
+00:03:14,480 --> 00:03:16,370
+that are super important for this discussion,
+
+60
+00:03:16,550 --> 00:03:21,130
+there's stvec which is the  address the instruction
+
+61
+00:03:21,130 --> 00:03:24,640
+that should handle traps in the kernel .
+
+62
+00:03:25,450 --> 00:03:29,800
+There's a register called SEPC for saving the program counter during a trap
+
+63
+00:03:29,800 --> 00:03:34,690
+and we'll see there's another one called sscratch is also very important,
+
+64
+00:03:34,990 --> 00:03:39,010
+so this is the state of the running machine at the time of the system call
+
+65
+00:03:39,010 --> 00:03:41,080
+and we actually need to change a bunch of this state,
+
+66
+00:03:41,080 --> 00:03:44,950
+or do things to the state as part of getting into the kernel,
+
+67
+00:03:45,280 --> 00:03:49,720
+and setting ourself up to run just ordinary C functions in the kernel.
+
+68
+00:03:50,210 --> 00:03:52,580
+Certainly at the instant of the trap,
+
+69
+00:03:52,850 --> 00:03:57,260
+all the state of the CPU is set up to run user code not not kernel code.
+
+70
+00:03:57,880 --> 00:03:59,590
+So the things that are going to need to happen
+
+71
+00:03:59,590 --> 00:04:01,390
+is kind of a preview of what I'll talk about,
+
+72
+00:04:01,720 --> 00:04:05,980
+one is that , we need to save all 32 registers,
+
+73
+00:04:05,980 --> 00:04:10,510
+because we want to resume the user code transparently,
+
+74
+00:04:10,660 --> 00:04:14,110
+particularly if there's a device interrupt which the user code isn't expecting
+
+75
+00:04:14,440 --> 00:04:16,510
+and we want to be able to have the kernel serve the interrupt,
+
+76
+00:04:16,510 --> 00:04:20,590
+and then resume the user code without ever noticing any difference
+
+77
+00:04:20,590 --> 00:04:23,710
+and that means that these 32 registers can't be disturbed by the kernel,
+
+78
+00:04:24,100 --> 00:04:26,680
+which since the kernel, you need to use the registers
+
+79
+00:04:26,680 --> 00:04:28,000
+it has to save them all somewhere,
+
+80
+00:04:28,000 --> 00:04:29,590
+first these need to be saved.
+
+81
+00:04:30,460 --> 00:04:33,250
+The program counter also needs to be saved somewhere,
+
+82
+00:04:33,310 --> 00:04:36,790
+because we need a user, it's almost like a user register,
+
+83
+00:04:36,790 --> 00:04:40,930
+so, we need to continue executing the user program where it left off,
+
+84
+00:04:41,140 --> 00:04:44,020
+we switch the mode to supervisor mode,
+
+85
+00:04:44,600 --> 00:04:47,960
+because we need to use various privileges in the kernel.
+
+86
+00:04:48,920 --> 00:04:54,300
+Um just, page table pointer is currently pointing towards the user page table,
+
+87
+00:04:54,300 --> 00:04:58,920
+which only contains just the mapping is that user programs need.
+
+88
+00:04:59,350 --> 00:05:00,790
+Plus one or two more as we'll see,
+
+89
+00:05:00,790 --> 00:05:02,950
+but the user page table does not contain
+
+90
+00:05:02,950 --> 00:05:05,020
+the mappings for the bulk of the kernel data,
+
+91
+00:05:05,320 --> 00:05:08,980
+so we need to switch page tables before we can run most kernel code.
+
+92
+00:05:10,430 --> 00:05:12,200
+We need to switch the stack pointer
+
+93
+00:05:12,200 --> 00:05:14,240
+to point to a stack that's in the kernel somewhere,
+
+94
+00:05:14,240 --> 00:05:17,300
+because we need to stack the call C functions on.
+
+95
+00:05:17,920 --> 00:05:18,370
+Um.
+
+96
+00:05:19,830 --> 00:05:21,780
+And finally, we need to jump into,
+
+97
+00:05:21,810 --> 00:05:22,770
+once we've set all this up
+
+98
+00:05:22,770 --> 00:05:24,900
+and switched all this all these resources
+
+99
+00:05:24,900 --> 00:05:27,420
+to be appropriate for use in the kernel,
+
+100
+00:05:27,540 --> 00:05:29,640
+we need to jump to kernel C code,
+
+101
+00:05:29,640 --> 00:05:32,160
+and once we're in C code,
+
+102
+00:05:32,520 --> 00:05:36,660
+life is much more sort of business as usual,
+
+103
+00:05:36,660 --> 00:05:38,700
+we're just running C program in this kernel,
+
+104
+00:05:38,940 --> 00:05:40,560
+and so far today at least,
+
+105
+00:05:40,560 --> 00:05:44,460
+we'll talk about what the kernel does C code later,
+
+106
+00:05:44,490 --> 00:05:46,680
+but today the discussion is really
+
+107
+00:05:46,680 --> 00:05:49,140
+how to get from user space into the kernel into a position,
+
+108
+00:05:49,140 --> 00:05:52,680
+where we can run C code in the kernel.
+
+109
+00:05:53,510 --> 00:05:55,340
+There's a couple of high-level goals,
+
+110
+00:05:55,340 --> 00:05:57,920
+that constrain our design options for this,
+
+111
+00:05:58,310 --> 00:06:00,860
+one is that for security and isolation,
+
+112
+00:06:00,860 --> 00:06:02,090
+we really don't want to let
+
+113
+00:06:02,090 --> 00:06:06,140
+user code interfere with this user kernel transition,
+
+114
+00:06:06,140 --> 00:06:08,270
+in a way that could be damaging to security
+
+115
+00:06:08,390 --> 00:06:10,250
+and so that means that's
+
+116
+00:06:10,250 --> 00:06:14,630
+sort of hardware and kernel mechanisms that are involved in traps
+
+117
+00:06:14,750 --> 00:06:17,750
+really can't count on anything from user space,
+
+118
+00:06:17,870 --> 00:06:20,450
+you know we can't assume anything about these registers,
+
+119
+00:06:20,450 --> 00:06:23,270
+they could be just filled with terribly malicious values,
+
+120
+00:06:23,480 --> 00:06:26,180
+so basically the xv6 trap handler
+
+121
+00:06:26,180 --> 00:06:30,200
+doesn't really even look at these registers just saves them away .
+
+122
+00:06:31,340 --> 00:06:34,070
+Okay so we're going to want to be careful
+
+123
+00:06:34,340 --> 00:06:36,470
+to preserve isolation during this trap mechanism
+
+124
+00:06:36,470 --> 00:06:39,660
+against intentionally malicious user code
+
+125
+00:06:39,900 --> 00:06:41,880
+and the other thing that's important is that,
+
+126
+00:06:42,060 --> 00:06:44,130
+we want to be transparent to user code,
+
+127
+00:06:44,160 --> 00:06:46,350
+we'd like to be able to take the trap
+
+128
+00:06:46,350 --> 00:06:47,520
+and do our business in the kernel
+
+129
+00:06:47,520 --> 00:06:48,930
+and resume the user code
+
+130
+00:06:48,930 --> 00:06:51,690
+without it ever having to notice that anything funny happened.
+
+131
+00:06:52,060 --> 00:06:54,100
+And that's just to make it easier to write user code.
+
+132
+00:06:56,770 --> 00:06:59,170
+And, something to note to,
+
+133
+00:06:59,200 --> 00:07:01,720
+we care about isolation security here,
+
+134
+00:07:01,720 --> 00:07:03,310
+today we're just gonna talk about the.
+
+135
+00:07:04,690 --> 00:07:07,360
+Those sort of aspects of security that involves getting into the kernel,
+
+136
+00:07:07,390 --> 00:07:09,940
+but of course this system called implementations,
+
+137
+00:07:09,940 --> 00:07:12,520
+the actual write implementation in the kernel,
+
+138
+00:07:12,670 --> 00:07:15,280
+also everything in the kernel has to be careful,
+
+139
+00:07:15,310 --> 00:07:17,500
+has to be written carefully and securely also,
+
+140
+00:07:18,310 --> 00:07:22,870
+so even if this transition into the kernel is perfectly secure,
+
+141
+00:07:22,900 --> 00:07:25,810
+the whole rest of the kernel has to be written securely
+
+142
+00:07:25,810 --> 00:07:28,930
+and so mindful that user code may be trying to trick it.
+
+143
+00:07:30,810 --> 00:07:34,410
+A particularly important thing I want to talk about is
+
+144
+00:07:34,410 --> 00:07:38,190
+what it is that the mode flag controls,
+
+145
+00:07:39,180 --> 00:07:41,400
+this mode is either user or supervisor,
+
+146
+00:07:41,400 --> 00:07:44,040
+of course user whatever user space
+
+147
+00:07:44,040 --> 00:07:47,340
+and the mode flag is set to supervisor were executing in the kernel,
+
+148
+00:07:47,460 --> 00:07:52,710
+but it's important to know exactly what privileges we gain,
+
+149
+00:07:52,740 --> 00:07:55,080
+by changing the mode from user to supervisor,
+
+150
+00:07:55,140 --> 00:07:56,790
+and it turns out .
+
+151
+00:07:57,320 --> 00:08:00,650
+These extra privileges are fairly restrictive,
+
+152
+00:08:00,920 --> 00:08:03,260
+that is what you can do in supervisor mode,
+
+153
+00:08:03,260 --> 00:08:04,880
+you couldn't do in user mode,
+
+154
+00:08:05,180 --> 00:08:11,030
+not maybe as a privilege as you might think so,
+
+155
+00:08:11,030 --> 00:08:14,750
+this is supervisor mode exactly what it controls.
+
+156
+00:08:15,760 --> 00:08:22,240
+One thing it does is you can now read and write the control registers.
+
+157
+00:08:23,110 --> 00:08:26,720
+And, that is, if your supervisor mode,
+
+158
+00:08:26,720 --> 00:08:30,520
+you can read and write satp, the page table pointer,
+
+159
+00:08:30,520 --> 00:08:34,570
+this stvec pointer which controls where traps going the kernel,
+
+160
+00:08:36,080 --> 00:08:39,290
+This register that holds the save program counter during a trap
+
+161
+00:08:39,290 --> 00:08:42,450
+in sscratch register plus a few others,
+
+162
+00:08:42,930 --> 00:08:45,120
+so supervisor could read and write these registers
+
+163
+00:08:45,120 --> 00:08:46,230
+and user code could not.
+
+164
+00:08:46,590 --> 00:08:50,160
+The only other thing, supervisor code can do is,
+
+165
+00:08:50,250 --> 00:08:53,070
+it can use ptes,
+
+166
+00:08:54,620 --> 00:08:58,010
+they have the pte_u flag set.
+
+167
+00:08:59,100 --> 00:08:59,910
+I don't know if you remember
+
+168
+00:08:59,910 --> 00:09:02,640
+but there's this pte_u flag be set or not set
+
+169
+00:09:02,640 --> 00:09:04,230
+on each page table entry.
+
+170
+00:09:05,870 --> 00:09:07,880
+A flag that has this,
+
+171
+00:09:07,880 --> 00:09:10,010
+sorry, sorry,
+
+172
+00:09:10,040 --> 00:09:11,480
+can use ptes.
+
+173
+00:09:12,450 --> 00:09:15,480
+They don't have the pte_u flag set,
+
+174
+00:09:15,510 --> 00:09:17,430
+if the pte_u flag is set,
+
+175
+00:09:17,430 --> 00:09:19,980
+it means that user code can use that page table entry,
+
+176
+00:09:20,670 --> 00:09:22,530
+if this flag isn't set in a page table entry,
+
+177
+00:09:22,530 --> 00:09:24,990
+it means only supervisor mode can use it.
+
+178
+00:09:25,560 --> 00:09:29,040
+And you will see that's important a little bit,
+
+179
+00:09:29,040 --> 00:09:32,490
+but, these are really the only things that supervisor mode can do
+
+180
+00:09:32,490 --> 00:09:34,020
+it can't do anything else in particular,
+
+181
+00:09:34,020 --> 00:09:37,980
+for example a supervisor mode code can't
+
+182
+00:09:37,980 --> 00:09:40,620
+just read and write arbitrary addresses,
+
+183
+00:09:40,810 --> 00:09:42,520
+say physical addresses,
+
+184
+00:09:42,520 --> 00:09:46,360
+you know supervisor mode is forced to go through the page table
+
+185
+00:09:46,420 --> 00:09:47,650
+just like any other code,
+
+186
+00:09:47,740 --> 00:09:49,960
+if a virtual address isn't in the page,
+
+187
+00:09:49,990 --> 00:09:52,660
+isn't in the current page table pointed to by satp,
+
+188
+00:09:53,050 --> 00:09:56,920
+or if it has a pte_u bit flags set,
+
+189
+00:09:56,950 --> 00:09:58,390
+which means it's the user pte,
+
+190
+00:09:58,390 --> 00:10:01,300
+then supervisor mode cannot use that address,
+
+191
+00:10:01,540 --> 00:10:07,570
+so we're even in supervisor mode were restricted to whatever virtual address,
+
+192
+00:10:07,850 --> 00:10:10,490
+virtual addresses were set up on the current page table.
+
+193
+00:10:11,990 --> 00:10:15,890
+And that's it, so we were just allowed to do these things,
+
+194
+00:10:15,890 --> 00:10:17,000
+so you know we'll see,
+
+195
+00:10:17,330 --> 00:10:22,160
+as a significant constraint on what the trap code can do.
+
+196
+00:10:22,760 --> 00:10:26,230
+When we're entering the kernel, can't do just anything,
+
+197
+00:10:27,070 --> 00:10:28,240
+going to preview a bit,
+
+198
+00:10:28,480 --> 00:10:32,740
+I'm gonna spend most of this lecture in gdb ,
+
+199
+00:10:32,740 --> 00:10:35,080
+actually tracing through the execution
+
+200
+00:10:35,560 --> 00:10:39,520
+of a trap entry into the kernel in return ,
+
+201
+00:10:39,760 --> 00:10:43,240
+this can be a lot of details in order to.
+
+202
+00:10:45,300 --> 00:10:50,220
+Um, maybe sort of help you, see head what's coming,
+
+203
+00:10:50,940 --> 00:10:56,950
+we're gonna be tracing a shell's call to a write,
+
+204
+00:10:57,160 --> 00:10:58,210
+which from the shell's point of view
+
+205
+00:10:58,210 --> 00:11:00,760
+is just a C function call as part of the shell,
+
+206
+00:11:01,030 --> 00:11:03,700
+in fact write makes this,
+
+207
+00:11:03,700 --> 00:11:05,920
+write issues a system call
+
+208
+00:11:05,950 --> 00:11:07,810
+by issuing the ecall instruction,
+
+209
+00:11:09,680 --> 00:11:15,140
+which switch is another kernel supervisor mode where that goes immediately,
+
+210
+00:11:15,140 --> 00:11:17,000
+that is the very first instruction
+
+211
+00:11:17,300 --> 00:11:19,610
+is executed in the kernel and supervisor mode,
+
+212
+00:11:19,790 --> 00:11:24,800
+is a function written in assembler called uservec.
+
+213
+00:11:26,140 --> 00:11:28,870
+And this is in the part of the trampoline,
+
+214
+00:11:33,400 --> 00:11:36,160
+in trampoline.S in the kernel source,
+
+215
+00:11:36,160 --> 00:11:37,930
+so the very first code that's executed,
+
+216
+00:11:37,930 --> 00:11:40,090
+this uservec assembler function.
+
+217
+00:11:40,620 --> 00:11:45,240
+And next, that assembler function jumps into C code,
+
+218
+00:11:45,240 --> 00:11:49,670
+in particular a function called usertrap, in trap.c.
+
+219
+00:11:50,850 --> 00:11:55,260
+And now we're getting into C code, so things are much easier to understand,
+
+220
+00:11:55,440 --> 00:11:58,680
+usertrap sees oh we're executing a system call,
+
+221
+00:11:58,990 --> 00:12:00,730
+and it calls a function called syscall,
+
+222
+00:12:02,580 --> 00:12:04,740
+which looks at the system call number in a table
+
+223
+00:12:04,890 --> 00:12:07,980
+and calls the particular function inside the kernel
+
+224
+00:12:07,980 --> 00:12:11,910
+that implements that system calling for us it's going to be write
+
+225
+00:12:11,910 --> 00:12:13,590
+and write does this business it happens,
+
+226
+00:12:13,590 --> 00:12:19,020
+to arrange for whatever bytes were written to appear on the console
+
+227
+00:12:20,130 --> 00:12:24,300
+and when it's finished it returns back up to this system call function
+
+228
+00:12:24,660 --> 00:12:28,080
+and then the system call function in order to return back to user space,
+
+229
+00:12:28,080 --> 00:12:29,370
+because we want to resume.
+
+230
+00:12:29,740 --> 00:12:32,890
+After this ecall, there's a bunch of stuff,
+
+231
+00:12:32,920 --> 00:12:34,270
+we'll see, that has to happen.
+
+232
+00:12:34,790 --> 00:12:36,440
+In order to return to user space,
+
+233
+00:12:36,440 --> 00:12:41,530
+there's a separate function called usertrapret,
+
+234
+00:12:42,900 --> 00:12:45,090
+it's written in C, it's in trap.c,
+
+235
+00:12:45,090 --> 00:12:48,450
+that does the part of this return to user space,
+
+236
+00:12:48,450 --> 00:12:50,460
+that's convenient to do in C code,
+
+237
+00:12:50,550 --> 00:12:54,240
+there's some final things that really can only be done in assembly code ,
+
+238
+00:12:55,000 --> 00:12:56,710
+the code for that is during an assembler
+
+239
+00:12:56,710 --> 00:13:00,400
+and again in this trampoline page in a function called userret.
+
+240
+00:13:03,710 --> 00:13:07,790
+The last last assembly stuff has to happen
+
+241
+00:13:07,790 --> 00:13:11,680
+and finally,  this assembly function issues,
+
+242
+00:13:11,680 --> 00:13:14,620
+the machine instruction that returns back in user space
+
+243
+00:13:14,620 --> 00:13:19,030
+and resume execution after the ecall.
+
+244
+00:13:20,770 --> 00:13:22,840
+Right, does anybody want to ask a question,
+
+245
+00:13:22,840 --> 00:13:25,960
+I'm about just switch into looking stuff with gdb,
+
+246
+00:13:26,860 --> 00:13:29,080
+any questions about the sort of high-level picture?
+
+247
+00:13:36,970 --> 00:13:38,980
+Alright I am going to.
+
+248
+00:13:40,820 --> 00:13:41,570
+Sorry I can't.
+
+249
+00:13:42,270 --> 00:13:46,650
+Um, let me see what mode are vm.c functions running?
+
+250
+00:13:47,690 --> 00:13:50,660
+vm.c functions, everything in there is part of the kernel,
+
+251
+00:13:50,660 --> 00:13:52,100
+and it's running supervisor mode.
+
+252
+00:13:56,200 --> 00:13:56,620
+Got it.
+
+253
+00:13:57,700 --> 00:13:58,210
+Yeah.
+
+254
+00:14:00,440 --> 00:14:03,350
+OK, somebody asked why these functions are named this way?
+
+255
+00:14:03,710 --> 00:14:04,340
+Um.
+
+256
+00:14:05,960 --> 00:14:07,760
+The naming is a bit of a disaster
+
+257
+00:14:07,760 --> 00:14:11,090
+and for next year, I'm resolved to make them more rational.
+
+258
+00:14:13,830 --> 00:14:17,280
+I think the naming question might have referred to the name of the registers
+
+259
+00:14:17,280 --> 00:14:18,840
+in the previous board.
+
+260
+00:14:19,740 --> 00:14:21,420
+They all start s for supervisor.
+
+261
+00:14:24,180 --> 00:14:28,680
+Other than it, there's five people pick these names.
+
+262
+00:14:29,040 --> 00:14:34,320
+Somebody's asking don't vm.c functions access physical memory directly?
+
+263
+00:14:34,380 --> 00:14:35,760
+That's absolutely true,
+
+264
+00:14:35,880 --> 00:14:37,380
+the reason why they're allowed to do that
+
+265
+00:14:37,380 --> 00:14:42,240
+though is that the kernel carefully sets up direct mapping's in the page table,
+
+266
+00:14:42,510 --> 00:14:44,640
+there's been many many ptes in the page table,
+
+267
+00:14:44,640 --> 00:14:50,340
+which cause, whenever the kernel tries to read or write a physical address,
+
+268
+00:14:50,340 --> 00:14:54,360
+it actually is a virtual address that's translated by the kernel page table
+
+269
+00:14:54,360 --> 00:14:58,110
+and is a physical address that's equal to the virtual address who was issued.
+
+270
+00:14:58,760 --> 00:15:01,130
+So it's like super convenient in the kernel,
+
+271
+00:15:01,370 --> 00:15:03,680
+what once you're using the kernel page table,
+
+272
+00:15:03,710 --> 00:15:06,020
+this kernel has all these direct mappings,
+
+273
+00:15:06,260 --> 00:15:08,450
+but until we've set up,
+
+274
+00:15:08,940 --> 00:15:13,410
+the current until the trap machinery has switched to the kernel page table,
+
+275
+00:15:13,500 --> 00:15:15,180
+none of those mappings are available
+
+276
+00:15:15,780 --> 00:15:18,930
+until the kernel trap code is switched to the kernel page table,
+
+277
+00:15:18,930 --> 00:15:20,220
+we're still using the user page table
+
+278
+00:15:20,220 --> 00:15:24,630
+which has none of these convenient mappings for physical addresses.
+
+279
+00:15:29,580 --> 00:15:30,600
+Okay.
+
+280
+00:15:34,400 --> 00:15:35,690
+Can I ask a question?
+
+281
+00:15:36,140 --> 00:15:36,770
+Please.
+
+282
+00:15:37,220 --> 00:15:44,730
+Um, so,  I don't know this is maybe not exactly relevant to what was just said,
+
+283
+00:15:44,730 --> 00:15:47,970
+but um, the read and write system calls
+
+284
+00:15:47,970 --> 00:15:52,620
+right like those are pretty expensive compared to just the memory store,
+
+285
+00:15:52,620 --> 00:15:55,110
+because you have to actually switch mode and go back and forth,
+
+286
+00:15:55,410 --> 00:15:57,420
+would it be possible to just like,
+
+287
+00:15:57,800 --> 00:16:02,030
+instead of when when you open a file instead of getting back a file descriptor,
+
+288
+00:16:02,030 --> 00:16:07,100
+that you call with a system call to get a page table mapping,
+
+289
+00:16:07,190 --> 00:16:10,130
+and then you would just write to a certain address,
+
+290
+00:16:10,340 --> 00:16:13,040
+that's just mapped to the device,
+
+291
+00:16:13,280 --> 00:16:14,870
+and you can set up the restrictions,
+
+292
+00:16:14,870 --> 00:16:19,910
+so that the program can only write to a, to like a file descriptor
+
+293
+00:16:19,910 --> 00:16:23,810
+that it's allowed to which is allowed to through the virtual page table mapping,
+
+294
+00:16:23,810 --> 00:16:25,670
+instead of jumping to the kernel back.
+
+295
+00:16:26,210 --> 00:16:27,800
+Yeah that's a good observation
+
+296
+00:16:27,830 --> 00:16:31,310
+and indeed many operating systems provide this
+
+297
+00:16:31,310 --> 00:16:33,830
+what's called memory mapped file access,
+
+298
+00:16:33,830 --> 00:16:37,860
+where indeed the map pages that correspond to the file contents
+
+299
+00:16:37,950 --> 00:16:41,490
+into the into your virtual into user virtual address space,
+
+300
+00:16:41,490 --> 00:16:43,770
+so you can read or write them directly through memory,
+
+301
+00:16:44,190 --> 00:16:46,950
+in fact you'll be implementing a version of this
+
+302
+00:16:46,950 --> 00:16:49,860
+in the mmap lab, in a couple of weeks.
+
+303
+00:16:51,230 --> 00:16:54,710
+And indeed as you imply it's a good deal faster,
+
+304
+00:16:54,980 --> 00:16:56,810
+for many programs that calling read and write.
+
+305
+00:16:59,100 --> 00:16:59,610
+Okay.
+
+306
+00:17:02,380 --> 00:17:06,070
+I am switch to the gdb world.
+
+307
+00:17:19,540 --> 00:17:21,490
+Alright, at this point, everybody should, um,
+
+308
+00:17:26,200 --> 00:17:28,240
+see my screen share.
+
+309
+00:17:29,660 --> 00:17:30,320
+Um.
+
+310
+00:17:31,210 --> 00:17:34,150
+We're going to watch an xv6 system called the write.
+
+311
+00:17:34,770 --> 00:17:37,470
+The shell's write of its initial prompt,
+
+312
+00:17:37,890 --> 00:17:39,120
+make its way through the system,
+
+313
+00:17:39,120 --> 00:17:44,460
+you can see the user code that initiates this in sh.c .
+
+314
+00:17:44,960 --> 00:17:48,670
+I'm sure that was just making the write system call,
+
+315
+00:17:49,090 --> 00:17:58,270
+with this dollar sign, prompt we fire up gdb.
+
+316
+00:18:03,330 --> 00:18:09,270
+Excellent, so what actually happens when user code when the shell calls write,
+
+317
+00:18:09,270 --> 00:18:11,850
+write is just a it's a library function
+
+318
+00:18:11,850 --> 00:18:17,160
+that's part of the, that's linked into the shell,
+
+319
+00:18:17,520 --> 00:18:23,500
+ and you can see the source for it in usys.S.
+
+320
+00:18:24,660 --> 00:18:26,520
+So it's this couple of instructions,
+
+321
+00:18:26,520 --> 00:18:30,120
+here's the implementation of the write function,
+
+322
+00:18:30,390 --> 00:18:31,680
+that the shell is actually calling,
+
+323
+00:18:32,100 --> 00:18:34,950
+and this is a very short function,
+
+324
+00:18:35,070 --> 00:18:39,300
+all it's doing is loading into a7 a number SYS_write,
+
+325
+00:18:39,300 --> 00:18:42,840
+it's just symbolically defined to be sixteen that tells the kernel,
+
+326
+00:18:43,350 --> 00:18:48,000
+I want to run the sixteenth system call which happens to be write.
+
+327
+00:18:48,340 --> 00:18:51,880
+And then this little function uses the ecall instruction,
+
+328
+00:18:52,120 --> 00:18:55,780
+which is what actually gets the code into the kernel,
+
+329
+00:18:55,810 --> 00:18:59,860
+the kernel does this thing and then when the kernel can be done,
+
+330
+00:18:59,860 --> 00:19:04,690
+it returns back into user space to execute the instruction after the ecall,
+
+331
+00:19:04,840 --> 00:19:08,410
+which is that write that returns back to the shell,
+
+332
+00:19:09,010 --> 00:19:11,710
+returns from that write library function back into the shell.
+
+333
+00:19:12,960 --> 00:19:13,980
+So what I'd like to do
+
+334
+00:19:13,980 --> 00:19:15,870
+in order to show the system call part of this,
+
+335
+00:19:15,990 --> 00:19:20,670
+I'm going to start by putting a break point on that ecall instruction,
+
+336
+00:19:21,120 --> 00:19:24,120
+and we need to know its address, of course,
+
+337
+00:19:24,420 --> 00:19:27,390
+but we can find that out by looking in sh.asm,
+
+338
+00:19:27,390 --> 00:19:30,690
+which xv6 compilation process produces,
+
+339
+00:19:32,420 --> 00:19:36,080
+sh.asm, there's assembly code
+
+340
+00:19:36,080 --> 00:19:42,690
+with addresses of the, the instructions for the shell,
+
+341
+00:19:43,050 --> 00:19:45,480
+I'm going to put a break point on the ecall instruction,
+
+342
+00:19:45,480 --> 00:19:49,230
+which is d address de6.
+
+343
+00:19:51,310 --> 00:19:54,250
+Actually, I'm gonna actually start xv6 running,
+
+344
+00:19:54,670 --> 00:19:58,570
+and I'm hoping to have the system break in the shell
+
+345
+00:19:58,630 --> 00:20:00,280
+just before executing ecall.
+
+346
+00:20:02,100 --> 00:20:05,580
+Alright, excellent, now, you can see from gdb,
+
+347
+00:20:05,580 --> 00:20:09,480
+we're about to about to execute that ecall.
+
+348
+00:20:10,330 --> 00:20:15,880
+Let's just check, there we are where we think we are,
+
+349
+00:20:16,240 --> 00:20:18,520
+print, we can print the program counter,
+
+350
+00:20:18,730 --> 00:20:21,040
+0xde6 just what we asked for.
+
+351
+00:20:24,750 --> 00:20:29,430
+Um, we can also print the all 32 registers,
+
+352
+00:20:30,060 --> 00:20:32,340
+and some of these values
+
+353
+00:20:32,340 --> 00:20:34,410
+whatever we don't know we don't care what they are,
+
+354
+00:20:34,440 --> 00:20:39,510
+but a0 a1 and a2 are the three arguments that the shell passed write,
+
+355
+00:20:40,590 --> 00:20:41,490
+so those arguments are
+
+356
+00:20:41,490 --> 00:20:43,620
+a file descriptor two in a0,
+
+357
+00:20:44,040 --> 00:20:48,390
+the pointer to the buffer of characters the shell wants to write in a1
+
+358
+00:20:48,750 --> 00:20:51,570
+and the number of characters it wants to write in a2.
+
+359
+00:20:52,150 --> 00:20:53,620
+And we can convince ourselves
+
+360
+00:20:53,620 --> 00:20:55,900
+that we're looking at a code we think we're looking at,
+
+361
+00:20:56,820 --> 00:21:03,160
+by actually printing out the bytes in that buffer, the shell wants to write
+
+362
+00:21:03,160 --> 00:21:05,950
+and indeed, it's a dollar sign and a space,
+
+363
+00:21:05,950 --> 00:21:10,670
+so, we're at the system call that we, we hope to be at.
+
+364
+00:21:11,350 --> 00:21:12,250
+One thing to notice is
+
+365
+00:21:12,250 --> 00:21:15,790
+that the program counter and stack pointer both at low addresses,
+
+366
+00:21:15,910 --> 00:21:17,350
+addresses quite close to zero,
+
+367
+00:21:17,350 --> 00:21:21,430
+and just reinforces our belief,
+
+368
+00:21:21,430 --> 00:21:23,410
+that we're still executing in user
+
+369
+00:21:23,410 --> 00:21:26,470
+and the user address space where all the addresses are quite small,
+
+370
+00:21:26,500 --> 00:21:28,420
+once we get to the kernel's, see the addresses are,
+
+371
+00:21:28,800 --> 00:21:31,680
+the kernel is actually loaded much much higher in memory .
+
+372
+00:21:35,020 --> 00:21:40,930
+Okay, we, the point of the system calls to switch around a lot of state,
+
+373
+00:21:40,930 --> 00:21:44,170
+one of the most important pieces of state that has to get switched
+
+374
+00:21:44,170 --> 00:21:47,740
+and we have to live with before it's switched is the current page table,
+
+375
+00:21:48,280 --> 00:21:51,400
+of course we can look at satp.
+
+376
+00:21:52,860 --> 00:21:56,430
+But all we get there is the address in physical memory page tables,
+
+377
+00:21:56,430 --> 00:21:57,810
+doesn't actually tell us much about
+
+378
+00:21:57,840 --> 00:22:01,230
+what the mappings are with the page table looks like ,
+
+379
+00:22:01,260 --> 00:22:06,960
+luckily there's a way in QEMU ask it to print the current page table
+
+380
+00:22:06,990 --> 00:22:12,990
+and if I print control-a c, I get into the QEMU monitor or console,
+
+381
+00:22:13,410 --> 00:22:18,550
+and if I then type info mem, it'll print the complete page table,
+
+382
+00:22:19,150 --> 00:22:21,010
+this is a very small page table
+
+383
+00:22:21,010 --> 00:22:23,050
+that contains only six mappings,
+
+384
+00:22:23,650 --> 00:22:25,780
+of course it's the page table for the shell.
+
+385
+00:22:26,290 --> 00:22:28,810
+Shell's a pretty small program
+
+386
+00:22:29,080 --> 00:22:33,850
+and these six mappings are in order the shell's instructions,
+
+387
+00:22:34,230 --> 00:22:40,850
+the shell's data, an invalid page which access the stack guard page,
+
+388
+00:22:40,850 --> 00:22:43,250
+in case the shell tries to use too much stack space
+
+389
+00:22:43,400 --> 00:22:44,660
+and we can see it's invalid
+
+390
+00:22:44,660 --> 00:22:47,360
+because it doesn't have the u flag set,
+
+391
+00:22:47,390 --> 00:22:51,350
+over here, in this attribute or flag column,
+
+392
+00:22:52,330 --> 00:22:55,660
+these are all the pte underscore flags r w and x,
+
+393
+00:22:55,660 --> 00:22:59,290
+are just control whether a pte can be read or written or executed,
+
+394
+00:22:59,920 --> 00:23:01,120
+the next column is u,
+
+395
+00:23:01,120 --> 00:23:03,610
+and that's whether or not the pte_u flag is set
+
+396
+00:23:03,610 --> 00:23:08,930
+and user code can only get at pte entries for which the u flag is set ,
+
+397
+00:23:12,880 --> 00:23:15,640
+I don't know what the next column is, I have to admit ,
+
+398
+00:23:15,640 --> 00:23:16,750
+and the next column is a,
+
+399
+00:23:16,750 --> 00:23:19,360
+for whether the pte entries ever been used
+
+400
+00:23:19,360 --> 00:23:23,990
+and d for whether a write has ever been issued for this address.
+
+401
+00:23:28,260 --> 00:23:29,490
+Okay, so we have this tiny page table,
+
+402
+00:23:29,490 --> 00:23:32,010
+in the last two page table entries by the way,
+
+403
+00:23:32,010 --> 00:23:36,030
+are way up at an enormous virtual addresses,
+
+404
+00:23:36,410 --> 00:23:40,340
+close to the very close to the top of the virtual address space
+
+405
+00:23:40,610 --> 00:23:44,090
+and this is these two as you read about in the book,
+
+406
+00:23:44,090 --> 00:23:46,730
+I will hear much more about the trapframe page
+
+407
+00:23:46,730 --> 00:23:48,830
+and now the trampoline page,
+
+408
+00:23:48,830 --> 00:23:52,250
+as you can see neither of them has the u bit set,
+
+409
+00:23:52,520 --> 00:23:57,110
+so user code can't get at either of these can use either of these addresses,
+
+410
+00:23:57,560 --> 00:24:00,530
+but once we enter supervisor mode, we can get at these two pages.
+
+411
+00:24:05,130 --> 00:24:05,760
+Alright.
+
+412
+00:24:07,120 --> 00:24:08,620
+Um, one thing this notice about
+
+413
+00:24:08,620 --> 00:24:12,130
+this page table is there's no mapping for anything in the kernel,
+
+414
+00:24:12,610 --> 00:24:14,170
+there's no physical address mapping,
+
+415
+00:24:14,170 --> 00:24:16,090
+there's no mapping for the kernel's data,
+
+416
+00:24:16,120 --> 00:24:18,190
+the kernel's instructions or anything else,
+
+417
+00:24:18,190 --> 00:24:21,610
+this is accepted the last just the very last two pages,
+
+418
+00:24:21,880 --> 00:24:25,390
+now, this is the page table almost entirely dedicated to user execution
+
+419
+00:24:25,570 --> 00:24:28,870
+and is not directly particularly useful for executing the kernel.
+
+420
+00:24:30,410 --> 00:24:33,800
+All right what's the what's the attribute
+
+421
+00:24:33,800 --> 00:24:37,100
+on the on the page table listing on the top?
+
+422
+00:24:37,160 --> 00:24:39,590
+I believe this means the page tables ever been,
+
+423
+00:24:40,110 --> 00:24:44,040
+this page table entry has ever been accessed by code,
+
+424
+00:24:44,720 --> 00:24:48,140
+that is, whether it's ever issued an address
+
+425
+00:24:48,140 --> 00:24:50,110
+that refers to the page table.
+
+426
+00:24:52,160 --> 00:24:55,370
+And the d is whether the programs ever written.
+
+427
+00:24:57,270 --> 00:25:00,940
+They've done a store through this page table entry
+
+428
+00:25:01,030 --> 00:25:04,270
+and these are this the hardware maintains
+
+429
+00:25:04,270 --> 00:25:06,070
+for the convenience of the operating system
+
+430
+00:25:06,070 --> 00:25:10,000
+and operating systems more sophisticated than xv6 .
+
+431
+00:25:10,650 --> 00:25:14,100
+We need to evict pages if they're running short on physical memory,
+
+432
+00:25:14,100 --> 00:25:17,640
+they may need to write some pages of memory to disk,
+
+433
+00:25:18,040 --> 00:25:22,360
+and invalidate the page entries to free up the physical memory,
+
+434
+00:25:22,450 --> 00:25:24,520
+and many policies,
+
+435
+00:25:24,520 --> 00:25:28,510
+you can imagine a operating system using the [pic] which pages to exist,
+
+436
+00:25:28,660 --> 00:25:30,640
+now we'll consult the bits to see
+
+437
+00:25:30,640 --> 00:25:33,370
+whether this page table entry has ever even been used
+
+438
+00:25:33,580 --> 00:25:35,860
+and it hasn't been used or have been used recently
+
+439
+00:25:35,860 --> 00:25:39,490
+then that's a good candidate for evicting to disk.
+
+440
+00:25:40,470 --> 00:25:43,800
+And d tells the kernel
+
+441
+00:25:43,800 --> 00:25:48,840
+that oh this page has actually been written since it was read from disk,
+
+442
+00:25:50,780 --> 00:25:52,490
+xv6 doesn't actually use either of these.
+
+443
+00:25:55,520 --> 00:25:57,500
+Alright, other questions?
+
+444
+00:26:02,390 --> 00:26:06,050
+Alright, let's execute the um.
+
+445
+00:26:06,950 --> 00:26:11,480
+Let me just remind us where we are going to print out the contents of the write,
+
+446
+00:26:11,480 --> 00:26:17,690
+we're in the write library function, in a, in the shell,
+
+447
+00:26:18,170 --> 00:26:20,570
+and the program counter is pointed to the ecall instruction,
+
+448
+00:26:20,570 --> 00:26:22,280
+we're about to execute the ecall instruction,
+
+449
+00:26:23,000 --> 00:26:25,370
+still in user space but won't be for long.
+
+450
+00:26:27,310 --> 00:26:28,900
+I executed the ecall instruction,
+
+451
+00:26:30,380 --> 00:26:32,600
+okay so first question is where are we.
+
+452
+00:26:33,440 --> 00:26:37,190
+After the ecall, we can look at the program counter.
+
+453
+00:26:38,660 --> 00:26:41,510
+We see this now used to be a very low number d
+
+454
+00:26:41,510 --> 00:26:42,710
+that's very high number,
+
+455
+00:26:42,800 --> 00:26:45,770
+in fact we look at the program counter is a virtual address
+
+456
+00:26:45,860 --> 00:26:49,050
+like all addresses that instructions use.
+
+457
+00:26:50,240 --> 00:26:52,100
+And we can look at the page table,
+
+458
+00:26:52,430 --> 00:26:55,550
+actually let's just check what the page table is just to be sure,
+
+459
+00:26:55,550 --> 00:26:59,150
+I'm gonna ask you QEMU for info mem again,
+
+460
+00:26:59,660 --> 00:27:01,010
+it's the very same page table,
+
+461
+00:27:02,220 --> 00:27:03,390
+nothing's changed there,
+
+462
+00:27:03,480 --> 00:27:06,240
+we'll look up our new current program counter,
+
+463
+00:27:06,240 --> 00:27:07,620
+there are the program counter
+
+464
+00:27:07,830 --> 00:27:12,570
+is at the right at the beginning of this trampoline page,
+
+465
+00:27:12,570 --> 00:27:16,560
+this mapped a way up high in the user memory.
+
+466
+00:27:17,460 --> 00:27:21,000
+That's were executing, we can see the instructions that are there,
+
+467
+00:27:21,350 --> 00:27:22,550
+I'm going to use.
+
+468
+00:27:24,620 --> 00:27:25,460
+Um.
+
+469
+00:27:31,340 --> 00:27:33,050
+These are the instructions,
+
+470
+00:27:34,020 --> 00:27:38,550
+the very first instructions that the kernel executes in supervisor mode
+
+471
+00:27:38,550 --> 00:27:40,350
+at the beginning very beginning of a trap
+
+472
+00:27:40,560 --> 00:27:42,300
+and threw some weirdness in gdb,
+
+473
+00:27:42,300 --> 00:27:44,730
+we've actually already executed, the first instruction,
+
+474
+00:27:45,210 --> 00:27:47,100
+at the very beginning of this page.
+
+475
+00:27:49,050 --> 00:27:51,870
+And we're about to execute the second instruction.
+
+476
+00:27:53,560 --> 00:27:55,000
+We can look at the registers.
+
+477
+00:27:57,060 --> 00:28:00,450
+I don't know if you remember these register values but nothing has changed here,
+
+478
+00:28:00,450 --> 00:28:04,200
+these are exactly the same register contents that the user program has,
+
+479
+00:28:04,470 --> 00:28:07,680
+so these are all full of user values for many of them
+
+480
+00:28:07,710 --> 00:28:11,220
+are all of them for all we know they're the only locations value exists,
+
+481
+00:28:11,220 --> 00:28:12,450
+so we have to be very careful
+
+482
+00:28:12,450 --> 00:28:15,660
+when we can't actually use any registers at this point,
+
+483
+00:28:16,220 --> 00:28:20,210
+without first saving those registers somewhere so we can restore them,
+
+484
+00:28:20,390 --> 00:28:21,920
+because if the kernel was to use
+
+485
+00:28:21,920 --> 00:28:24,740
+any of these registers at this point it would overwrite.
+
+486
+00:28:25,100 --> 00:28:28,010
+Um, whatever the user value is
+
+487
+00:28:28,010 --> 00:28:30,020
+and then if we tried to resume the user program,
+
+488
+00:28:30,020 --> 00:28:32,870
+we wouldn't be able to set up its registers with the correct values
+
+489
+00:28:32,870 --> 00:28:36,020
+and the user program or just do something totally wrong.
+
+490
+00:28:37,500 --> 00:28:38,160
+Question?
+
+491
+00:28:38,310 --> 00:28:39,060
+Yes.
+
+492
+00:28:39,390 --> 00:28:43,290
+Could you return to the instructions panel that you had before,
+
+493
+00:28:43,320 --> 00:28:47,280
+I'm wondering what the csrrw instruction is doing.
+
+494
+00:28:51,070 --> 00:28:52,570
+The csrrw,
+
+495
+00:28:52,570 --> 00:28:55,480
+OK we'll talk about this, in a few minutes,
+
+496
+00:28:56,080 --> 00:28:57,310
+but the answer to your question is
+
+497
+00:28:57,310 --> 00:29:03,940
+that instruction swaps a0 with the contents of the special scratch register.
+
+498
+00:29:04,780 --> 00:29:09,730
+Um, and so in yeah yeah, this is like super important.
+
+499
+00:29:10,390 --> 00:29:12,700
+And basically answers the question
+
+500
+00:29:12,700 --> 00:29:17,020
+how can the this kernel trap code do anything if it can't use any registers,
+
+501
+00:29:17,560 --> 00:29:20,980
+the answer that question is that exec- really has to execute this,
+
+502
+00:29:21,320 --> 00:29:24,590
+csrrw a0 sscratch instruction,
+
+503
+00:29:24,920 --> 00:29:28,280
+that simultaneously saves a0 when scratch
+
+504
+00:29:28,310 --> 00:29:30,800
+and happens to load scratch into a0.
+
+505
+00:29:31,880 --> 00:29:36,170
+So now the kernel can use a0 for whatever it wants to after this instruction.
+
+506
+00:29:38,890 --> 00:29:39,790
+Okay, Thanks.
+
+507
+00:29:39,970 --> 00:29:40,570
+Yeah.
+
+508
+00:29:41,710 --> 00:29:45,970
+Okay so we're currently this addresses 0x3ffffff000,
+
+509
+00:29:46,090 --> 00:29:48,160
+now this last page is the trampoline page
+
+510
+00:29:48,160 --> 00:29:50,950
+and we're currently executing in the trampoline page
+
+511
+00:29:50,980 --> 00:29:56,230
+which contains the very first instructions of the kernel's trap handling code.
+
+512
+00:29:58,000 --> 00:30:02,200
+Ecall doesn't switch page tables that's a very important thing about ecall
+
+513
+00:30:02,200 --> 00:30:04,780
+and what that means is that these very first instructions
+
+514
+00:30:04,780 --> 00:30:07,570
+have to be present in every user page table.
+
+515
+00:30:08,080 --> 00:30:10,240
+Because ecall doesn't switch page tables,
+
+516
+00:30:10,240 --> 00:30:12,610
+we need to be executing the first bit of the kernel
+
+517
+00:30:12,820 --> 00:30:14,470
+somewhere in the user page table
+
+518
+00:30:14,470 --> 00:30:16,000
+and it's this trampoline page
+
+519
+00:30:16,090 --> 00:30:19,240
+which the kernel carefully maps into every user page table
+
+520
+00:30:19,840 --> 00:30:23,380
+that gives the kernel a place to execute at the very beginning of a trap
+
+521
+00:30:23,380 --> 00:30:25,060
+when we're still using the user page table
+
+522
+00:30:25,300 --> 00:30:30,370
+and the way this is controlled is through the stvec register,
+
+523
+00:30:30,370 --> 00:30:32,940
+this is another privileged register
+
+524
+00:30:32,940 --> 00:30:35,520
+only readable by the writable by the supervisor
+
+525
+00:30:36,000 --> 00:30:39,450
+and the kernel before it entered user space set up the stvec
+
+526
+00:30:39,660 --> 00:30:42,780
+to point to the place where the kernel wanted traps to go.
+
+527
+00:30:43,110 --> 00:30:44,310
+And so as you can see the kernel
+
+528
+00:30:44,310 --> 00:30:49,710
+has previously set up this stvec to this 0x3ffffff000 address
+
+529
+00:30:49,710 --> 00:30:51,810
+which is the beginning of the trampoline page.
+
+530
+00:30:52,360 --> 00:30:54,310
+And it's this stvec register
+
+531
+00:30:54,520 --> 00:30:57,910
+that its content is the reason why after the ecall,
+
+532
+00:30:58,060 --> 00:31:01,750
+we ended up executing at this particular place.
+
+533
+00:31:05,060 --> 00:31:06,410
+And finally I just want to remind you that
+
+534
+00:31:06,410 --> 00:31:08,600
+even though the trampoline and trap frame pages
+
+535
+00:31:08,600 --> 00:31:11,690
+are mapped into the user page table user address space,
+
+536
+00:31:11,930 --> 00:31:14,150
+the user code cannot write them,
+
+537
+00:31:14,580 --> 00:31:18,540
+because the ptes for them don't have the pte_u flag,
+
+538
+00:31:18,540 --> 00:31:21,090
+so they're protected against user code.
+
+539
+00:31:21,880 --> 00:31:24,940
+And that's why this trick is a part of the reason why this trick is safe.
+
+540
+00:31:27,120 --> 00:31:30,030
+I've been sort of telling you in assuming
+
+541
+00:31:30,060 --> 00:31:31,620
+that we're in supervisor mode,
+
+542
+00:31:31,650 --> 00:31:35,250
+I don't know any way of finding out what mode the machine is in directly,
+
+543
+00:31:35,700 --> 00:31:40,470
+but I do observe that the program counter is currently executing in a page,
+
+544
+00:31:40,470 --> 00:31:44,580
+the trampoline page that doesn't have a pte_u flag set
+
+545
+00:31:44,880 --> 00:31:48,450
+and that can only happen without a crash, if we are in supervisor mode,
+
+546
+00:31:48,480 --> 00:31:53,490
+so I deduce from the lack of a crash and the value of the program counter
+
+547
+00:31:53,490 --> 00:31:55,440
+that we must be in supervisor mode.
+
+548
+00:31:57,790 --> 00:32:00,970
+How we got here, of course I through ecall,
+
+549
+00:32:00,970 --> 00:32:03,340
+ecall really just changes three things.
+
+550
+00:32:03,640 --> 00:32:07,060
+First, ecall changes mode from user to supervisor,
+
+551
+00:32:07,630 --> 00:32:12,850
+second ecall saves the program counter register in the sepc register,
+
+552
+00:32:12,880 --> 00:32:14,290
+so we can see the effect of that.
+
+553
+00:32:14,900 --> 00:32:17,180
+I think the program registers program counter,
+
+554
+00:32:17,180 --> 00:32:19,340
+it's certainly no longer the user program counter,
+
+555
+00:32:19,430 --> 00:32:21,140
+even though while the other registers were,
+
+556
+00:32:21,580 --> 00:32:25,300
+this, this value copied from stvec.
+
+557
+00:32:26,010 --> 00:32:30,340
+And we can also print, the saved,
+
+558
+00:32:30,760 --> 00:32:35,260
+it's the supervisor exception program counter what that stands for,
+
+559
+00:32:35,290 --> 00:32:38,620
+but this is where ecall saves the user program, program counter,
+
+560
+00:32:38,920 --> 00:32:42,070
+and that has a familiar value 0xde6
+
+561
+00:32:42,070 --> 00:32:46,390
+which is the address in user space of the ecall instruction.
+
+562
+00:32:47,130 --> 00:32:49,860
+So we got that one register at least saved away by ecall.
+
+563
+00:32:50,510 --> 00:32:52,520
+And the final thing that ecall does the third thing,
+
+564
+00:32:52,520 --> 00:32:57,020
+it does is jump to the instruction that stvec points to.
+
+565
+00:33:02,270 --> 00:33:04,190
+Alright, um.
+
+566
+00:33:04,940 --> 00:33:06,050
+So what needs to happen now,
+
+567
+00:33:06,050 --> 00:33:07,610
+ecall down a little bit of work for us,
+
+568
+00:33:07,610 --> 00:33:09,620
+but it turns out we are nowhere near ready
+
+569
+00:33:09,620 --> 00:33:12,560
+to actually execute ordinary C code in the kernel ,
+
+570
+00:33:12,560 --> 00:33:17,660
+what has to happen now do we need to save the 32 user register contents,
+
+571
+00:33:17,990 --> 00:33:19,310
+so we can later restore them
+
+572
+00:33:19,310 --> 00:33:21,320
+and when we want to resume the user code,
+
+573
+00:33:21,920 --> 00:33:24,110
+now we need to switch to the kernel page table,
+
+574
+00:33:24,110 --> 00:33:26,150
+because currently we use the user page table,
+
+575
+00:33:26,510 --> 00:33:29,030
+we need to create a stack or find a stack
+
+576
+00:33:29,030 --> 00:33:32,360
+and set the stack pointer register to point to the kernel stack,
+
+577
+00:33:32,360 --> 00:33:34,850
+so we can run the C code which requires a stack
+
+578
+00:33:35,000 --> 00:33:36,320
+and then we need to actually jump to
+
+579
+00:33:36,320 --> 00:33:39,920
+some sensible place in the C code in the kernel.
+
+580
+00:33:40,700 --> 00:33:42,530
+Now as an aside,
+
+581
+00:33:43,580 --> 00:33:46,580
+you know ecall didn't do any of these things for us .
+
+582
+00:33:47,070 --> 00:33:49,290
+You know, but you could have the hardware
+
+583
+00:33:49,290 --> 00:33:51,540
+could have defined ecall to do much more.
+
+584
+00:33:53,390 --> 00:33:56,330
+Many more of these steps for us instead of leaving them to software
+
+585
+00:33:56,330 --> 00:34:00,620
+and as we'll see the during the software, it's not particularly straightforward,
+
+586
+00:34:01,310 --> 00:34:04,640
+so you should ask yourself why the ecall doesn't do more of the work
+
+587
+00:34:04,670 --> 00:34:06,800
+of getting from user space into the kernel,
+
+588
+00:34:06,920 --> 00:34:10,020
+you know why doesn't it save their user registers
+
+589
+00:34:10,020 --> 00:34:14,460
+or switch page table pointers to point to the kernel page table
+
+590
+00:34:14,460 --> 00:34:18,570
+or automatically set the stack pointer to point to the kernel stack,
+
+591
+00:34:19,020 --> 00:34:21,630
+or jump right to kernel C code []
+
+592
+00:34:21,630 --> 00:34:25,260
+rather than having to go through all this complicated assembly code.
+
+593
+00:34:26,990 --> 00:34:30,170
+And there's actually been machines that have done all of these things,
+
+594
+00:34:30,530 --> 00:34:34,730
+in hardware during system calls,
+
+595
+00:34:35,840 --> 00:34:37,100
+the RISC-V doesn't do any of them,
+
+596
+00:34:37,100 --> 00:34:38,930
+RISC-V really the attitude they've taken is
+
+597
+00:34:38,930 --> 00:34:43,820
+the ecall does the absolute minimum that's required that it could possibly do
+
+598
+00:34:43,820 --> 00:34:45,440
+and leave everything else up to software.
+
+599
+00:34:45,860 --> 00:34:47,000
+And the reason for this is
+
+600
+00:34:47,000 --> 00:34:52,280
+because the RISC-V designers want to allow maximum flexibility to the software,
+
+601
+00:34:52,280 --> 00:34:53,960
+the operating system programmers
+
+602
+00:34:53,960 --> 00:34:57,080
+to design the program operating system, however they like.
+
+603
+00:34:57,540 --> 00:35:02,550
+And so you can imagine ways xv6 really doesn't use this freedom,
+
+604
+00:35:02,760 --> 00:35:04,560
+but other operating systems do,
+
+605
+00:35:04,590 --> 00:35:09,840
+so some examples of things that are kind of enabled for the software to do,
+
+606
+00:35:10,170 --> 00:35:11,910
+because ecall so simple,
+
+607
+00:35:12,300 --> 00:35:12,780
+Um.
+
+608
+00:35:14,540 --> 00:35:17,000
+Maybe some operating systems can execute
+
+609
+00:35:17,000 --> 00:35:21,320
+some trap some system calls without switching page tables,
+
+610
+00:35:21,470 --> 00:35:25,220
+the searching page page tables, expensive if ecall forces you to do it,
+
+611
+00:35:25,400 --> 00:35:29,060
+now that rules out the possibility of very streamlined,
+
+612
+00:35:29,420 --> 00:35:32,870
+implementations for some system calls that don't switch page tables.
+
+613
+00:35:33,360 --> 00:35:38,840
+Um, some operating systems both user and kernel virtual addresses
+
+614
+00:35:38,840 --> 00:35:39,950
+into a single page table
+
+615
+00:35:39,950 --> 00:35:42,350
+and use the same page table for both user and kernel
+
+616
+00:35:42,350 --> 00:35:44,360
+and therefore don't even have to switch page tables
+
+617
+00:35:44,360 --> 00:35:47,300
+ever when transitioning between user and kernel,
+
+618
+00:35:47,930 --> 00:35:50,030
+and for them also if you call switch page tables
+
+619
+00:35:50,030 --> 00:35:52,190
+would just be a waste and slow things down.
+
+620
+00:35:52,620 --> 00:35:56,640
+Maybe in some circumstances, system calls for example,
+
+621
+00:35:57,180 --> 00:35:59,370
+some registers don't have to be saved
+
+622
+00:35:59,400 --> 00:36:00,900
+and which ones have to be saved ,
+
+623
+00:36:00,900 --> 00:36:03,750
+it depends on the software or the language and the compiler
+
+624
+00:36:03,750 --> 00:36:07,770
+but might be able to save a lot of time by saving fewer than 32 registers,
+
+625
+00:36:07,800 --> 00:36:09,540
+so you don't want ecall to kind of force you,
+
+626
+00:36:10,080 --> 00:36:14,220
+you don't necessarily want ecall to force you to save all the registers .
+
+627
+00:36:14,720 --> 00:36:18,200
+And finally, maybe no stack at all is required for some simple system calls,
+
+628
+00:36:18,200 --> 00:36:22,520
+so again operating systems that care a lot about performance,
+
+629
+00:36:22,520 --> 00:36:26,000
+it's good, the ecall doesn't force any particular stack policy on you.
+
+630
+00:36:26,810 --> 00:36:33,060
+And again there's many clever hardware, software schemes
+
+631
+00:36:33,060 --> 00:36:37,350
+for very streamlined high performance system calls and tracks
+
+632
+00:36:37,380 --> 00:36:40,380
+just because the performance of this stuff is super important
+
+633
+00:36:40,380 --> 00:36:41,640
+and people worry about it a lot.
+
+634
+00:36:43,080 --> 00:36:46,560
+Okay, so back to xv6 and RISC-V.
+
+635
+00:36:48,360 --> 00:36:50,550
+The first thing we need to do is save some registers,
+
+636
+00:36:50,550 --> 00:36:55,410
+we can do hardly anything on the RISC-V without a few registers,
+
+637
+00:36:56,290 --> 00:36:57,580
+without being able to use registers,
+
+638
+00:36:57,580 --> 00:37:00,280
+so what are options for saving user registers.
+
+639
+00:37:01,130 --> 00:37:03,740
+In on some other machine, we might be able to
+
+640
+00:37:03,740 --> 00:37:06,140
+just write the contents of the 32 registers
+
+641
+00:37:06,140 --> 00:37:08,000
+somewhere convenient in physical memory.
+
+642
+00:37:08,400 --> 00:37:11,040
+We cant actually really do that on the RISC-V
+
+643
+00:37:11,040 --> 00:37:15,000
+because supervisor code isn't allowed to directly access physical memory,
+
+644
+00:37:15,030 --> 00:37:16,800
+we can only use what's in the page table,
+
+645
+00:37:16,800 --> 00:37:18,450
+there's not much in the page table.
+
+646
+00:37:19,290 --> 00:37:24,060
+Another possibility that xv6 doesn't do is
+
+647
+00:37:24,090 --> 00:37:27,840
+simply setting the satp to the kernel page table
+
+648
+00:37:27,990 --> 00:37:30,180
+and then we could use all the kernel mappings
+
+649
+00:37:30,180 --> 00:37:33,570
+and use them maybe to help us save the user registers
+
+650
+00:37:33,930 --> 00:37:36,750
+and that be legal, the supervisor can certainly change satp.
+
+651
+00:37:37,950 --> 00:37:41,700
+However, at this point in the trap handler namely at the beginning,
+
+652
+00:37:42,270 --> 00:37:44,640
+we don't even know the address of the kernel page table,
+
+653
+00:37:44,730 --> 00:37:49,410
+and furthermore the instruction that you execute to change satp
+
+654
+00:37:49,590 --> 00:37:53,400
+require that the address that you're loading into satp come from a register,
+
+655
+00:37:53,700 --> 00:37:58,200
+so we even execute the instruction to change page tables ,
+
+656
+00:37:58,200 --> 00:38:00,090
+we need some spare registers
+
+657
+00:38:00,120 --> 00:38:03,410
+in order to put the new page table address in those registers,
+
+658
+00:38:03,410 --> 00:38:07,010
+so we can execute the satp modifying instruction.
+
+659
+00:38:08,920 --> 00:38:12,130
+Alright, so we really need to save the user registers,
+
+660
+00:38:12,400 --> 00:38:19,690
+there's two parts to the solution for how xv6 does this on the RISC-V.
+
+661
+00:38:19,750 --> 00:38:22,720
+One is part of the solution is that,
+
+662
+00:38:23,870 --> 00:38:27,890
+xv6 into every user address, every user page table maps,
+
+663
+00:38:27,890 --> 00:38:33,650
+this trapframe page and every processes has its own trapframe page.
+
+664
+00:38:34,180 --> 00:38:34,960
+Um, and.
+
+665
+00:38:35,820 --> 00:38:38,130
+Trapframe page actually contains
+
+666
+00:38:38,130 --> 00:38:39,990
+some interesting bunch of different kinds of data,
+
+667
+00:38:39,990 --> 00:38:44,700
+but at this point the most important data contains is 32 slots,
+
+668
+00:38:44,910 --> 00:38:49,290
+empty slots in memory in which to save the 32 registers.
+
+669
+00:38:49,410 --> 00:38:53,880
+So, the good news right now in the trap handling code is we have a mapping,
+
+670
+00:38:53,880 --> 00:38:57,240
+we're guaranteed to have a mapping set up by the kernel previously
+
+671
+00:38:57,300 --> 00:39:00,680
+in the user page table that points to a place
+
+672
+00:39:00,680 --> 00:39:05,420
+where, that's prepared for us to save this processes, user registers.
+
+673
+00:39:07,740 --> 00:39:14,160
+And it's sure it's three is always 0x3ffffff000 virtual address.
+
+674
+00:39:14,770 --> 00:39:18,250
+If you want to see what they are actually in that trapframe,
+
+675
+00:39:18,250 --> 00:39:19,180
+it's um.
+
+676
+00:39:20,540 --> 00:39:30,070
+What xv6 puts there is defined in, proc.h
+
+677
+00:39:30,070 --> 00:39:31,690
+and struct trapframe which is right here,
+
+678
+00:39:31,690 --> 00:39:33,790
+so you can see, um.
+
+679
+00:39:34,710 --> 00:39:36,270
+What's supposed to go in each slot
+
+680
+00:39:36,300 --> 00:39:38,760
+and there's a 32 slots,
+
+681
+00:39:38,760 --> 00:39:42,930
+you need a ra sp gp whatever which are places to save registers,
+
+682
+00:39:42,930 --> 00:39:45,660
+there's also these five things at the beginning ,
+
+683
+00:39:45,660 --> 00:39:47,730
+which will see will come in handy very soon,
+
+684
+00:39:47,730 --> 00:39:49,830
+which are values that the kernel
+
+685
+00:39:49,830 --> 00:39:53,070
+previously placed in the slots in the trapframe.
+
+686
+00:39:53,800 --> 00:39:56,560
+Like, for example this very first slot in the trapframe
+
+687
+00:39:56,770 --> 00:39:58,660
+contains a pointer to the kernel page table,
+
+688
+00:39:58,870 --> 00:40:01,870
+and this will be the value that we're very soon going .
+
+689
+00:40:02,490 --> 00:40:04,980
+The trap handling code is going to load into satp.
+
+690
+00:40:06,270 --> 00:40:10,060
+Okay so, half the answer to how to save the registers is that
+
+691
+00:40:10,240 --> 00:40:15,610
+kernel is conveniently mapped this trapframe and every user page table,
+
+692
+00:40:15,610 --> 00:40:21,190
+the other is this instructions, sscratch register which we measured before,
+
+693
+00:40:21,610 --> 00:40:23,800
+so there's the specialist sscratch register,
+
+694
+00:40:24,190 --> 00:40:27,070
+provided by RISC-V for exactly the purpose,
+
+695
+00:40:27,070 --> 00:40:29,050
+we're about to use it for .
+
+696
+00:40:30,150 --> 00:40:32,190
+The kernel went before it goes into user space
+
+697
+00:40:32,190 --> 00:40:33,870
+puts a pointer there to the trapframe
+
+698
+00:40:33,870 --> 00:40:39,450
+basically just point, puts into satp, this this address
+
+699
+00:40:39,780 --> 00:40:42,060
+just for the convenience of the trap handling code,
+
+700
+00:40:42,120 --> 00:40:44,700
+more importantly though there's an instruction of the RISC-V
+
+701
+00:40:44,850 --> 00:40:47,310
+that it's going to allow us to swap any register
+
+702
+00:40:47,550 --> 00:40:49,980
+and that sscratch which will save that register
+
+703
+00:40:49,980 --> 00:40:56,070
+as well as loads value of sscratch into whatever register we specified.
+
+704
+00:40:56,620 --> 00:41:00,670
+As you can see, if I look at the trampoline code.
+
+705
+00:41:01,860 --> 00:41:05,280
+We're right at the beginning of trampoline code here.
+
+706
+00:41:06,120 --> 00:41:08,940
+The very first thing it does is this csrrw
+
+707
+00:41:11,060 --> 00:41:11,870
+instructions,
+
+708
+00:41:11,870 --> 00:41:14,780
+this is the source of this window over this window,
+
+709
+00:41:14,780 --> 00:41:17,000
+we can actually see what gdb sees in the kernel
+
+710
+00:41:17,180 --> 00:41:21,380
+and we've actually just executed this swap instruction.
+
+711
+00:41:22,260 --> 00:41:24,000
+Let's swap a0 with sscratch,
+
+712
+00:41:24,240 --> 00:41:27,990
+in order to see what it did, let's print out a0,
+
+713
+00:41:28,500 --> 00:41:33,840
+a0 is now this three f f e zero zero zero value which is a pointer.
+
+714
+00:41:34,680 --> 00:41:36,750
+Which is the virtual address of the trapframe
+
+715
+00:41:36,870 --> 00:41:38,970
+which used to be in sscratch, but we just swapped it.
+
+716
+00:41:39,590 --> 00:41:41,930
+And then we can print out what's in sscratch,
+
+717
+00:41:43,790 --> 00:41:46,730
+and it's two which is the old value of the a0 register,
+
+718
+00:41:46,730 --> 00:41:50,510
+of course a zero held the first argument to the write function,
+
+719
+00:41:50,970 --> 00:41:54,360
+just file descriptor to which you put the shell passed,
+
+720
+00:41:54,390 --> 00:41:58,680
+so we saved you a0 and we have a pointer to the trapframe.
+
+721
+00:41:59,630 --> 00:42:01,520
+And it turns out now that
+
+722
+00:42:01,580 --> 00:42:04,040
+we're well on our way to be able to save the registers,
+
+723
+00:42:04,040 --> 00:42:08,960
+in fact that's what the very next thirty odd instructions
+
+724
+00:42:08,960 --> 00:42:11,300
+due in this trampoline code
+
+725
+00:42:11,420 --> 00:42:15,140
+which is systematically sd instructions,
+
+726
+00:42:15,140 --> 00:42:18,560
+you just save 64 bit store instructions
+
+727
+00:42:18,560 --> 00:42:20,120
+to store every single register
+
+728
+00:42:20,600 --> 00:42:25,760
+to a different offset in the trapframe a0 to recall,
+
+729
+00:42:25,760 --> 00:42:29,300
+now contains after the swap contains a pointer to the trapframe
+
+730
+00:42:29,510 --> 00:42:33,530
+that is could change the virtual address of this page.
+
+731
+00:42:34,510 --> 00:42:39,550
+And we're just storing each registered a different offset in the trapframe ,
+
+732
+00:42:42,130 --> 00:42:44,740
+all the stores a bit boring, so I'm gonna skip over them.
+
+733
+00:42:45,410 --> 00:42:50,590
+Um. Let me set a break point, go further on.
+
+734
+00:42:55,880 --> 00:42:56,780
+Professor question?
+
+735
+00:42:56,810 --> 00:42:57,410
+Yes.
+
+736
+00:42:58,200 --> 00:43:01,830
+How did the address of the trapframe
+
+737
+00:43:02,470 --> 00:43:05,140
+end up in sscratch when we swapped it with a0.
+
+738
+00:43:05,910 --> 00:43:13,020
+Okay before the kernel, before it previously transitioned to user space,
+
+739
+00:43:14,120 --> 00:43:21,890
+set sscratch to be equal to 0x3fffffe000, the virtual addresses the trapframe.
+
+740
+00:43:22,730 --> 00:43:25,400
+So all the time when we are executing a user space in the shell,
+
+741
+00:43:25,400 --> 00:43:28,610
+sscratch had this pointer to the trapframe ,
+
+742
+00:43:29,140 --> 00:43:35,480
+and then the shell executes ecall,
+
+743
+00:43:36,140 --> 00:43:38,390
+which jumps to the beginning of the trampoline
+
+744
+00:43:38,390 --> 00:43:40,100
+and the very first instruction of the trampoline,
+
+745
+00:43:40,100 --> 00:43:44,390
+is this csrrw instruction which swaps a0 on the sscratch
+
+746
+00:43:44,900 --> 00:43:46,310
+and so now the old value of the scratch,
+
+747
+00:43:46,310 --> 00:43:48,590
+namely the point of the trapframe is now in a0.
+
+748
+00:43:50,190 --> 00:43:51,180
+Does that answer your question.
+
+749
+00:43:53,230 --> 00:43:55,960
+I guess I'm wondering where in the alloc-,
+
+750
+00:43:56,020 --> 00:44:00,010
+does this happen during the allocation of the process
+
+751
+00:44:00,040 --> 00:44:01,960
+like where do the sscratch register live.
+
+752
+00:44:02,080 --> 00:44:06,100
+Where does this well scratch itself lives on the CPU,
+
+753
+00:44:06,620 --> 00:44:08,360
+the special register in the CPU,
+
+754
+00:44:08,970 --> 00:44:12,810
+where and the kernel sets it, um well,
+
+755
+00:44:14,370 --> 00:44:18,420
+a little bit involved, the actual place where it's set
+
+756
+00:44:18,420 --> 00:44:20,370
+and what I'm now showing you on the right here
+
+757
+00:44:20,820 --> 00:44:24,160
+is the code that the kernel ,
+
+758
+00:44:24,160 --> 00:44:29,710
+the last two instructions that the kernel executes while returning a user space,
+
+759
+00:44:30,340 --> 00:44:34,030
+and what's happening is that the very last thing it does after the kernel
+
+760
+00:44:34,030 --> 00:44:37,000
+restores all the user registers
+
+761
+00:44:37,000 --> 00:44:39,580
+and it's just about ready to return to user space,
+
+762
+00:44:39,760 --> 00:44:41,890
+it actually does another one of these swaps,
+
+763
+00:44:42,160 --> 00:44:44,770
+the kernel is setup a0 to be equal to the trap frame,
+
+764
+00:44:45,280 --> 00:44:49,090
+sscratch still holds the saved user a0.
+
+765
+00:44:49,980 --> 00:44:53,520
+So the kernel does this swap which ends up with that sscratch having a pointer
+
+766
+00:44:53,520 --> 00:44:57,130
+that trapframe in a0 having received,
+
+767
+00:44:57,920 --> 00:45:02,030
+user a0 and then this sret returns to user space,
+
+768
+00:45:02,180 --> 00:45:04,700
+so you may wonder how a0 ever got to have the value
+
+769
+00:45:04,700 --> 00:45:08,040
+of the, the address of the trap frame
+
+770
+00:45:08,520 --> 00:45:10,950
+answer that question is that, um,
+
+771
+00:45:13,130 --> 00:45:15,950
+we're now looking in trap.c,
+
+772
+00:45:17,120 --> 00:45:20,150
+at this last C function to run
+
+773
+00:45:20,270 --> 00:45:23,640
+on the way out to user space.
+
+774
+00:45:24,710 --> 00:45:28,550
+The last thing this C function does is calls this function here.
+
+775
+00:45:29,460 --> 00:45:33,240
+Whatever this fn is and the arguments it passes
+
+776
+00:45:33,660 --> 00:45:38,020
+are the trapframe and the user page table
+
+777
+00:45:38,560 --> 00:45:41,680
+and so in C code, when you call a function,
+
+778
+00:45:41,680 --> 00:45:43,660
+the first argument goes into a0,
+
+779
+00:45:44,170 --> 00:45:48,000
+that's basically why a0 held a pointer at the trapframe.
+
+780
+00:45:49,120 --> 00:45:51,910
+And this function, its value is set up here to be,
+
+781
+00:45:52,650 --> 00:45:56,970
+in that trampoline page towards the end that code I showed you .
+
+782
+00:45:59,690 --> 00:46:00,740
+This code.
+
+783
+00:46:02,220 --> 00:46:04,980
+Is that, that's a good answer.
+
+784
+00:46:06,120 --> 00:46:07,020
+Thanks.
+
+785
+00:46:07,620 --> 00:46:11,760
+Sorry, I also was confused about that I was not sure,
+
+786
+00:46:11,880 --> 00:46:14,850
+so when you start when you start your process,
+
+787
+00:46:15,290 --> 00:46:17,930
+and it's good at running and then at some point
+
+788
+00:46:17,930 --> 00:46:21,500
+it doesn't equal I guess or something
+
+789
+00:46:21,500 --> 00:46:26,180
+and then when did you call this return function
+
+790
+00:46:26,270 --> 00:46:29,150
+because it should have been called before the ecall,
+
+791
+00:46:30,000 --> 00:46:34,140
+but it didn't return from, you didn't return before,
+
+792
+00:46:34,350 --> 00:46:37,830
+I I don't know I don't understand what you call the usertrapret.
+
+793
+00:46:39,000 --> 00:46:41,940
+Okay, what may be one answer to this question is that
+
+794
+00:46:41,970 --> 00:46:48,450
+the kernel always or that the machine boots up in the kernel,
+
+795
+00:46:49,850 --> 00:46:51,680
+so when the machine starts in the kernel,
+
+796
+00:46:51,950 --> 00:46:56,230
+anytime the only way to get into user space,
+
+797
+00:46:56,880 --> 00:47:00,720
+you know the very first time or when returning from a system call
+
+798
+00:47:01,080 --> 00:47:04,200
+is in fact to execute this sret instruction,
+
+799
+00:47:05,440 --> 00:47:07,750
+that this sret instruction is the way
+
+800
+00:47:07,750 --> 00:47:13,780
+that the RISC-V defines to transition from supervisor mode into user mode,
+
+801
+00:47:14,530 --> 00:47:18,830
+and so before any user code ever executes,
+
+802
+00:47:18,950 --> 00:47:22,030
+the kernel executes the code I'm showing you here,
+
+803
+00:47:22,030 --> 00:47:24,280
+in these these two editor buffers,
+
+804
+00:47:24,820 --> 00:47:29,620
+that set up all kinds of things like sscratch stvec.
+
+805
+00:47:33,200 --> 00:47:34,820
+Okay I see, thank you.
+
+806
+00:47:35,270 --> 00:47:35,660
+You're welcome.
+
+807
+00:47:36,730 --> 00:47:38,020
+I have a question,
+
+808
+00:47:38,020 --> 00:47:41,020
+I'm not sure if we touched on this or I missed it,
+
+809
+00:47:41,020 --> 00:47:44,620
+but when we call the ecall instruction in the assembly code,
+
+810
+00:47:45,220 --> 00:47:47,680
+what triggers the trampoline code to start,
+
+811
+00:47:47,770 --> 00:47:52,570
+like is it the switch of the CPU mode from supervisor,
+
+812
+00:47:52,570 --> 00:47:55,090
+I'm sorry from user, supervisor is something else.
+
+813
+00:47:55,480 --> 00:47:56,860
+Okay, um.
+
+814
+00:47:57,990 --> 00:48:00,570
+So the code we're executing is this ecall,
+
+815
+00:48:01,010 --> 00:48:03,020
+the shell executes it in user space
+
+816
+00:48:03,290 --> 00:48:05,000
+and ecall does a couple things,
+
+817
+00:48:05,120 --> 00:48:08,750
+the ecall instruction sets the mode to supervisor,
+
+818
+00:48:09,400 --> 00:48:16,000
+and the ecall instruction saves the program counter in sepc
+
+819
+00:48:16,360 --> 00:48:20,440
+and the ecall instruction sets the program counter equal to
+
+820
+00:48:21,560 --> 00:48:23,930
+the control register called stvec,
+
+821
+00:48:24,260 --> 00:48:26,450
+so stvec is one of the many things
+
+822
+00:48:26,450 --> 00:48:29,060
+which the kernel sets up before entering user space.
+
+823
+00:48:31,750 --> 00:48:35,140
+And so here's stvec, stvec is just the kernel set it
+
+824
+00:48:35,470 --> 00:48:37,600
+to the beginning of the trampoline page
+
+825
+00:48:37,630 --> 00:48:39,860
+that is this address here.
+
+826
+00:48:40,680 --> 00:48:42,450
+So when ecall happens,
+
+827
+00:48:42,450 --> 00:48:46,320
+ecall just copies stvec into the program counter and continues,
+
+828
+00:48:46,320 --> 00:48:51,510
+but now the program counter is executing this address in the trampoline page.
+
+829
+00:48:54,500 --> 00:48:55,970
+That clarifies it, thank you.
+
+830
+00:48:56,990 --> 00:48:57,320
+Okay.
+
+831
+00:49:00,520 --> 00:49:02,050
+I also have a question.
+
+832
+00:49:02,620 --> 00:49:09,460
+Why, so some of the registers are saved in the trap frame,
+
+833
+00:49:09,520 --> 00:49:11,290
+should not ,
+
+834
+00:49:11,900 --> 00:49:17,030
+are also registers that the user program had access to,
+
+835
+00:49:19,510 --> 00:49:29,000
+why, why do we need to, um, use as a new region in memory
+
+836
+00:49:29,000 --> 00:49:31,790
+and not use the program stack.
+
+837
+00:49:34,660 --> 00:49:37,660
+Okay, um, boy, there's maybe two questions here.
+
+838
+00:49:37,660 --> 00:49:42,420
+One is, maybe why do we have to save the registers at all.
+
+839
+00:49:43,700 --> 00:49:46,160
+The the reason why the kernel has to save the registers
+
+840
+00:49:46,160 --> 00:49:48,680
+is that the kernel is about to run C code
+
+841
+00:49:48,680 --> 00:49:51,700
+that it overwrites those registers
+
+842
+00:49:52,060 --> 00:49:55,480
+and if we ever want to resume the user code correctly,
+
+843
+00:49:55,480 --> 00:49:57,550
+we need to resume it with its registers
+
+844
+00:49:57,550 --> 00:50:01,060
+having their original values as of when the ecall,
+
+845
+00:50:01,090 --> 00:50:02,050
+let's execute it,
+
+846
+00:50:02,260 --> 00:50:06,440
+we have to save all the registers in the trapframe ,
+
+847
+00:50:06,980 --> 00:50:10,040
+so that later on, we can restore all of their values
+
+848
+00:50:10,250 --> 00:50:12,930
+just before resuming the user code.
+
+849
+00:50:14,280 --> 00:50:15,570
+Maybe the other half of your question is
+
+850
+00:50:15,570 --> 00:50:17,760
+how come they're saved in the trap frame
+
+851
+00:50:17,760 --> 00:50:20,040
+and not on the user stack .
+
+852
+00:50:20,580 --> 00:50:21,570
+The answer to that is
+
+853
+00:50:21,570 --> 00:50:24,420
+that we're not sure the user program even has a stack.
+
+854
+00:50:24,820 --> 00:50:28,330
+There are certainly programming languages that don't have a stack
+
+855
+00:50:28,810 --> 00:50:31,750
+and the stack pointer doesn't point to anything in particular
+
+856
+00:50:31,810 --> 00:50:33,130
+might be a value zero,
+
+857
+00:50:33,460 --> 00:50:35,770
+there's also programming languages that yeah they have a stack
+
+858
+00:50:35,770 --> 00:50:38,260
+but it's in a format that's,
+
+859
+00:50:38,580 --> 00:50:42,120
+you know some weird format, the kernel doesn't understand ,
+
+860
+00:50:42,120 --> 00:50:43,800
+maybe because the programming language
+
+861
+00:50:43,800 --> 00:50:47,860
+allocates stack in small blocks from the heap,
+
+862
+00:50:48,550 --> 00:50:50,830
+and the programming language runtime understands
+
+863
+00:50:50,830 --> 00:50:53,650
+how to use these small blocks of memory as a stack,
+
+864
+00:50:53,650 --> 00:50:57,000
+but you know, the kernel has no idea .
+
+865
+00:50:57,610 --> 00:51:00,580
+So we if we want to be able to run sort of arbitrary
+
+866
+00:51:00,580 --> 00:51:02,500
+user programs written in lots of different languages
+
+867
+00:51:02,740 --> 00:51:07,930
+that kernel can't make any assumptions about what parts of user memory,
+
+868
+00:51:07,930 --> 00:51:11,710
+it's allowed to exist or valid or is allowed to read or write,
+
+869
+00:51:12,220 --> 00:51:13,330
+and so the kernel has to be
+
+870
+00:51:13,330 --> 00:51:16,510
+sort of self-contained in saving them, storing the registers.
+
+871
+00:51:17,200 --> 00:51:21,010
+That's why the kernel saves stuff in its own memory
+
+872
+00:51:21,010 --> 00:51:23,730
+and the trapframe rather than in user memory.
+
+873
+00:51:24,610 --> 00:51:25,510
+Okay, makes sense.
+
+874
+00:51:29,820 --> 00:51:30,300
+Okay.
+
+875
+00:51:31,930 --> 00:51:32,950
+Anything else.
+
+876
+00:51:40,120 --> 00:51:47,880
+Okay, we're still reading the beginning of of the code in trampoline,
+
+877
+00:51:48,120 --> 00:51:51,540
+this code unfortunately we refer to it
+
+878
+00:51:51,540 --> 00:51:56,160
+both as uservec and as the trampoline code,
+
+879
+00:51:56,490 --> 00:51:57,990
+we barely started executing it
+
+880
+00:51:58,050 --> 00:52:02,010
+I think I just set a break point in this code,
+
+881
+00:52:02,970 --> 00:52:06,180
+after all the registers have been saved,
+
+882
+00:52:06,210 --> 00:52:11,750
+I think I set a break point of this instruction,
+
+883
+00:52:12,200 --> 00:52:14,900
+we'll continue executing skip over all these saves
+
+884
+00:52:14,900 --> 00:52:16,940
+of all the user registers the trapframe.
+
+885
+00:52:17,630 --> 00:52:20,960
+Okay and now, we're executing this load instruction,
+
+886
+00:52:20,960 --> 00:52:25,430
+this load instruction is loading into the stack pointer register
+
+887
+00:52:25,490 --> 00:52:28,670
+and what is loading as the value is the eighth slot.
+
+888
+00:52:29,370 --> 00:52:32,310
+In the block of memory pointed to by a0,
+
+889
+00:52:32,430 --> 00:52:35,280
+we remember a0 points, this trapframe
+
+890
+00:52:35,700 --> 00:52:39,900
+to this virtual address the second last page.
+
+891
+00:52:40,600 --> 00:52:45,790
+And the format of the trap page, but the trapframe.
+
+892
+00:52:46,880 --> 00:52:47,930
+Here's the front of the trap page,
+
+893
+00:52:47,930 --> 00:52:53,090
+my we've conveniently labeled each field with its offset in bytes,
+
+894
+00:52:53,450 --> 00:52:55,550
+so that means they load in the eighth,
+
+895
+00:52:56,280 --> 00:52:58,050
+starting at the eighth byte of the trapframe
+
+896
+00:52:58,050 --> 00:53:00,720
+means we're loading the kernel stack pointer
+
+897
+00:53:00,720 --> 00:53:04,620
+and one of the things the kernel sets up before entering user spaces,
+
+898
+00:53:04,620 --> 00:53:06,840
+it sets this slot in the trapframe
+
+899
+00:53:07,050 --> 00:53:11,200
+to be equal to this process's kernel stack,
+
+900
+00:53:11,620 --> 00:53:16,810
+so this instruction here is doing is initializing the stack pointer
+
+901
+00:53:16,810 --> 00:53:20,140
+to point to the top of this process's kernel stack,
+
+902
+00:53:20,380 --> 00:53:23,900
+is part of what you need to do in order to to run user code.
+
+903
+00:53:25,930 --> 00:53:27,070
+Alright, so what's left,
+
+904
+00:53:27,070 --> 00:53:31,450
+within a few instructions of getting to the end of the trampoline code .
+
+905
+00:53:32,220 --> 00:53:34,050
+We loaded the stack pointer,
+
+906
+00:53:34,650 --> 00:53:37,050
+so maybe I can print the stack pointer for you and see.
+
+907
+00:53:39,160 --> 00:53:40,000
+Yeah, this is.
+
+908
+00:53:40,770 --> 00:53:50,520
+Um. All right, well this is the kernels,
+
+909
+00:53:50,520 --> 00:53:52,920
+this processes kernel stack is up on high memory
+
+910
+00:53:52,920 --> 00:53:58,930
+because xv6 treat kernel sets especially,
+
+911
+00:53:58,930 --> 00:54:02,470
+so that you can put a guard page under each kernel stack.
+
+912
+00:54:03,810 --> 00:54:06,270
+Um, okay, so this load into tp,
+
+913
+00:54:06,870 --> 00:54:11,190
+it turns out that because there's no direct way in RISC-V
+
+914
+00:54:11,190 --> 00:54:15,330
+to figure out what core which of the multiple cores you're running on,
+
+915
+00:54:15,630 --> 00:54:22,830
+xv6 actually keeps the core number called the hart id in the tp register
+
+916
+00:54:22,920 --> 00:54:25,050
+and this is used in a bunch of places in the kernel,
+
+917
+00:54:25,050 --> 00:54:28,080
+for example, it's part of the machinery
+
+918
+00:54:28,080 --> 00:54:34,070
+for kernel code to figure out what process is currently running on that core.
+
+919
+00:54:35,220 --> 00:54:39,540
+OK, and if we execute this, hopefully ,
+
+920
+00:54:41,070 --> 00:54:43,530
+tp or running on core zero and that makes sense
+
+921
+00:54:43,530 --> 00:54:45,360
+because I've configured QEMU to
+
+922
+00:54:45,360 --> 00:54:49,950
+only give one core to xv6 or indeed running on core zero.
+
+923
+00:54:51,830 --> 00:54:58,010
+Um, this next thing, is loading the address of,
+
+924
+00:54:59,620 --> 00:55:02,290
+actually the loaded to t0.
+
+925
+00:55:06,180 --> 00:55:13,260
+I think loaded a pointer to the first C function that we're going to execute
+
+926
+00:55:13,290 --> 00:55:14,370
+which is user,
+
+927
+00:55:14,370 --> 00:55:15,810
+so we use that in a few instructions
+
+928
+00:55:15,810 --> 00:55:19,170
+just jump to the usertrap C function.
+
+929
+00:55:19,870 --> 00:55:22,630
+Load into t1 here,
+
+930
+00:55:23,260 --> 00:55:28,140
+is loading the address of the kernel page table,
+
+931
+00:55:28,590 --> 00:55:32,060
+you can print, about to switch page tables,
+
+932
+00:55:32,660 --> 00:55:35,180
+turns out the, this thing,
+
+933
+00:55:35,180 --> 00:55:38,030
+it was not actually literally the address of the kernel page table,
+
+934
+00:55:38,030 --> 00:55:41,570
+it's the thing you need to put into satp ,
+
+935
+00:55:42,100 --> 00:55:44,830
+which is, has the address of the kernel page table,
+
+936
+00:55:44,830 --> 00:55:47,140
+but shifted around with some extra flag bit set.
+
+937
+00:55:47,760 --> 00:55:50,820
+But as soon as the csrrw instruction executes
+
+938
+00:55:50,820 --> 00:55:54,210
+will switch page tables from the user page table, the kernel page table,
+
+939
+00:55:54,420 --> 00:55:58,260
+let me just reinforce that by looking at the current page table right now.
+
+940
+00:55:58,660 --> 00:56:02,050
+We're still executing with this very small user page table
+
+941
+00:56:02,350 --> 00:56:06,400
+and run step by to execute the load and satp.
+
+942
+00:56:08,770 --> 00:56:09,430
+Um.
+
+943
+00:56:11,140 --> 00:56:12,400
+And we'll look again at the kernel page,
+
+944
+00:56:12,400 --> 00:56:14,500
+now we're at completely different page table right,
+
+945
+00:56:14,500 --> 00:56:15,790
+this is the kernel page table,
+
+946
+00:56:16,330 --> 00:56:18,700
+then you can see all these different regions of memory
+
+947
+00:56:18,700 --> 00:56:20,200
+and device control registers
+
+948
+00:56:20,200 --> 00:56:26,660
+and what now that the  kernel sets up in its own big kernel page table,
+
+949
+00:56:26,870 --> 00:56:29,090
+so we successfully switch page tables.
+
+950
+00:56:29,740 --> 00:56:31,000
+And now the kernel page tables,
+
+951
+00:56:31,450 --> 00:56:33,010
+so we're in pretty good shape at this point,
+
+952
+00:56:33,010 --> 00:56:34,090
+because we have a stack,
+
+953
+00:56:34,480 --> 00:56:36,310
+we have the kernel page table,
+
+954
+00:56:36,310 --> 00:56:37,570
+we can read my kernel data
+
+955
+00:56:37,600 --> 00:56:42,580
+were really pretty much ready to execute C code in the kernel,
+
+956
+00:56:43,210 --> 00:56:48,200
+one puzzle though is, how come, we didn't just crash,
+
+957
+00:56:48,560 --> 00:56:50,780
+after all we are executing somewhere in memory,
+
+958
+00:56:50,810 --> 00:56:53,270
+and the program counter holds a virtual address,
+
+959
+00:56:53,390 --> 00:56:55,940
+if we switch page tables,
+
+960
+00:56:56,170 --> 00:56:59,350
+why doesn't that just cause some random garbage
+
+961
+00:56:59,350 --> 00:57:03,040
+or nothing at all to be mapped in the new page table
+
+962
+00:57:03,070 --> 00:57:04,720
+underfoot where we were executing.
+
+963
+00:57:05,470 --> 00:57:07,990
+We're not crashing or actually execute these instructions.
+
+964
+00:57:08,660 --> 00:57:10,490
+Any guesses what's going on.
+
+965
+00:57:13,280 --> 00:57:15,680
+I think it's because, oh sorry,
+
+966
+00:57:17,040 --> 00:57:20,040
+because we're still in the trampoline code
+
+967
+00:57:20,040 --> 00:57:25,710
+and the trampoline is mapped the same virtual address both user and kernel.
+
+968
+00:57:26,260 --> 00:57:27,460
+That's absolutely correct
+
+969
+00:57:27,820 --> 00:57:29,950
+and say you, I don't know if you remember
+
+970
+00:57:29,950 --> 00:57:31,720
+what was mapped here in the user page table,
+
+971
+00:57:31,840 --> 00:57:34,780
+but this mapping here at the end of the kernel page table
+
+972
+00:57:34,810 --> 00:57:37,690
+is exactly the same mapping in the same place,
+
+973
+00:57:38,080 --> 00:57:40,270
+as as the trampoline mapping
+
+974
+00:57:40,840 --> 00:57:42,340
+at the end of the user page table,
+
+975
+00:57:42,370 --> 00:57:43,750
+all the other mappings are different,
+
+976
+00:57:44,480 --> 00:57:45,740
+But this mapping is the same,
+
+977
+00:57:45,740 --> 00:57:48,050
+this is the mapping that holds the instructions were executing,
+
+978
+00:57:48,050 --> 00:57:50,870
+and because it didn't change when we switch page tables,
+
+979
+00:57:51,800 --> 00:57:53,600
+we actually continue executing
+
+980
+00:57:53,600 --> 00:57:58,040
+and we're still executing the same sequence of instructions and not crashing.
+
+981
+00:57:59,140 --> 00:58:03,550
+And so that's the sort of special thing about the trampoline page,
+
+982
+00:58:03,580 --> 00:58:10,680
+it's mapped both in the user page tables and kernel page table
+
+983
+00:58:10,950 --> 00:58:13,110
+and the reason it's called a trampoline pages,
+
+984
+00:58:13,200 --> 00:58:15,120
+because you sort of bounce on it
+
+985
+00:58:15,810 --> 00:58:18,960
+on the way from user space to kernel space.
+
+986
+00:58:20,760 --> 00:58:23,820
+And the next instruction, this jr were about to bounce
+
+987
+00:58:24,030 --> 00:58:27,900
+right out of the trampoline into kernel C code.
+
+988
+00:58:28,430 --> 00:58:32,360
+And see where we're going, jr is just like jump to a subroutine,
+
+989
+00:58:32,450 --> 00:58:34,940
+subroutine this point to by register t0,
+
+990
+00:58:35,930 --> 00:58:37,610
+print t0 to see where we're going.
+
+991
+00:58:39,420 --> 00:58:44,170
+Um, maybe we'll print instructions there.
+
+992
+00:58:46,520 --> 00:58:49,010
+Okay, so these are the instructions were about to jump to there
+
+993
+00:58:49,010 --> 00:58:52,100
+in the beginning of the function called usertrap,
+
+994
+00:58:53,560 --> 00:58:57,100
+usertrap is just a C function,
+
+995
+00:58:57,480 --> 00:58:58,830
+defined in trap.c.
+
+996
+00:59:01,040 --> 00:59:04,730
+Here's usertrap, we're about to jump from assembly code to use a trap
+
+997
+00:59:04,730 --> 00:59:06,770
+with a stack with a kernel page table,
+
+998
+00:59:07,220 --> 00:59:11,360
+let me actually do the execute the instruction.
+
+999
+00:59:12,040 --> 00:59:18,990
+And I'm gonna turn on, turn on display of C code
+
+1000
+00:59:18,990 --> 00:59:21,540
+and gdb now [] C code.
+
+1001
+00:59:23,820 --> 00:59:25,440
+Okay, so now we're in a much more sane world,
+
+1002
+00:59:25,440 --> 00:59:26,880
+we're just executing C code,
+
+1003
+00:59:27,120 --> 00:59:28,950
+should be a little bit easier to understand
+
+1004
+00:59:29,220 --> 00:59:32,370
+and there's you know still spend some time
+
+1005
+00:59:32,370 --> 00:59:35,550
+reading and writing various interesting control registers,
+
+1006
+00:59:35,550 --> 00:59:39,490
+but the environment is hopefully a good deal
+
+1007
+00:59:39,490 --> 00:59:41,770
+less mysterious than it was in the trapframe.
+
+1008
+00:59:43,420 --> 00:59:44,020
+Alright.
+
+1009
+00:59:48,140 --> 00:59:50,300
+Any function, any any questions at this point.
+
+1010
+00:59:53,890 --> 00:59:55,510
+Um, I have a question,
+
+1011
+00:59:55,510 --> 01:00:00,460
+why didn't we see with the gdb, what ecall does,
+
+1012
+01:00:03,010 --> 01:00:04,630
+I I maybe I missed it,
+
+1013
+01:00:04,630 --> 01:00:09,280
+but I I think we've jumped directly into the trampoline.
+
+1014
+01:00:11,930 --> 01:00:19,560
+Ecall ecall did jump, what ecall does is ,
+
+1015
+01:00:19,740 --> 01:00:23,340
+just switch just changes the mode bit to be supervisor
+
+1016
+01:00:23,820 --> 01:00:31,370
+and ecall sets the program counter register to be equal to
+
+1017
+01:00:31,370 --> 01:00:35,390
+the whatever happens, whatever the kernel happened to store in stvec.
+
+1018
+01:00:36,400 --> 01:00:40,000
+I'll store this value I just printed 0x3ffffff000
+
+1019
+01:00:40,000 --> 01:00:43,510
+which is the beginning of the trampoline page kernel stores.
+
+1020
+01:00:43,740 --> 01:00:46,680
+This number in stvec before entering user space,
+
+1021
+01:00:47,130 --> 01:00:53,430
+so where eccall goes that is where it's just the program counter to stvec,
+
+1022
+01:00:53,820 --> 01:00:55,860
+which is the beginning of the trampoline page.
+
+1023
+01:00:58,560 --> 01:00:59,700
+That answer your question.
+
+1024
+01:01:02,240 --> 01:01:03,920
+Yes I think so.
+
+1025
+01:01:08,610 --> 01:01:14,370
+Okay, so now we're in user, usertrap are actually just like a trampoline page
+
+1026
+01:01:14,370 --> 01:01:20,630
+and just like the trampoline page for a number of different kinds of traps,
+
+1027
+01:01:20,630 --> 01:01:23,780
+there system calls there's exceptions like dividing by zero
+
+1028
+01:01:23,780 --> 01:01:25,940
+or using a unmapped virtual address
+
+1029
+01:01:26,150 --> 01:01:27,440
+and there's a device interrupts
+
+1030
+01:01:27,440 --> 01:01:28,460
+and they all come here
+
+1031
+01:01:28,730 --> 01:01:33,550
+and so user sort of saves and restores some hardware state,
+
+1032
+01:01:33,550 --> 01:01:38,470
+but it also needs to look at the state at the cause of the trap
+
+1033
+01:01:38,500 --> 01:01:41,410
+to figure out what to do with it .
+
+1034
+01:01:42,220 --> 01:01:45,700
+And so we're gonna see both things as we execute along in usertrap,
+
+1035
+01:01:45,880 --> 01:01:50,730
+let me just run stuff user,
+
+1036
+01:01:50,730 --> 01:01:54,240
+let's see, the first thing it does here is that
+
+1037
+01:01:54,330 --> 01:01:57,210
+it changes that stvec register,
+
+1038
+01:01:57,390 --> 01:02:03,550
+it turns out that the the way xv6 handles traps is different
+
+1039
+01:02:03,550 --> 01:02:06,310
+depending on whether they come from user space or from the kernel
+
+1040
+01:02:06,640 --> 01:02:10,810
+and we've only been talking about what happens if a trap occurs from user space,
+
+1041
+01:02:10,960 --> 01:02:13,360
+there's a quite different sequence of events,
+
+1042
+01:02:13,750 --> 01:02:17,260
+for traps that come from the kernel that occur while in the kernel,
+
+1043
+01:02:17,260 --> 01:02:19,540
+because after all, for example the kernel,
+
+1044
+01:02:20,120 --> 01:02:21,950
+I was already using the kernel page table,
+
+1045
+01:02:22,040 --> 01:02:24,830
+a trap occurs while you're in the kernel,
+
+1046
+01:02:24,830 --> 01:02:26,180
+you already have the kernel page tables,
+
+1047
+01:02:26,180 --> 01:02:28,010
+there's a whole bunch of stuff that doesn't have to happen
+
+1048
+01:02:28,430 --> 01:02:31,010
+if the trap occurred while in the kernel,
+
+1049
+01:02:31,520 --> 01:02:34,580
+so before getting much further in the kernel code,
+
+1050
+01:02:34,730 --> 01:02:37,370
+we change stvec to point to this kernelvec
+
+1051
+01:02:37,370 --> 01:02:39,620
+which is the kernel trap handler,
+
+1052
+01:02:39,710 --> 01:02:41,240
+rather than the user trap handler.
+
+1053
+01:02:43,250 --> 01:02:46,040
+We need for various reasons,
+
+1054
+01:02:46,040 --> 01:02:47,900
+we need to figure out what process we're running
+
+1055
+01:02:48,080 --> 01:02:50,120
+and we do that by calling this myproc function
+
+1056
+01:02:50,570 --> 01:02:52,190
+and myproc actually looks at an array
+
+1057
+01:02:52,190 --> 01:02:55,940
+indexed by the current core number, hart id,
+
+1058
+01:02:56,180 --> 01:02:58,490
+do you remember we put in tp.
+
+1059
+01:02:59,300 --> 01:03:02,630
+Um, that's how myproc figures out what process is currently running.
+
+1060
+01:03:07,150 --> 01:03:08,830
+We need to save that save
+
+1061
+01:03:08,830 --> 01:03:14,890
+user program counter is still sitting there in in sepc,
+
+1062
+01:03:14,950 --> 01:03:18,820
+but because one of things that could happen while we're in the kernel is
+
+1063
+01:03:18,820 --> 01:03:21,340
+that we might switch to another process
+
+1064
+01:03:21,400 --> 01:03:25,710
+and that other process might go into that process user space
+
+1065
+01:03:25,920 --> 01:03:29,170
+and that other process might make a system call,
+
+1066
+01:03:29,170 --> 01:03:31,390
+which causes sepc to be overwritten,
+
+1067
+01:03:31,480 --> 01:03:37,690
+we have to save our sepc and some memories associated with this process,
+
+1068
+01:03:37,720 --> 01:03:38,830
+so it doesn't get overwritten
+
+1069
+01:03:39,190 --> 01:03:43,060
+and yet we use this trapframe to save epc
+
+1070
+01:03:43,060 --> 01:03:44,350
+as well as lots of other stuff,
+
+1071
+01:03:44,770 --> 01:03:48,530
+anyway that's with this current line of code is doing.
+
+1072
+01:03:49,520 --> 01:03:50,540
+The next thing happens,
+
+1073
+01:03:50,540 --> 01:03:57,590
+we need to figure out, why we came here,
+
+1074
+01:03:57,770 --> 01:04:00,770
+the scause, the RISC-V scause register
+
+1075
+01:04:00,950 --> 01:04:03,860
+has a different number depending on why this trap occurred.
+
+1076
+01:04:05,340 --> 01:04:09,090
+Some kind of exception versus system call versus device interrupt,
+
+1077
+01:04:09,150 --> 01:04:13,170
+value eight means we're here we took a trap because of a system call.
+
+1078
+01:04:15,430 --> 01:04:20,590
+Indeed scause eight it does have eight were here because a system call,
+
+1079
+01:04:21,100 --> 01:04:23,680
+so we're gonna execute this statement.
+
+1080
+01:04:24,770 --> 01:04:28,670
+First thing is if some other process is killed this process,
+
+1081
+01:04:28,670 --> 01:04:33,320
+we don't want to continue but that's not the case for shell .
+
+1082
+01:04:33,940 --> 01:04:39,880
+It turns out that the RISC-V the program counter that gets stored in sepc
+
+1083
+01:04:39,970 --> 01:04:44,440
+is the address of the instruction that caused the trap,
+
+1084
+01:04:45,410 --> 01:04:50,210
+but when we resume we want to resume at the next instruction after the ecall,
+
+1085
+01:04:50,600 --> 01:04:55,130
+so therefore we this code persistent calls which need to return .
+
+1086
+01:04:56,080 --> 01:04:59,440
+We add four to the saved user program counter,
+
+1087
+01:04:59,440 --> 01:05:02,290
+so that we resume in the next instruction
+
+1088
+01:05:02,290 --> 01:05:04,990
+and don't just re-execute the ecall.
+
+1089
+01:05:08,140 --> 01:05:13,000
+Alright next, turns out that xv6 enables interrupts
+
+1090
+01:05:13,000 --> 01:05:15,520
+while handling system calls just that interrupts
+
+1091
+01:05:15,850 --> 01:05:20,500
+can be served faster some system calls take a lot of time .
+
+1092
+01:05:21,190 --> 01:05:25,630
+Interrupts are always turned off by the RISC-V trap hardware,
+
+1093
+01:05:26,200 --> 01:05:29,380
+and so we have to explicitly turn them back on at this point.
+
+1094
+01:05:30,250 --> 01:05:34,120
+And the next thing that happens is we call this syscall function,
+
+1095
+01:05:34,120 --> 01:05:41,450
+the job of syscall just entering defined in just syscall.c.
+
+1096
+01:05:42,820 --> 01:05:45,700
+Here we are what it does, is it looks up the syscall number
+
+1097
+01:05:45,700 --> 01:05:50,850
+in this big table of system calls about at the top of the page,
+
+1098
+01:05:51,750 --> 01:05:54,840
+if you remember the shells write function
+
+1099
+01:05:54,840 --> 01:06:00,000
+set register a7 to the system call number namely sixteen for write,
+
+1100
+01:06:00,270 --> 01:06:04,380
+so what syscall does is it retrieves the saved a7
+
+1101
+01:06:04,560 --> 01:06:08,130
+that was saved away in the trapframe by the trampoline code,
+
+1102
+01:06:09,230 --> 01:06:14,470
+and use that to index into this table of pointers to functions
+
+1103
+01:06:14,470 --> 01:06:15,970
+that implement each system call.
+
+1104
+01:06:17,420 --> 01:06:22,700
+So we're gonna [] this number gonna print num now,
+
+1105
+01:06:22,790 --> 01:06:25,640
+that's the saved a seven indeed sixteen
+
+1106
+01:06:25,760 --> 01:06:28,610
+the same sixteen the shell originally put there.
+
+1107
+01:06:30,530 --> 01:06:31,250
+Um.
+
+1108
+01:06:32,610 --> 01:06:36,600
+The system call code indexes indices calls table,
+
+1109
+01:06:37,110 --> 01:06:38,670
+we can find out what function can,
+
+1110
+01:06:39,600 --> 01:06:41,580
+it got out of the system call table,
+
+1111
+01:06:42,380 --> 01:06:43,610
+by stepping into it,
+
+1112
+01:06:43,700 --> 01:06:45,950
+right now we're in write or SYS_write.
+
+1113
+01:06:46,040 --> 01:06:50,690
+So, in this sysfile.c,
+
+1114
+01:06:52,560 --> 01:06:56,910
+sys_write is the kernel implementation of the write system call.
+
+1115
+01:06:57,810 --> 01:07:00,570
+I'm not gonna go into this, it's like fairly complicated,
+
+1116
+01:07:00,570 --> 01:07:02,700
+what happens from here out and in
+
+1117
+01:07:02,700 --> 01:07:04,530
+and the implementation of this system call
+
+1118
+01:07:04,710 --> 01:07:05,460
+for this lecture,
+
+1119
+01:07:05,460 --> 01:07:07,770
+I'm only really interested in getting into and out of the kernel,
+
+1120
+01:07:08,970 --> 01:07:16,100
+so I'm going to step over,
+
+1121
+01:07:25,860 --> 01:07:28,170
+the actual implementation system call.
+
+1122
+01:07:28,200 --> 01:07:30,060
+One thing an interesting thing to note is
+
+1123
+01:07:30,060 --> 01:07:32,820
+that the system calls need to find their arguments
+
+1124
+01:07:32,850 --> 01:07:34,890
+so you remember the arguments to write
+
+1125
+01:07:34,890 --> 01:07:37,350
+or to add a buff pointer and another two,
+
+1126
+01:07:37,560 --> 01:07:40,140
+and the way that the system call code gets at them
+
+1127
+01:07:40,140 --> 01:07:42,090
+is just looking at these ,
+
+1128
+01:07:43,430 --> 01:07:49,230
+well, looking at the trapframe,
+
+1129
+01:07:49,560 --> 01:07:51,870
+so just like we could look in the trapframe for a7,
+
+1130
+01:07:51,990 --> 01:07:54,810
+we can look for a0 and that's the first argument,
+
+1131
+01:07:54,810 --> 01:07:56,580
+we look at a1, that's that buff pointer,
+
+1132
+01:07:56,580 --> 01:07:58,500
+we can look at a2 that's the second argument,
+
+1133
+01:07:58,710 --> 01:08:03,490
+the number of  bytes to write.
+
+1134
+01:08:05,020 --> 01:08:06,940
+Okay, so the system call does its job
+
+1135
+01:08:06,940 --> 01:08:09,760
+and then a sys_write finally returns.
+
+1136
+01:08:13,190 --> 01:08:15,110
+And watch what happens,
+
+1137
+01:08:15,170 --> 01:08:17,120
+the reason for this assignment here,
+
+1138
+01:08:17,120 --> 01:08:21,680
+the reason why we're assigning to a0 in the trapframe is
+
+1139
+01:08:21,680 --> 01:08:24,980
+that this system calls all have a return value.
+
+1140
+01:08:26,030 --> 01:08:28,100
+Like write returns, the number of bytes written,
+
+1141
+01:08:28,310 --> 01:08:31,250
+and the convention and for C code on the RISC-V
+
+1142
+01:08:31,250 --> 01:08:35,090
+is that return values are placed in register a0
+
+1143
+01:08:35,120 --> 01:08:36,440
+by whatever function you're calling
+
+1144
+01:08:36,800 --> 01:08:38,780
+and so to simulate a return value,
+
+1145
+01:08:38,780 --> 01:08:42,170
+we just stick the return value in a0 in the trapframe
+
+1146
+01:08:42,560 --> 01:08:45,500
+and we'll see by and by that when we return to user space,
+
+1147
+01:08:45,800 --> 01:08:50,900
+this a0 slot in the trapframe is restored back into the actually a zero register
+
+1148
+01:08:50,900 --> 01:08:58,080
+and the shell sees that a0 value as as the return value from write
+
+1149
+01:08:58,590 --> 01:09:05,510
+and execute through this and print p trapframe a0,
+
+1150
+01:09:05,900 --> 01:09:09,740
+we'll see the value to what that means is that write return values too,
+
+1151
+01:09:09,740 --> 01:09:13,250
+saying that it actually wrote two bytes just as instructed.
+
+1152
+01:09:13,980 --> 01:09:19,850
+Okay, at this point, we're back in trap.c
+
+1153
+01:09:19,850 --> 01:09:24,750
+and usertrap just after the call to syscall,
+
+1154
+01:09:24,750 --> 01:09:27,060
+for now with this p
+
+1155
+01:09:27,060 --> 01:09:29,790
+which checking if the func if the process been killed,
+
+1156
+01:09:29,790 --> 01:09:32,340
+because you don't want to resume executing have already been killed,
+
+1157
+01:09:32,340 --> 01:09:34,620
+of course, our shell not been killed.
+
+1158
+01:09:35,790 --> 01:09:38,940
+Skip over this and then,
+
+1159
+01:09:40,570 --> 01:09:44,020
+usertrap calls a separate function usertrapret
+
+1160
+01:09:44,050 --> 01:09:47,380
+in order to set up all the stuff that I talked about previously
+
+1161
+01:09:47,380 --> 01:09:50,140
+whenever I said well before entering user space,
+
+1162
+01:09:50,140 --> 01:09:51,880
+the kernel does blah blah,
+
+1163
+01:09:52,240 --> 01:09:54,220
+it's usertrapret,
+
+1164
+01:09:54,700 --> 01:09:57,550
+that's responsible for setting all that stuff up.
+
+1165
+01:10:00,490 --> 01:10:03,580
+And so we can look at all the different things, it does ,
+
+1166
+01:10:11,440 --> 01:10:13,630
+it turns interrupts off
+
+1167
+01:10:13,720 --> 01:10:16,150
+and when they were turned on for the duration of a system call
+
+1168
+01:10:16,330 --> 01:10:17,140
+were turned off now,
+
+1169
+01:10:17,140 --> 01:10:19,810
+because we're about to change the stvec
+
+1170
+01:10:20,020 --> 01:10:25,120
+to point to the user trap handler,
+
+1171
+01:10:25,510 --> 01:10:28,510
+whereas while we're in the kernel was pointing to the kernel trap handler,
+
+1172
+01:10:28,780 --> 01:10:29,800
+so we turn off interrupts,
+
+1173
+01:10:29,800 --> 01:10:33,430
+because once we changed stvec to point to the user trap handler,
+
+1174
+01:10:33,430 --> 01:10:34,870
+we're still executing in the kernel,
+
+1175
+01:10:34,990 --> 01:10:38,950
+and if an interruption occur then we go to the user trap handler,
+
+1176
+01:10:39,010 --> 01:10:40,570
+even though we're executing in the kernel
+
+1177
+01:10:40,660 --> 01:10:46,280
+and for various detailed reasons, that would cause the kernel to malfunction.
+
+1178
+01:10:46,520 --> 01:10:50,720
+So we turn off interrupts and their left off from between the time.
+
+1179
+01:10:51,140 --> 01:10:54,170
+From the very next line where we set up the stvec
+
+1180
+01:10:54,410 --> 01:10:59,120
+to point to the trampoline all the way through the final sret instruction
+
+1181
+01:10:59,120 --> 01:11:00,710
+that returns to user space.
+
+1182
+01:11:01,220 --> 01:11:03,860
+It turns out that sret instruction at the end of the trampoline,
+
+1183
+01:11:04,430 --> 01:11:06,620
+turns interrupts back on.
+
+1184
+01:11:07,200 --> 01:11:11,190
+So the interrupts are on when we're executing in a user code,
+
+1185
+01:11:11,190 --> 01:11:12,480
+even though we just turn them off.
+
+1186
+01:11:13,350 --> 01:11:18,300
+The next couple of lines, fill in those trapframe slots that we saw before
+
+1187
+01:11:18,300 --> 01:11:23,260
+that hold various values that are convenient for the trampoline code.
+
+1188
+01:11:23,290 --> 01:11:27,230
+So, the code here, stash away a pointer
+
+1189
+01:11:27,230 --> 01:11:30,860
+to the kernel page table in the trapframe,
+
+1190
+01:11:31,190 --> 01:11:35,750
+its stash away a pointer to this processes, kernel stack,
+
+1191
+01:11:36,940 --> 01:11:38,980
+Stashed away in the trapframe.
+
+1192
+01:11:40,890 --> 01:11:42,960
+A pointer to the usertrap function,
+
+1193
+01:11:42,960 --> 01:11:46,050
+which is what the trampoline code jump to at the very end.
+
+1194
+01:11:47,440 --> 01:11:50,020
+Stash away, the current core number,
+
+1195
+01:11:50,530 --> 01:11:52,360
+read from the tp register,
+
+1196
+01:11:52,360 --> 01:11:56,710
+so that the trampoline code can just restore that same value,
+
+1197
+01:11:57,010 --> 01:11:58,900
+because user code may have disturbed it.
+
+1198
+01:12:01,320 --> 01:12:02,130
+Question?
+
+1199
+01:12:02,280 --> 01:12:02,790
+Yes.
+
+1200
+01:12:03,000 --> 01:12:06,000
+Why didn't we save the sepc in the trampoline?
+
+1201
+01:12:08,370 --> 01:12:09,030
+It could have.
+
+1202
+01:12:11,420 --> 01:12:15,560
+Yeah that that the sepc could have been trampoline code happens
+
+1203
+01:12:15,560 --> 01:12:17,420
+not to save it along with other registers,
+
+1204
+01:12:17,810 --> 01:12:22,440
+we perfectly well could modify the xv6 to save it,
+
+1205
+01:12:22,440 --> 01:12:23,760
+where it is actually saves you.
+
+1206
+01:12:24,840 --> 01:12:28,040
+Probably remember is, just happened to save it
+
+1207
+01:12:28,040 --> 01:12:32,820
+and usertrap and C code instead of an assembly code, in the trampoline code.
+
+1208
+01:12:34,950 --> 01:12:38,850
+I don't think, I can't think of a good reason to do it one way or the other.
+
+1209
+01:12:40,240 --> 01:12:44,560
+The user registers really have to be saved in the assembly code.
+
+1210
+01:12:45,300 --> 01:12:49,260
+Because any C code is entitled for all we know the compiler generates code
+
+1211
+01:12:49,260 --> 01:12:53,990
+which modifies any user registers,
+
+1212
+01:12:53,990 --> 01:12:56,540
+those user registers are pretty important to save them
+
+1213
+01:12:56,540 --> 01:12:58,340
+in assembly code before entering C.
+
+1214
+01:12:59,160 --> 01:13:01,950
+But the sepc we could have saved earlier or later.
+
+1215
+01:13:04,470 --> 01:13:07,680
+Okay, so when usertrapret sort of preparing the trap,
+
+1216
+01:13:07,680 --> 01:13:10,230
+we prepared the trapframe with all these values
+
+1217
+01:13:10,230 --> 01:13:13,260
+that are going to be needed next time.
+
+1218
+01:13:13,950 --> 01:13:17,460
+There's a transition from user space to kernel next trap.
+
+1219
+01:13:19,760 --> 01:13:24,740
+There's a couple things we have set up in the sstatus control register,
+
+1220
+01:13:24,920 --> 01:13:30,050
+it turns out this spp bit in sstatus,
+
+1221
+01:13:30,080 --> 01:13:36,240
+controls whether controls the mode that sret return ,
+
+1222
+01:13:36,240 --> 01:13:40,810
+by clearing it we're just saying look next time you execute sret,
+
+1223
+01:13:40,900 --> 01:13:43,840
+we want to go to user mode instead of supervisor mode
+
+1224
+01:13:44,290 --> 01:13:50,120
+and this spie bit controls whether interrupts will be enabled,
+
+1225
+01:13:51,290 --> 01:13:55,280
+after we execute sret and then after we get into user space,
+
+1226
+01:13:55,280 --> 01:13:56,780
+and we do want them to be enabled.
+
+1227
+01:13:56,780 --> 01:13:59,320
+So, gonna set that spie bit
+
+1228
+01:13:59,650 --> 01:14:01,870
+and I'm going to write this new modified status
+
+1229
+01:14:01,870 --> 01:14:04,360
+into the actual hardware status register.
+
+1230
+01:14:06,590 --> 01:14:08,540
+It turns out what sret does.
+
+1231
+01:14:10,450 --> 01:14:13,120
+You know the sret we're gonna execute write at the end of the trampoline code,
+
+1232
+01:14:13,120 --> 01:14:14,800
+what that sret does is,
+
+1233
+01:14:14,800 --> 01:14:19,120
+sets the program counter equal to the sepc register,
+
+1234
+01:14:19,900 --> 01:14:22,510
+so we're now going to set up the sepc register
+
+1235
+01:14:22,510 --> 01:14:26,170
+to have the saved user program counter.
+
+1236
+01:14:27,170 --> 01:14:30,680
+Which, if you recall we recently saved the trapframe,
+
+1237
+01:14:30,770 --> 01:14:31,880
+that's what's happening here.
+
+1238
+01:14:33,480 --> 01:14:40,960
+You remember also the trap frame contain a pointer to a kernel page table
+
+1239
+01:14:40,960 --> 01:14:42,790
+because the trampoline needs to switch to it,
+
+1240
+01:14:43,240 --> 01:14:46,210
+we need to cook up the special bit pattern
+
+1241
+01:14:46,210 --> 01:14:49,150
+that you need to write to satp has done here.
+
+1242
+01:14:50,290 --> 01:14:51,160
+And.
+
+1243
+01:14:52,740 --> 01:14:57,210
+I'm sorry, we're now preparing a pointer to the user page table.
+
+1244
+01:14:57,950 --> 01:15:00,890
+Which we need to switch to on the way into user space.
+
+1245
+01:15:02,350 --> 01:15:05,290
+We're actually going to do that switch in assembly code,
+
+1246
+01:15:05,320 --> 01:15:07,720
+because it has to happen in the trampoline,
+
+1247
+01:15:07,960 --> 01:15:11,980
+because only code in the trampoline is mapped in both user and kernel space,
+
+1248
+01:15:12,370 --> 01:15:15,240
+so we can only really switch page tables,
+
+1249
+01:15:15,240 --> 01:15:16,530
+we're executing on the trampoline,
+
+1250
+01:15:16,530 --> 01:15:18,450
+but we're not executing on the trampoline yet,
+
+1251
+01:15:18,720 --> 01:15:20,610
+we're still just in an ordinary C function,
+
+1252
+01:15:20,610 --> 01:15:22,020
+so we prepared this pointer
+
+1253
+01:15:22,620 --> 01:15:27,240
+and we're going to pass it to the assembly code as the second argument in a1.
+
+1254
+01:15:28,250 --> 01:15:34,010
+ With this line here doing is just calculating the address
+
+1255
+01:15:34,010 --> 01:15:38,010
+of where we want to jump to at the end of the trampoline code
+
+1256
+01:15:38,010 --> 01:15:43,460
+and it turns out there's a, that we want to go with userret
+
+1257
+01:15:43,460 --> 01:15:45,530
+user, that's the address of the instructions
+
+1258
+01:15:45,530 --> 01:15:47,120
+that will take us back to user space
+
+1259
+01:15:47,450 --> 01:15:51,020
+and this little formula works out ,
+
+1260
+01:15:52,500 --> 01:15:56,100
+the address the virtual address in the trampoline
+
+1261
+01:15:56,310 --> 01:15:58,440
+that corresponds to that userret function.
+
+1262
+01:16:02,980 --> 01:16:03,730
+Oops.
+
+1263
+01:16:05,930 --> 01:16:07,910
+Okay, so we calculate the address of that.
+
+1264
+01:16:09,640 --> 01:16:13,540
+userret function, and then this mess, this next line,
+
+1265
+01:16:14,030 --> 01:16:18,740
+call uses this fn variable as a function pointer
+
+1266
+01:16:18,740 --> 01:16:23,420
+and jumps to that function with these two arguments in a0 a1.
+
+1267
+01:16:24,240 --> 01:16:29,950
+And we can now just go to trampoline code.
+
+1268
+01:16:33,790 --> 01:16:36,850
+The trampoline code, there's .
+
+1269
+01:16:38,820 --> 01:16:40,350
+Well first we switch to the user page tables,
+
+1270
+01:16:40,350 --> 01:16:41,490
+I mean actually execute this
+
+1271
+01:16:41,490 --> 01:16:43,350
+and we can see the page tables change,
+
+1272
+01:16:43,470 --> 01:16:47,490
+just for [], we're still using the giant kernel page table.
+
+1273
+01:16:48,400 --> 01:16:49,180
+Um.
+
+1274
+01:16:50,750 --> 01:16:53,060
+I'm gonna run through usertrapret quickly
+
+1275
+01:16:53,090 --> 01:16:55,580
+until we get to the point where it jumps to the trampoline.
+
+1276
+01:16:57,240 --> 01:16:58,110
+Oh.
+
+1277
+01:16:59,200 --> 01:17:00,280
+Alright we're in the trampoline.
+
+1278
+01:17:01,380 --> 01:17:02,070
+Um.
+
+1279
+01:17:07,350 --> 01:17:09,030
+These instructions are about to start
+
+1280
+01:17:09,030 --> 01:17:10,860
+executing the trampoline code there right here,
+
+1281
+01:17:10,860 --> 01:17:16,160
+we can now, again,  printed page table
+
+1282
+01:17:16,310 --> 01:17:18,950
+is still the kernel page table .
+
+1283
+01:17:20,080 --> 01:17:22,000
+The first thing that's gonna happen here though is
+
+1284
+01:17:22,000 --> 01:17:24,760
+that the trampoline code is going to load the,
+
+1285
+01:17:25,070 --> 01:17:29,060
+that pointer to the user page table into the satp register.
+
+1286
+01:17:30,000 --> 01:17:33,090
+So we switch page tables, I typed info mem now,
+
+1287
+01:17:33,500 --> 01:17:35,510
+we now have a much smaller user page table,
+
+1288
+01:17:35,510 --> 01:17:38,420
+but luckily still with the trampoline page map,
+
+1289
+01:17:38,420 --> 01:17:40,460
+so we don't crash on the next instruction.
+
+1290
+01:17:41,790 --> 01:17:45,360
+The next thing happens, is this a.
+
+1291
+01:17:47,090 --> 01:17:51,080
+The I showed you a while ago,
+
+1292
+01:17:51,080 --> 01:17:54,560
+the second last thing that this sequence of code does
+
+1293
+01:17:54,560 --> 01:17:58,490
+on the way to user spaces swaps sscratch with a zero,
+
+1294
+01:17:58,700 --> 01:18:00,470
+so we need to setup sscratch,
+
+1295
+01:18:00,500 --> 01:18:02,450
+it's saved user a0,
+
+1296
+01:18:02,450 --> 01:18:03,950
+so that when we do that swap,
+
+1297
+01:18:04,690 --> 01:18:07,510
+a0 will end up having received user a0,
+
+1298
+01:18:07,540 --> 01:18:10,640
+turns out a0 pointer to the trap frame,
+
+1299
+01:18:10,640 --> 01:18:14,150
+because the C code pass that is the first argument,
+
+1300
+01:18:14,390 --> 01:18:18,410
+one twelve a0 is the address of the saved a0
+
+1301
+01:18:18,800 --> 01:18:20,540
+in the trapframe going to load that.
+
+1302
+01:18:21,170 --> 01:18:24,260
+And then into t0 and then load that into sscratch.
+
+1303
+01:18:24,630 --> 01:18:30,100
+At this point, we're still running with kernel stuff and all the registers.
+
+1304
+01:18:31,230 --> 01:18:35,340
+The next 32 instructions, though load out of the trapframe
+
+1305
+01:18:35,340 --> 01:18:40,260
+which is a0 points to load all of the saved user registers
+
+1306
+01:18:40,470 --> 01:18:46,570
+out of the trapframe into the actual registers,
+
+1307
+01:18:46,570 --> 01:18:50,470
+were really close to being able to the point where we can run user code,
+
+1308
+01:18:50,500 --> 01:18:53,560
+I'm going to skip over all these loads .
+
+1309
+01:18:56,140 --> 01:19:00,440
+Any questions before we approach closer to user space.
+
+1310
+01:19:02,440 --> 01:19:04,000
+And one quick question ,
+
+1311
+01:19:04,000 --> 01:19:06,640
+is the value in the trapframe a zero,
+
+1312
+01:19:06,640 --> 01:19:09,460
+now the return value of that system call that we made.
+
+1313
+01:19:11,330 --> 01:19:12,500
+Um.
+
+1314
+01:19:14,800 --> 01:19:19,090
+Yeah yeah, the really a zero holds this point of the trap frame,
+
+1315
+01:19:19,090 --> 01:19:21,970
+but the after we execute the,
+
+1316
+01:19:21,970 --> 01:19:28,440
+well s, OK the current location of the user's saved,
+
+1317
+01:19:29,120 --> 01:19:33,020
+yes I was calling at the user saved a0
+
+1318
+01:19:33,020 --> 01:19:36,470
+but in fact the system call returns stuff overrode it,
+
+1319
+01:19:36,830 --> 01:19:40,940
+with the return value that we want the shell to see in a0,
+
+1320
+01:19:41,540 --> 01:19:44,990
+so the current location of that a0 which we overwrote with two.
+
+1321
+01:19:45,780 --> 01:19:48,750
+As the return value is sscratch appoints sscratch
+
+1322
+01:19:48,750 --> 01:19:50,160
+and hope that it's equal to two,
+
+1323
+01:19:51,160 --> 01:19:53,380
+it is equal to two.
+
+1324
+01:19:55,980 --> 01:19:56,970
+Does that answer your question?
+
+1325
+01:19:57,960 --> 01:19:58,740
+Yes I think so.
+
+1326
+01:19:58,890 --> 01:19:59,400
+Okay.
+
+1327
+01:19:59,460 --> 01:20:03,660
+I'm gonna skip over all these loads restore,
+
+1328
+01:20:04,180 --> 01:20:07,000
+to save user values out of the trapframe into the registers,
+
+1329
+01:20:07,390 --> 01:20:10,090
+I'm going to print out the registers at this point.
+
+1330
+01:20:11,180 --> 01:20:12,890
+Um, actually gonna.
+
+1331
+01:20:16,620 --> 01:20:19,080
+Print the registers I don't know if these look familiar,
+
+1332
+01:20:19,080 --> 01:20:21,990
+but they happen to be the same set of user registers,
+
+1333
+01:20:21,990 --> 01:20:24,450
+you saw way back at the beginning of this exercise,
+
+1334
+01:20:24,630 --> 01:20:29,960
+for example a1 or the stack pointer holds this small value
+
+1335
+01:20:29,960 --> 01:20:32,150
+appropriate for user stack low in memory,
+
+1336
+01:20:32,860 --> 01:20:36,190
+a1 is that buff pointer that we passed write
+
+1337
+01:20:36,520 --> 01:20:38,260
+two is that number of bytes,
+
+1338
+01:20:38,530 --> 01:20:44,210
+a0, however is the exception is not received user value,
+
+1339
+01:20:44,210 --> 01:20:46,460
+because it still has the pointer to trapframe in it.
+
+1340
+01:20:49,100 --> 01:20:50,780
+But let's look we're about to execute,
+
+1341
+01:20:52,830 --> 01:20:59,320
+rather execute is this csrrw a0 sscratch,
+
+1342
+01:20:59,320 --> 01:21:03,400
+right at the end of trampoline just before returning to user space
+
+1343
+01:21:03,400 --> 01:21:05,440
+is going to swap a0 and scratch,
+
+1344
+01:21:06,280 --> 01:21:08,460
+scratch indeed has.
+
+1345
+01:21:12,680 --> 01:21:14,240
+Um, that's sscratch.
+
+1346
+01:21:16,640 --> 01:21:22,390
+As two which is going to be the return value a0 as this kernel pointer,
+
+1347
+01:21:22,390 --> 01:21:27,580
+and it points to, point to the trapframe,
+
+1348
+01:21:27,580 --> 01:21:31,420
+but after executing the csrrw instruction to swap them,
+
+1349
+01:21:31,450 --> 01:21:36,460
+hopefully we'll see that a0 holds this return value of two,
+
+1350
+01:21:36,820 --> 01:21:43,140
+and sscratch holds a pointer to the trap frame
+
+1351
+01:21:43,140 --> 01:21:46,110
+which is the second last page in memory,
+
+1352
+01:21:46,500 --> 01:21:49,680
+and that value is going to stay in sscratch
+
+1353
+01:21:49,680 --> 01:21:52,050
+until the user program does another trap
+
+1354
+01:21:52,050 --> 01:21:55,510
+and at that point, the trap handling code, we talked about before,
+
+1355
+01:21:55,510 --> 01:21:58,270
+we'll be able to use sscratch at the trapframe.
+
+1356
+01:21:59,080 --> 01:22:02,300
+Alright, we're still in the kernel,
+
+1357
+01:22:02,690 --> 01:22:05,060
+that is our last instruction in the kernel,
+
+1358
+01:22:05,930 --> 01:22:08,240
+and when I execute this sret,
+
+1359
+01:22:09,280 --> 01:22:12,340
+it will switch to user mode,
+
+1360
+01:22:12,550 --> 01:22:14,950
+before I do that let's look at.
+
+1361
+01:22:17,300 --> 01:22:21,260
+It'll switch user mode, it'll copy sepc to PC,
+
+1362
+01:22:21,260 --> 01:22:30,330
+because we're still, we're still executing with the pc that's in the trampoline,
+
+1363
+01:22:30,510 --> 01:22:36,000
+so sret gonna switch the user mode copy sepc to pc.
+
+1364
+01:22:36,350 --> 01:22:41,810
+And then resume executing, so I'm gonna run the sret.
+
+1365
+01:22:42,480 --> 01:22:46,860
+Boom, I'm now we're back at.
+
+1366
+01:22:48,640 --> 01:22:52,060
+I could address 0xdea which is a low address
+
+1367
+01:22:52,210 --> 01:22:55,240
+likely be user memory, and it's the.
+
+1368
+01:22:55,980 --> 01:23:00,960
+Look back in sh.asm and address 0xdea.
+
+1369
+01:23:03,970 --> 01:23:08,290
+Is indeed the address of the return function at the end of write.
+
+1370
+01:23:09,870 --> 01:23:15,550
+And, a0 is this return value, they're supposed to be returning.
+
+1371
+01:23:16,730 --> 01:23:18,110
+So we're back in user space
+
+1372
+01:23:18,110 --> 01:23:21,710
+and we can about to do the return back to the shell from the write system,
+
+1373
+01:23:22,350 --> 01:23:24,360
+from the write library function that made the system call.
+
+1374
+01:23:25,020 --> 01:23:26,310
+OK, any questions?
+
+1375
+01:23:28,880 --> 01:23:30,530
+Um, sorry, can you repeat again,
+
+1376
+01:23:30,530 --> 01:23:34,400
+what happens with the interrupt during sret.
+
+1377
+01:23:37,750 --> 01:23:39,400
+What happened with interrupts.
+
+1378
+01:23:39,520 --> 01:23:42,010
+You, you say we are turning them off,
+
+1379
+01:23:42,130 --> 01:23:44,890
+but then something else turns them back on.
+
+1380
+01:23:45,840 --> 01:23:50,020
+sret, sret re-enables interrupts,
+
+1381
+01:23:50,410 --> 01:23:53,080
+so this sret, the very last instruction
+
+1382
+01:23:53,080 --> 01:23:55,270
+that we're executing in supervisor mode in the kernel,
+
+1383
+01:23:56,260 --> 01:23:58,000
+I forgot to say that just now,
+
+1384
+01:23:58,000 --> 01:24:01,600
+but as well as setting the program counter equal to the sepc
+
+1385
+01:24:01,600 --> 01:24:06,950
+and switching to user mode sret is going to re-enable interrupts.
+
+1386
+01:24:07,840 --> 01:24:10,330
+So that means you know that's you know
+
+1387
+01:24:10,330 --> 01:24:11,980
+user programs may run for a long time,
+
+1388
+01:24:11,980 --> 01:24:14,320
+it would be nice to be able to take disk interrupts or whatever,
+
+1389
+01:24:15,040 --> 01:24:17,140
+while user programs are running.
+
+1390
+01:24:18,320 --> 01:24:19,460
+I see, thank you.
+
+1391
+01:24:20,770 --> 01:24:21,730
+Other questions?
+
+1392
+01:24:25,860 --> 01:24:26,010
+Okay.
+
+1393
+01:24:28,100 --> 01:24:31,520
+Okay to, to wrap up the system calls,
+
+1394
+01:24:31,550 --> 01:24:32,990
+sort of look like function calls
+
+1395
+01:24:32,990 --> 01:24:36,290
+and are kind of meant to be thought of a lot like function calls,
+
+1396
+01:24:36,290 --> 01:24:42,020
+but the user kernel transitions are much more complex than than function calls
+
+1397
+01:24:42,020 --> 01:24:46,460
+are a lot of complexities due to the requirement for isolation,
+
+1398
+01:24:46,460 --> 01:24:48,860
+the kernel just can't trust anything in user space.
+
+1399
+01:24:49,330 --> 01:24:53,860
+And also the desire to have simple and very fast hardware mechanisms,
+
+1400
+01:24:53,860 --> 01:24:56,950
+really xv6 doesn't care that much about performance,
+
+1401
+01:24:56,950 --> 01:25:00,670
+but in general operating system designers and the CPU designers,
+
+1402
+01:25:00,850 --> 01:25:02,320
+they're very interested in
+
+1403
+01:25:02,320 --> 01:25:06,310
+the sort of speed at which you can do efficiency of traps.
+
+1404
+01:25:08,040 --> 01:25:10,980
+xv6 does it does all these things in a particular way,
+
+1405
+01:25:10,980 --> 01:25:12,660
+there's certainly other ways to do them,
+
+1406
+01:25:13,110 --> 01:25:16,530
+a few questions if you design questions alternatives,
+
+1407
+01:25:16,530 --> 01:25:17,370
+you could think about,
+
+1408
+01:25:17,820 --> 01:25:24,180
+one is can you think of ways to make the hardware or software aspects,
+
+1409
+01:25:24,180 --> 01:25:28,650
+you redesign xv6, redesign the RISC-V to make this whole sequence simpler
+
+1410
+01:25:29,490 --> 01:25:32,850
+or could you think of ways to make the whole sequence faster.
+
+1411
+01:25:33,640 --> 01:25:36,190
+Another sort of set of questions to keep the back your head,
+
+1412
+01:25:36,730 --> 01:25:41,260
+is whether or not a malicious programs
+
+1413
+01:25:41,260 --> 01:25:46,310
+could abuse any of these mechanisms to break isolation.
+
+1414
+01:25:48,090 --> 01:25:50,790
+Alright that is all I have to say for this lecture.
+
+1415
+01:25:50,820 --> 01:25:52,530
+I'm happy to take questions.
+
+1416
+01:25:54,650 --> 01:25:56,420
+Um, sorry I have another question.
+
+1417
+01:25:56,570 --> 01:25:56,990
+Please.
+
+1418
+01:25:56,990 --> 01:26:02,250
+I saw there is a uie registers are,
+
+1419
+01:26:02,490 --> 01:26:04,890
+yeah I think register in sstatus,
+
+1420
+01:26:05,280 --> 01:26:06,480
+but we don't use it,
+
+1421
+01:26:07,320 --> 01:26:11,430
+we just use, sie and we set it to false in user space,
+
+1422
+01:26:11,430 --> 01:26:14,630
+why couldn't we use the uie.
+
+1423
+01:26:14,630 --> 01:26:18,610
+Uie gosh, the answer is gonna be I don't know.
+
+1424
+01:26:21,640 --> 01:26:22,360
+Um.
+
+1425
+01:26:24,720 --> 01:26:29,460
+We're s p what we said is s, what we said is spie.
+
+1426
+01:26:30,550 --> 01:26:32,470
+We may actually end up setting.
+
+1427
+01:26:33,810 --> 01:26:37,410
+Um I know nothing about uie, I'm gonna guess,
+
+1428
+01:26:37,590 --> 01:26:40,890
+let me see, I'm gonna guess that what actually happens here.
+
+1429
+01:26:42,510 --> 01:26:44,220
+In this code where we're.
+
+1430
+01:26:45,800 --> 01:26:51,500
+Um, OK, so here we are in usertrapret
+
+1431
+01:26:51,500 --> 01:26:55,640
+returning or setting spie sstatus
+
+1432
+01:26:56,150 --> 01:27:02,360
+and I believe the sret instruction will copy this spie
+
+1433
+01:27:02,810 --> 01:27:05,450
+and this is this previous name of this,
+
+1434
+01:27:05,450 --> 01:27:07,910
+the supervisor previous interrupt enable,
+
+1435
+01:27:08,210 --> 01:27:12,340
+I suspect sret copies that bit into the ,
+
+1436
+01:27:15,120 --> 01:27:17,370
+into whatever controls interrupts and user mode,
+
+1437
+01:27:17,370 --> 01:27:21,070
+which is possibly the uie, bit of sstatus,
+
+1438
+01:27:21,970 --> 01:27:23,080
+as that for guess.
+
+1439
+01:27:24,420 --> 01:27:25,590
+I see, thank you.
+
