@@ -1,0 +1,6335 @@
+1
+00:00:05,470 --> 00:00:08,080
+Alright I like to get started,
+
+
+2
+00:00:08,140 --> 00:00:09,640
+can anyone hear me?
+
+
+3
+00:00:10,750 --> 00:00:11,290
+Yep loud and clear.
+
+
+4
+00:00:12,270 --> 00:00:14,550
+Alright, so today my plan is
+
+
+5
+00:00:14,550 --> 00:00:21,600
+for first I want to spend a few minutes re-emphasizing some points from the lecture last week on thread switching,
+
+
+6
+00:00:21,600 --> 00:00:23,760
+because they turned out to be important points,
+
+
+7
+00:00:23,760 --> 00:00:28,500
+and I would spend most of the lecture talking about something called coordination
+
+
+8
+00:00:29,130 --> 00:00:32,850
+which is the larger term for xv6 sleeping wakeup mechanism
+
+
+9
+00:00:33,000 --> 00:00:36,030
+and particularly I'm going to talk about the lost wakeup problem.
+
+
+10
+00:00:36,900 --> 00:00:42,810
+Alright, so, one, one point I want to just mention again is that,
+
+
+11
+00:00:46,620 --> 00:00:51,570
+is the fact that xv6 whenever anything calls switch
+
+
+12
+00:00:51,570 --> 00:00:54,570
+to switch from one thread to another,
+
+
+13
+00:00:54,720 --> 00:00:57,420
+usually from a kernel thread to the scheduler thread,
+
+
+14
+00:00:57,630 --> 00:01:05,070
+it's always preceded by an acquire of this process's lock.
+
+
+15
+00:01:06,050 --> 00:01:09,410
+So process requires this lock call switch,
+
+
+16
+00:01:09,710 --> 00:01:11,780
+which always switches into the scheduler
+
+
+17
+00:01:11,780 --> 00:01:13,700
+and it's the schedule that releases the lock.
+
+
+18
+00:01:14,730 --> 00:01:19,620
+In fact almost always the sequence looks more like this
+
+
+19
+00:01:19,680 --> 00:01:22,680
+or a process who wants to go to sleep for some reason,
+
+
+20
+00:01:22,680 --> 00:01:24,660
+it's yielding the CPU or waiting for something
+
+
+21
+00:01:24,840 --> 00:01:26,670
+and it acquires a lock on itself,
+
+
+22
+00:01:26,700 --> 00:01:28,530
+it sets its state.
+
+
+23
+00:01:30,660 --> 00:01:32,250
+And there's a number of different states,
+
+
+24
+00:01:32,250 --> 00:01:33,750
+what we see we saw last week,
+
+
+25
+00:01:33,750 --> 00:01:39,360
+was a set state to runnable instead of running,
+
+
+26
+00:01:39,660 --> 00:01:44,820
+and then call switch or sched which itself calls switch.
+
+
+27
+00:01:45,910 --> 00:01:53,320
+And that you know this switch basically switches threads over into the scheduler thread,
+
+
+28
+00:01:53,900 --> 00:01:59,390
+which so as previous call to switch over this scheduler thread returns.
+
+
+29
+00:02:00,390 --> 00:02:09,120
+And then this was a scheduler thread calls release on ,
+
+
+30
+00:02:09,850 --> 00:02:12,910
+the lock of the process, that's just yielded the CPU.
+
+
+31
+00:02:16,370 --> 00:02:20,510
+The reason for this, just to repeat, is that,
+
+
+32
+00:02:22,130 --> 00:02:26,510
+the acquisition of this lock on the process prevents the scheduler
+
+
+33
+00:02:26,510 --> 00:02:33,080
+on a different core from from looking right at this point in time ,
+
+
+34
+00:02:33,080 --> 00:02:37,880
+and saying that, oh this thread is runnable and trying to run it,
+
+
+35
+00:02:38,120 --> 00:02:40,880
+because every other core, maybe running a scheduler loop,
+
+
+36
+00:02:41,330 --> 00:02:46,650
+which is continually looping over the process table, looking for reasonable threads,
+
+
+37
+00:02:46,740 --> 00:02:49,740
+so any one of them may see that this thread is runnable,
+
+
+38
+00:02:50,010 --> 00:02:52,260
+if we hadn't acquired the process lock,
+
+
+39
+00:02:52,530 --> 00:02:54,450
+so the fact that we acquired the process lock means
+
+
+40
+00:02:54,450 --> 00:02:57,930
+that the other schedulers before they even look at a process of state
+
+
+41
+00:02:58,080 --> 00:03:01,290
+must acquire its lock so we know after this acquisition,
+
+
+42
+00:03:01,350 --> 00:03:03,120
+no other threads going to look at the lock,
+
+
+43
+00:03:03,240 --> 00:03:05,460
+we can't give up the lock here though,
+
+
+44
+00:03:05,460 --> 00:03:08,010
+we can't give up the lock before calling switch,
+
+
+45
+00:03:08,010 --> 00:03:09,870
+that is this thread acquires the lock,
+
+
+46
+00:03:09,870 --> 00:03:10,920
+but it can't give it up,
+
+
+47
+00:03:11,130 --> 00:03:14,250
+because if we did, then right after we gave it up,
+
+
+48
+00:03:14,340 --> 00:03:18,750
+some other core scheduler would probably start running this process,
+
+
+49
+00:03:18,780 --> 00:03:22,530
+even though the thread is currently running on this core.
+
+
+50
+00:03:22,960 --> 00:03:26,860
+And having two cores run the same thread, using the same stack
+
+
+51
+00:03:26,860 --> 00:03:30,680
+is, would cause a pretty instant crash.
+
+
+52
+00:03:31,980 --> 00:03:36,450
+And therefore the process acquires lock and doesn't release it and called switch
+
+
+53
+00:03:36,450 --> 00:03:40,890
+and different thread, namely the scheduler thread actually releases the lock,
+
+
+54
+00:03:40,920 --> 00:03:45,030
+at a point after this thread has completely stopped using its own stack,
+
+
+55
+00:03:45,060 --> 00:03:51,310
+so at this point, it's okay for another core's scheduler starting this thread,
+
+
+56
+00:03:51,310 --> 00:03:53,770
+because the thread is now no longer running
+
+
+57
+00:03:54,070 --> 00:03:56,950
+and has given up given up the processor.
+
+
+58
+00:03:58,920 --> 00:04:00,720
+Okay, so that's an important point
+
+
+59
+00:04:01,050 --> 00:04:02,820
+and it'll come up in a few minutes,
+
+
+60
+00:04:02,820 --> 00:04:07,650
+it's one of the many constraints on the design of the sleep wakeup coordination scheme.
+
+
+61
+00:04:09,040 --> 00:04:14,720
+Any questions about this holding of the p->lock across switch.
+
+
+62
+00:04:19,200 --> 00:04:20,310
+Yeah, if.
+
+
+63
+00:04:20,920 --> 00:04:21,490
+Yes.
+
+
+64
+00:04:21,580 --> 00:04:23,710
+When we have multiple cores,
+
+
+65
+00:04:23,770 --> 00:04:27,700
+the only reason they're able to have the same view of the lock,
+
+
+66
+00:04:27,700 --> 00:04:31,600
+is because there's a single shared physical memory system right.
+
+
+67
+00:04:31,840 --> 00:04:32,800
+That is correct.
+
+
+68
+00:04:33,610 --> 00:04:38,380
+So, is there like implementations where there's weird file systems
+
+
+69
+00:04:38,380 --> 00:04:41,320
+that can guarantee this adversity so we can lock.
+
+
+70
+00:04:43,510 --> 00:04:49,130
+If you buy two computers, then they don't share memory, right,
+
+
+71
+00:04:49,190 --> 00:04:51,980
+so that's one way to do if you buy two separate computers,
+
+
+72
+00:04:51,980 --> 00:04:55,580
+then they won't share memory and we won't have any of these problems.
+
+
+73
+00:04:57,020 --> 00:05:00,610
+It's just that the way processor chips look,
+
+
+74
+00:05:00,610 --> 00:05:04,780
+these days, there's always multiple cores on a single processor chip
+
+
+75
+00:05:04,780 --> 00:05:10,720
+and so the hardware just is built to have multiple cores sharing the same memory system.
+
+
+76
+00:05:12,340 --> 00:05:13,960
+Oh I see, thanks.
+
+
+77
+00:05:17,750 --> 00:05:20,940
+Okay, so that's one point.
+
+
+78
+00:05:22,540 --> 00:05:25,480
+Another point I don't think I've mentioned yet,
+
+
+79
+00:05:25,480 --> 00:05:28,780
+has to do with the fact that
+
+
+80
+00:05:29,080 --> 00:05:36,490
+in xv6, a process is not allowed to hold any other lock when it calls switch.
+
+
+81
+00:05:36,950 --> 00:05:41,180
+A process is required to hold p->lock when it called switch,
+
+
+82
+00:05:41,720 --> 00:05:45,320
+but it is forbidden to hold any other lock when it calls switch,
+
+
+83
+00:05:45,350 --> 00:05:47,090
+so this is another important constraint
+
+
+84
+00:05:47,090 --> 00:05:51,700
+on the design of many things including how sleep is going to work,
+
+
+85
+00:05:51,730 --> 00:05:54,280
+so now let me lay out the reasoning for this,
+
+
+86
+00:05:54,280 --> 00:05:56,350
+so it's no other locks,
+
+
+87
+00:06:03,140 --> 00:06:04,220
+when you call switch.
+
+
+88
+00:06:07,980 --> 00:06:12,120
+A scenario sort of illustrating why this is this rule has to be enforced,
+
+
+89
+00:06:12,120 --> 00:06:15,540
+and this is a rule that, you know, ensure
+
+
+90
+00:06:16,530 --> 00:06:20,940
+extending if you're a programmer developing the xv6 currently have to follow this rule
+
+
+91
+00:06:20,940 --> 00:06:22,950
+along with many other rules.
+
+
+92
+00:06:24,340 --> 00:06:27,790
+So the justification for this rule supposing we have process one
+
+
+93
+00:06:27,790 --> 00:06:30,460
+or the kernel thread for process one
+
+
+94
+00:06:30,610 --> 00:06:32,830
+and it acquires some lock,
+
+
+95
+00:06:33,560 --> 00:06:35,750
+not, not [express luck], but just some lock,
+
+
+96
+00:06:35,750 --> 00:06:39,320
+maybe it's using the disk or using the uart to console
+
+
+97
+00:06:39,320 --> 00:06:41,090
+and require some lock.
+
+
+98
+00:06:41,680 --> 00:06:48,190
+And supposing it did then, give up the CPU by calling switch or yield or sched or something,
+
+
+99
+00:06:48,190 --> 00:06:49,840
+while still holding this lock.
+
+
+100
+00:06:50,570 --> 00:06:54,050
+So now p1 holds lock, this lock held,
+
+
+101
+00:06:54,050 --> 00:06:55,010
+but it's not running.
+
+
+102
+00:06:56,310 --> 00:06:58,050
+And imagine also for a moment
+
+
+103
+00:06:58,050 --> 00:07:00,450
+that we're on a machine with just a single core.
+
+
+104
+00:07:01,600 --> 00:07:02,950
+So there's only one core,
+
+
+105
+00:07:03,130 --> 00:07:06,220
+the process one called switch which transfers the scheduler,
+
+
+106
+00:07:06,220 --> 00:07:08,260
+the scheduler sees a [hot] process two,
+
+
+107
+00:07:08,260 --> 00:07:09,850
+kernel thread is waiting to run
+
+
+108
+00:07:10,090 --> 00:07:13,750
+and so the scheduler switches the process starts running process to two,
+
+
+109
+00:07:13,750 --> 00:07:14,800
+switches to process two
+
+
+110
+00:07:15,100 --> 00:07:16,870
+and supposing process two for whatever reason,
+
+
+111
+00:07:16,870 --> 00:07:20,770
+maybe it also wants to use the disk or use that uart or something
+
+
+112
+00:07:20,890 --> 00:07:23,980
+and it calls acquire on the same lock.
+
+
+113
+00:07:27,700 --> 00:07:30,490
+So we have a second acquire of this lock,
+
+
+114
+00:07:30,640 --> 00:07:32,830
+it's the same the same lock.
+
+
+115
+00:07:33,360 --> 00:07:34,980
+Of course, the lock already held,
+
+
+116
+00:07:34,980 --> 00:07:36,240
+so this acquire can't get it,
+
+
+117
+00:07:36,360 --> 00:07:37,860
+these are spin locks,
+
+
+118
+00:07:37,890 --> 00:07:43,110
+so what this actually causes to happen is that process two inside acquire
+
+
+119
+00:07:43,140 --> 00:07:46,740
+will just sit in a loop spinning waiting for the lock to be released.
+
+
+120
+00:07:47,280 --> 00:07:48,720
+And acquire won't return
+
+
+121
+00:07:48,750 --> 00:07:50,370
+and since acquired doesn't return,
+
+
+122
+00:07:50,430 --> 00:07:56,130
+process two can't, doesn't have a chance even though it may be willing to yield the CPU when it's done later on,
+
+
+123
+00:07:56,250 --> 00:07:59,400
+it doesn't get a chance to because the acquire doesn't return
+
+
+124
+00:07:59,400 --> 00:08:00,600
+until the lock is released.
+
+
+125
+00:08:00,810 --> 00:08:02,790
+You know, but the only way the lock could be released
+
+
+126
+00:08:02,970 --> 00:08:08,310
+is if process one resumes execution and presumably later,
+
+
+127
+00:08:09,160 --> 00:08:12,670
+if it's correctly, it doesn't have terrible bugs in it,
+
+
+128
+00:08:12,820 --> 00:08:17,170
+it was going to call it was intending to release this lock right,
+
+
+129
+00:08:17,170 --> 00:08:18,370
+but it hasn't happened yet.
+
+
+130
+00:08:18,910 --> 00:08:22,630
+Because it's called switch and process two is spinning waiting for the lock,
+
+
+131
+00:08:22,630 --> 00:08:24,820
+so this is a deadlock, right.
+
+
+132
+00:08:25,700 --> 00:08:30,980
+And it will just cause the system to a freeze.
+
+
+133
+00:08:34,570 --> 00:08:39,280
+And while I described this in the context of a machine with a single CPU, a single core,
+
+
+134
+00:08:39,880 --> 00:08:46,980
+you can construct scenarios that using multiple locks would cause this same kind of deadlock
+
+
+135
+00:08:47,010 --> 00:08:48,750
+on a machine with multiple cores.
+
+
+136
+00:08:49,980 --> 00:08:54,180
+And so as a result, we have a general prohibition in xv6,
+
+
+137
+00:08:54,180 --> 00:08:59,120
+that you're not allowed to hold spin locks across the switch.
+
+
+138
+00:09:01,060 --> 00:09:02,320
+Any questions about this rule?
+
+
+139
+00:09:06,720 --> 00:09:07,230
+There's a question in the chat Robert.
+
+
+140
+00:09:07,950 --> 00:09:12,540
+Oh, would you have a timer interrupt switch to p1 which resolves the deadlock.
+
+
+141
+00:09:12,840 --> 00:09:15,360
+Okay so, yet, it does turn out,
+
+
+142
+00:09:15,360 --> 00:09:18,810
+so we're running both all the stuffs running in the kernel right,
+
+
+143
+00:09:18,810 --> 00:09:22,650
+you know acquire release which you know only so kernel code,
+
+
+144
+00:09:22,650 --> 00:09:23,820
+so now running in user space,
+
+
+145
+00:09:23,820 --> 00:09:27,060
+but indeed a timer interrupt could occur
+
+
+146
+00:09:27,090 --> 00:09:33,690
+and xv6 is actually allows timer interrupts to happen
+
+
+147
+00:09:33,690 --> 00:09:37,440
+in while running kernel code, system call code
+
+
+148
+00:09:37,500 --> 00:09:41,160
+and in fact if you look at the kernel trap code
+
+
+149
+00:09:41,160 --> 00:09:42,780
+or whatever it is in trap.c,
+
+
+150
+00:09:42,870 --> 00:09:45,450
+you'll see that if a timer interrupt happens,
+
+
+151
+00:09:45,450 --> 00:09:47,970
+while xv6 is executing the kernel,
+
+
+152
+00:09:47,970 --> 00:09:49,200
+it will call yield.
+
+
+153
+00:09:49,480 --> 00:09:52,120
+So if a timer interrupt could happen,
+
+
+154
+00:09:52,240 --> 00:09:54,070
+while we're running acquire here,
+
+
+155
+00:09:54,490 --> 00:09:58,280
+then actually we would be saved,
+
+
+156
+00:09:58,280 --> 00:10:00,650
+because we call yield switch back here
+
+
+157
+00:10:00,650 --> 00:10:03,470
+and hopefully p1 would then resume and eventually release the lock,
+
+
+158
+00:10:03,500 --> 00:10:08,630
+however, for reasons that were explained in a previous lecture,
+
+
+159
+00:10:08,690 --> 00:10:13,820
+acquire turns off interrupts before it starts to wait for the lock,
+
+
+160
+00:10:13,820 --> 00:10:20,600
+because we absolutely for other reasons cannot afford to have an interrupt happen while we're holding a lock,
+
+
+161
+00:10:20,630 --> 00:10:22,940
+because that would cause a different kind of deadlock.
+
+
+162
+00:10:23,340 --> 00:10:29,150
+It's the interrupt handler, needed to use, needed to acquire the lock,
+
+
+163
+00:10:29,510 --> 00:10:34,270
+that this acquire had possibly just acquired,
+
+
+164
+00:10:34,450 --> 00:10:36,640
+so if you look at the code for acquire xv6,
+
+
+165
+00:10:36,790 --> 00:10:40,240
+you'll see the first thing it does is turn off interrupts and then spins
+
+
+166
+00:10:40,390 --> 00:10:44,140
+and you may wonder those, why doesn't it spin and then turn off interrupts
+
+
+167
+00:10:44,140 --> 00:10:48,700
+and the reason is that would allow a short period of time to occur in which the lock is held,
+
+
+168
+00:10:48,910 --> 00:10:54,730
+but interrupts weren't disabled and again device interrupted that time might cause a deadlock.
+
+
+169
+00:10:55,260 --> 00:10:59,220
+So, unfortunately this other requirement that we leave interrupts off
+
+
+170
+00:10:59,220 --> 00:11:00,750
+while we're spinning waiting for lock
+
+
+171
+00:11:00,810 --> 00:11:03,420
+prevents the timer interrupt from going off
+
+
+172
+00:11:03,420 --> 00:11:06,870
+and therefore prevents process due from yielding back to process one.
+
+
+173
+00:11:07,970 --> 00:11:08,720
+That's a good question.
+
+
+174
+00:11:11,060 --> 00:11:14,780
+Okay so another question, can I repeat how deadlocks are avoided.
+
+
+175
+00:11:19,440 --> 00:11:22,800
+Oh deadlocks are avoided in xv6 by prohibiting this,
+
+
+176
+00:11:24,150 --> 00:11:29,720
+xv6 code is not allowed to acquire any lock other than p->lock,
+
+
+177
+00:11:29,750 --> 00:11:31,040
+and then call switch
+
+
+178
+00:11:31,250 --> 00:11:34,530
+and if you look at the code for switch, there's actually some checks
+
+
+179
+00:11:34,530 --> 00:11:39,240
+and switch that are equivalent to checking that no locks are held other than p->lock.
+
+
+180
+00:11:40,020 --> 00:11:42,150
+So the problem with this is this code,
+
+
+181
+00:11:43,000 --> 00:11:45,370
+if it occurred in the xv6 kernel would be illegal
+
+
+182
+00:11:45,370 --> 00:11:47,470
+and would could easily cause a deadlock,
+
+
+183
+00:11:47,710 --> 00:11:48,520
+so it's forbidden.
+
+
+184
+00:11:50,190 --> 00:11:51,240
+As that answered the question.
+
+
+185
+00:11:54,920 --> 00:11:55,850
+Other questions?
+
+
+186
+00:12:01,580 --> 00:12:03,740
+Okay, okay, so keep this rule
+
+
+187
+00:12:03,740 --> 00:12:07,970
+and previous need to hold p->lock across switch in mind,
+
+
+188
+00:12:08,000 --> 00:12:12,410
+because they'll come up again in our discussion of how sleep and wakeup work.
+
+
+189
+00:12:15,160 --> 00:12:23,650
+Alright new topic , coordination,
+
+
+190
+00:12:29,370 --> 00:12:36,220
+which really means sleep/-, the .
+
+
+191
+00:12:40,450 --> 00:12:41,830
+We've heard a lot about locks
+
+
+192
+00:12:41,830 --> 00:12:47,290
+and locks are fantastic for situations where different threads really want to not be aware
+
+
+193
+00:12:47,290 --> 00:12:49,960
+and not have to worry about or think about what other threads are up to,
+
+
+194
+00:12:50,260 --> 00:12:56,260
+we hold locks and share data that means we just never have to worry about the possibility that some other lock is is,
+
+
+195
+00:12:56,260 --> 00:12:58,060
+or maybe not, who knows, using that data,
+
+
+196
+00:12:58,060 --> 00:13:01,240
+because the lock so it causes things to happen one at a time,
+
+
+197
+00:13:01,630 --> 00:13:04,270
+but when you're writing threaded code,
+
+
+198
+00:13:04,300 --> 00:13:09,940
+there are also situations where you explicitly want to wait for some specific event
+
+
+199
+00:13:09,940 --> 00:13:12,430
+where you want different threads to interact.
+
+
+200
+00:13:14,530 --> 00:13:18,180
+So, for example, supposing, we have pipes
+
+
+201
+00:13:18,180 --> 00:13:20,040
+and we got a reader and a writer right,
+
+
+202
+00:13:20,040 --> 00:13:24,370
+if I'm reading a pipe, and there's nothing currently to read in the pipe,
+
+
+203
+00:13:24,550 --> 00:13:28,780
+I want to be able to wait for any other process to write data to the pipe,
+
+
+204
+00:13:28,780 --> 00:13:32,200
+I want to wait for this sort of pipe is not empty event.
+
+
+205
+00:13:32,620 --> 00:13:37,560
+Similarly if I'm reading the disk, or writing the disk.
+
+
+206
+00:13:41,650 --> 00:13:42,640
+If I'm reading the disk,
+
+
+207
+00:13:42,640 --> 00:13:45,190
+then I want to be able to tell the disk controller,
+
+
+208
+00:13:45,190 --> 00:13:47,620
+look, please read a particular block on the disk,
+
+
+209
+00:13:47,740 --> 00:13:49,720
+it may take a long time milliseconds,
+
+
+210
+00:13:49,840 --> 00:13:53,290
+long long time before the disk finally finishes the read,
+
+
+211
+00:13:53,290 --> 00:13:55,120
+especially if it has to seek and rotate
+
+
+212
+00:13:56,200 --> 00:14:00,280
+and the process is doing the reading needs to be able to wait for that specific event,
+
+
+213
+00:14:00,430 --> 00:14:02,590
+we want to wait for the disk read to complete.
+
+
+214
+00:14:05,330 --> 00:14:08,810
+Similarly you may have noticed when you're programming,
+
+
+215
+00:14:08,810 --> 00:14:12,410
+that a unix program can make the wait system call.
+
+
+216
+00:14:12,950 --> 00:14:14,570
+And what wait does is
+
+
+217
+00:14:14,570 --> 00:14:18,500
+it causes the calling process to wait, until any of its children exit,
+
+
+218
+00:14:18,530 --> 00:14:22,070
+so here we have the parent process intentionally waiting
+
+
+219
+00:14:22,100 --> 00:14:24,830
+for some event sort of caused by another process.
+
+
+220
+00:14:25,490 --> 00:14:30,020
+So these are all situations where a process needs to wait for a specific event
+
+
+221
+00:14:30,020 --> 00:14:33,260
+either typically IO or another process,
+
+
+222
+00:14:33,290 --> 00:14:37,610
+sort of declaring that something specific has happened.
+
+
+223
+00:14:39,190 --> 00:14:41,950
+And coordination is the sort of tool
+
+
+224
+00:14:41,950 --> 00:14:44,830
+that helps us solve these kind of problems
+
+
+225
+00:14:44,980 --> 00:14:47,440
+or implement these kind of requirements
+
+
+226
+00:14:47,830 --> 00:14:54,520
+and coordination is totally fundamental, just just like with locks, coordination is another fundamental tool
+
+
+227
+00:14:54,520 --> 00:14:58,190
+for writing threaded programs and it comes up all the time.
+
+
+228
+00:14:59,520 --> 00:15:06,930
+Alright, so, how could we have a process or a thread wait for this kind of event,
+
+
+229
+00:15:07,140 --> 00:15:14,800
+so one possibility is extremely straightforward one is just a busy wait to loop.
+
+
+230
+00:15:15,770 --> 00:15:17,030
+So you could imagine.
+
+
+231
+00:15:18,570 --> 00:15:20,430
+And we'll discard this as a bad idea in a moment,
+
+
+232
+00:15:20,430 --> 00:15:23,520
+but let's say we want to read from a pipe,
+
+
+233
+00:15:23,580 --> 00:15:26,130
+we just write a loop in the pipe read function
+
+
+234
+00:15:26,130 --> 00:15:31,510
+that says you know while you know the pipe buffer is empty,
+
+
+235
+00:15:33,050 --> 00:15:39,070
+we're gonna do absolutely nothing, right,
+
+
+236
+00:15:39,130 --> 00:15:42,220
+now we're gonna let sit in this loop going around around in this loop,
+
+
+237
+00:15:42,340 --> 00:15:47,320
+until maybe some other thread on another core writes into the buffer and makes it not empty
+
+
+238
+00:15:47,320 --> 00:15:48,340
+and then this loop will finish
+
+
+239
+00:15:48,340 --> 00:15:52,120
+and then we'll return the data or whatever it is we're supposed to do with the data.
+
+
+240
+00:15:56,700 --> 00:15:57,990
+So you imagine writing code like this
+
+
+241
+00:15:57,990 --> 00:15:59,670
+and actually there is a little bit of,
+
+
+242
+00:15:59,790 --> 00:16:02,460
+there may be no small amount of code like this,
+
+
+243
+00:16:02,460 --> 00:16:07,920
+like if you know that the thing you're waiting for is extremely likely to happen
+
+
+244
+00:16:07,920 --> 00:16:09,750
+and a tenth of a microsecond,
+
+
+245
+00:16:09,750 --> 00:16:12,810
+let's say this may be the best way to wait for it,
+
+
+246
+00:16:13,110 --> 00:16:17,610
+so typically this is done with some kind of device hardware.
+
+
+247
+00:16:18,520 --> 00:16:20,530
+When you ask the device hardware to do something,
+
+
+248
+00:16:20,530 --> 00:16:24,490
+you know it will always complete that task in a tiny amount of time,
+
+
+249
+00:16:25,870 --> 00:16:29,170
+just sitting in a short loop can be the right answer,
+
+
+250
+00:16:29,200 --> 00:16:32,200
+but if this might take a long time milliseconds,
+
+
+251
+00:16:32,200 --> 00:16:33,730
+or you just don't know how long right,
+
+
+252
+00:16:33,940 --> 00:16:40,270
+maybe it's going to be ten minutes before whatever process is writing the pipe actually writes anything,
+
+
+253
+00:16:40,330 --> 00:16:43,030
+then we don't want to spin there and waste CPU time,
+
+
+254
+00:16:43,060 --> 00:16:47,890
+which could be used to find more digits of pi or something else useful,
+
+
+255
+00:16:48,190 --> 00:16:51,010
+we want to give up the CPU instead.
+
+
+256
+00:16:52,060 --> 00:16:56,320
+And only want some way to give up the CPU like switch,
+
+
+257
+00:16:56,350 --> 00:17:00,730
+but actually regain the CPU when the event we care about has actually occurred
+
+
+258
+00:17:00,790 --> 00:17:05,560
+and it's that that coordination is all about techniques to give up the CPU
+
+
+259
+00:17:05,710 --> 00:17:10,030
+until the condition, the event that we're waiting for has actually occurred.
+
+
+260
+00:17:10,620 --> 00:17:14,280
+And again sleep and wakeup,
+
+
+261
+00:17:14,280 --> 00:17:18,630
+there's a number of different coordination primitives that people have invented over the years.
+
+
+262
+00:17:20,200 --> 00:17:24,070
+And xv6 in common with many flavors of Unix,
+
+
+263
+00:17:24,640 --> 00:17:26,260
+uses something called sleep and wakeup.
+
+
+264
+00:17:27,290 --> 00:17:30,580
+Okay . Alright, with this background,
+
+
+265
+00:17:30,580 --> 00:17:36,940
+I'd like to switch to a looking at code in xv6.
+
+
+266
+00:17:41,940 --> 00:17:45,810
+Alright, so just shared my screen,
+
+
+267
+00:17:45,930 --> 00:17:49,800
+let me know if the screen share did on work .
+
+
+268
+00:17:50,460 --> 00:17:53,250
+Okay, I have in preparation for this lecture,
+
+
+269
+00:17:53,580 --> 00:17:58,620
+rewritten some of the code in the uart driver,
+
+
+270
+00:17:58,650 --> 00:18:04,770
+that's the serial driver that xv6 uses to read and write characters from the console,
+
+
+271
+00:18:05,580 --> 00:18:07,290
+so I have this function uartwrite,
+
+
+272
+00:18:07,290 --> 00:18:12,210
+which when a program like the shell prints its prompt or produces any other output ,
+
+
+273
+00:18:12,990 --> 00:18:14,790
+that makes a write system call
+
+
+274
+00:18:14,790 --> 00:18:21,270
+and in my slightly modified version of xv6 that write system call ends up with a call to uartwrite,
+
+
+275
+00:18:21,360 --> 00:18:29,040
+in the uart driver which actually writes the characters in this loop one by one to the uart hardware.
+
+
+276
+00:18:31,740 --> 00:18:35,970
+And this is written in a sort of classic device driver style.
+
+
+277
+00:18:37,480 --> 00:18:40,570
+You'll see code like this a in many device drivers.
+
+
+278
+00:18:41,920 --> 00:18:44,440
+Okay, so one of the things that's going on here
+
+
+279
+00:18:44,470 --> 00:18:50,260
+is that the uart hardware can only accept one character for transmission at a time,
+
+
+280
+00:18:50,530 --> 00:18:52,210
+and so the way this code has to look,
+
+
+281
+00:18:52,330 --> 00:18:54,700
+typically have lots of characters you want to write,
+
+
+282
+00:18:55,420 --> 00:18:57,400
+it can write a character to the uart hardware,
+
+
+283
+00:18:57,790 --> 00:18:59,530
+and it needs to wait for the uart hardware
+
+
+284
+00:18:59,530 --> 00:19:02,740
+to say yes I finished sending that character, I'm ready for a new one
+
+
+285
+00:19:02,740 --> 00:19:04,990
+and then the driver can write a new one,
+
+
+286
+00:19:05,640 --> 00:19:07,830
+a new character the next character to output,
+
+
+287
+00:19:08,160 --> 00:19:11,970
+because this hardware can operate very slowly,
+
+
+288
+00:19:12,000 --> 00:19:14,670
+like maybe only a thousand characters per second,
+
+
+289
+00:19:14,850 --> 00:19:18,720
+the amount of time we have to wait between characters can be very long,
+
+
+290
+00:19:18,780 --> 00:19:20,790
+in milliseconds in a long, long time,
+
+
+291
+00:19:20,790 --> 00:19:25,650
+on modern computer it's you know a billion cycles a million cycles maybe,
+
+
+292
+00:19:26,250 --> 00:19:27,870
+which a huge amount of work could be done,
+
+
+293
+00:19:27,870 --> 00:19:33,330
+so we'd really prefer not to just spin waiting for the uart to finish sending each character.
+
+
+294
+00:19:33,710 --> 00:19:35,480
+We like to have a better way,
+
+
+295
+00:19:35,630 --> 00:19:41,400
+and so, in fact, xv6 has a better way like most operating systems,
+
+
+296
+00:19:41,460 --> 00:19:47,910
+the uart hardware will raise an interrupt after it's finished sending each character,
+
+
+297
+00:19:48,120 --> 00:19:50,910
+and so we have not just this write routine,
+
+
+298
+00:19:51,510 --> 00:19:53,730
+we'll see uart driver has an interrupt routine
+
+
+299
+00:19:53,880 --> 00:19:56,040
+which I think trap.c calls
+
+
+300
+00:19:56,040 --> 00:20:00,420
+when the uart hardware raises an interrupt to say that it's finished
+
+
+301
+00:20:00,420 --> 00:20:07,090
+and the interrupt routine checks that uart to read one of the memory mapped registers in the uart hardware
+
+
+302
+00:20:07,480 --> 00:20:10,450
+to look for the flag that says I'm done transmitting,
+
+
+303
+00:20:10,510 --> 00:20:13,030
+which is this LSR_TX_IDLE flag,
+
+
+304
+00:20:13,180 --> 00:20:20,230
+and if that flag set, then, the interrupt routine actually sets this flag in memory,
+
+
+305
+00:20:21,020 --> 00:20:22,850
+and makes this wakeup call
+
+
+306
+00:20:23,000 --> 00:20:26,210
+which will cause the uartwrite,
+
+
+307
+00:20:26,270 --> 00:20:27,830
+whatever thread is in uartwrtie,
+
+
+308
+00:20:27,830 --> 00:20:30,830
+to return from its sleep here
+
+
+309
+00:20:30,980 --> 00:20:34,040
+and attempt to send a new character.
+
+
+310
+00:20:34,930 --> 00:20:36,070
+So the game is that,
+
+
+311
+00:20:37,020 --> 00:20:39,030
+if a thread needs to wait for something
+
+
+312
+00:20:39,030 --> 00:20:43,980
+and here we are, we need to wait for the uart hardware to be willing to accept a new character
+
+
+313
+00:20:44,010 --> 00:20:48,120
+to call sleep waiting for a specific condition, usually,
+
+
+314
+00:20:48,270 --> 00:20:51,690
+and when the condition is fulfilled,
+
+
+315
+00:20:51,960 --> 00:20:55,620
+code that realizes the condition is fulfilled what called wakeup.
+
+
+316
+00:20:56,210 --> 00:20:57,980
+So these sleeps and wakeups are paired.
+
+
+317
+00:20:58,890 --> 00:21:01,620
+And sleep will look at the implementation by and by,
+
+
+318
+00:21:01,620 --> 00:21:06,840
+but sleep does a number of things and then calls switch in order to give up the CPU.
+
+
+319
+00:21:08,800 --> 00:21:14,170
+One thing to notice is that the wakeup and sleep have to be linked together somehow,
+
+
+320
+00:21:14,200 --> 00:21:16,180
+that is we call wakeup,
+
+
+321
+00:21:16,210 --> 00:21:20,380
+we really only want to wakeup threads that are waiting for the specific event,
+
+
+322
+00:21:20,380 --> 00:21:21,760
+that we realize has happened
+
+
+323
+00:21:21,940 --> 00:21:24,490
+and so sleep and wakeup take this argument
+
+
+324
+00:21:25,010 --> 00:21:27,590
+which is called the sleep channel,
+
+
+325
+00:21:27,830 --> 00:21:34,250
+it's wakeup supplies the very same value here that we're passing to sleep,
+
+
+326
+00:21:34,280 --> 00:21:38,660
+sleep and wakeup actually don't really look, don't care what these these,
+
+
+327
+00:21:38,660 --> 00:21:41,030
+they just take 64 bit values here,
+
+
+328
+00:21:41,030 --> 00:21:42,200
+they don't care what they are really,
+
+
+329
+00:21:43,010 --> 00:21:44,870
+the only thing that's going on is that,
+
+
+330
+00:21:46,170 --> 00:21:54,600
+when if we sleep on that particular sleep channels, particular wait channel,
+
+
+331
+00:21:55,500 --> 00:21:59,010
+we want to wakeup to pass the very same value here,
+
+
+332
+00:21:59,010 --> 00:22:02,940
+in order to show that indicate which sleepers it wants to wakeup.
+
+
+333
+00:22:06,020 --> 00:22:07,760
+Any questions about this interface.
+
+
+334
+00:22:08,000 --> 00:22:09,050
+Okay.
+
+
+335
+00:22:10,570 --> 00:22:13,840
+So there's a question just to clarify the process is not woken up,
+
+
+336
+00:22:13,840 --> 00:22:16,530
+every for every character that's written.
+
+
+337
+00:22:20,550 --> 00:22:21,810
+OK, let's see,
+
+
+338
+00:22:21,870 --> 00:22:26,430
+in this driver that I've specially hacked for demonstration purposes,
+
+
+339
+00:22:27,570 --> 00:22:29,760
+there's an interrupt per character,
+
+
+340
+00:22:29,910 --> 00:22:33,660
+so the the the way uartwrite works is that
+
+
+341
+00:22:33,690 --> 00:22:38,310
+for each character that is in this while for each character in the buffer character supposed to write,
+
+
+342
+00:22:38,520 --> 00:22:44,850
+we wait here in this loop until the uart is ready to accept one more character,
+
+
+343
+00:22:45,060 --> 00:22:46,680
+we write one more character.
+
+
+344
+00:22:47,340 --> 00:22:49,500
+We set this done flag to zero,
+
+
+345
+00:22:50,250 --> 00:22:55,260
+and go back and wait typically and sleep until the done flag is one.
+
+
+346
+00:22:55,970 --> 00:23:00,080
+And then after the uart finished sending this character,
+
+
+347
+00:23:00,140 --> 00:23:03,800
+it'll interrupt and the interrupt routine will set done to one and do the wakeup,
+
+
+348
+00:23:03,800 --> 00:23:09,580
+so in fact there is a wake- sleep and wakeup in an iteration of the loop for every single character
+
+
+349
+00:23:10,900 --> 00:23:20,280
+and more the uart is actually capable of sending some number like four sixteen or something characters at a time,
+
+
+350
+00:23:20,280 --> 00:23:28,230
+so a more efficient driver would would hand sixteen characters to the uart per iteration of this loop
+
+
+351
+00:23:28,410 --> 00:23:30,540
+and there'd be an interrupt every sixteen characters
+
+
+352
+00:23:30,690 --> 00:23:34,560
+and higher speed devices are typically like ethernet drivers,
+
+
+353
+00:23:35,050 --> 00:23:38,110
+typically accept many more bytes than that per interrupt.
+
+
+354
+00:23:39,890 --> 00:23:41,780
+Alright, um.
+
+
+355
+00:23:42,320 --> 00:23:47,450
+Okay, so this is just an illustration of what the interface looks like.
+
+
+356
+00:23:48,140 --> 00:23:51,200
+Sleep and wakeup are nice,
+
+
+357
+00:23:51,200 --> 00:23:54,530
+because for one reason they're nice, they're relatively flexible,
+
+
+358
+00:23:54,920 --> 00:23:57,350
+sleep wakeup don't really care what it is uart to.
+
+
+359
+00:23:58,880 --> 00:23:59,540
+Yeah you can.
+
+
+360
+00:24:00,730 --> 00:24:02,950
+You don't have to tell sleep what you're waiting for,
+
+
+361
+00:24:02,950 --> 00:24:04,840
+you don't have to tell wakeup what event happened,
+
+
+362
+00:24:04,930 --> 00:24:09,280
+you just need to have these matching sleep channel 64 bit values.
+
+
+363
+00:24:10,790 --> 00:24:16,520
+However, there's one interesting property of the sleep interface,
+
+
+364
+00:24:16,670 --> 00:24:18,770
+we have to pass it a lock here,
+
+
+365
+00:24:18,830 --> 00:24:22,160
+there's a second argument, this lock argument
+
+
+366
+00:24:22,460 --> 00:24:29,090
+and there's a big story behind why sleep takes this second argument.
+
+
+367
+00:24:30,480 --> 00:24:33,480
+And I'm gonna explain what's going on,
+
+
+368
+00:24:33,510 --> 00:24:36,600
+but the high level picture is,
+
+
+369
+00:24:36,600 --> 00:24:47,940
+that it's not doesn't seem to be possible to design a sleep that is completely ignorant of what it is you're trying to wait for.
+
+
+370
+00:24:50,420 --> 00:24:52,850
+It's hard to write a sort of general purpose sleep,
+
+
+371
+00:24:52,850 --> 00:24:56,090
+that simply sleeps waiting for some specific event
+
+
+372
+00:24:56,390 --> 00:25:00,110
+and this is danger which we'll see in a moment called lost wakeups
+
+
+373
+00:25:00,140 --> 00:25:04,880
+that just about every coordination mechanism has to grapple with somehow and deal with somehow.
+
+
+374
+00:25:06,360 --> 00:25:10,500
+And then the sleep interface, this fact, we have to pass a lock
+
+
+375
+00:25:10,500 --> 00:25:15,960
+is sort of a little bit of ugly implementation leaking through into the interface,
+
+
+376
+00:25:15,990 --> 00:25:18,000
+in a way, I'll explain in just a moment.
+
+
+377
+00:25:22,080 --> 00:25:23,460
+Yeah, I'll explain this is a question.
+
+
+378
+00:25:23,460 --> 00:25:26,220
+Why do we need the done flag and the sleep channel.
+
+
+379
+00:25:26,250 --> 00:25:28,140
+I will hold on to that question,
+
+
+380
+00:25:28,230 --> 00:25:30,870
+I'll explain that in five or ten minutes.
+
+
+381
+00:25:32,000 --> 00:25:38,150
+Okay, so, before explaining why it is that sleep is doing with this lock,
+
+
+382
+00:25:38,360 --> 00:25:41,860
+I actually want to talk a bit about
+
+
+383
+00:25:41,860 --> 00:25:45,850
+what the implications would be if we had a simpler sleep,
+
+
+384
+00:25:46,210 --> 00:25:49,960
+that didn't have didn't take that extra lock argument.
+
+
+385
+00:25:51,130 --> 00:25:52,180
+So.
+
+
+386
+00:25:59,180 --> 00:26:00,080
+Alright so.
+
+
+387
+00:26:05,390 --> 00:26:08,360
+And the topic here is lost wakeups.
+
+
+388
+00:26:12,040 --> 00:26:16,930
+That's the problem gonna describe now ,
+
+
+389
+00:26:17,320 --> 00:26:23,630
+so, suppose that the interface was just sleep,
+
+
+390
+00:26:25,300 --> 00:26:30,250
+on this arbitrary channel value with no second argument ,
+
+
+391
+00:26:31,570 --> 00:26:33,250
+you can't make this work,
+
+
+392
+00:26:33,250 --> 00:26:35,380
+so I'm actually gonna call this broken sleep.
+
+
+393
+00:26:37,560 --> 00:26:39,930
+And you could imagine,
+
+
+394
+00:26:39,960 --> 00:26:41,580
+if we didn't know better that,
+
+
+395
+00:26:41,670 --> 00:26:51,790
+a sleep like this could simply set the state of the process to this special sleeping value
+
+
+396
+00:26:51,790 --> 00:26:53,320
+which says I don't want to run anymore,
+
+
+397
+00:26:53,320 --> 00:26:55,210
+I'm I'm waiting for a specific event
+
+
+398
+00:26:55,660 --> 00:26:58,540
+and then if you look at the xv6 implementation of sleep,
+
+
+399
+00:26:58,540 --> 00:27:00,610
+you'll see it does this among other things,
+
+
+400
+00:27:01,480 --> 00:27:05,050
+we need to record this special sleep channel value,
+
+
+401
+00:27:05,540 --> 00:27:09,650
+so that a future call to wakeup can realize that we're actually waiting for the,
+
+
+402
+00:27:10,340 --> 00:27:14,290
+I think that the wakeup is waking us up for,
+
+
+403
+00:27:14,290 --> 00:27:19,150
+so you could imagine a sleep and would be broken that really just did this,
+
+
+404
+00:27:19,180 --> 00:27:24,300
+I guess you'd have to take acquire this process is locked also.
+
+
+405
+00:27:25,890 --> 00:27:27,630
+And then of course, [] wakeup.
+
+
+406
+00:27:34,280 --> 00:27:36,740
+And this really is pretty much how wakeup works ,
+
+
+407
+00:27:36,740 --> 00:27:38,240
+we want to wakeup all the threads
+
+
+408
+00:27:38,240 --> 00:27:41,960
+that are waiting on that are called sleep with this particular channel value,
+
+
+409
+00:27:42,140 --> 00:27:48,240
+so we're just going to say you know for each P and the process table,
+
+
+410
+00:27:51,530 --> 00:27:57,630
+if the state if it's sleeping,
+
+
+411
+00:28:00,790 --> 00:28:05,920
+and it's sleeping on the channel that we're waking up,
+
+
+412
+00:28:13,990 --> 00:28:17,880
+then set the state to runnable.
+
+
+413
+00:28:22,230 --> 00:28:25,860
+Actually modular locks, this is pretty much what a wakeup does.
+
+
+414
+00:28:29,410 --> 00:28:33,340
+Okay, so , some alternate [universe boy] would be nice,
+
+
+415
+00:28:33,340 --> 00:28:35,200
+if sleep and wakeup with this simple.
+
+
+416
+00:28:37,060 --> 00:28:39,490
+Let me demonstrate though ,
+
+
+417
+00:28:45,500 --> 00:28:46,550
+let me demonstrate.
+
+
+418
+00:28:55,060 --> 00:28:58,030
+Well, before I go back to the xv6 code,
+
+
+419
+00:28:58,390 --> 00:29:03,280
+let me just outline how you would use this sleep and wakeup in the uart driver
+
+
+420
+00:29:03,280 --> 00:29:05,350
+and this is sort of a repeat of what we've already seen,
+
+
+421
+00:29:05,350 --> 00:29:08,200
+but using this slightly simpler interface.
+
+
+422
+00:29:08,700 --> 00:29:10,620
+You would have.
+
+
+423
+00:29:11,140 --> 00:29:14,170
+And indeed the driver does this you have this done flag,
+
+
+424
+00:29:15,570 --> 00:29:17,970
+then uartwrite,
+
+
+425
+00:29:22,740 --> 00:29:29,160
+you know would say for each character in the buffer,
+
+
+426
+00:29:32,060 --> 00:29:35,450
+and then which check this done flag
+
+
+427
+00:29:35,480 --> 00:29:42,510
+just say while not done, go to sleep,
+
+
+428
+00:29:44,880 --> 00:29:50,460
+and then pass that a channel whatever was tx_chan or something,
+
+
+429
+00:29:51,410 --> 00:29:52,430
+doesn't really matter,
+
+
+430
+00:29:52,520 --> 00:30:01,510
+okay and then we're gonna send c to the uart, and set done equals zero right,
+
+
+431
+00:30:03,030 --> 00:30:10,240
+and then the interrupt routine just sets it done flag is equal to true.
+
+
+432
+00:30:10,830 --> 00:30:11,490
+And of course we can.
+
+
+433
+00:30:13,660 --> 00:30:19,470
+So this is how we could use this simplified broken sleep,
+
+
+434
+00:30:19,680 --> 00:30:21,390
+alright, so this is really broken sleep.
+
+
+435
+00:30:22,400 --> 00:30:26,090
+With this is missing though is locking,
+
+
+436
+00:30:27,280 --> 00:30:36,890
+so actually, both , both of these routines for both the write routine and the interrupt routine absolutely have to lock.
+
+
+437
+00:30:37,920 --> 00:30:40,140
+And one reason is that
+
+
+438
+00:30:40,320 --> 00:30:44,730
+this done flag, anytime we have shared data we really need to put a lock around the shared data
+
+
+439
+00:30:45,510 --> 00:30:48,690
+and the other reason is that actually I didn't put it in here,
+
+
+440
+00:30:48,690 --> 00:30:55,200
+but both the interrupt routine and the write routine need to access the hardware that uart hardware itself
+
+
+441
+00:30:55,260 --> 00:30:58,590
+and typically it's an error unless you're very very clever,
+
+
+442
+00:30:59,370 --> 00:31:06,090
+it's an error to have two threads concurrently try to read and write the memory mapped hardware registers,
+
+
+443
+00:31:06,690 --> 00:31:10,080
+so we need a lock around in both of these subroutines
+
+
+444
+00:31:10,080 --> 00:31:14,060
+in order to avoid
+
+
+445
+00:31:14,630 --> 00:31:20,690
+both racing access is done and racing accesses to the hard- hardware,
+
+
+446
+00:31:21,140 --> 00:31:23,720
+so the question is where should we put the locks in.
+
+
+447
+00:31:25,050 --> 00:31:28,260
+It's it's easy in the interrupt routine,
+
+
+448
+00:31:28,260 --> 00:31:30,510
+we're gonna lock our lock at the beginning,
+
+
+449
+00:31:31,290 --> 00:31:34,320
+whatever the block I think its called uart_tx_lock or something
+
+
+450
+00:31:34,320 --> 00:31:35,730
+and we're gonna unlock at the end.
+
+
+451
+00:31:36,880 --> 00:31:39,850
+So the interrupt routine just takes a lock and releases it,
+
+
+452
+00:31:40,090 --> 00:31:43,780
+the puzzle is where to put the locks in the uart routine.
+
+
+453
+00:31:45,330 --> 00:31:51,220
+One possibility is that uartwrite could hold the lock for the entire sequence
+
+
+454
+00:31:51,220 --> 00:31:53,920
+of trying to send a character each character.
+
+
+455
+00:31:54,450 --> 00:32:03,350
+So we could acquire the lock here, and unlock here.
+
+
+456
+00:32:06,200 --> 00:32:10,370
+So lock and unlock it at the beginning and very end processing each character,
+
+
+457
+00:32:11,150 --> 00:32:13,580
+so why, why does this definitely not work.
+
+
+458
+00:32:22,680 --> 00:32:26,310
+One reason is that the only way we can get out of this loop,
+
+
+459
+00:32:26,890 --> 00:32:29,890
+is that the interrupt routine sets done to one,
+
+
+460
+00:32:30,100 --> 00:32:34,600
+but if we hold this lock for this entire sequence in it,
+
+
+461
+00:32:34,750 --> 00:32:36,580
+the interrupt routine also needs to lock
+
+
+462
+00:32:36,670 --> 00:32:39,400
+and so it will sit here spinning waiting for the lock,
+
+
+463
+00:32:39,490 --> 00:32:44,800
+because we hold the lock and aren't going to release it until done is set,
+
+
+464
+00:32:44,830 --> 00:32:48,820
+but done can only be set when the interrupt routine, is actually able to get the lock,
+
+
+465
+00:32:49,000 --> 00:32:52,300
+so we cannot just simply hold the lock
+
+
+466
+00:32:53,590 --> 00:32:57,010
+across the entire sequence of sending each character.
+
+
+467
+00:33:00,070 --> 00:33:04,450
+Alright, so another possibility, the sort of nasty problem here is
+
+
+468
+00:33:04,450 --> 00:33:10,840
+that uartwrite was holding a lock at the time when it expected the interrupt routine to execute
+
+
+469
+00:33:10,870 --> 00:33:12,100
+which is right here,
+
+
+470
+00:33:12,100 --> 00:33:15,370
+the only time when we really need the interrupt routine to execute is,
+
+
+471
+00:33:15,800 --> 00:33:16,880
+is at this point here
+
+
+472
+00:33:17,060 --> 00:33:18,560
+otherwise it's okay to hold the lock,
+
+
+473
+00:33:18,800 --> 00:33:22,220
+so another possibility would be to acquire the lock at the beginning,
+
+
+474
+00:33:22,220 --> 00:33:26,840
+because we need to protect our access to this shared variable done,
+
+
+475
+00:33:26,960 --> 00:33:33,900
+but release it before the call to sleep,
+
+
+476
+00:33:34,140 --> 00:33:38,130
+that gives the interrupt routine a chance to execute and set done to one
+
+
+477
+00:33:38,130 --> 00:33:42,180
+and then we'll just re-acquire it after sleep returns.
+
+
+478
+00:33:43,470 --> 00:33:45,720
+So then we go back up to the top and check done again,
+
+
+479
+00:33:45,720 --> 00:33:46,560
+we have the lock again.
+
+
+480
+00:33:50,100 --> 00:33:53,490
+Alright, so let me actually modify my driver to do this.
+
+
+481
+00:33:58,940 --> 00:34:00,350
+We'll see, yeah.
+
+
+482
+00:34:01,740 --> 00:34:03,570
+See what the consequences are.
+
+
+483
+00:34:06,050 --> 00:34:07,340
+Alright, um.
+
+
+484
+00:34:08,020 --> 00:34:10,600
+So the sleep we're talking about where we want to,
+
+
+485
+00:34:10,900 --> 00:34:16,120
+you can see this code actually does acquire the lock at the very beginning and release it at the end
+
+
+486
+00:34:16,300 --> 00:34:19,210
+and the interrupt routine also acquires and releases
+
+
+487
+00:34:19,330 --> 00:34:22,540
+and the proposal is that we do two things,
+
+
+488
+00:34:22,540 --> 00:34:29,170
+one is, we're gonna, we're exploring is why my broken sleep idea,
+
+
+489
+00:34:29,290 --> 00:34:33,100
+that only takes a single argument,
+
+
+490
+00:34:33,130 --> 00:34:34,180
+why that doesn't work,
+
+
+491
+00:34:34,180 --> 00:34:37,420
+so the idea is that in order to make the locking workout right,
+
+
+492
+00:34:37,420 --> 00:34:43,600
+we're gonna call broken sleep alright, but we're gonna release block here,
+
+
+493
+00:34:44,570 --> 00:34:48,120
+and re-acquire it after sleep returns.
+
+
+494
+00:34:53,730 --> 00:34:58,710
+And literally all this broken sleep does is exactly what I wrote on my little whiteboard,
+
+
+495
+00:34:58,710 --> 00:35:01,950
+namely, it sets the state to sleeping
+
+
+496
+00:35:01,950 --> 00:35:06,210
+and sets the channel to this tx_chan argument,
+
+
+497
+00:35:06,330 --> 00:35:07,740
+then call switch.
+
+
+498
+00:35:09,810 --> 00:35:12,340
+Alright, let's see what happens.
+
+
+499
+00:35:21,020 --> 00:35:24,170
+Oh, wow look at that, actually managed,
+
+
+500
+00:35:24,170 --> 00:35:27,530
+so init is printing out, it's init starting message,
+
+
+501
+00:35:27,530 --> 00:35:29,990
+and it actually managed to write a few characters
+
+
+502
+00:35:29,990 --> 00:35:31,400
+and that seems to have hung.
+
+
+503
+00:35:33,160 --> 00:35:35,140
+And it turns out that if I type a character,
+
+
+504
+00:35:35,140 --> 00:35:36,850
+I'm going to type a [period],
+
+
+505
+00:35:38,110 --> 00:35:44,080
+by typing peri- [period], output restarts,
+
+
+506
+00:35:44,680 --> 00:35:47,410
+maybe make more output I run ls,
+
+
+507
+00:35:47,410 --> 00:35:53,280
+oops, ls also emitted a few characters and then stopped,
+
+
+508
+00:35:53,280 --> 00:35:56,250
+but if I type something, I type type x,
+
+
+509
+00:35:57,120 --> 00:36:00,670
+will do restart ls, it'll keep going.
+
+
+510
+00:36:02,060 --> 00:36:02,630
+So.
+
+
+511
+00:36:05,170 --> 00:36:06,460
+What do you think is going on here?
+
+
+512
+00:36:08,170 --> 00:36:09,790
+So you want to propose a theory.
+
+
+513
+00:36:20,960 --> 00:36:23,960
+The problem definitely has to do with the code that I just changed,
+
+
+514
+00:36:24,170 --> 00:36:25,250
+so what's happening.
+
+
+515
+00:36:33,790 --> 00:36:41,350
+Alright, so what's going on here, is that my new code releases the lock,
+
+
+516
+00:36:41,940 --> 00:36:43,530
+releases this lock at this point,
+
+
+517
+00:36:43,590 --> 00:36:49,010
+and then right here, the interrupt happens,
+
+
+518
+00:36:49,010 --> 00:36:50,690
+because as soon as you release the lock,
+
+
+519
+00:36:50,960 --> 00:36:53,030
+first of all, the interrupts are re-enabled,
+
+
+520
+00:36:53,030 --> 00:36:54,740
+so when this CPU interrupts could happen,
+
+
+521
+00:36:54,740 --> 00:36:55,790
+this is a multi core machine,
+
+
+522
+00:36:55,790 --> 00:36:59,860
+so actually interrupts can be taken on any core,
+
+
+523
+00:37:00,160 --> 00:37:05,650
+so almost certainly what's going on at this point, that I've marked in the code
+
+
+524
+00:37:05,650 --> 00:37:11,200
+is that on some other core, the uart interrupt is executing
+
+
+525
+00:37:11,590 --> 00:37:13,480
+and it's sitting in acquire,
+
+
+526
+00:37:14,090 --> 00:37:17,030
+waiting for this lock on some other core.
+
+
+527
+00:37:19,350 --> 00:37:20,580
+And so as soon as I release it,
+
+
+528
+00:37:20,580 --> 00:37:23,580
+that other core is going to acquire the lock,
+
+
+529
+00:37:23,970 --> 00:37:28,650
+is going to see that the uart has completed sending the character ,
+
+
+530
+00:37:29,340 --> 00:37:33,120
+it's going to set this transmit done flag to one,
+
+
+531
+00:37:33,900 --> 00:37:34,650
+just great,
+
+
+532
+00:37:34,860 --> 00:37:38,100
+and then it's gonna call wakeup on tx_chan.
+
+
+533
+00:37:39,130 --> 00:37:41,110
+Which is also fine, except,
+
+
+534
+00:37:42,090 --> 00:37:46,770
+because the writing thread is still executing between the release and the broken sleep,
+
+
+535
+00:37:47,130 --> 00:37:49,440
+the writing thread hasn't gone to sleep yet,
+
+
+536
+00:37:49,770 --> 00:37:53,340
+so the wakeup that the interrupt routine calls
+
+
+537
+00:37:53,370 --> 00:37:55,500
+doesn't actually wakeup anything up,
+
+
+538
+00:37:55,530 --> 00:37:57,540
+because nothing's yet gone to sleep on that channel.
+
+
+539
+00:37:58,680 --> 00:38:05,040
+And then, the writing thread will proceed to call this broken sleep
+
+
+540
+00:38:05,040 --> 00:38:09,960
+which will, you know, set the state to sleeping and set the sleep channel,
+
+
+541
+00:38:10,020 --> 00:38:13,050
+but the interrupt has already happened and the wakeup has already been called,
+
+
+542
+00:38:13,080 --> 00:38:17,070
+so this sleep, nothing will ever wakeup,
+
+
+543
+00:38:17,430 --> 00:38:18,540
+because the wakeup already happened.
+
+
+544
+00:38:20,270 --> 00:38:22,520
+This is called the lost wakeup problem.
+
+
+545
+00:38:24,860 --> 00:38:29,120
+Any questions about why or how this arises.
+
+
+546
+00:38:39,330 --> 00:38:42,660
+Yeah, is it always going to be the case,
+
+
+547
+00:38:42,690 --> 00:38:48,300
+that once something gets lost, once [] a wakeup gets lost,
+
+
+548
+00:38:48,300 --> 00:38:52,230
+that on the next time everything that's been buffered is just going to get dumped.
+
+
+549
+00:38:52,830 --> 00:38:57,360
+Well, it completely depends on the details of what's going on.
+
+
+550
+00:38:57,420 --> 00:39:03,020
+In this case it's actually just us, it's sort of accidental that,
+
+
+551
+00:39:03,680 --> 00:39:12,980
+me typing something caused the output to resume me, typing input caused the output get fixed
+
+
+552
+00:39:13,040 --> 00:39:16,640
+and the reason for that is that the uart has only one kind of interrupt,
+
+
+553
+00:39:16,640 --> 00:39:24,100
+it makes it, it calls the same interrupt routine whether for input to signal input and the signal completed output,
+
+
+554
+00:39:24,580 --> 00:39:29,980
+so when I type something which is input, the this uart interrupt routine gets called
+
+
+555
+00:39:30,190 --> 00:39:34,180
+and the uart is thinking of is calling it just a signal that input has arrived,
+
+
+556
+00:39:34,180 --> 00:39:36,880
+but in fact the interrupt routine in xv6,
+
+
+557
+00:39:37,090 --> 00:39:43,870
+you looks for, you notices that the you know the way this code happens to be written
+
+
+558
+00:39:44,140 --> 00:39:48,010
+is that if the uart is ready to transmit another character,
+
+
+559
+00:39:48,010 --> 00:39:50,350
+it always calls wakeup .
+
+
+560
+00:39:50,900 --> 00:39:54,470
+Even though it's, a while ago maybe I had already called wakeup,
+
+
+561
+00:39:54,740 --> 00:39:58,910
+so it's sort of accidental that me typing characters caused us to get restarted
+
+
+562
+00:39:59,090 --> 00:40:02,780
+and so sometimes if there are lost wakeups,
+
+
+563
+00:40:02,810 --> 00:40:06,020
+sometimes they sort of fix themselves in this way,
+
+
+564
+00:40:06,020 --> 00:40:08,030
+if you're lucky and sometimes they don't,
+
+
+565
+00:40:08,120 --> 00:40:11,930
+like if the uart had separate receive and transmit interrupt routines,
+
+
+566
+00:40:11,930 --> 00:40:14,550
+then there have been no getting out of this.
+
+
+567
+00:40:16,040 --> 00:40:17,030
+Does that answer your question?
+
+
+568
+00:40:17,360 --> 00:40:18,410
+Yes, thank you.
+
+
+569
+00:40:22,940 --> 00:40:23,510
+Okay.
+
+
+570
+00:40:24,170 --> 00:40:24,980
+So.
+
+
+571
+00:40:25,160 --> 00:40:26,030
+Yes, please go ahead.
+
+
+572
+00:40:26,210 --> 00:40:30,320
+What purpose does the tx_done bit serve.
+
+
+573
+00:40:31,820 --> 00:40:32,960
+Oh, the tx_done bit,
+
+
+574
+00:40:33,110 --> 00:40:36,140
+or you mean this flag tx_done,
+
+
+575
+00:40:36,590 --> 00:40:43,430
+it is simply a way for the interrupt routine to communicate to uartwrite.
+
+
+576
+00:40:44,000 --> 00:40:48,050
+That a previously transmitted character is finished
+
+
+577
+00:40:48,260 --> 00:40:51,710
+and it's OK for uartwrite to proceed to transmitting the next character,
+
+
+578
+00:40:52,010 --> 00:40:59,090
+so it's a little piece of, just like a little communication flag from the interrupt routine to uartwrite.
+
+
+579
+00:41:03,430 --> 00:41:07,090
+Because if it it could like it would sleep
+
+
+580
+00:41:07,120 --> 00:41:09,520
+and then it would know then when it wakes up.
+
+
+581
+00:41:10,100 --> 00:41:19,270
+It's probably uart interrupted woke it up, so probably the tx_done bit like would have been set,
+
+
+582
+00:41:19,300 --> 00:41:20,500
+but if we didn't have it,
+
+
+583
+00:41:20,920 --> 00:41:27,790
+so I guess I'm saying that actually wakes up it should know that it's from uart interrupt.
+
+
+584
+00:41:28,000 --> 00:41:29,800
+Okay, so is another way of phrasing your question,
+
+
+585
+00:41:29,800 --> 00:41:31,930
+how come there's this while loop here,
+
+
+586
+00:41:33,540 --> 00:41:34,140
+instead of just.
+
+
+587
+00:41:34,140 --> 00:41:35,940
+Okay, okay answer, my question,
+
+
+588
+00:41:36,060 --> 00:41:37,830
+I think the answer to my question is,
+
+
+589
+00:41:37,830 --> 00:41:40,440
+because uart interrupt, serve two purposes.
+
+
+590
+00:41:40,440 --> 00:41:41,220
+Okay, yeah.
+
+
+591
+00:41:42,040 --> 00:41:43,330
+Yeah yeah yeah,
+
+
+592
+00:41:43,330 --> 00:41:49,570
+in general, did your answer your question is sort of a specific instance of the more general answer that ,
+
+
+593
+00:41:51,520 --> 00:42:01,300
+it's it just turns out to be not practical to make sleeps and wakeups speed precise guaranteed precise,
+
+
+594
+00:42:01,300 --> 00:42:04,480
+that is that if sleep returns then for sure,
+
+
+595
+00:42:04,510 --> 00:42:06,250
+whatever you're waiting for has happened.
+
+
+596
+00:42:06,340 --> 00:42:11,170
+So, one example of this is that suppose we have two processes,
+
+
+597
+00:42:11,170 --> 00:42:14,560
+that are both trying to write that uart at the same time,
+
+
+598
+00:42:14,590 --> 00:42:16,210
+they're both in uartwrite and they can,
+
+
+599
+00:42:16,210 --> 00:42:22,810
+because after one writes a character, it'll sleep, releasing that turns out releasing the lock
+
+
+600
+00:42:22,900 --> 00:42:28,510
+and then the other one can enter that loop and try to wait until uart not busy .
+
+
+601
+00:42:29,120 --> 00:42:31,190
+And they both may both end up sleeping
+
+
+602
+00:42:31,430 --> 00:42:33,470
+and when an interrupt happens in the uart,
+
+
+603
+00:42:33,470 --> 00:42:34,730
+can accept one more character,
+
+
+604
+00:42:34,730 --> 00:42:36,590
+they'll both be woken up up,
+
+
+605
+00:42:36,590 --> 00:42:39,620
+but only one should actually write the character.
+
+
+606
+00:42:40,270 --> 00:42:41,740
+And that this while loop.
+
+
+607
+00:42:42,180 --> 00:42:46,800
+And in fact you'll see a while loop every sleep, xv6 I believe ,
+
+
+608
+00:42:46,800 --> 00:42:48,420
+it's because this problem of,
+
+
+609
+00:42:48,690 --> 00:42:52,950
+you maybe woken up, but really somebody else sort of took the thing you were waiting for,
+
+
+610
+00:42:52,950 --> 00:42:54,180
+so you have to sleep again,
+
+
+611
+00:42:54,360 --> 00:42:56,830
+this happens pervasively.
+
+
+612
+00:42:59,600 --> 00:42:59,990
+Okay.
+
+
+613
+00:42:59,990 --> 00:43:00,620
+Thank you.
+
+
+614
+00:43:00,830 --> 00:43:01,310
+Yes.
+
+
+615
+00:43:03,000 --> 00:43:04,230
+I've got a question.
+
+
+616
+00:43:04,900 --> 00:43:05,200
+Yes.
+
+
+617
+00:43:05,230 --> 00:43:09,700
+So it looks like we only saw one lost wakeup,
+
+
+618
+00:43:10,000 --> 00:43:13,060
+because as soon as we pressed like a character,
+
+
+619
+00:43:13,060 --> 00:43:16,330
+the rest of the output of the entire rest output came out,
+
+
+620
+00:43:16,510 --> 00:43:19,270
+shouldn't we have seen multiple lost weakups where,
+
+
+621
+00:43:19,480 --> 00:43:20,740
+why didn't happen again.
+
+
+622
+00:43:21,220 --> 00:43:22,390
+Oh, it did it did here,
+
+
+623
+00:43:22,390 --> 00:43:24,430
+let me let me run this, I'm going to run readme,
+
+
+624
+00:43:24,460 --> 00:43:25,630
+going to cat README right,
+
+
+625
+00:43:25,630 --> 00:43:27,130
+which is a couple thousand bytes,
+
+
+626
+00:43:27,310 --> 00:43:30,850
+so, oops, I had already typed something.
+
+
+627
+00:43:31,570 --> 00:43:32,950
+I guess we've got one character,
+
+
+628
+00:43:33,040 --> 00:43:34,660
+I'm going to type a period.
+
+
+629
+00:43:35,370 --> 00:43:38,040
+We got a few more characters and then it hung up again.
+
+
+630
+00:43:38,680 --> 00:43:41,320
+I'm gonna take another period, another couple characters.
+
+
+631
+00:43:41,890 --> 00:43:45,820
+Each time I type a period that causes an interrupt for the input,
+
+
+632
+00:43:46,470 --> 00:43:47,880
+which then wakes up the process
+
+
+633
+00:43:47,880 --> 00:43:50,520
+and it could do a few more characters of wirtes then hangs again.
+
+
+634
+00:43:51,060 --> 00:43:52,590
+Yet another lost wakeup.
+
+
+635
+00:43:53,930 --> 00:43:57,080
+Yeah, just miss that, makes sense.
+
+
+636
+00:43:57,410 --> 00:44:01,310
+Yeah, so I'm typing period, here I get a couple characters per lost wakeup,
+
+
+637
+00:44:01,310 --> 00:44:04,130
+because of the lost wakeup requires this coincidence,
+
+
+638
+00:44:04,130 --> 00:44:06,500
+that the interrupt has already happened
+
+
+639
+00:44:06,500 --> 00:44:08,090
+and was waiting to acquire the lock,
+
+
+640
+00:44:08,690 --> 00:44:12,660
+just that, we get that coincidence a lot of the time, but not all the time.
+
+
+641
+00:44:15,650 --> 00:44:16,220
+Alright.
+
+
+642
+00:44:17,260 --> 00:44:21,970
+Okay so our goal then is to get rid of this lost wakeup problem,
+
+
+643
+00:44:21,970 --> 00:44:28,330
+by somehow eliminating this window here between the release of the uart_tx_lock,
+
+
+644
+00:44:28,330 --> 00:44:29,740
+which we have to release,
+
+
+645
+00:44:29,740 --> 00:44:32,620
+because the interrupt needs that lock,
+
+
+646
+00:44:32,620 --> 00:44:34,090
+so we know we have to release the lock.
+
+
+647
+00:44:34,840 --> 00:44:38,320
+But somehow we want to eliminate this window between when we release the lock
+
+
+648
+00:44:38,740 --> 00:44:41,830
+and when the process actually marks itself as sleeping,
+
+
+649
+00:44:42,250 --> 00:44:45,430
+so that the interrupts wakeup will see that the process is sleeping
+
+
+650
+00:44:45,430 --> 00:44:48,160
+and actually wake it up and therefore not lose the wake up.
+
+
+651
+00:44:48,970 --> 00:44:51,460
+So we've got to somehow close that window.
+
+
+652
+00:44:53,570 --> 00:44:57,860
+And to do that, we gotta make sleeps interface a little bit more complicated,
+
+
+653
+00:44:58,160 --> 00:45:05,500
+so, go back to the, original working sleep
+
+
+654
+00:45:05,500 --> 00:45:07,000
+and I called a working sleep
+
+
+655
+00:45:07,120 --> 00:45:11,260
+and the way that people solve this problem,
+
+
+656
+00:45:11,880 --> 00:45:13,710
+is that sleep requires,
+
+
+657
+00:45:13,710 --> 00:45:16,200
+even though sleep doesn't really know what you're waiting for,
+
+
+658
+00:45:16,500 --> 00:45:19,260
+it requires that you be waiting for something
+
+
+659
+00:45:19,410 --> 00:45:24,570
+and furthermore that there be a lock that protects whatever it is you're waiting for.
+
+
+660
+00:45:25,710 --> 00:45:27,990
+So it requires that there be a sleep condition,
+
+
+661
+00:45:28,910 --> 00:45:34,790
+which it doesn't really know about the sleep condition is that tx_done is equal to one,
+
+
+662
+00:45:35,450 --> 00:45:36,920
+sleep doesn't know what the sleep condition is,
+
+
+663
+00:45:36,920 --> 00:45:43,550
+but it does it is requires, that there be a lock that protects the sleep condition namely, this uart_tx_lock
+
+
+664
+00:45:43,820 --> 00:45:47,630
+and the lock be locked when you check the condition,
+
+
+665
+00:45:47,630 --> 00:45:49,700
+that you hold the lock until you call sleep,
+
+
+666
+00:45:50,030 --> 00:45:52,070
+and that you pass the lock to sleep.
+
+
+667
+00:45:52,430 --> 00:45:55,490
+And what sleep promises essentially at the interface level is
+
+
+668
+00:45:55,490 --> 00:46:00,350
+that it's gonna atomically put the process to sleep and release the lock
+
+
+669
+00:46:00,650 --> 00:46:05,120
+as a sort of, at least it is an indivisible pair of actions,
+
+
+670
+00:46:05,120 --> 00:46:07,700
+at least with respect to wakeup.
+
+
+671
+00:46:09,000 --> 00:46:12,200
+So, wakeup will never see this situation,
+
+
+672
+00:46:12,200 --> 00:46:15,710
+which yeah you release the lock, but no the process is not sleep,
+
+
+673
+00:46:16,160 --> 00:46:20,210
+sleep makes the release of the lock and putting the process to sleep the atomic.
+
+
+674
+00:46:23,110 --> 00:46:26,710
+And the rules for this is that there has to be, this has to be a condition,
+
+
+675
+00:46:27,220 --> 00:46:29,620
+which has to be a lock protecting the condition,
+
+
+676
+00:46:29,860 --> 00:46:31,720
+the lock has to be held when you call sleep,
+
+
+677
+00:46:31,720 --> 00:46:32,890
+you have to pass the lock to sleep,
+
+
+678
+00:46:32,890 --> 00:46:39,070
+and furthermore the lock has to be held, when you call wakeup.
+
+
+679
+00:46:39,640 --> 00:46:42,790
+This condition lock needs to be held when you call wakeup wakeup,
+
+
+680
+00:46:42,790 --> 00:46:47,080
+so these are rules, that the programmer had better follow,
+
+
+681
+00:46:47,110 --> 00:46:49,660
+if they want to write correct code using sleep and wakeup.
+
+
+682
+00:46:52,790 --> 00:46:53,330
+Alright.
+
+
+683
+00:46:55,790 --> 00:46:58,460
+So let's look at the sleep and wakeup,
+
+
+684
+00:46:58,640 --> 00:47:04,130
+I'm trying to spot how they actually use this extra little piece of information and these rules
+
+
+685
+00:47:04,550 --> 00:47:06,230
+to avoid lost wakeups.
+
+
+686
+00:47:06,380 --> 00:47:07,670
+So first I want to look at wakeup.
+
+
+687
+00:47:10,130 --> 00:47:12,050
+Wakeup not very surprising,
+
+
+688
+00:47:12,530 --> 00:47:14,690
+it just runs through the entire process table,
+
+
+689
+00:47:15,050 --> 00:47:20,600
+it locks every process, remember that, after it's locked process,
+
+
+690
+00:47:20,600 --> 00:47:23,090
+you can't really look at a process at state without locking it,
+
+
+691
+00:47:23,390 --> 00:47:24,710
+it locks each process,
+
+
+692
+00:47:25,010 --> 00:47:26,810
+if the process is sleeping,
+
+
+693
+00:47:27,320 --> 00:47:32,360
+and the channel that's sleeping for, is the same channel that was passed to wakeup,
+
+
+694
+00:47:32,880 --> 00:47:36,420
+then, wakeup marks the changes the process of state to runnable
+
+
+695
+00:47:36,660 --> 00:47:38,520
+and then releases the process's lock.
+
+
+696
+00:47:40,400 --> 00:47:41,780
+So no surprises here.
+
+
+697
+00:47:42,960 --> 00:47:46,110
+Will ignore my broken sleep
+
+
+698
+00:47:46,110 --> 00:47:47,760
+and instead look at sleep itself,
+
+
+699
+00:47:47,970 --> 00:47:49,800
+so here's the implementation of sleep,
+
+
+700
+00:47:52,820 --> 00:47:54,890
+with now, this new lock argument.
+
+
+701
+00:47:56,690 --> 00:48:01,910
+So we know sleep has to reduce has to release that condition lock
+
+
+702
+00:48:01,940 --> 00:48:03,260
+that its second argument,
+
+
+703
+00:48:03,260 --> 00:48:04,190
+we know it has to release it,
+
+
+704
+00:48:04,190 --> 00:48:07,390
+because the you know the interrupt routine has to be able to acquire,
+
+
+705
+00:48:07,420 --> 00:48:10,540
+so we know there's going to be release of that lock somewhere inside sleep,
+
+
+706
+00:48:10,540 --> 00:48:12,850
+and indeed here's the release of that lock,
+
+
+707
+00:48:13,090 --> 00:48:18,040
+of course we're worried after we release the lock that at this very point,
+
+
+708
+00:48:18,310 --> 00:48:23,320
+wakeup might be called and might wake up this process,
+
+
+709
+00:48:23,350 --> 00:48:25,810
+so in order to might try to wake up this process,
+
+
+710
+00:48:25,810 --> 00:48:27,760
+but of course we haven't marked sleeping yet, right,
+
+
+711
+00:48:27,760 --> 00:48:31,600
+so we cannot afford to have wakeup execute.
+
+
+712
+00:48:33,550 --> 00:48:38,260
+Oops, have wakeup execute, right, after this release, even though we're releasing.
+
+
+713
+00:48:38,260 --> 00:48:40,330
+So in order to cause that not to happen,
+
+
+714
+00:48:40,330 --> 00:48:47,020
+before releasing the condition lock, sleep acquires the lock of the process that's going to sleep.
+
+
+715
+00:48:47,470 --> 00:48:55,360
+If you recall, wakeup must be called with the condition lock held
+
+
+716
+00:48:55,360 --> 00:48:59,200
+and it acquires the if it's about to wake up process,
+
+
+717
+00:48:59,200 --> 00:49:02,050
+it first must wait to acquire that process's lock.
+
+
+718
+00:49:02,710 --> 00:49:12,890
+I'm. So for the entire amount of time, between when uartwrite between, before uartwrite checked the condition,
+
+
+719
+00:49:13,160 --> 00:49:16,250
+when we when we call sched here,
+
+
+720
+00:49:16,580 --> 00:49:22,730
+this thread holds one or another of the condition lock and p->lock at all times.
+
+
+721
+00:49:23,910 --> 00:49:25,800
+I just go back to uart,
+
+
+722
+00:49:26,130 --> 00:49:32,210
+want to emphasize this, uartwrite acquires the condition lock here
+
+
+723
+00:49:32,510 --> 00:49:36,140
+and holds the condition lock all the way through to where it calls sleep,
+
+
+724
+00:49:36,530 --> 00:49:40,190
+so it requires the condition lock checks the condition with lock held,
+
+
+725
+00:49:40,340 --> 00:49:42,680
+call sleep with the condition lock held,
+
+
+726
+00:49:42,920 --> 00:49:45,590
+so wakeup can't do anything now,
+
+
+727
+00:49:45,590 --> 00:49:47,960
+because it can not even allowed to call wakeup,
+
+
+728
+00:49:48,080 --> 00:49:50,690
+until until the caller owns the condition locks,
+
+
+729
+00:49:50,690 --> 00:49:52,520
+so wakeup definitely not executing now,
+
+
+730
+00:49:53,540 --> 00:49:54,620
+we still hold the lock,
+
+
+731
+00:49:54,620 --> 00:49:55,580
+we call sleep,
+
+
+732
+00:49:57,110 --> 00:50:00,160
+sleep releases the condition lock,
+
+
+733
+00:50:00,160 --> 00:50:03,820
+but first acquires the process's lock.
+
+
+734
+00:50:06,030 --> 00:50:07,380
+And if you remember,
+
+
+735
+00:50:07,530 --> 00:50:08,160
+oops,
+
+
+736
+00:50:10,050 --> 00:50:15,720
+wakeup, wakeup is called with the condition lock, after we release it.
+
+
+737
+00:50:16,530 --> 00:50:17,010
+Sorry.
+
+
+738
+00:50:17,580 --> 00:50:19,890
+After we release the condition lock wakeup can be called,
+
+
+739
+00:50:19,920 --> 00:50:22,500
+but wakeup won't look at the process
+
+
+740
+00:50:22,500 --> 00:50:24,600
+until it has the process lock which we hold.
+
+
+741
+00:50:24,600 --> 00:50:26,580
+So okay, so wake up is still not executing,
+
+
+742
+00:50:30,900 --> 00:50:34,140
+acquire the process lock, release the condition lock,
+
+
+743
+00:50:34,170 --> 00:50:40,230
+while holding the process lock, mark the process as sleeping on this particular channel
+
+
+744
+00:50:40,590 --> 00:50:43,470
+and then calls sched, which calls switch right,
+
+
+745
+00:50:43,500 --> 00:50:46,350
+we still have the process locks, so wakeup still isn't doing anything,
+
+
+746
+00:50:46,560 --> 00:50:52,260
+and if you remember the, you know switching away from this thread to the scheduler thread
+
+
+747
+00:50:52,500 --> 00:50:55,320
+and the scheduler of routine after it's called the switch returns,
+
+
+748
+00:50:55,380 --> 00:50:59,580
+releases recently running process's lock.
+
+
+749
+00:50:59,920 --> 00:51:03,250
+So at this point after we're in the scheduler,
+
+
+750
+00:51:03,280 --> 00:51:07,360
+wakeup could finally acquire p->lock for this process,
+
+
+751
+00:51:07,600 --> 00:51:13,670
+notice that it's sleeping and on this channel and set its state to wake up.
+
+
+752
+00:51:14,110 --> 00:51:17,710
+So we're guaranteed the effect of the rule
+
+
+753
+00:51:17,710 --> 00:51:20,560
+that you have to hold the condition lock when calling sleep ,
+
+
+754
+00:51:20,560 --> 00:51:25,540
+the fact that sleep knows about that lock and release it only after requiring process p->lock
+
+
+755
+00:51:25,720 --> 00:51:30,480
+and wakeup needing to hold both locks in order to think about this process
+
+
+756
+00:51:30,690 --> 00:51:33,900
+means that we can no longer lose a wakeup,
+
+
+757
+00:51:34,140 --> 00:51:36,720
+so we fix this last wakeup problem.
+
+
+758
+00:51:39,050 --> 00:51:40,700
+I realized a little bit involved,
+
+
+759
+00:51:41,330 --> 00:51:43,100
+any questions about what's going on here.
+
+
+760
+00:52:02,910 --> 00:52:07,890
+Alright, well, feel free to ask questions at any time.
+
+
+761
+00:52:09,480 --> 00:52:14,100
+Alright, so we saw one, we saw this one , look at this one case
+
+
+762
+00:52:14,100 --> 00:52:19,810
+in which were using sleep and wakeup in a way that avoids lost wakeups,
+
+
+763
+00:52:20,140 --> 00:52:23,140
+there's a bunch of others in xv6,
+
+
+764
+00:52:23,200 --> 00:52:27,580
+this particular one, the thing that we're waiting for the condition that we're waiting for,
+
+
+765
+00:52:28,030 --> 00:52:34,360
+you know is that interrupt has occurred that has signalled that hardware is ready to do the next thing,
+
+
+766
+00:52:35,680 --> 00:52:40,260
+there's also times when kernel code calls sleep
+
+
+767
+00:52:40,290 --> 00:52:42,930
+in order to wait for a diff, some other thread to do something,
+
+
+768
+00:52:43,110 --> 00:52:45,330
+which is not actually in the end conceptually different,
+
+
+769
+00:52:45,330 --> 00:52:47,190
+but may feel a little bit different,
+
+
+770
+00:52:47,190 --> 00:52:49,800
+so in the pipe code, for example,
+
+
+771
+00:52:50,680 --> 00:52:52,030
+if you look at piperead,
+
+
+772
+00:52:56,210 --> 00:53:00,500
+there's a bunch of junk here which you have to ignore,
+
+
+773
+00:53:00,500 --> 00:53:05,460
+but the read system call on the pipe, ends up calling pipe read,
+
+
+774
+00:53:05,610 --> 00:53:08,520
+there's a lock that protects the pipe
+
+
+775
+00:53:08,550 --> 00:53:13,490
+and this is going to end up being the condition lock,
+
+
+776
+00:53:13,880 --> 00:53:18,380
+pipereed needs to wait until there's actually data buffered in the pipe,
+
+
+777
+00:53:18,530 --> 00:53:26,390
+and that condition is that there's data ready is nread or nwrite is greater than nread
+
+
+778
+00:53:26,390 --> 00:53:28,340
+that is more bytes have been written than read,
+
+
+779
+00:53:28,670 --> 00:53:36,010
+while that's not true, piperead sits in sleep, waiting for that condition,
+
+
+780
+00:53:36,100 --> 00:53:39,910
+and passes in this pipe lock,
+
+
+781
+00:53:39,970 --> 00:53:42,790
+the condition lock that protects the condition into sleep,
+
+
+782
+00:53:44,150 --> 00:53:45,950
+in order to protect against lost wakeup,
+
+
+783
+00:53:45,950 --> 00:53:47,600
+so the reason why you might get lost wakeup
+
+
+784
+00:53:47,600 --> 00:53:49,520
+is that on a different core,
+
+
+785
+00:53:50,580 --> 00:53:52,710
+a little farther up in the file,
+
+
+786
+00:53:52,710 --> 00:53:58,170
+on a different core there's probably some other thread, just now calling pipewrite
+
+
+787
+00:53:58,530 --> 00:54:02,810
+and it's gonna add byte to the pipe buffer,
+
+
+788
+00:54:02,810 --> 00:54:09,090
+and finally call the wakeup on the channel, that piperead waiting for
+
+
+789
+00:54:09,330 --> 00:54:14,580
+and you know we want to avoid the risk that between the reader checking,
+
+
+790
+00:54:15,180 --> 00:54:18,270
+there's noticing there's no bytes to read
+
+
+791
+00:54:18,390 --> 00:54:23,700
+and calling sleep we do not want to pipewrite on another core to [sleep] in there.
+
+
+792
+00:54:25,220 --> 00:54:28,910
+And add bytes and wake us up before we've even gone to sleep,
+
+
+793
+00:54:29,030 --> 00:54:30,350
+I thought would be a lost wakeup.
+
+
+794
+00:54:31,600 --> 00:54:34,450
+And this lock basically this lock and the fact,
+
+
+795
+00:54:34,450 --> 00:54:37,030
+that sleep is careful about releasing it,
+
+
+796
+00:54:38,540 --> 00:54:41,360
+prevent a writer from sleeping in,
+
+
+797
+00:54:41,420 --> 00:54:43,220
+between the check of the condition and the sleep,
+
+
+798
+00:54:43,280 --> 00:54:44,990
+because the writer has to acquire the lock too.
+
+
+799
+00:54:48,670 --> 00:54:51,700
+And, for those of you who are ,
+
+
+800
+00:54:53,610 --> 00:54:57,060
+the people asked about wrapping sleep and while loops,
+
+
+801
+00:54:57,300 --> 00:55:02,670
+both pipereed and pipewrite are examples of sleep wrapped in a while,
+
+
+802
+00:55:03,330 --> 00:55:09,220
+so for example the, this is the loop that piperead waits for data to appear,
+
+
+803
+00:55:09,220 --> 00:55:11,320
+waits for the buff pipe buffer to be non empty,
+
+
+804
+00:55:11,770 --> 00:55:13,630
+and the sleep is wrapped in a loop
+
+
+805
+00:55:13,720 --> 00:55:20,790
+and again the reason is that there could be perfectly well be multiple processes reading the very same pipe
+
+
+806
+00:55:21,120 --> 00:55:23,970
+and so if a writer writes one byte to the pipe,
+
+
+807
+00:55:24,420 --> 00:55:26,130
+so there's only one byte there,
+
+
+808
+00:55:26,190 --> 00:55:27,660
+the writers going to call wakeup,
+
+
+809
+00:55:28,660 --> 00:55:33,310
+that's gonna wake up all the multiple processes that we're reading that pipe,
+
+
+810
+00:55:33,340 --> 00:55:35,230
+but there's only one byte in the pipe,
+
+
+811
+00:55:35,500 --> 00:55:40,420
+and so one of those processes going to wake up first, right,
+
+
+812
+00:55:40,480 --> 00:55:42,880
+it's going to come out of its sleep first,
+
+
+813
+00:55:43,000 --> 00:55:47,170
+actually this reminds me there's another crucial thing I forgot to mention about sleep,
+
+
+814
+00:55:49,170 --> 00:55:51,840
+and that's that the last thing sleep does,
+
+
+815
+00:55:51,840 --> 00:55:52,770
+let's look at ,
+
+
+816
+00:55:55,980 --> 00:55:59,780
+here's here's the , sorry here's the end of sleep,
+
+
+817
+00:55:59,900 --> 00:56:03,650
+the last thing sleep does is acquires the condition lock,
+
+
+818
+00:56:03,890 --> 00:56:06,710
+so you must call sleep with the condition lock held
+
+
+819
+00:56:06,920 --> 00:56:09,440
+and sleep acquires it before it returns.
+
+
+820
+00:56:10,850 --> 00:56:15,800
+Okay, so what that means is that if there were a bunch of readers,
+
+
+821
+00:56:15,800 --> 00:56:17,750
+there's one byte written to just return to a pipe
+
+
+822
+00:56:17,750 --> 00:56:19,550
+and a bunch of readers that all woken up,
+
+
+823
+00:56:19,550 --> 00:56:22,100
+one of them will succeed,
+
+
+824
+00:56:22,220 --> 00:56:26,510
+one of the sleep, so one of the threads will succeed in acquiring this lock,
+
+
+825
+00:56:27,000 --> 00:56:30,000
+the others will be waiting and sleep spinning, waiting for the lock,
+
+
+826
+00:56:30,270 --> 00:56:33,600
+that one lucky process sleep will return,
+
+
+827
+00:56:33,600 --> 00:56:34,560
+it will come back to this check
+
+
+828
+00:56:34,560 --> 00:56:38,040
+and you know p->nwrite is one larger than nread,
+
+
+829
+00:56:38,160 --> 00:56:40,140
+so its data read it will fall out of the loop,
+
+
+830
+00:56:40,140 --> 00:56:41,370
+will read the one byte
+
+
+831
+00:56:41,520 --> 00:56:42,840
+and now there's nothing in the buffer,
+
+
+832
+00:56:43,020 --> 00:56:45,540
+release the lock, and return,
+
+
+833
+00:56:45,600 --> 00:56:48,180
+and now the next thread that was woken up,
+
+
+834
+00:56:48,660 --> 00:56:52,410
+it's sleep will be able to reacquire the condition lock,
+
+
+835
+00:56:52,590 --> 00:56:57,350
+it's sleep will return, it will return, recheck the loop condition,
+
+
+836
+00:56:57,350 --> 00:57:00,860
+but now nread is equal to nwrite,
+
+
+837
+00:57:01,040 --> 00:57:04,700
+and so that thread and any other thread waiting will go back to sleep,
+
+
+838
+00:57:04,880 --> 00:57:07,010
+this is again just to reinforce,
+
+
+839
+00:57:07,010 --> 00:57:13,190
+why almost every maybe every call to sleep has to be wrapped in a loop that re-checks the condition.
+
+
+840
+00:57:18,360 --> 00:57:22,350
+Questions about the way sleep pipes, use sleep.
+
+
+841
+00:57:33,670 --> 00:57:34,810
+Alright, ,
+
+
+842
+00:57:35,650 --> 00:57:40,300
+the sleeping wakeup interfacing rules are a little bit complex .
+
+
+843
+00:57:41,420 --> 00:57:44,870
+Because you have to reveal a bit to sleep about what you're waiting for,
+
+
+844
+00:57:44,870 --> 00:57:50,360
+you have to tell the lock and follow some rules which is sometimes annoying.
+
+
+845
+00:57:50,630 --> 00:57:53,480
+On the other hand, sleep and wakeup pretty flexible partially,
+
+
+846
+00:57:53,480 --> 00:57:56,450
+because they don't actually have to understand the condition itself,
+
+
+847
+00:57:56,630 --> 00:57:59,030
+that just has to be a condition and be a lock,
+
+
+848
+00:57:59,270 --> 00:58:03,110
+there are other schemes that are somewhat higher level,
+
+
+849
+00:58:03,290 --> 00:58:07,760
+there's other coordination seems like the semaphores you read about in the reading for today,
+
+
+850
+00:58:08,000 --> 00:58:11,030
+in which the interface is slightly less complex,
+
+
+851
+00:58:11,030 --> 00:58:13,700
+like the semaphores, you don't have to tell the semaphore about a lock.
+
+
+852
+00:58:15,100 --> 00:58:19,000
+And the caller to semaphore doesn't have to worry about lost wakeups,
+
+
+853
+00:58:19,030 --> 00:58:21,010
+internally the implementation of the semaphore,
+
+
+854
+00:58:21,160 --> 00:58:23,830
+again as you saw in the reading for today,
+
+
+855
+00:58:23,830 --> 00:58:28,120
+the internal implementation of semaphores worries about lost wakeup.
+
+
+856
+00:58:28,120 --> 00:58:33,070
+So, because the interface is specialized to these up down counters,
+
+
+857
+00:58:34,560 --> 00:58:38,040
+the need to deal with lost wakeup doesn't [leak] through into the interface,
+
+
+858
+00:58:38,640 --> 00:58:40,770
+so that semaphores are somewhat simpler,
+
+
+859
+00:58:40,770 --> 00:58:41,910
+although they're less general,
+
+
+860
+00:58:42,180 --> 00:58:45,420
+if you don't, if you have a count,
+
+
+861
+00:58:45,420 --> 00:58:46,710
+you're not waiting for count,
+
+
+862
+00:58:46,710 --> 00:58:51,730
+then semaphores are not necessarily going to be super helpful for you.
+
+
+863
+00:58:52,240 --> 00:58:56,470
+So that that causes me to claim that sleep and wake up a little more general.
+
+
+864
+00:59:00,440 --> 00:59:01,970
+Alright .
+
+
+865
+00:59:02,980 --> 00:59:05,230
+So with sleep and wakeup under our belts,
+
+
+866
+00:59:05,290 --> 00:59:10,180
+I want to talk about one more kind of challenge that xv6 faces,
+
+
+867
+00:59:10,180 --> 00:59:11,860
+that's actually related to sleep and wakeup
+
+
+868
+00:59:12,880 --> 00:59:15,970
+and that's how to shut down threads ,
+
+
+869
+00:59:16,000 --> 00:59:18,910
+every threading system, the threads eventually need to exit
+
+
+870
+00:59:18,910 --> 00:59:22,090
+and we need to clean up their state free their stack,
+
+
+871
+00:59:22,300 --> 00:59:31,200
+on xv6, when a process exits, we need to free its user memory and free its page table and free its trap frame,
+
+
+872
+00:59:31,410 --> 00:59:36,780
+mark the process the slot in the process table as a reusable.
+
+
+873
+00:59:37,140 --> 00:59:39,390
+So, these are sort of typical cleanup requirements
+
+
+874
+00:59:39,390 --> 00:59:48,010
+is a bunch of stuff that has to be freed when threads exit or, or killed.
+
+
+875
+00:59:48,190 --> 00:59:53,830
+So, but there's two big problems that arise here with thread exit or killing threads,
+
+
+876
+00:59:53,830 --> 00:59:55,900
+one is that we can't just reach out,
+
+
+877
+00:59:55,900 --> 01:00:01,360
+we can't usually just reach out and unilaterally destroy another thread ,
+
+
+878
+01:00:01,780 --> 01:00:07,270
+the problem is that other thread may actually be currently executing on another core and using its stack
+
+
+879
+01:00:07,270 --> 01:00:11,170
+and maybe about to save its registers in its struct context or whatever,
+
+
+880
+01:00:11,530 --> 01:00:15,100
+the other thread if it's in the kernel maybe holding locks,
+
+
+881
+01:00:15,100 --> 01:00:19,450
+it may be in the middle of some complicated update to a kernel data structure,
+
+
+882
+01:00:19,780 --> 01:00:22,000
+and if we simply somehow shoot down the thread
+
+
+883
+01:00:22,000 --> 01:00:23,650
+and stop it dead in its [tracks],
+
+
+884
+01:00:23,770 --> 01:00:28,840
+then it may have gotten halfway through a delicate update to some kernel data,
+
+
+885
+01:00:29,050 --> 01:00:31,120
+but we shot it down before it completed.
+
+
+886
+01:00:31,920 --> 01:00:34,080
+Um, so.
+
+
+887
+01:00:34,810 --> 01:00:38,560
+We can't afford any of those things to happen,
+
+
+888
+01:00:39,820 --> 01:00:43,810
+another problem is that even if a thread calls exit
+
+
+889
+01:00:43,810 --> 01:00:46,180
+and sort of decided for its not killed,
+
+
+890
+01:00:46,180 --> 01:00:48,280
+but decided for itself that it wants to quit,
+
+
+891
+01:00:49,180 --> 01:00:52,090
+it has resources that it uses while executes
+
+
+892
+01:00:52,090 --> 01:00:55,600
+like its stack, for example and its slot in the process table,
+
+
+893
+01:00:55,810 --> 01:01:02,670
+and while it's still executing, it, it may not be able to free up the resources that is still using.
+
+
+894
+01:01:03,800 --> 01:01:07,100
+So we need a way for threads to ,
+
+
+895
+01:01:07,190 --> 01:01:08,720
+for those last few resources,
+
+
+896
+01:01:08,720 --> 01:01:10,790
+that are critical to execution to somehow be freed,
+
+
+897
+01:01:10,790 --> 01:01:14,450
+even though the thread needs them, even just execute any code at all.
+
+
+898
+01:01:16,560 --> 01:01:18,690
+Okay, so keep these two problems in mind,
+
+
+899
+01:01:18,780 --> 01:01:26,840
+xv6 actually has two, two things that are related to shutting down threads or processes,
+
+
+900
+01:01:26,930 --> 01:01:28,700
+one is exit and the other is kill.
+
+
+901
+01:01:28,730 --> 01:01:30,350
+So let's look at exit first.
+
+
+902
+01:01:31,160 --> 01:01:33,560
+I look at the code for exit in proc.c.
+
+
+903
+01:01:34,810 --> 01:01:38,780
+This is what the exit system call calls,
+
+
+904
+01:01:41,480 --> 01:01:44,150
+and you know what exit has to do in the end,
+
+
+905
+01:01:44,150 --> 01:01:46,490
+we know sort of from the outside from the interface,
+
+
+906
+01:01:46,490 --> 01:01:49,550
+that it's gonna free up the process memory and page tables,
+
+
+907
+01:01:49,550 --> 01:01:51,170
+got to close its open files
+
+
+908
+01:01:51,740 --> 01:01:54,050
+and we also know that there's this wait call,
+
+
+909
+01:01:54,050 --> 01:01:56,030
+that the parent may be making, making
+
+
+910
+01:01:56,030 --> 01:02:00,710
+and exit has to eventually cause the parent to be woken up as well
+
+
+911
+01:02:01,580 --> 01:02:06,260
+and so we're going to look for all these things in the, in the exit code.
+
+
+912
+01:02:06,710 --> 01:02:09,140
+So you can see some of this stuff,
+
+
+913
+01:02:09,140 --> 01:02:12,320
+like exit specifically closes the open files,
+
+
+914
+01:02:12,320 --> 01:02:13,820
+and this might actually be quite complex,
+
+
+915
+01:02:13,820 --> 01:02:17,150
+because the files or file system files closing them,
+
+
+916
+01:02:17,150 --> 01:02:19,250
+actually involves things like reference, counting.
+
+
+917
+01:02:21,070 --> 01:02:22,120
+And we haven't gotten there yet,
+
+
+918
+01:02:22,120 --> 01:02:22,780
+but we'll see that.
+
+
+919
+01:02:24,030 --> 01:02:25,140
+This takes a fair amount of work,
+
+
+920
+01:02:25,140 --> 01:02:29,610
+but a process goes ahead and closes when you call exit, closes its own files.
+
+
+921
+01:02:30,950 --> 01:02:32,840
+And it also does something similar,
+
+
+922
+01:02:32,840 --> 01:02:36,710
+it has a record of the current working directory,
+
+
+923
+01:02:36,710 --> 01:02:38,540
+which is what's changed when you call cd,
+
+
+924
+01:02:38,540 --> 01:02:43,130
+and it needs to to sort of release that reference into the file system.
+
+
+925
+01:02:43,750 --> 01:02:48,700
+Then there's some other horrible stuff that happens that's related to the fact,
+
+
+926
+01:02:48,700 --> 01:02:53,650
+that if a process exits but it has children of its own,
+
+
+927
+01:02:54,200 --> 01:02:59,120
+those children are inherited by the init process,
+
+
+928
+01:02:59,150 --> 01:03:01,430
+because as it turns out, we'll see in a few minutes,
+
+
+929
+01:03:01,430 --> 01:03:07,070
+that every process that exits there has to be a corresponding wait from a parent,
+
+
+930
+01:03:07,070 --> 01:03:11,230
+that actually finishes up some of the steps in exiting
+
+
+931
+01:03:11,920 --> 01:03:15,610
+and so if I exit my children they need to be waited, for,
+
+
+932
+01:03:15,610 --> 01:03:17,080
+I was their parent, I'm not going to wait for them,
+
+
+933
+01:03:17,080 --> 01:03:20,500
+because I've exited, and so there's a stretch of code here
+
+
+934
+01:03:20,500 --> 01:03:24,730
+and exit that is re-parenting the exiting processes children,
+
+
+935
+01:03:24,730 --> 01:03:26,200
+so that their parents of init,
+
+
+936
+01:03:26,200 --> 01:03:27,820
+which is process id one.
+
+
+937
+01:03:29,970 --> 01:03:33,780
+And then finally, a process wakes up its own parent,
+
+
+938
+01:03:34,170 --> 01:03:36,780
+which might be waiting and sleeping and wait.
+
+
+939
+01:03:39,500 --> 01:03:43,840
+And, sets its state to the zombie state,
+
+
+940
+01:03:44,950 --> 01:03:46,000
+it turns out we haven't,
+
+
+941
+01:03:46,580 --> 01:03:47,480
+but we'll see in a moment,
+
+
+942
+01:03:47,480 --> 01:03:51,680
+but the process hasn't completely finished releasing all of its resources,
+
+
+943
+01:03:52,040 --> 01:03:54,830
+so it's not quite ready to be reused,
+
+
+944
+01:03:55,190 --> 01:03:57,080
+we want to end up in a position,
+
+
+945
+01:03:57,080 --> 01:04:01,730
+where the process can be and all its state can be reused by a fork,
+
+
+946
+01:04:02,000 --> 01:04:04,670
+by some other fork that's unrelated right.
+
+
+947
+01:04:05,100 --> 01:04:06,630
+But we're not quite there yet,
+
+
+948
+01:04:06,750 --> 01:04:08,820
+and we'll see why in a moment,
+
+
+949
+01:04:08,820 --> 01:04:10,680
+we set the state to zombie,
+
+
+950
+01:04:11,760 --> 01:04:14,940
+and then we're not done yet,
+
+
+951
+01:04:14,940 --> 01:04:16,470
+we haven't freed the process,
+
+
+952
+01:04:16,530 --> 01:04:19,410
+we just jump into the scheduler,
+
+
+953
+01:04:20,200 --> 01:04:25,880
+without having completely finished freeing our resources.
+
+
+954
+01:04:27,730 --> 01:04:28,630
+Okay.
+
+
+955
+01:04:29,440 --> 01:04:31,300
+So the story here continues,
+
+
+956
+01:04:31,330 --> 01:04:34,210
+this point zombie process won't be run ,
+
+
+957
+01:04:34,210 --> 01:04:36,700
+the scheduler only runs runnable processes,
+
+
+958
+01:04:36,700 --> 01:04:38,890
+so this process isn't quite free,
+
+
+959
+01:04:38,920 --> 01:04:40,870
+because that would be state equals unused,
+
+
+960
+01:04:40,990 --> 01:04:42,730
+but it's definitely not going to run again,
+
+
+961
+01:04:42,760 --> 01:04:43,930
+because in state zombie,
+
+
+962
+01:04:43,930 --> 01:04:47,980
+so resistant to the scheduler, scheduler now runs something else,
+
+
+963
+01:04:49,740 --> 01:04:53,460
+we know from the sort of description of exit and wait,
+
+
+964
+01:04:53,520 --> 01:04:56,940
+in Unix that, if a process exits,
+
+
+965
+01:04:56,940 --> 01:05:00,330
+then if its parent calls wait ,
+
+
+966
+01:05:00,330 --> 01:05:03,480
+the wait that wait is going to return to signal to the parent,
+
+
+967
+01:05:03,480 --> 01:05:05,790
+that one of its children is exited,
+
+
+968
+01:05:05,970 --> 01:05:08,010
+so we can look for the implementation of wait.
+
+
+969
+01:05:12,770 --> 01:05:16,940
+Also, here is the big loop, this implementation of wait,
+
+
+970
+01:05:16,940 --> 01:05:21,230
+but really what's going on is that when a process calls wait,
+
+
+971
+01:05:21,680 --> 01:05:23,990
+it scans the process table,
+
+
+972
+01:05:25,560 --> 01:05:31,380
+looking for processes whose parent is the current process.
+
+
+973
+01:05:34,400 --> 01:05:39,350
+And in particular looking for processes whose parent is the current process and in state zombie,
+
+
+974
+01:05:39,380 --> 01:05:42,110
+that is they've gotten that far,
+
+
+975
+01:05:42,110 --> 01:05:45,230
+in in exit or almost finished exiting.
+
+
+976
+01:05:47,280 --> 01:05:49,980
+So now we found this called a wait to the wait system calls,
+
+
+977
+01:05:49,980 --> 01:05:52,500
+found a child process that has exited.
+
+
+978
+01:05:54,930 --> 01:06:02,190
+And, I don't know if you remember exit can return this 32 bit exit status,
+
+
+979
+01:06:02,190 --> 01:06:04,710
+to the parents of the next bunch of code collects that,
+
+
+980
+01:06:05,040 --> 01:06:08,970
+and then it's the parent that calls freeproc,
+
+
+981
+01:06:09,300 --> 01:06:13,290
+which does the final steps in freeing up process's resources,
+
+
+982
+01:06:13,380 --> 01:06:14,730
+so we'll look at freeproc.
+
+
+983
+01:06:15,670 --> 01:06:19,030
+And this is the final shutdown of stuff, that would be quite awkward,
+
+
+984
+01:06:19,030 --> 01:06:23,500
+if the if the exiting process itself freed while it was executing,
+
+
+985
+01:06:24,520 --> 01:06:28,720
+it freezes trapframe, freeze the user page table ,
+
+
+986
+01:06:29,260 --> 01:06:32,770
+and if we freed kernel stacks,
+
+
+987
+01:06:32,800 --> 01:06:37,540
+the process's existing process's kernel stack would be freed here also,
+
+
+988
+01:06:37,810 --> 01:06:46,080
+but because of the stack guard, kernel stack stack guard page is we don't actually ever turns out,
+
+
+989
+01:06:46,080 --> 01:06:49,680
+we don't free whenever free the kernel stacks,
+
+
+990
+01:06:50,280 --> 01:06:53,940
+but all the stuff that would be a sort of potentially a pain to free in the exit,
+
+
+991
+01:06:54,520 --> 01:06:57,970
+while the exiting process is running is freed by the parent.
+
+
+992
+01:07:00,610 --> 01:07:03,520
+One thing to notice here is that wait ,
+
+
+993
+01:07:04,170 --> 01:07:06,750
+wait is not just for the convenience of parents
+
+
+994
+01:07:06,750 --> 01:07:09,150
+that want to know when their when their children have exited,
+
+
+995
+01:07:09,390 --> 01:07:12,780
+wait is actually critical piece of the exit process
+
+
+996
+01:07:12,780 --> 01:07:21,240
+and you really in Unix, it's just a requirement that there be a wait that corresponds to every exiting process
+
+
+997
+01:07:21,240 --> 01:07:25,800
+and that's really the reason why when a process exits its children
+
+
+998
+01:07:26,040 --> 01:07:28,050
+are sort of given away to init,
+
+
+999
+01:07:28,630 --> 01:07:31,120
+they're turning to init children,
+
+
+1000
+01:07:31,240 --> 01:07:35,260
+when init does just calls wait in a loop,
+
+
+1001
+01:07:35,500 --> 01:07:37,780
+because every process has to be waited for,
+
+
+1002
+01:07:37,780 --> 01:07:42,880
+so that the parent can call freeproc and finish freeing up resources
+
+
+1003
+01:07:42,880 --> 01:07:44,230
+and then when it's completely done,
+
+
+1004
+01:07:44,860 --> 01:07:50,410
+it sets if the parents done freeing all the exit processes resources,
+
+
+1005
+01:07:51,040 --> 01:07:53,470
+sets that child state unused,
+
+
+1006
+01:07:53,470 --> 01:07:59,890
+now fork, and you know some future called a fork can reuse that process slot.
+
+
+1007
+01:08:03,760 --> 01:08:04,660
+Any questions?
+
+
+1008
+01:08:07,890 --> 01:08:10,770
+Oh, I have a question about sleep,
+
+
+1009
+01:08:10,920 --> 01:08:16,320
+so in sleep where we are .
+
+
+1010
+01:08:17,500 --> 01:08:19,720
+Yeah, so when we are,
+
+
+1011
+01:08:20,860 --> 01:08:23,390
+oh, sorry not sleep , exit.
+
+
+1012
+01:08:23,390 --> 01:08:24,500
+I want say exit, yeah.
+
+
+1013
+01:08:28,340 --> 01:08:38,740
+Yeah, so why are we, why are we grabbing original parent before we reparent, is that necessary.
+
+
+1014
+01:08:42,000 --> 01:08:47,900
+This is [grim] code, that's wrestling with the possibility
+
+
+1015
+01:08:47,960 --> 01:08:54,530
+that a process and its parent may exit at the same time.
+
+
+1016
+01:08:55,670 --> 01:09:03,510
+And there's some, even though ordinarily just nothing interesting going on process exits,
+
+
+1017
+01:09:03,810 --> 01:09:05,970
+its parent waits for it, everything's fine,
+
+
+1018
+01:09:06,780 --> 01:09:09,390
+but it could be that parent, that a process exits
+
+
+1019
+01:09:09,480 --> 01:09:11,460
+and its parent process exits at the same time
+
+
+1020
+01:09:11,460 --> 01:09:16,230
+and so while we're trying to wake up our parent to tell we've exited,
+
+
+1021
+01:09:16,260 --> 01:09:17,940
+that parent is itself exiting.
+
+
+1022
+01:09:18,460 --> 01:09:21,700
+And a lot of this code here,
+
+
+1023
+01:09:22,420 --> 01:09:28,080
+which I feel I kind of understood a year ago, but don't any longer understand ,
+
+
+1024
+01:09:28,110 --> 01:09:33,420
+is about taking care of this rare case of concurrent exits of a parent and child.
+
+
+1025
+01:09:33,960 --> 01:09:36,240
+And if it weren't for that,
+
+
+1026
+01:09:36,330 --> 01:09:39,780
+it would all be extremely straightforward a parent, the process would have a parent
+
+
+1027
+01:09:39,930 --> 01:09:43,110
+and it would just wake up its parent at this point.
+
+
+1028
+01:09:45,660 --> 01:09:51,170
+And, we wouldn't if it weren't for concurrent exits a parent and child.
+
+
+1029
+01:09:51,780 --> 01:09:54,420
+The child could just wake up its parent period.
+
+
+1030
+01:09:54,450 --> 01:09:56,010
+Okay, I see, thank you.
+
+
+1031
+01:09:56,040 --> 01:09:58,170
+Sorry to not really be explaining here.
+
+
+1032
+01:09:59,510 --> 01:10:00,830
+I have a quick question,
+
+
+1033
+01:10:01,370 --> 01:10:07,550
+so why are we setting the process state to zombie after we wake up the parent,
+
+
+1034
+01:10:07,700 --> 01:10:09,620
+we want to do that before.
+
+
+1035
+01:10:09,860 --> 01:10:15,450
+Oh yeah, it turns out because we've acquired the,
+
+
+1036
+01:10:16,170 --> 01:10:19,710
+the existing processes that required its own process lock,
+
+
+1037
+01:10:19,980 --> 01:10:22,230
+the parent can't look at this process.
+
+
+1038
+01:10:22,760 --> 01:10:25,850
+And we've acquired our own lock here
+
+
+1039
+01:10:25,850 --> 01:10:27,020
+and then we're going to call sched,
+
+
+1040
+01:10:27,020 --> 01:10:34,160
+the parent, is parents wait acquires p-> requires the child's lock, which is p->lock
+
+
+1041
+01:10:34,550 --> 01:10:39,860
+and so that means that between this acquire and when after we call sched
+
+
+1042
+01:10:39,860 --> 01:10:43,280
+and the scheduler thread releases this p->lock,
+
+
+1043
+01:10:43,340 --> 01:10:48,280
+the parent can't look at this process in this block of code.
+
+
+1044
+01:10:48,310 --> 01:10:48,790
+Okay.
+
+
+1045
+01:10:48,940 --> 01:10:51,490
+So the order of this stuff doesn't matter,
+
+
+1046
+01:10:51,490 --> 01:10:54,710
+indeed if we didn't have the lockup,
+
+
+1047
+01:10:55,350 --> 01:10:56,880
+it's possible some other,
+
+
+1048
+01:10:57,240 --> 01:11:03,790
+well, in most situations, no order would work if we didn't hold the lock.
+
+
+1049
+01:11:06,530 --> 01:11:09,620
+Anyway, yeah because we hold a lock, that the order doesn't matter,
+
+
+1050
+01:11:09,620 --> 01:11:10,760
+because the parent can't look.
+
+
+1051
+01:11:11,120 --> 01:11:11,930
+That makes sense.
+
+
+1052
+01:11:19,020 --> 01:11:20,190
+Okay, um.
+
+
+1053
+01:11:21,980 --> 01:11:26,810
+Okay, so the trick here is the trick I wanted to emphasize was that,
+
+
+1054
+01:11:29,150 --> 01:11:33,200
+to a great extent, actually the child doesn't,
+
+
+1055
+01:11:33,620 --> 01:11:35,660
+in the end, the child doesnt free all its resources,
+
+
+1056
+01:11:35,660 --> 01:11:37,790
+because it can't because it's still using the while executes
+
+
+1057
+01:11:37,790 --> 01:11:47,270
+and instead some other thread, namely the parent does the freeing of the delicate resources that are required for execution,
+
+
+1058
+01:11:47,780 --> 01:11:50,060
+so that's sort of a trick to allow us
+
+
+1059
+01:11:50,060 --> 01:11:53,810
+to that greatly simplify exit.
+
+
+1060
+01:11:56,080 --> 01:11:57,520
+Okay, .
+
+
+1061
+01:11:58,080 --> 01:12:00,270
+The last thing I want to look at is kill,
+
+
+1062
+01:12:00,690 --> 01:12:04,290
+so that you know the kill system call ,
+
+
+1063
+01:12:04,290 --> 01:12:08,250
+one process in Unix can call that make the kill system call,
+
+
+1064
+01:12:08,520 --> 01:12:11,040
+passes the process id of a different process
+
+
+1065
+01:12:11,280 --> 01:12:16,920
+and the goal is that that should cause that other process, the target process to stop executing.
+
+
+1066
+01:12:17,510 --> 01:12:20,030
+And if we're not careful,
+
+
+1067
+01:12:20,030 --> 01:12:23,750
+you know this risks especially if other processes executing in the kernel,
+
+
+1068
+01:12:24,560 --> 01:12:28,370
+this risk is probably mentioned a few minutes ago,
+
+
+1069
+01:12:28,370 --> 01:12:31,640
+where gosh that you know the kernel thread of the process,
+
+
+1070
+01:12:31,640 --> 01:12:34,340
+you're trying to kill might might in the middle of updating something,
+
+
+1071
+01:12:34,340 --> 01:12:37,190
+you know updating the file system, creating a file, for example
+
+
+1072
+01:12:37,250 --> 01:12:40,190
+and we can't just kill it dead on the spot,
+
+
+1073
+01:12:40,190 --> 01:12:45,710
+because that would leave some delicate multi step operation only halfway completed.
+
+
+1074
+01:12:46,200 --> 01:12:51,930
+Now, so we know that kill can't really just stop the target process,
+
+
+1075
+01:12:52,350 --> 01:12:56,850
+and indeed in xv6 and the Unix as well,
+
+
+1076
+01:12:56,970 --> 01:13:00,090
+killed does almost absolutely nothing,
+
+
+1077
+01:13:01,050 --> 01:13:04,800
+it scans the process table looking for the target process id
+
+
+1078
+01:13:04,860 --> 01:13:11,110
+and just sets this flag in that processes process structure.
+
+
+1079
+01:13:12,000 --> 01:13:16,140
+And also, if it was sleeping, calls to be runnable,
+
+
+1080
+01:13:16,140 --> 01:13:17,400
+so to wake up from sleep,
+
+
+1081
+01:13:17,400 --> 01:13:19,080
+but all it does is set this flag,
+
+
+1082
+01:13:19,110 --> 01:13:23,610
+it doesn't stop the other process from executing or anything like it.
+
+
+1083
+01:13:26,490 --> 01:13:29,910
+Kill itself very gentle,
+
+
+1084
+01:13:30,790 --> 01:13:37,690
+the game is that the target process at points in the kernel code
+
+
+1085
+01:13:37,690 --> 01:13:40,420
+where it would be safe to stop executing.
+
+
+1086
+01:13:41,170 --> 01:13:45,100
+The other process checks its own killed flag,
+
+
+1087
+01:13:45,130 --> 01:13:51,580
+and if it's set the other process sort of voluntarily exits, calls this exit function
+
+
+1088
+01:13:52,240 --> 01:13:56,300
+and you can see some of those points at trap.c,
+
+
+1089
+01:13:56,690 --> 01:14:00,560
+in fact you can see all the points trap.c ,
+
+
+1090
+01:14:01,400 --> 01:14:04,100
+so if were in user trap in a system call,
+
+
+1091
+01:14:04,430 --> 01:14:06,590
+before actually executing the system call,
+
+
+1092
+01:14:06,620 --> 01:14:08,570
+if the process has already been killed
+
+
+1093
+01:14:08,840 --> 01:14:11,810
+or if kill has been called for this process,
+
+
+1094
+01:14:12,050 --> 01:14:14,510
+then the process calls exit and goes away.
+
+
+1095
+01:14:15,180 --> 01:14:18,030
+And this is a point in the kernel where it's not holding any locks,
+
+
+1096
+01:14:18,030 --> 01:14:19,740
+it's not in the middle of doing anything,
+
+
+1097
+01:14:20,190 --> 01:14:25,050
+and so it's completely safe for the process to just quit and call exit.
+
+
+1098
+01:14:26,230 --> 01:14:31,450
+And there's a similar check, at the end of user trap.
+
+
+1099
+01:14:33,920 --> 01:14:39,360
+So after a system call, the process also checks if it's being killed
+
+
+1100
+01:14:39,420 --> 01:14:47,610
+and indeed this code here, executes even if the process is interrupted by an interrupt,
+
+
+1101
+01:14:47,610 --> 01:14:49,890
+so for example the timer interrupt goes off,
+
+
+1102
+01:14:50,160 --> 01:14:55,140
+then this code will execute and we'll see that the process has been killed
+
+
+1103
+01:14:55,140 --> 01:14:56,430
+and then the process will exit.
+
+
+1104
+01:14:59,350 --> 01:15:00,970
+And so what, that means is
+
+
+1105
+01:15:00,970 --> 01:15:05,320
+that the what kill means kill the meaning of kill,
+
+
+1106
+01:15:05,320 --> 01:15:09,100
+the effective kill is not exactly stop the other process right now.
+
+
+1107
+01:15:09,650 --> 01:15:10,820
+It's much more like,
+
+
+1108
+01:15:11,030 --> 01:15:14,900
+well you know if the process other processes in user space,
+
+
+1109
+01:15:14,900 --> 01:15:17,420
+then the next time it makes a system call,
+
+
+1110
+01:15:18,500 --> 01:15:19,610
+it will exit
+
+
+1111
+01:15:20,300 --> 01:15:26,240
+or the next time a timer interrupt goes off while executing user code in the target process,
+
+
+1112
+01:15:26,360 --> 01:15:29,060
+if it's interrupted by a timer interrupt or some other interrupt,
+
+
+1113
+01:15:29,210 --> 01:15:30,920
+then it will also exit.
+
+
+1114
+01:15:30,920 --> 01:15:35,150
+So there might be a significant delay, between when one process calls kill
+
+
+1115
+01:15:35,750 --> 01:15:38,480
+and when the other process actually exits.
+
+
+1116
+01:15:39,440 --> 01:15:42,620
+And that's just the way it is .
+
+
+1117
+01:15:44,420 --> 01:15:49,490
+There's a sort of intermediate question though if the process is not in use, it's own user space,
+
+
+1118
+01:15:49,490 --> 01:15:51,350
+but is in the middle of a system call,
+
+
+1119
+01:15:53,180 --> 01:15:54,320
+and it's killed,
+
+
+1120
+01:15:54,650 --> 01:15:56,240
+do we need to do anything special.
+
+
+1121
+01:15:57,110 --> 01:15:59,840
+The reason why this may come up is,
+
+
+1122
+01:15:59,840 --> 01:16:03,540
+suppose the process is reading from the console, right,
+
+
+1123
+01:16:03,600 --> 01:16:05,550
+you know reading for the next character you type,
+
+
+1124
+01:16:05,550 --> 01:16:07,830
+you may not type another character until tomorrow.
+
+
+1125
+01:16:08,440 --> 01:16:11,380
+And it would be nice if when you kill the process,
+
+
+1126
+01:16:11,380 --> 01:16:14,020
+it actually went away before tomorrow.
+
+
+1127
+01:16:15,970 --> 01:16:23,710
+And for that reason, in a number of points in xv6 in which a process is sleeping.
+
+
+1128
+01:16:24,320 --> 01:16:29,420
+xv6 actually arranges that if it's killed while sleeping in the kernel ,
+
+
+1129
+01:16:29,990 --> 01:16:31,580
+it will actually exit.
+
+
+1130
+01:16:31,730 --> 01:16:33,920
+So, let me show you the machinery for that,
+
+
+1131
+01:16:34,760 --> 01:16:37,340
+the first thing to look at is and kill itself.
+
+
+1132
+01:16:39,020 --> 01:16:43,160
+You can see that if the target process is sleeping,
+
+
+1133
+01:16:43,720 --> 01:16:45,640
+then kill will set state to runnable
+
+
+1134
+01:16:45,940 --> 01:16:50,070
+and that'll mean that even if it had called sleep, the scheduler will now run it
+
+
+1135
+01:16:50,100 --> 01:16:52,320
+and it will simply return from sleep.
+
+
+1136
+01:16:52,800 --> 01:16:56,850
+And so let's look at a place where that actually matters,
+
+
+1137
+01:16:56,850 --> 01:17:02,010
+in the pipe code, if a process is in sleep waiting to read a pipe.
+
+
+1138
+01:17:05,190 --> 01:17:08,970
+And it's killed kill set to runnable return from sleep,
+
+
+1139
+01:17:09,060 --> 01:17:10,770
+go back to the top of this loop,
+
+
+1140
+01:17:11,310 --> 01:17:14,190
+probably if there was no data in the pipe before the pi-,
+
+
+1141
+01:17:14,190 --> 01:17:15,630
+still be no data in the pipe,
+
+
+1142
+01:17:15,780 --> 01:17:21,720
+and now piperead at least checks whether the process has been killed
+
+
+1143
+01:17:21,840 --> 01:17:22,890
+and if it has been killed,
+
+
+1144
+01:17:22,890 --> 01:17:28,410
+instead of sleeping again, the piperead will return return an error, doesn't really matter,
+
+
+1145
+01:17:28,440 --> 01:17:33,540
+but we're returning to is this syscall,
+
+
+1146
+01:17:33,540 --> 01:17:35,880
+since we're in a system call ,
+
+
+1147
+01:17:36,400 --> 01:17:41,230
+where pipe really returns to in the end is returns from the system call ,
+
+
+1148
+01:17:41,470 --> 01:17:45,310
+and then user trap checks p->killed again
+
+
+1149
+01:17:45,430 --> 01:17:46,300
+and will now exit.
+
+
+1150
+01:17:46,810 --> 01:17:52,370
+So for, sleeps that we know it's OK,
+
+
+1151
+01:17:52,700 --> 01:17:55,280
+to just bail out of when a process is killed,
+
+
+1152
+01:17:55,640 --> 01:17:58,310
+those loop's check the killed flag,
+
+
+1153
+01:17:58,340 --> 01:18:01,610
+but there are also sleeps where it would not be okay,
+
+
+1154
+01:18:02,060 --> 01:18:05,120
+for a process to quit if it's killed in that sleep.
+
+
+1155
+01:18:05,990 --> 01:18:10,580
+So, for example if a process is in the middle of updating the file system on disk
+
+
+1156
+01:18:10,580 --> 01:18:11,750
+to create a new file
+
+
+1157
+01:18:11,930 --> 01:18:14,450
+that is it bad time,
+
+
+1158
+01:18:14,600 --> 01:18:16,520
+even if it's sleeping waiting for the disk,
+
+
+1159
+01:18:16,520 --> 01:18:19,970
+that's a bad time for a process to just decide to quit,
+
+
+1160
+01:18:19,970 --> 01:18:20,720
+because it's been killed,
+
+
+1161
+01:18:20,720 --> 01:18:23,120
+we want to finish the complete file system operation,
+
+
+1162
+01:18:23,240 --> 01:18:25,460
+and only then have the process exit,
+
+
+1163
+01:18:25,790 --> 01:18:27,230
+and so you can see this,
+
+
+1164
+01:18:27,350 --> 01:18:33,200
+we've looked at this, but I'll show you in the [disk driver] .
+
+
+1165
+01:18:33,960 --> 01:18:35,820
+An example of a sleep loop,
+
+
+1166
+01:18:35,880 --> 01:18:37,380
+that doesn't check killed,
+
+
+1167
+01:18:37,590 --> 01:18:38,520
+look at that,
+
+
+1168
+01:18:40,720 --> 01:18:48,230
+so here we are, this is the sleep in which they process waits for the disk to finish reading a disk block,
+
+
+1169
+01:18:48,290 --> 01:18:50,060
+and it absolutely doesn't check killed.
+
+
+1170
+01:18:50,750 --> 01:18:53,360
+Because it wants to finish it,
+
+
+1171
+01:18:53,360 --> 01:18:54,860
+maybe in the middle of creating a file,
+
+
+1172
+01:18:54,860 --> 01:18:56,870
+which involves multiple disk reads and writes,
+
+
+1173
+01:18:57,020 --> 01:18:59,420
+want to finish the entire file system operation,
+
+
+1174
+01:18:59,600 --> 01:19:03,770
+the entire system call and only then check pl->killed and exit.
+
+
+1175
+01:19:06,990 --> 01:19:08,280
+Questions about anything.
+
+
+1176
+01:19:10,820 --> 01:19:15,290
+I have a question about why kill allowed in the way it it,
+
+
+1177
+01:19:15,530 --> 01:19:21,790
+why wouldn't the process kill all the other processes if you can run, oh, by itself.
+
+
+1178
+01:19:25,140 --> 01:19:29,460
+Well, you know you do that MIT on a theme of time sharing machine will probably kick you out of school.
+
+
+1179
+01:19:31,490 --> 01:19:34,820
+Right, but why is it allowed.
+
+
+1180
+01:19:34,940 --> 01:19:39,950
+It's allowed xv6, because xv6 is a toy operating system,
+
+
+1181
+01:19:39,950 --> 01:19:51,820
+that it just the anything that has to do with like permissions just doesn't exist in xv6,
+
+
+1182
+01:19:52,360 --> 01:19:54,610
+in Linux or a real operating system,
+
+
+1183
+01:19:55,150 --> 01:20:02,650
+every process has a user id that corresponds to the more or less to the human user who's executing the process
+
+
+1184
+01:20:02,710 --> 01:20:10,030
+and some system calls use the user id of the process to kind of check, what is the process allowed to do this,
+
+
+1185
+01:20:10,450 --> 01:20:15,760
+and so in Linux, you would see a extra check here,
+
+
+1186
+01:20:15,790 --> 01:20:21,250
+that said that the calling process has to have the same user id,
+
+
+1187
+01:20:21,340 --> 01:20:24,700
+as the process is trying to kill otherwise it's not allowed.
+
+
+1188
+01:20:25,730 --> 01:20:28,490
+And that, at least in a time sharing context,
+
+
+1189
+01:20:29,170 --> 01:20:32,320
+we have multiple users and we don't want them to kill each other's processes,
+
+
+1190
+01:20:32,410 --> 01:20:39,040
+that's more or less sufficient to keep people from make it hard for people to kill other people's processes.
+
+
+1191
+01:20:41,090 --> 01:20:42,320
+Okay I see, thank you.
+
+
+1192
+01:20:45,400 --> 01:20:47,740
+Does init process ever exit.
+
+
+1193
+01:20:48,770 --> 01:20:50,210
+Let me check.
+
+
+1194
+01:20:54,430 --> 01:20:57,580
+Yes, if fork fails, exit,
+
+
+1195
+01:20:57,640 --> 01:21:00,610
+however the real answer to the question is no ,
+
+
+1196
+01:21:00,610 --> 01:21:03,430
+the intent is that init never exit,
+
+
+1197
+01:21:03,760 --> 01:21:05,110
+they just sit in this loop
+
+
+1198
+01:21:05,500 --> 01:21:09,950
+and what is doing is calling wait over and over again,
+
+
+1199
+01:21:10,340 --> 01:21:15,800
+if init exits I think that's a fatal error in the system will crash .
+
+
+1200
+01:21:16,360 --> 01:21:19,330
+There's code somewhere in the kernel, it says may be in exit.
+
+
+1201
+01:21:19,940 --> 01:21:20,870
+Just check exit.
+
+
+1202
+01:21:30,240 --> 01:21:33,150
+Yeah, here we are, exit, at the beginning of exit,
+
+
+1203
+01:21:33,330 --> 01:21:37,230
+if it looks like the current process is the init process, it's a panic.
+
+
+1204
+01:21:37,860 --> 01:21:41,690
+Because, this system would eventually [grind] to a halt,
+
+
+1205
+01:21:41,690 --> 01:21:42,710
+if there were no init,
+
+
+1206
+01:21:42,740 --> 01:21:48,380
+because then there would be nothing collect nothing to call wait on these exiting processes
+
+
+1207
+01:21:48,380 --> 01:21:50,690
+and nothing to complete the freeing of the processes
+
+
+1208
+01:21:50,690 --> 01:21:52,400
+and gradually we run out of processes,
+
+
+1209
+01:21:52,400 --> 01:21:55,810
+and then that would be some other error.
+
+
+1210
+01:21:56,940 --> 01:21:58,230
+We have to have init.
+
+
+1211
+01:21:58,700 --> 01:22:01,430
+So the real answer is that no, one it really can't be allowed to exit,
+
+
+1212
+01:22:02,260 --> 01:22:02,980
+better not exit.
+
+
+1213
+01:22:08,750 --> 01:22:09,290
+Okay.
+
+
+1214
+01:22:12,580 --> 01:22:13,480
+Any other questions?
+
+
+1215
+01:22:16,280 --> 01:22:18,500
+Um, it's another question ,
+
+
+1216
+01:22:18,770 --> 01:22:22,160
+so, we haven't really talked about much in this class yet,
+
+
+1217
+01:22:22,160 --> 01:22:27,460
+but look what happens or what needs to happen to shut down the OS.
+
+
+1218
+01:22:28,480 --> 01:22:29,380
+[Got unplugged].
+
+
+1219
+01:22:30,840 --> 01:22:31,320
+Okay.
+
+
+1220
+01:22:31,350 --> 01:22:32,310
+Okay.
+
+
+1221
+01:22:32,340 --> 01:22:33,360
+Yeah.
+
+
+1222
+01:22:33,870 --> 01:22:36,270
+Yeah, this is very complex,
+
+
+1223
+01:22:36,270 --> 01:22:37,740
+and it depends on what you're running,
+
+
+1224
+01:22:37,740 --> 01:22:41,990
+if you're, if the operating if the machine is currently doing nothing,
+
+
+1225
+01:22:42,650 --> 01:22:49,640
+well, part of the answer the question is that the file system ends up being,
+
+
+1226
+01:22:50,610 --> 01:22:53,130
+because the file system is permanent,
+
+
+1227
+01:22:53,430 --> 01:22:56,970
+you know the file system is carried over from reboot to reboot.
+
+
+1228
+01:22:57,790 --> 01:23:00,940
+We need to leave the file system in good shape,
+
+
+1229
+01:23:01,060 --> 01:23:06,130
+so if we were in the middle of some update to the file system like creating a file,
+
+
+1230
+01:23:06,160 --> 01:23:09,910
+then we want to shut the system down or the power fails or something,
+
+
+1231
+01:23:09,910 --> 01:23:13,090
+we absolutely need a strategy to make sure that,
+
+
+1232
+01:23:14,340 --> 01:23:17,010
+even though we were in the middle of some complex update to the file system,
+
+
+1233
+01:23:17,010 --> 01:23:19,680
+that we don't leave it in the file system in a state,
+
+
+1234
+01:23:20,010 --> 01:23:25,950
+we don't expose any broken invariance in the on disk file system structures,
+
+
+1235
+01:23:26,100 --> 01:23:29,100
+because the files isn't really just a data structure, that lives on disk.
+
+
+1236
+01:23:29,750 --> 01:23:32,720
+So there's like a lot of,
+
+
+1237
+01:23:33,320 --> 01:23:35,990
+that's sort of machinery involved in making sure that
+
+
+1238
+01:23:35,990 --> 01:23:38,900
+if you shut down or the power fails or who knows what that,
+
+
+1239
+01:23:39,170 --> 01:23:43,670
+the disk can, that we can recover the file system on disk.
+
+
+1240
+01:23:45,030 --> 01:23:46,620
+For the rest [though], it's not for that,
+
+
+1241
+01:23:49,100 --> 01:23:52,700
+then, whether you have to do anything special to shutdown
+
+
+1242
+01:23:52,730 --> 01:23:55,100
+depends on what processes you're running,
+
+
+1243
+01:23:55,190 --> 01:23:57,050
+if you're running some important server,
+
+
+1244
+01:23:57,050 --> 01:24:03,560
+a database server that a lot of other computers depend on and use over the network who knows,
+
+
+1245
+01:24:03,800 --> 01:24:06,530
+the answer may be that you just cannot be allowed to shut down,
+
+
+1246
+01:24:06,530 --> 01:24:10,490
+because you're providing a service that's critical to a bunch of other computers.
+
+
+1247
+01:24:11,080 --> 01:24:12,850
+If your computer is not doing much of anything.
+
+
+1248
+01:24:15,200 --> 01:24:16,760
+Then you can just turn it off
+
+
+1249
+01:24:16,940 --> 01:24:21,180
+and it will stop executing and there's not much to do,
+
+
+1250
+01:24:21,270 --> 01:24:23,280
+really, may be the answer to your question is,
+
+
+1251
+01:24:24,360 --> 01:24:25,410
+if you want to shut down the computer,
+
+
+1252
+01:24:25,410 --> 01:24:27,270
+make sure the file system is in good shape
+
+
+1253
+01:24:27,300 --> 01:24:30,270
+and then stop executing instructions and that's fine.
+
+
+1254
+01:24:31,730 --> 01:24:32,240
+Good.
+
+
+1255
+01:24:32,240 --> 01:24:34,010
+That makes sense, yeah, thank you.
+
+
+1256
+01:24:37,090 --> 01:24:37,930
+Anything else?
+
+
+1257
+01:24:41,980 --> 01:24:44,020
+Oh, sorry, I have another question,
+
+
+1258
+01:24:44,020 --> 01:24:50,000
+so what is this semaphore interface. About p and v.
+
+
+1259
+01:24:53,330 --> 01:24:57,080
+So just to just those two functions.
+
+
+1260
+01:24:57,650 --> 01:24:59,360
+Um, yeah.
+
+
+1261
+01:25:00,100 --> 01:25:02,470
+Yeah, xv6 doesn't have semaphores really,
+
+
+1262
+01:25:02,470 --> 01:25:05,110
+but you know the books semaphores, I think it's just p and v,
+
+
+1263
+01:25:05,170 --> 01:25:09,310
+there are two methods you have a semaphore object has two methods p and v.
+
+
+1264
+01:25:11,010 --> 01:25:13,080
+Okay I see, thank you.
+
+
+1265
+01:25:13,110 --> 01:25:13,560
+Sure.
+
+
+1266
+01:25:20,600 --> 01:25:21,410
+Anything else.
+
+
+1267
+01:25:25,170 --> 01:25:25,830
+Alright.
+
+
