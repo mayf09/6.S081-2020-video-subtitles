@@ -1,0 +1,6860 @@
+1
+00:00:00,330 --> 00:00:03,360
+Yeah we're not so good.
+
+
+2
+00:00:06,650 --> 00:00:08,090
+Good, how about Erica,
+
+
+3
+00:00:08,800 --> 00:00:11,590
+how's the lazy lab for you.
+
+
+4
+00:00:12,040 --> 00:00:13,630
+I also thought it was okay
+
+
+5
+00:00:13,630 --> 00:00:16,810
+and I also had a bug with the copyin and copyout ,
+
+
+6
+00:00:16,810 --> 00:00:18,490
+but I got that result,
+
+
+7
+00:00:18,490 --> 00:00:20,110
+so yeah.
+
+
+8
+00:00:20,700 --> 00:00:22,290
+I think is one of those tricky cases
+
+
+9
+00:00:22,290 --> 00:00:24,420
+that you might not think about when you start programming.
+
+
+10
+00:00:26,390 --> 00:00:28,490
+But, luckily usertests will find it for you.
+
+
+11
+00:00:33,180 --> 00:00:34,950
+The, Caroline.
+
+
+12
+00:00:37,580 --> 00:00:39,050
+The lab is going good ,
+
+
+13
+00:00:39,080 --> 00:00:41,060
+I haven't finished yet actually.
+
+
+14
+00:00:41,960 --> 00:00:44,990
+Okay, I worry about copyin, I guess.
+
+
+15
+00:00:45,110 --> 00:00:46,070
+I.
+
+
+16
+00:00:52,560 --> 00:00:54,090
+How about Kendall Garner.
+
+
+17
+00:00:55,920 --> 00:00:58,680
+I think for the most part of the,
+
+
+18
+00:00:58,770 --> 00:01:01,440
+it was not too bad for me,
+
+
+19
+00:01:01,440 --> 00:01:07,020
+probably the weirdest coverage was trying to figure out when it went below bounds of the stack.
+
+
+20
+00:01:08,760 --> 00:01:09,690
+Yeah.
+
+
+21
+00:01:10,370 --> 00:01:12,080
+Yeah you do the guard page basically.
+
+
+22
+00:01:16,760 --> 00:01:17,360
+Good.
+
+
+23
+00:01:18,810 --> 00:01:22,020
+Okay, well it's about time to get started.
+
+
+24
+00:01:22,820 --> 00:01:27,620
+So welcome to the next lecture, in the 6.S081,
+
+
+25
+00:01:27,740 --> 00:01:29,660
+wherever you are, whatever time zone.
+
+
+26
+00:01:31,540 --> 00:01:33,400
+So today's lecture is locks.
+
+
+27
+00:01:33,940 --> 00:01:37,870
+Yeah you probably have seen locks in previous classes,
+
+
+28
+00:01:38,050 --> 00:01:42,130
+or at least being in touch with them in some way or another,
+
+
+29
+00:01:42,130 --> 00:01:44,890
+and so this lecture a little bit of a conceptual lecture,
+
+
+30
+00:01:44,890 --> 00:01:47,950
+may overlap a little bit with some things you've seen before
+
+
+31
+00:01:47,950 --> 00:01:52,150
+for locks will have a little bit more of a kernel and OS focus.
+
+
+32
+00:01:52,560 --> 00:01:54,120
+And that changes a couple things.
+
+
+33
+00:01:54,750 --> 00:01:56,970
+Just to get started,
+
+
+34
+00:01:57,000 --> 00:01:59,970
+let's remind ourselves why we need locks,
+
+
+35
+00:02:00,060 --> 00:02:03,060
+you know I guess the starting point is really that
+
+
+36
+00:02:03,060 --> 00:02:07,170
+applications well, want do you use multiple cores.
+
+
+37
+00:02:12,190 --> 00:02:14,230
+They want to use multiple cores to get performance.
+
+
+38
+00:02:17,040 --> 00:02:18,480
+And so if an application actually,
+
+
+39
+00:02:18,480 --> 00:02:21,990
+want to run on multiple cores
+
+
+40
+00:02:21,990 --> 00:02:26,370
+and [presumably] wants the cores are part of the application may invoke system calls
+
+
+41
+00:02:26,580 --> 00:02:28,710
+and so the kernel must be able to handle,
+
+
+42
+00:02:31,320 --> 00:02:32,880
+was handed parallel system calls.
+
+
+43
+00:02:45,440 --> 00:02:50,630
+And that means that you know the system calls run in parallel on different cores,
+
+
+44
+00:02:50,900 --> 00:02:54,850
+they may actually access shared data structures.
+
+
+45
+00:02:58,360 --> 00:02:59,650
+The instructions in parallel.
+
+
+46
+00:03:04,390 --> 00:03:05,830
+And as you've seen by now,
+
+
+47
+00:03:05,830 --> 00:03:09,490
+actually xv6 ask quite a number of shared data structures
+
+
+48
+00:03:09,580 --> 00:03:11,050
+what's the proc structures
+
+
+49
+00:03:11,050 --> 00:03:13,780
+or, you know [ticks]
+
+
+50
+00:03:13,780 --> 00:03:17,860
+or you know later we'll see the buffer cache,
+
+
+51
+00:03:17,860 --> 00:03:20,170
+you know there's actually a ton of shared data structures.
+
+
+52
+00:03:20,960 --> 00:03:26,150
+And so if you have parallel access, you know to a data structure
+
+
+53
+00:03:26,150 --> 00:03:28,880
+in one of the cores are write there
+
+
+54
+00:03:28,880 --> 00:03:29,870
+and the other cores are read
+
+
+55
+00:03:29,870 --> 00:03:35,090
+or you know we basically locks to coordinate these updates due to shared data structure,
+
+
+56
+00:03:35,090 --> 00:03:37,430
+so that on readers see consistent view.
+
+
+57
+00:03:38,310 --> 00:03:39,570
+So we need locks,
+
+
+58
+00:03:41,070 --> 00:03:42,000
+you know to,
+
+
+59
+00:03:43,320 --> 00:03:46,840
+therefore, control sharing, for correct sharing.
+
+
+60
+00:03:52,010 --> 00:03:55,310
+Now, now this is sometimes a little bit of a [bummer].
+
+
+61
+00:03:55,860 --> 00:03:59,070
+Because we want these parallel access,
+
+
+62
+00:03:59,460 --> 00:04:05,340
+we run multiple consistent calls in parallel on different cores,
+
+
+63
+00:04:05,700 --> 00:04:09,450
+but unfortunately, if they share data structures,
+
+
+64
+00:04:09,450 --> 00:04:10,500
+you know they need locks
+
+
+65
+00:04:10,500 --> 00:04:13,620
+and locks, you know serialize basically operations
+
+
+66
+00:04:13,920 --> 00:04:17,160
+and so in fact they were locks in the end can limit performance.
+
+
+67
+00:04:27,320 --> 00:04:28,910
+And so we're sort of in a tricky situation,
+
+
+68
+00:04:28,910 --> 00:04:31,070
+where you know for correctness, we need locks,
+
+
+69
+00:04:31,070 --> 00:04:33,590
+you know, but for performance, they're not good.
+
+
+70
+00:04:34,600 --> 00:04:37,420
+But you know there's going to be a fact of life
+
+
+71
+00:04:37,420 --> 00:04:40,750
+and we'll see what can do about it.
+
+
+72
+00:04:41,300 --> 00:04:44,480
+But that's sort of the top level scenario here
+
+
+73
+00:04:44,750 --> 00:04:48,620
+and you know maybe just to really you know brings this point,
+
+
+74
+00:04:48,620 --> 00:04:51,710
+why do applications actually want multiple cores
+
+
+75
+00:04:51,920 --> 00:04:54,650
+and that really has to do with your technology trends,
+
+
+76
+00:04:54,650 --> 00:04:56,480
+you know over the last couple decades.
+
+
+77
+00:04:56,900 --> 00:04:59,330
+And you know there's sort of this classic graphs,
+
+
+78
+00:04:59,330 --> 00:05:00,620
+that sort of make these points,
+
+
+79
+00:05:00,830 --> 00:05:02,990
+so let me pull up one of them,
+
+
+80
+00:05:02,990 --> 00:05:04,730
+there's a little bit of a complicated graph,
+
+
+81
+00:05:04,730 --> 00:05:10,670
+you know there's here's, on the x axis and y axis,
+
+
+82
+00:05:10,670 --> 00:05:15,500
+there's you know units or different types of units depending on which line we're looking at.
+
+
+83
+00:05:16,140 --> 00:05:17,670
+But the thing that really look at,
+
+
+84
+00:05:17,670 --> 00:05:22,440
+it is that, what has happened in the last couple years,
+
+
+85
+00:05:22,440 --> 00:05:24,690
+the last decades is that.
+
+
+86
+00:05:25,260 --> 00:05:26,940
+So starting in the two thousands,
+
+
+87
+00:05:26,940 --> 00:05:30,690
+that the clock frequency hasn't really increased any more.
+
+
+88
+00:05:31,320 --> 00:05:35,920
+So basically this has plateaued, constant.
+
+
+89
+00:05:37,000 --> 00:05:42,700
+And as a result, basically single thread performance of core
+
+
+90
+00:05:42,700 --> 00:05:47,980
+also basically has reached limit you know plateau.
+
+
+91
+00:05:52,060 --> 00:05:53,980
+And yet on the other hand,
+
+
+92
+00:05:53,980 --> 00:05:58,630
+given of cores the number of transistors still has been increasing over the same time period,
+
+
+93
+00:05:58,990 --> 00:06:02,980
+so if you can like you use transistors to make a single core would run faster,
+
+
+94
+00:06:03,250 --> 00:06:06,400
+yeah the only other option basically have to have multiple cores
+
+
+95
+00:06:06,400 --> 00:06:10,570
+and you see indeed that starting from 2001 or from nearly 2000 ,
+
+
+96
+00:06:10,570 --> 00:06:11,860
+the number of cores has gone off.
+
+
+97
+00:06:13,500 --> 00:06:15,570
+And so there's an application wants more performance,
+
+
+98
+00:06:15,900 --> 00:06:18,630
+you know, you [can] rely on a single core,
+
+
+99
+00:06:18,630 --> 00:06:20,640
+basically half through exploiting multiple cores.
+
+
+100
+00:06:21,170 --> 00:06:25,460
+And also, this means if an application is you know kernel intensive or less intensive,
+
+
+101
+00:06:25,460 --> 00:06:29,330
+you know a server then that means that
+
+
+102
+00:06:29,330 --> 00:06:33,950
+the operating system also has to be, run efficiently on multiple cores.
+
+
+103
+00:06:34,740 --> 00:06:35,970
+So that's the main reason,
+
+
+104
+00:06:36,330 --> 00:06:42,600
+you know, we're very interested in parallelism within the kernel.
+
+
+105
+00:06:45,120 --> 00:06:46,320
+Any questions about this?
+
+
+106
+00:06:52,020 --> 00:06:55,050
+Okay, I've assume I I assume that you've seen some of these graphs before,
+
+
+107
+00:06:55,050 --> 00:06:56,580
+but it's good to remind us
+
+
+108
+00:06:56,580 --> 00:06:58,560
+what the starting point of all the discussion is.
+
+
+109
+00:07:00,660 --> 00:07:01,500
+So why locks.
+
+
+110
+00:07:02,960 --> 00:07:04,280
+You already hinted at this,
+
+
+111
+00:07:04,280 --> 00:07:07,400
+you know, therefore correctness ,
+
+
+112
+00:07:07,400 --> 00:07:12,080
+if we have you know readers and writers are accessing shared data structure
+
+
+113
+00:07:12,440 --> 00:07:14,270
+and you know the thing that goes wrong,
+
+
+114
+00:07:14,270 --> 00:07:16,880
+is we want to avoid race conditions.
+
+
+115
+00:07:23,830 --> 00:07:25,000
+If you don't have locks,
+
+
+116
+00:07:25,150 --> 00:07:26,230
+you know we run the risk,
+
+
+117
+00:07:26,260 --> 00:07:27,670
+you know we have shared data structures,
+
+
+118
+00:07:27,670 --> 00:07:33,250
+that we're going to have, we're going to have race conditions
+
+
+119
+00:07:33,250 --> 00:07:37,330
+and it turns out that in race conditions are pretty annoying,
+
+
+120
+00:07:37,420 --> 00:07:41,620
+so justly first got a little bit of sense of what it actually is,
+
+
+121
+00:07:41,770 --> 00:07:46,120
+let's look at the let's create a race condition in xv6
+
+
+122
+00:07:46,120 --> 00:07:47,980
+and sort of see how it actually shows up
+
+
+123
+00:07:47,980 --> 00:07:50,020
+and then understand like what actually happened.
+
+
+124
+00:07:51,100 --> 00:07:58,370
+Alright, so here's the function kfree in kalloc.c.
+
+
+125
+00:07:58,370 --> 00:08:00,140
+You know this is the function that frees,
+
+
+126
+00:08:00,500 --> 00:08:02,750
+after you free page, it pushes on the free list,
+
+
+127
+00:08:02,810 --> 00:08:05,420
+there's kernel has a very simple data structure
+
+
+128
+00:08:05,420 --> 00:08:07,190
+to keep the free list of all free pages.
+
+
+129
+00:08:07,700 --> 00:08:11,120
+So that when kalloc needs to pay attention grabbing from the freelist.
+
+
+130
+00:08:11,620 --> 00:08:17,230
+Next you see here, goes allocation has one .
+
+
+131
+00:08:19,500 --> 00:08:21,660
+The memory allocator has one lock kmem lock
+
+
+132
+00:08:22,020 --> 00:08:24,780
+and here it actually updates the free list
+
+
+133
+00:08:25,080 --> 00:08:29,310
+[with in] page that just has been freed or the argument free.
+
+
+134
+00:08:29,880 --> 00:08:33,990
+So we're going to do is like just comment out these two acquire release,
+
+
+135
+00:08:33,990 --> 00:08:37,680
+that basically mark you know the acquiring of the lock,
+
+
+136
+00:08:37,680 --> 00:08:38,790
+and then releasing the lock,
+
+
+137
+00:08:38,790 --> 00:08:41,760
+you know and so this, this, this, this piece of code
+
+
+138
+00:08:41,760 --> 00:08:44,010
+that's in the middle that used to be,
+
+
+139
+00:08:44,400 --> 00:08:48,150
+there's not more is not being executed anymore and atomically.
+
+
+140
+00:08:54,100 --> 00:08:55,840
+So let's do that,
+
+
+141
+00:08:56,910 --> 00:09:02,310
+and then run QEMU,
+
+
+142
+00:09:02,340 --> 00:09:03,330
+so compile it.
+
+
+143
+00:09:05,300 --> 00:09:09,290
+And before I run it, you know notice actually we already booted
+
+
+144
+00:09:09,380 --> 00:09:14,150
+and actually presumably, we have made some calls probably to kfree,
+
+
+145
+00:09:14,450 --> 00:09:17,510
+you probably as you know, and so if things seem to be working fine.
+
+
+146
+00:09:18,070 --> 00:09:19,630
+So let's run usertests.
+
+
+147
+00:09:20,260 --> 00:09:22,870
+And maybe you know this instinct to think a little bit about this
+
+
+148
+00:09:22,870 --> 00:09:25,870
+and what do you expect, will this work well does not work.
+
+
+149
+00:09:28,920 --> 00:09:30,120
+Anybody who tried it out.
+
+
+150
+00:09:33,070 --> 00:09:36,640
+I think it could potentially lose some pages,
+
+
+151
+00:09:36,640 --> 00:09:38,500
+but maybe will not,
+
+
+152
+00:09:38,590 --> 00:09:41,970
+because maybe a race condition wouldn't occur.
+
+
+153
+00:09:42,120 --> 00:09:46,170
+Yeah, so one of the things is that these we face conditions they might not happen,
+
+
+154
+00:09:46,170 --> 00:09:48,330
+so let's run the usertests and see actually what happens.
+
+
+155
+00:09:51,820 --> 00:09:53,320
+So here we started up.
+
+
+156
+00:09:54,360 --> 00:09:55,560
+It'll take a little while,
+
+
+157
+00:09:55,560 --> 00:09:56,790
+as you might complain a little bit,
+
+
+158
+00:09:56,790 --> 00:09:59,310
+because you know, runnint a lot of,
+
+
+159
+00:10:00,940 --> 00:10:02,590
+there are a lot of load on my machine here correct,
+
+
+160
+00:10:02,590 --> 00:10:07,060
+as you probably know the QEMU simulating [three] of cores here
+
+
+161
+00:10:07,060 --> 00:10:09,100
+and the discrete cores might run in parallel.
+
+
+162
+00:10:11,830 --> 00:10:15,580
+And so far so good, we're starting to pass tests.
+
+
+163
+00:10:21,470 --> 00:10:22,430
+That's a little bit slower,
+
+
+164
+00:10:22,430 --> 00:10:24,200
+because I'm running zoom at the same time.
+
+
+165
+00:10:26,920 --> 00:10:30,280
+Let's wait a couple more and just to see what's going on.
+
+
+166
+00:10:43,070 --> 00:10:45,320
+Okay, well .
+
+
+167
+00:10:46,290 --> 00:10:48,420
+Let's just go back to the slides
+
+
+168
+00:10:48,420 --> 00:10:50,580
+and then we'll check back in a little while
+
+
+169
+00:10:50,580 --> 00:10:52,020
+and see what actually happens.
+
+
+170
+00:10:52,860 --> 00:10:57,330
+But it was pointed out in these race conditions may appear, may not appear, right,
+
+
+171
+00:10:57,330 --> 00:11:01,590
+because it's always the case that every core or every time we call kfree,
+
+
+172
+00:11:02,040 --> 00:11:08,820
+these two lines are executed atomically as they would have done with the lock,
+
+
+173
+00:11:08,970 --> 00:11:10,530
+then there's no problem,
+
+
+174
+00:11:10,530 --> 00:11:14,940
+the only problem is if we two threads two processes are executed at the same time
+
+
+175
+00:11:15,000 --> 00:11:16,110
+and somebody comes in between.
+
+
+176
+00:11:17,140 --> 00:11:19,420
+Look at this, actually while I'm talking,
+
+
+177
+00:11:19,420 --> 00:11:21,010
+we see actually there is a panic
+
+
+178
+00:11:21,040 --> 00:11:23,920
+and so there's some race condition that can actually cause a panic.
+
+
+179
+00:11:24,940 --> 00:11:27,970
+Rather race conditions that will show up
+
+
+180
+00:11:27,970 --> 00:11:31,480
+as indeed this as mentioned whereas mentioned
+
+
+181
+00:11:31,480 --> 00:11:33,910
+that will show up as not enough,
+
+
+182
+00:11:34,030 --> 00:11:36,070
+some free pages where some pages get lost,
+
+
+183
+00:11:36,100 --> 00:11:38,650
+so basically usertests runs fine until the very end,
+
+
+184
+00:11:38,770 --> 00:11:44,890
+where complaints saying well you lost some pages during all using, all of the [round] usertests.
+
+
+185
+00:11:45,600 --> 00:11:48,870
+Okay, so these race conditions can show up in different ways,
+
+
+186
+00:11:48,930 --> 00:11:50,460
+they may happen, they may not happen.
+
+
+187
+00:11:51,120 --> 00:11:53,520
+Clearly something happened here ,
+
+
+188
+00:11:53,760 --> 00:11:57,750
+let's try to understand you know what actually, what goes wrong.
+
+
+189
+00:12:00,420 --> 00:12:02,370
+Back to the slides.
+
+
+190
+00:12:06,400 --> 00:12:09,040
+So you know the picture, you should have in your head,
+
+
+191
+00:12:09,040 --> 00:12:12,250
+like if there's just multiple cores that were running.
+
+
+192
+00:12:13,070 --> 00:12:14,480
+So your CPU zero,
+
+
+193
+00:12:14,810 --> 00:12:16,880
+CPU zero is executing instructions.
+
+
+194
+00:12:17,470 --> 00:12:19,600
+And CPU one is executing instructions.
+
+
+195
+00:12:21,210 --> 00:12:24,750
+And they're both connected through a memory,
+
+
+196
+00:12:24,960 --> 00:12:27,720
+if you're back think back about the [scheme] schematics,
+
+
+197
+00:12:27,720 --> 00:12:29,250
+you know we showed a couple times before,
+
+
+198
+00:12:29,550 --> 00:12:31,770
+in fact there's a DRAM controller,
+
+
+199
+00:12:31,770 --> 00:12:36,150
+you know that actually connects, you know, to the DRAM chips,
+
+
+200
+00:12:36,450 --> 00:12:38,100
+where all the [stages] living,
+
+
+201
+00:12:38,800 --> 00:12:40,420
+or all the memories living.
+
+
+202
+00:12:41,370 --> 00:12:43,440
+I'm gonna make that memory a little bit bigger, bigger whatever.
+
+
+203
+00:12:46,030 --> 00:12:47,230
+Have some place to draw
+
+
+204
+00:12:47,260 --> 00:12:53,820
+and so basically our freelist, you know lives in, in memory,
+
+
+205
+00:12:54,180 --> 00:12:56,670
+and let's say there's a freelist with two pages on it.
+
+
+206
+00:12:59,060 --> 00:13:07,670
+And you know both, both CPUs gonna call kfree roughly at the same time.
+
+
+207
+00:13:13,460 --> 00:13:15,440
+Okay, so look a little bit at the code, again,
+
+
+208
+00:13:15,440 --> 00:13:18,110
+just to make sure that we have running in our heads,
+
+
+209
+00:13:18,110 --> 00:13:19,400
+so we look at kfree,
+
+
+210
+00:13:19,790 --> 00:13:24,080
+you know get passing some pa, physical address,
+
+
+211
+00:13:24,350 --> 00:13:28,130
+that we're gonna use to actually hook up into the freelist.
+
+
+212
+00:13:29,000 --> 00:13:35,750
+So you know CPU zero has a you know r,
+
+
+213
+00:13:36,770 --> 00:13:41,000
+and that's pointing to some you know free page
+
+
+214
+00:13:41,540 --> 00:13:46,490
+and maybe yeah and CPU, one has one,
+
+
+215
+00:13:47,080 --> 00:13:49,090
+we actually use another color for CPU one.
+
+
+216
+00:13:49,660 --> 00:13:53,590
+So CPU knows r always pointing to some page,
+
+
+217
+00:13:53,590 --> 00:13:55,540
+you know that we want to hook into the freelist.
+
+
+218
+00:13:56,450 --> 00:13:57,050
+Makes sense?
+
+
+219
+00:13:59,050 --> 00:14:01,210
+And so you know we're looking back at the code,
+
+
+220
+00:14:01,240 --> 00:14:04,180
+you know the first thing they do is
+
+
+221
+00:14:04,180 --> 00:14:08,500
+you know update r->next pointer to point to the [key] to the freelist.
+
+
+222
+00:14:09,210 --> 00:14:13,830
+So let's assume you know that CPU one runs first
+
+
+223
+00:14:14,250 --> 00:14:17,730
+and you know what it will do is will put its pointer,
+
+
+224
+00:14:18,550 --> 00:14:24,400
+you know to the beginning of the yeah wherever freelist pointed to.
+
+
+225
+00:14:25,090 --> 00:14:28,660
+If you know CPU on runs exactly at the same time,
+
+
+226
+00:14:28,990 --> 00:14:37,270
+then, you know, it could run before CPU zero executes the second instruction,
+
+
+227
+00:14:37,570 --> 00:14:39,040
+so it actually might do the same thing,
+
+
+228
+00:14:39,040 --> 00:14:41,260
+it might actually also run that first instruction
+
+
+229
+00:14:41,560 --> 00:14:54,420
+and update , and update the pointer to [two],
+
+
+230
+00:14:54,420 --> 00:14:58,200
+So both r you know one from CPU one, and from CPU zero,
+
+
+231
+00:14:58,200 --> 00:15:00,390
+one CPU one are pointing to the beginning of the freelist
+
+
+232
+00:15:00,390 --> 00:15:03,330
+and the list is also pointing to the beginning of the freelist.
+
+
+233
+00:15:03,930 --> 00:15:07,020
+So now there are two remaining instructions that are being executed in parallel.
+
+
+234
+00:15:07,730 --> 00:15:08,960
+So we go back again,
+
+
+235
+00:15:09,020 --> 00:15:12,500
+you know the code, the remaining instruction is being executed
+
+
+236
+00:15:12,500 --> 00:15:14,630
+is actually updating the freelist to point to r.
+
+
+237
+00:15:14,900 --> 00:15:15,860
+You know.
+
+
+238
+00:15:17,040 --> 00:15:22,830
+And so, you know CPU zero one going to execute these instructions may be exactly the same,
+
+
+239
+00:15:22,830 --> 00:15:24,780
+yeah roughly at the same time,
+
+
+240
+00:15:24,810 --> 00:15:26,070
+but one is gonna go first, correct,
+
+
+241
+00:15:26,070 --> 00:15:27,870
+there's only one single shared memory
+
+
+242
+00:15:28,260 --> 00:15:30,210
+and so one update is going to go first
+
+
+243
+00:15:30,270 --> 00:15:31,710
+and the other one is gonna go second.
+
+
+244
+00:15:32,290 --> 00:15:34,630
+So let's say CPU one goes first.
+
+
+245
+00:15:35,240 --> 00:15:36,620
+I know what will then happen,
+
+
+246
+00:15:36,620 --> 00:15:38,090
+well the CPO what goes first,
+
+
+247
+00:15:38,090 --> 00:15:40,750
+freelist can be pointing to its r, right.
+
+
+248
+00:15:42,200 --> 00:15:46,910
+And then CPU two runs, so now CPU runs actually instruction
+
+
+249
+00:15:47,210 --> 00:15:48,740
+and so what is going to do,
+
+
+250
+00:15:48,770 --> 00:15:52,610
+it is going to actually update freelist to point.
+
+
+251
+00:15:55,340 --> 00:15:56,750
+So here's a freelist.
+
+
+252
+00:15:58,000 --> 00:16:02,580
+And it's actually going point to r they actually passed in.
+
+
+253
+00:16:03,230 --> 00:16:05,300
+And so you know we have a setting now, correct,
+
+
+254
+00:16:05,300 --> 00:16:08,480
+we're we've lost basically one page.
+
+
+255
+00:16:10,880 --> 00:16:16,580
+Or you know that actually CPU zero actually free, actually ended up not being on the freelist at all,
+
+
+256
+00:16:16,970 --> 00:16:18,320
+so we lost the page.
+
+
+257
+00:16:22,680 --> 00:16:25,800
+And as one you know bad particular outcome,
+
+
+258
+00:16:25,800 --> 00:16:27,600
+of course there could be more bad outcomes,
+
+
+259
+00:16:27,600 --> 00:16:30,690
+because there could be more CPU actually trying to do this freelist,
+
+
+260
+00:16:31,020 --> 00:16:33,720
+they may observe the one of the [male giraffe],
+
+
+261
+00:16:33,720 --> 00:16:37,800
+the freelist pointing temporarily to CPU zero's r,
+
+
+262
+00:16:38,040 --> 00:16:39,840
+and so we start using that,
+
+
+263
+00:16:40,110 --> 00:16:44,670
+while then immediately the freelist updated by a second CPU,
+
+
+264
+00:16:44,700 --> 00:16:48,780
+so that more CPU evolved presumably we could actually get more bizarre outcomes
+
+
+265
+00:16:48,780 --> 00:16:50,340
+than just the last page.
+
+
+266
+00:16:52,310 --> 00:16:53,120
+Does this make sense?
+
+
+267
+00:16:55,750 --> 00:16:56,800
+Any questions?
+
+
+268
+00:17:04,820 --> 00:17:06,170
+Okay, um.
+
+
+269
+00:17:07,220 --> 00:17:10,100
+So do we, you know ask you know the code does,
+
+
+270
+00:17:10,100 --> 00:17:15,140
+you know the way to address this a way in a very common way,
+
+
+271
+00:17:15,440 --> 00:17:19,190
+is to address this problem is to use a lock.
+
+
+272
+00:17:19,970 --> 00:17:23,210
+So let me talk a little bit about locks in more detail.
+
+
+273
+00:17:26,860 --> 00:17:30,130
+So what is the lock abstraction.
+
+
+274
+00:17:32,480 --> 00:17:34,640
+Well, now it is just an object,
+
+
+275
+00:17:34,640 --> 00:17:37,520
+like any other sort of object in the kernel
+
+
+276
+00:17:37,730 --> 00:17:41,450
+and anyone else has in fact there's something called struct lock.
+
+
+277
+00:17:41,960 --> 00:17:45,680
+You know, that has some fields, you know to maintain state about locks,
+
+
+278
+00:17:46,010 --> 00:17:49,460
+and it has a pretty straightforward API,
+
+
+279
+00:17:49,460 --> 00:17:51,760
+you know there's acquired,
+
+
+280
+00:17:51,760 --> 00:17:55,030
+in fact there are only two calls into this abstraction,
+
+
+281
+00:17:55,450 --> 00:18:03,490
+which require which takes to a pointer to lock struct
+
+
+282
+00:18:03,790 --> 00:18:11,450
+and release you know that actually also takes a pointer lock struct,
+
+
+283
+00:18:11,810 --> 00:18:14,000
+to basically update you know the lock object.
+
+
+284
+00:18:14,900 --> 00:18:18,890
+And basically the rule of lock and the rule here is that ,
+
+
+285
+00:18:20,020 --> 00:18:25,420
+the require enforces this following rule,
+
+
+286
+00:18:25,420 --> 00:18:33,160
+that only one process you know can enter or can acquire the lock.
+
+
+287
+00:18:37,950 --> 00:18:44,400
+So any particular point of time, they're only going to be one process that is able to actually successfully acquire the lock
+
+
+288
+00:18:44,730 --> 00:18:48,150
+and the other process that basically trying to acquired lock at the same time,
+
+
+289
+00:18:48,180 --> 00:18:51,000
+has to wait until the first process actually calls release.
+
+
+290
+00:18:52,560 --> 00:18:56,340
+And so this sequence, you know the instructions,
+
+
+291
+00:18:56,340 --> 00:19:01,020
+you know between the acquire release, are often called the critical section.
+
+
+292
+00:19:07,720 --> 00:19:09,970
+And one reason is called the critical section is because
+
+
+293
+00:19:09,970 --> 00:19:13,570
+this is sort of the the [] instruction together to do the
+
+
+294
+00:19:13,600 --> 00:19:17,560
+you know need to do the update to r, whatever shared data structure,
+
+
+295
+00:19:17,560 --> 00:19:20,170
+that's protected by the lock in an atomic fashion.
+
+
+296
+00:19:21,090 --> 00:19:22,920
+And ensures that basically,
+
+
+297
+00:19:23,460 --> 00:19:27,870
+if you have multiple instructions in this you know between acquire release,
+
+
+298
+00:19:27,870 --> 00:19:32,550
+but they all are executed all together or none.
+
+
+299
+00:19:33,800 --> 00:19:38,270
+So there's never a case, these instructions in the critical section are interleaved
+
+
+300
+00:19:38,480 --> 00:19:40,430
+as in the way that we saw in the race conditions
+
+
+301
+00:19:40,910 --> 00:19:43,850
+and actually exactly, that is what boards these race conditions.
+
+
+302
+00:19:48,190 --> 00:19:50,020
+Any questions about the lock abstraction?
+
+
+303
+00:19:55,220 --> 00:20:01,170
+You know programs typically have many locks,
+
+
+304
+00:20:01,260 --> 00:20:03,750
+in fact we have xv6 has many locks.
+
+
+305
+00:20:08,140 --> 00:20:09,940
+And the reason to have many locks is
+
+
+306
+00:20:09,940 --> 00:20:16,060
+because you know even though you know the the lock serialize is the execution of two processes,
+
+
+307
+00:20:16,060 --> 00:20:19,330
+you know want to enter the critical section only one succeeds,
+
+
+308
+00:20:19,330 --> 00:20:25,360
+and the other one runs that critical section after the first one it finishes,
+
+
+309
+00:20:25,540 --> 00:20:27,640
+so there's no true parallelism at all.
+
+
+310
+00:20:28,500 --> 00:20:31,080
+So if the kernel had only one lock,
+
+
+311
+00:20:31,110 --> 00:20:33,390
+which is typically called a big kernel lock,
+
+
+312
+00:20:33,540 --> 00:20:38,430
+then basically every system call, in this, in the kernel, would be serialized,
+
+
+313
+00:20:39,240 --> 00:20:43,020
+system called one start gets the one the big kernel lock,
+
+
+314
+00:20:43,020 --> 00:20:45,870
+does whatever it needs to do, and then release the big kernel lock
+
+
+315
+00:20:45,870 --> 00:20:47,490
+and then basically returns user space.
+
+
+316
+00:20:48,220 --> 00:20:49,990
+And then the second system called the run,
+
+
+317
+00:20:50,380 --> 00:20:54,280
+so we have an apparel application, that runs lots of, runs system calls in parallel,
+
+
+318
+00:20:54,310 --> 00:20:57,730
+suddenly you know all the system calls actually run serially,
+
+
+319
+00:20:57,730 --> 00:20:58,960
+if we had only one lock.
+
+
+320
+00:20:59,880 --> 00:21:04,170
+And so typically your program like, you know xv6 has you know many locks,
+
+
+321
+00:21:04,170 --> 00:21:06,360
+because of these, you know we can get some parallelism.
+
+
+322
+00:21:09,670 --> 00:21:17,940
+Because, you know if you know two system calls for example use two different locks ,
+
+
+323
+00:21:17,970 --> 00:21:21,060
+then you know they can actually around a completely parallel,
+
+
+324
+00:21:21,270 --> 00:21:24,300
+without any you know serialization,
+
+
+325
+00:21:24,690 --> 00:21:27,990
+because basically you know using different locks serialize.
+
+
+326
+00:21:31,070 --> 00:21:32,570
+[Now], um.
+
+
+327
+00:21:34,040 --> 00:21:36,050
+There's a couple of important points,
+
+
+328
+00:21:36,380 --> 00:21:41,270
+the nobody really sort of forces in this interface,
+
+
+329
+00:21:41,270 --> 00:21:43,790
+you know that you put in the acquire release,
+
+
+330
+00:21:43,790 --> 00:21:45,410
+you know it's up to the program to do so.
+
+
+331
+00:21:46,010 --> 00:21:50,180
+So if you want a particular piece of code to be a atomic,
+
+
+332
+00:21:50,540 --> 00:21:54,560
+then it's up to the developer to actually put these require release it.
+
+
+333
+00:21:55,230 --> 00:21:57,480
+And there clearly see ,
+
+
+334
+00:21:57,480 --> 00:22:02,220
+you can imagine , that there's a little bit can be tricky,
+
+
+335
+00:22:02,430 --> 00:22:06,630
+so it's important to realize that you know that locking is not actually done automatically for you,
+
+
+336
+00:22:06,870 --> 00:22:09,900
+it's all up to the developer to figure out,
+
+
+337
+00:22:09,900 --> 00:22:13,800
+to associate locks with data structures
+
+
+338
+00:22:14,100 --> 00:22:19,020
+and ensuring that the appropriate acquire release are there.
+
+
+339
+00:22:23,050 --> 00:22:29,920
+So clearly the case, look you know the locks limit in parallelism,
+
+
+340
+00:22:29,920 --> 00:22:31,510
+and therefore limit performance,
+
+
+341
+00:22:31,810 --> 00:22:35,080
+and so then this raises the question when to lock.
+
+
+342
+00:22:42,710 --> 00:22:46,430
+And I'm going to give you sort of conservative rule,
+
+
+343
+00:22:46,640 --> 00:22:50,150
+but it's a good one as a starting point to think about things.
+
+
+344
+00:22:50,680 --> 00:22:58,910
+So the conservative rule, or maybe guidelines is better,
+
+
+345
+00:23:00,090 --> 00:23:10,510
+[freezing] is that you have two processes, two processes access, a shared data structure.
+
+
+346
+00:23:17,130 --> 00:23:22,100
+And one is, one of the them is a writer or an updater
+
+
+347
+00:23:22,100 --> 00:23:25,880
+or so meaning it's actually been modified to share data structure.
+
+
+348
+00:23:27,050 --> 00:23:29,750
+Then you need to lock for that data structure.
+
+
+349
+00:23:40,620 --> 00:23:41,820
+So this is a conservative rule,
+
+
+350
+00:23:41,970 --> 00:23:44,550
+sort of like a red flag, when you're programming
+
+
+351
+00:23:44,550 --> 00:23:49,350
+and you have a data structure that is accessed by multiple processes
+
+
+352
+00:23:49,350 --> 00:23:50,460
+and what could be a writer
+
+
+353
+00:23:50,520 --> 00:23:51,960
+at that point you should be thinking,
+
+
+354
+00:23:51,960 --> 00:23:53,910
+okay, there's a possibility of race condition,
+
+
+355
+00:23:54,090 --> 00:23:56,040
+you want to avoid this in a race condition,
+
+
+356
+00:23:56,280 --> 00:23:57,600
+you stick in a lock,
+
+
+357
+00:23:57,630 --> 00:24:01,650
+will use a lock to a guarantee that this race condition can't happen.
+
+
+358
+00:24:02,450 --> 00:24:06,470
+But you know those rules, in some ways too strict.
+
+
+359
+00:24:10,890 --> 00:24:15,600
+There are cases where it's OK to process these actions of shared data structure
+
+
+360
+00:24:15,600 --> 00:24:18,060
+and one is a writer in particular,
+
+
+361
+00:24:18,060 --> 00:24:21,630
+there are styles of programming called lock free programming.
+
+
+362
+00:24:22,610 --> 00:24:27,230
+That actually totally worthy worthy kinds of scenarios actually do happen.
+
+
+363
+00:24:32,310 --> 00:24:33,810
+Anyway, you want to lock free programming
+
+
+364
+00:24:33,810 --> 00:24:36,420
+is basically to get better performance or more parallelism.
+
+
+365
+00:24:38,730 --> 00:24:40,260
+Lock free program is tricky,
+
+
+366
+00:24:40,350 --> 00:24:42,930
+even more tricky than programming locks,
+
+
+367
+00:24:43,290 --> 00:24:45,840
+and you know we'll talk about it at the end of this semester,
+
+
+368
+00:24:45,840 --> 00:24:49,890
+we will study some lock free styles of the programming
+
+
+369
+00:24:49,890 --> 00:24:53,970
+or particularly common in operating system kernels.
+
+
+370
+00:24:54,440 --> 00:24:58,220
+Basically, for this lecture, and most of the rest of the semester,
+
+
+371
+00:24:58,310 --> 00:25:00,110
+we're going to be thinking about the case,
+
+
+372
+00:25:00,110 --> 00:25:05,480
+we're using locks, you know to control sharing.
+
+
+373
+00:25:06,280 --> 00:25:07,900
+And that's hard enough,
+
+
+374
+00:25:07,930 --> 00:25:09,490
+you know you just use locks,
+
+
+375
+00:25:09,490 --> 00:25:10,810
+its not that straightforward either.
+
+
+376
+00:25:12,520 --> 00:25:15,490
+So in one hand, a little bit too strict,
+
+
+377
+00:25:15,760 --> 00:25:19,900
+because not always the case that you need and also some cases to loose.
+
+
+378
+00:25:21,340 --> 00:25:22,210
+If you might just.
+
+
+379
+00:25:26,200 --> 00:25:29,110
+You might even lose, you want to actually make you want to use locks,
+
+
+380
+00:25:29,110 --> 00:25:31,630
+you know to enforce some other properties,
+
+
+381
+00:25:31,630 --> 00:25:32,740
+like if you look at printf.
+
+
+382
+00:25:35,750 --> 00:25:37,670
+If we pass a string to printf.
+
+
+383
+00:25:38,280 --> 00:25:40,440
+You know the xv6 kernel tries to
+
+
+384
+00:25:40,440 --> 00:25:44,220
+at least you know get the whole string to be printed atomically.
+
+
+385
+00:25:44,760 --> 00:25:47,640
+And you know there's no shared data structure involved,
+
+
+386
+00:25:47,850 --> 00:25:51,510
+but it's still useful to actually use a lock in that particular case,
+
+
+387
+00:25:51,510 --> 00:25:53,430
+because we want the output to be serialized.
+
+
+388
+00:25:54,220 --> 00:25:56,320
+So this rule is not perfect,
+
+
+389
+00:25:56,320 --> 00:25:57,880
+but it's a pretty good guideline.
+
+
+390
+00:26:00,020 --> 00:26:01,910
+Any questions about this rule?
+
+
+391
+00:26:04,810 --> 00:26:06,850
+I had a question not about this rule,
+
+
+392
+00:26:06,850 --> 00:26:11,950
+but isn't it possible that two processes could acquire the lock at the same time
+
+
+393
+00:26:11,950 --> 00:26:15,690
+and so would be able to modify the structure.
+
+
+394
+00:26:16,460 --> 00:26:20,420
+Yeah, no so so part of the sort of contract lock construction is is that
+
+
+395
+00:26:20,420 --> 00:26:24,410
+it's impossible to a process to acquire to lock at the same time.
+
+
+396
+00:26:25,290 --> 00:26:31,140
+If a rule is that there's ever there's no, there's never a case,
+
+
+397
+00:26:31,140 --> 00:26:35,640
+where two process actually acquired the lock, can hold the lock at the same time,
+
+
+398
+00:26:35,940 --> 00:26:37,590
+we'll see in the second, how to implement that,
+
+
+399
+00:26:37,590 --> 00:26:40,410
+but the API or the specification require is,
+
+
+400
+00:26:40,800 --> 00:26:44,580
+there's only one lock holder at any given point in time or zero.
+
+
+401
+00:26:45,090 --> 00:26:45,540
+Yes.
+
+
+402
+00:26:49,300 --> 00:26:55,390
+Okay, so, you know if we see you know programming lock slightly ,
+
+
+403
+00:26:55,390 --> 00:26:58,090
+it could be problematic, because of these race conditions.
+
+
+404
+00:26:59,950 --> 00:27:05,440
+You know, of course the particular race condition, that we looked at in the kfree
+
+
+405
+00:27:05,620 --> 00:27:07,180
+or that we created in [crazy],
+
+
+406
+00:27:07,360 --> 00:27:09,280
+which were easily [spotted] in some ways
+
+
+407
+00:27:09,280 --> 00:27:11,830
+and the fact you know if use a race detection tool,
+
+
+408
+00:27:11,890 --> 00:27:13,420
+it would immediately find it.
+
+
+409
+00:27:13,820 --> 00:27:16,550
+But there are more tricky cases,
+
+
+410
+00:27:16,850 --> 00:27:22,100
+so you may wonder like why couldn't we like make you make locks
+
+
+411
+00:27:22,430 --> 00:27:24,350
+or who make locking automatic.
+
+
+412
+00:27:31,120 --> 00:27:34,090
+So you follow this simple rule, that I just stated,
+
+
+413
+00:27:34,090 --> 00:27:36,490
+you know then if every we shared data structure,
+
+
+414
+00:27:36,700 --> 00:27:40,510
+then you know operations in that shared data structure basically require lock,
+
+
+415
+00:27:40,540 --> 00:27:46,060
+we should associate a lock with the data structure in the every operations actually ,
+
+
+416
+00:27:48,270 --> 00:27:53,340
+That is a it's performed on that data structure,
+
+
+417
+00:27:53,340 --> 00:27:54,840
+basically acquire or release the lock.
+
+
+418
+00:27:55,320 --> 00:27:56,670
+So one way to think about it,
+
+
+419
+00:27:56,670 --> 00:28:02,350
+maybe in xv6 terms like every structure you know, has a lock.
+
+
+420
+00:28:04,440 --> 00:28:07,800
+And in that lock is atomically acquired,
+
+
+421
+00:28:07,800 --> 00:28:09,660
+when we do anything related to that struct,
+
+
+422
+00:28:09,750 --> 00:28:12,410
+it just turns out to be too rigid,
+
+
+423
+00:28:12,500 --> 00:28:16,250
+and this is why you know locking can not really be atomic.
+
+
+424
+00:28:16,800 --> 00:28:19,260
+So we've been operating systems,
+
+
+425
+00:28:19,260 --> 00:28:21,330
+an example from an operating system is the following,
+
+
+426
+00:28:21,630 --> 00:28:24,120
+let's say we have a call like rename.
+
+
+427
+00:28:25,530 --> 00:28:29,370
+That moves the filename from one directory to another directory,
+
+
+428
+00:28:29,490 --> 00:28:31,620
+so let's say we have d one x,
+
+
+429
+00:28:32,160 --> 00:28:36,720
+and we rename it to d two y.
+
+
+430
+00:28:37,840 --> 00:28:41,260
+And so we have the file name in the directory, d one x,
+
+
+431
+00:28:41,260 --> 00:28:44,890
+and we rename it to d two slice y.
+
+
+432
+00:28:45,460 --> 00:28:50,140
+So the way truly, if we followed the rigid rule,
+
+
+433
+00:28:50,140 --> 00:28:53,260
+like this rule of atomic locking you know what would happen is.
+
+
+434
+00:28:53,740 --> 00:28:56,560
+You know that that rule up when we have two objects,
+
+
+435
+00:28:56,560 --> 00:28:57,940
+we've d one and d two.
+
+
+436
+00:28:58,820 --> 00:29:01,760
+And so we follow the rule, then basically atomic rule,
+
+
+437
+00:29:01,760 --> 00:29:15,070
+then we lock d one, you know erase x, and release the lock for d one.
+
+
+438
+00:29:17,740 --> 00:29:20,470
+And then we do the second part of data,
+
+
+439
+00:29:20,470 --> 00:29:26,500
+you know d2 lock d2 add y,
+
+
+440
+00:29:27,140 --> 00:29:30,640
+and release d2.
+
+
+441
+00:29:33,460 --> 00:29:33,970
+And then we're done.
+
+
+442
+00:29:34,000 --> 00:29:37,780
+So this would be the sort of hypothetical schema
+
+
+443
+00:29:37,780 --> 00:29:43,990
+and you imagine would happen if we did atomic locking in,
+
+
+444
+00:29:44,230 --> 00:29:47,920
+and the point of this example is going to will have the wrong outcome
+
+
+445
+00:29:48,280 --> 00:29:51,820
+and why, why is this a problematic scheme,
+
+
+446
+00:29:52,090 --> 00:29:53,350
+why is this not gonna work.
+
+
+447
+00:30:03,170 --> 00:30:06,620
+So, think about like the thing to think about is this period.
+
+
+448
+00:30:08,000 --> 00:30:11,360
+So we've done the first step, step one.
+
+
+449
+00:30:12,050 --> 00:30:13,880
+Not done step, step two yet.
+
+
+450
+00:30:14,630 --> 00:30:16,640
+What could another process observe.
+
+
+451
+00:30:24,160 --> 00:30:30,480
+Anybody? File it just be gone.
+
+
+452
+00:30:30,870 --> 00:30:33,810
+Yeah you know this there's between step one and two,
+
+
+453
+00:30:33,810 --> 00:30:34,950
+the file doesn't exist.
+
+
+454
+00:30:41,520 --> 00:30:43,050
+I mean that is clearly wrong,
+
+
+455
+00:30:43,080 --> 00:30:46,470
+because the file does exist, it just being renamed,
+
+
+456
+00:30:46,710 --> 00:30:49,410
+and never point really that it didn't exist,
+
+
+457
+00:30:50,430 --> 00:30:52,890
+but by implementing it in this way,
+
+
+458
+00:30:53,040 --> 00:30:57,000
+it just appears that the file might actually not exist even though it does.
+
+
+459
+00:30:57,800 --> 00:31:00,230
+So the really right solution to this is
+
+
+460
+00:31:00,230 --> 00:31:08,930
+what we need is that we actually lock d one, and d2 first,
+
+
+461
+00:31:09,020 --> 00:31:10,250
+at the beginning of rename,
+
+
+462
+00:31:10,760 --> 00:31:13,120
+then erase and add,
+
+
+463
+00:31:15,780 --> 00:31:21,580
+and then release the locks for d one and d two.
+
+
+464
+00:31:24,500 --> 00:31:25,250
+So, that makes sense.
+
+
+465
+00:31:26,870 --> 00:31:27,950
+So here's an example
+
+
+466
+00:31:27,950 --> 00:31:32,810
+where we have an operation that [] needs multiple locks
+
+
+467
+00:31:32,960 --> 00:31:37,550
+and and the locks cannot really be associated with the two objects,
+
+
+468
+00:31:37,550 --> 00:31:39,170
+that are the arguments of this operation,
+
+
+469
+00:31:39,590 --> 00:31:44,840
+it has to be the case that actually the operation itself first requires both locks,
+
+
+470
+00:31:44,840 --> 00:31:46,580
+then perform the operations.
+
+
+471
+00:31:47,400 --> 00:31:50,490
+So there's atomic locking is not directly possible.
+
+
+472
+00:31:51,250 --> 00:31:52,120
+There's going to be cases,
+
+
+473
+00:31:52,120 --> 00:31:55,990
+where there's not run to the [native] scheme
+
+
+474
+00:31:55,990 --> 00:31:58,360
+at least will run into a problem problems.
+
+
+475
+00:32:00,400 --> 00:32:01,300
+Any questions about this?
+
+
+476
+00:32:07,010 --> 00:32:08,900
+So could we just say that,
+
+
+477
+00:32:08,930 --> 00:32:11,120
+when we're accessing a data structure,
+
+
+478
+00:32:11,120 --> 00:32:13,490
+we just have to access or we have to acquire
+
+
+479
+00:32:13,490 --> 00:32:18,350
+all of the locks associated with all of the data structures we need at the beginning.
+
+
+480
+00:32:19,120 --> 00:32:19,840
+That be one,
+
+
+481
+00:32:19,870 --> 00:32:21,520
+yeah, so that's one way doing it
+
+
+482
+00:32:21,520 --> 00:32:26,530
+and I think that we should quickly will come down to basically having a big kernel lock.
+
+
+483
+00:32:27,380 --> 00:32:28,790
+Okay.
+
+
+484
+00:32:28,790 --> 00:32:31,190
+You're on the risk, basically have no parallelism anymore,
+
+
+485
+00:32:31,850 --> 00:32:33,560
+so you want to do better than that right,
+
+
+486
+00:32:34,190 --> 00:32:35,690
+and I think this is always the tension,
+
+
+487
+00:32:35,750 --> 00:32:40,670
+you know you can make things simpler by basically what's called coarse-grained locking,
+
+
+488
+00:32:41,060 --> 00:32:44,630
+but then you know you're lose those performance
+
+
+489
+00:32:44,990 --> 00:32:46,190
+or you may lose performance,
+
+
+490
+00:32:46,740 --> 00:32:48,270
+depending if the locks intended or not.
+
+
+491
+00:32:49,730 --> 00:32:50,750
+Thank you.
+
+
+492
+00:32:52,700 --> 00:32:58,430
+So lock perspective, so there's different ways to think about locks.
+
+
+493
+00:33:00,910 --> 00:33:02,590
+You know, those are three common ones,
+
+
+494
+00:33:02,650 --> 00:33:05,620
+and, you know go for all three of them
+
+
+495
+00:33:05,620 --> 00:33:08,290
+and just maybe that may help you have to think about locks
+
+
+496
+00:33:08,290 --> 00:33:09,940
+and maybe one of them is your favorite
+
+
+497
+00:33:09,940 --> 00:33:13,300
+and you can use that one as your way of thinking about it,
+
+
+498
+00:33:13,300 --> 00:33:16,660
+but there's probably helpful to see that they're actually different ways of thinking about locks.
+
+
+499
+00:33:17,530 --> 00:33:19,990
+So first of all,
+
+
+500
+00:33:20,080 --> 00:33:28,350
+you know one way to think about is actually lock avoid lost updates
+
+
+501
+00:33:28,470 --> 00:33:29,160
+or help.
+
+
+502
+00:33:29,840 --> 00:33:31,370
+If you use lock correctly,
+
+
+503
+00:33:31,370 --> 00:33:34,430
+you know locks can help avoiding lost updates.
+
+
+504
+00:33:38,680 --> 00:33:43,060
+And if you think about early example in the kalloc.c,
+
+
+505
+00:33:43,060 --> 00:33:48,460
+you know the lost update is basically lose one update to the kfree.
+
+
+506
+00:33:49,150 --> 00:33:53,530
+And by putting locks, it you know actually didn't lose that update,
+
+
+507
+00:33:53,590 --> 00:33:55,210
+so that's one way of thinking about it,
+
+
+508
+00:33:56,070 --> 00:33:58,260
+a very low-level way ,
+
+
+509
+00:33:58,260 --> 00:34:00,930
+another way to think about is you know you can make lock,
+
+
+510
+00:34:00,930 --> 00:34:11,200
+locks make multi step operations atomic.
+
+
+511
+00:34:13,700 --> 00:34:15,680
+And so there's sort of the view of critical section,
+
+
+512
+00:34:15,680 --> 00:34:20,090
+we have acquire lock with a whole bunch of a steps
+
+
+513
+00:34:20,090 --> 00:34:22,370
+or instructions, executed all instructions,
+
+
+514
+00:34:22,460 --> 00:34:23,210
+then released,
+
+
+515
+00:34:23,450 --> 00:34:27,320
+basically whole critical section execute as an atomic operation.
+
+
+516
+00:34:27,870 --> 00:34:29,370
+That sort of ,
+
+
+517
+00:34:29,460 --> 00:34:32,460
+also a fine way to think about locks.
+
+
+518
+00:34:33,090 --> 00:34:33,990
+And then the third one,
+
+
+519
+00:34:34,410 --> 00:34:35,940
+you know that may be helpful,
+
+
+520
+00:34:35,940 --> 00:34:43,410
+is that really what locks do is lock help maintain an invariant,
+
+
+521
+00:34:47,140 --> 00:34:50,200
+invariant do share data structure that you know it's protecting.
+
+
+522
+00:34:51,260 --> 00:34:54,200
+And what was going on is that,
+
+
+523
+00:34:54,500 --> 00:34:59,780
+before acquire, if there's no lock holder, you know that invariant holds,
+
+
+524
+00:35:00,140 --> 00:35:02,990
+when we acquire the lock and we do some operations,
+
+
+525
+00:35:02,990 --> 00:35:07,310
+then temporarily the invariant may be violated,
+
+
+526
+00:35:07,670 --> 00:35:09,380
+but at the point that we do the release,
+
+
+527
+00:35:13,180 --> 00:35:17,080
+so if you think about r freelist case,
+
+
+528
+00:35:17,320 --> 00:35:23,290
+you know the invariant is you know free pointer points to one other next pointer
+
+
+529
+00:35:23,350 --> 00:35:26,500
+and all the free pages are on a single list.
+
+
+530
+00:35:27,390 --> 00:35:32,160
+And that's temporarily violated at the point ,
+
+
+531
+00:35:33,950 --> 00:35:36,200
+in the middle of the kfree,
+
+
+532
+00:35:36,200 --> 00:35:39,380
+because like multiple pointers actually point to the beginning of freelist.
+
+
+533
+00:35:40,760 --> 00:35:42,860
+And then we established at the end of it.
+
+
+534
+00:35:43,750 --> 00:35:47,860
+So if we're freelist as not so complicated variables,
+
+
+535
+00:35:47,860 --> 00:35:50,080
+like more complicated shared data structures,
+
+
+536
+00:35:50,590 --> 00:35:54,040
+can be a helpful way of thinking actually what the lock is doing for you.
+
+
+537
+00:35:55,330 --> 00:35:58,390
+And so see, even in this case three case,
+
+
+538
+00:35:58,390 --> 00:36:01,210
+you know all three lock perspective for reasonable perspectives,
+
+
+539
+00:36:01,450 --> 00:36:04,630
+and you know one of them,
+
+
+540
+00:36:04,660 --> 00:36:12,040
+you know brings more [] than so, one of the other ones and you use that as your way to think about locks.
+
+
+541
+00:36:14,510 --> 00:36:17,060
+Any questions about this point?
+
+
+542
+00:36:23,560 --> 00:36:25,060
+Okay, um.
+
+
+543
+00:36:25,620 --> 00:36:30,420
+So in our own for a couple things , sort of ,
+
+
+544
+00:36:31,460 --> 00:36:34,760
+in [desirable] properties or that can actually happen with locks
+
+
+545
+00:36:34,850 --> 00:36:41,210
+and you know like locks are a necessary to fix correctness problem avoids race conditions,
+
+
+546
+00:36:41,450 --> 00:36:45,230
+but locks themselves in when inappropriate inappropriate used,
+
+
+547
+00:36:45,320 --> 00:36:47,630
+can also introduce their own set of problems.
+
+
+548
+00:36:48,280 --> 00:36:49,960
+And so I want to talk a little bit about that
+
+
+549
+00:36:50,380 --> 00:36:52,570
+and so the obvious one, of course is deadlock.
+
+
+550
+00:36:57,240 --> 00:36:59,790
+Yeah for example, you know the simple case,
+
+
+551
+00:36:59,790 --> 00:37:02,790
+you know a little bit boring, but worthwhile thinking about,
+
+
+552
+00:37:03,000 --> 00:37:07,040
+you know do an acquire, you know lock,
+
+
+553
+00:37:07,680 --> 00:37:09,660
+and so you start the critical section
+
+
+554
+00:37:09,660 --> 00:37:14,650
+and in the critical section, you do another acquire of the same lock,
+
+
+555
+00:37:16,930 --> 00:37:22,010
+what will happen, can the second acquire succeed.
+
+
+556
+00:37:29,640 --> 00:37:32,850
+Well with respect that we've given early on ,
+
+
+557
+00:37:32,850 --> 00:37:34,590
+you know this should be not allowed,
+
+
+558
+00:37:34,710 --> 00:37:39,570
+so basically the second acquire must block until the first acquire release lock,
+
+
+559
+00:37:39,570 --> 00:37:41,670
+but that was you know the process itself,
+
+
+560
+00:37:41,670 --> 00:37:43,590
+so basically this result in a deadlock.
+
+
+561
+00:37:46,970 --> 00:37:49,070
+You know, this is a trivial example of deadlock
+
+
+562
+00:37:49,160 --> 00:37:52,580
+and maybe now there's interesting in fact there's a deadlock that xv6 [texts],
+
+
+563
+00:37:52,580 --> 00:37:58,700
+you know because when it sees that the same process requires the same lock again, actually causes a panic.
+
+
+564
+00:37:59,330 --> 00:38:03,200
+A more interesting cases are when multiple locks are involved,
+
+
+565
+00:38:03,380 --> 00:38:06,960
+so let's go to our previous example,
+
+
+566
+00:38:07,020 --> 00:38:09,330
+let's say we have the following ,
+
+
+567
+00:38:09,930 --> 00:38:13,010
+we have core one, maybe CPU one,
+
+
+568
+00:38:16,620 --> 00:38:17,670
+we have CPU two.
+
+
+569
+00:38:19,970 --> 00:38:26,630
+And CPU one, you know executes rename you know directory, one x,
+
+
+570
+00:38:27,270 --> 00:38:30,150
+to directory two slash y.
+
+
+571
+00:38:33,310 --> 00:38:36,370
+And CPU two execute at the same time,
+
+
+572
+00:38:37,100 --> 00:38:51,240
+rename in the other way in the other direction d two a to d one, you know actually b,
+
+
+573
+00:38:51,540 --> 00:38:53,130
+just to make the names different,
+
+
+574
+00:38:53,520 --> 00:38:57,000
+so the critical of thing to observe here,
+
+
+575
+00:38:57,000 --> 00:39:01,680
+is that CPU one runs renaming from d1 to d2,
+
+
+576
+00:39:02,160 --> 00:39:07,290
+and CPU two that's exactly the opposite doesn't renaming from d2 to d1.
+
+
+577
+00:39:09,040 --> 00:39:10,300
+So let's assume that,
+
+
+578
+00:39:10,300 --> 00:39:13,090
+we actually acquire the locks in the order of their arguments
+
+
+579
+00:39:13,480 --> 00:39:15,190
+and so what will happen to recognize that,
+
+
+580
+00:39:15,670 --> 00:39:18,670
+in this case, you will acquire both locks,
+
+
+581
+00:39:18,670 --> 00:39:21,610
+we know from a previous example that is actually important.
+
+
+582
+00:39:22,080 --> 00:39:26,380
+So require you know d1 lock.
+
+
+583
+00:39:28,570 --> 00:39:31,690
+And you know let's say really run true concurrent,
+
+
+584
+00:39:32,200 --> 00:39:34,450
+so at that point, the other guy might,
+
+
+585
+00:39:34,450 --> 00:39:39,090
+actually this other CPU might acquire d2 first,
+
+
+586
+00:39:39,180 --> 00:39:41,190
+because you know it's first argument.
+
+
+587
+00:39:43,180 --> 00:39:46,570
+And now of course d2, d1 wants to acquired d2,
+
+
+588
+00:39:48,470 --> 00:39:50,720
+so will try to acquire d2.
+
+
+589
+00:39:51,260 --> 00:39:52,220
+Will it succeed.
+
+
+590
+00:39:53,540 --> 00:39:57,500
+It won't succeed, because the other guy, you know actually has the lock
+
+
+591
+00:39:57,530 --> 00:40:00,890
+and so this guy will stop here and not to proceed.
+
+
+592
+00:40:01,560 --> 00:40:03,480
+Now let's look at the other CPU,
+
+
+593
+00:40:03,480 --> 00:40:07,800
+CPU two acquire d2, it's now been acquired one for its second argument.
+
+
+594
+00:40:08,630 --> 00:40:12,440
+He's gonna try to call, to call acquire d1.
+
+
+595
+00:40:12,800 --> 00:40:14,390
+And will it be able to proceed.
+
+
+596
+00:40:14,570 --> 00:40:16,220
+No, won't be able to proceed,
+
+
+597
+00:40:16,370 --> 00:40:20,420
+because the CPU one actually has the lock d1.
+
+
+598
+00:40:21,040 --> 00:40:24,130
+And so here we're sometimes this is called a deadly embrace,
+
+
+599
+00:40:24,130 --> 00:40:27,100
+you know, we're you know,
+
+
+600
+00:40:27,430 --> 00:40:30,280
+because the way we acquire, the order in which we,
+
+
+601
+00:40:30,310 --> 00:40:33,280
+order which acquire lock results actually in a deadlock.
+
+
+602
+00:40:41,050 --> 00:40:42,010
+Does that make sense?
+
+
+603
+00:40:42,580 --> 00:40:43,330
+This example.
+
+
+604
+00:40:45,580 --> 00:40:48,550
+This is a little bit of a more dangerous example of deadlock,
+
+
+605
+00:40:48,580 --> 00:40:50,710
+it's not an obvious problem
+
+
+606
+00:40:51,010 --> 00:40:54,580
+and the solution turns out in some sense reasonable simple .
+
+
+607
+00:40:56,370 --> 00:40:58,860
+The solution is that you know if you have multiple locks,
+
+
+608
+00:40:59,040 --> 00:41:01,500
+then you have to order their locks.
+
+
+609
+00:41:03,930 --> 00:41:08,220
+And full operations have to acquire locks in that order.
+
+
+610
+00:41:17,410 --> 00:41:18,880
+So if you're a system designer,
+
+
+611
+00:41:18,880 --> 00:41:24,040
+you have to decide you know what the global order is for all lock objects
+
+
+612
+00:41:24,280 --> 00:41:30,670
+and so for example in this case where you may want to say that d1 should always order before d2,
+
+
+613
+00:41:30,880 --> 00:41:31,930
+and that means that,
+
+
+614
+00:41:32,230 --> 00:41:34,090
+when we execute a rename,
+
+
+615
+00:41:34,240 --> 00:41:41,230
+the rule of life is we always acquire lower number directories first,
+
+
+616
+00:41:41,230 --> 00:41:43,930
+before we acquire higher order directory number.
+
+
+617
+00:41:44,900 --> 00:41:49,220
+And that will ensure that basically there's global order
+
+
+618
+00:41:49,220 --> 00:41:52,160
+and you know this particular case which cannot happen.
+
+
+619
+00:41:53,960 --> 00:41:56,210
+Because you know the lock order is going to be
+
+
+620
+00:41:56,210 --> 00:41:59,450
+then for d1 d2 for this guy
+
+
+621
+00:41:59,690 --> 00:42:04,400
+and this guy will acquire locks exactly the same global order, you know, d1 d2
+
+
+622
+00:42:04,580 --> 00:42:06,980
+and then we don't have deadly enbrace.
+
+
+623
+00:42:09,700 --> 00:42:10,450
+Does that make sense?
+
+
+624
+00:42:14,630 --> 00:42:15,830
+Any questions about this?
+
+
+625
+00:42:22,180 --> 00:42:25,870
+So this indicates a little bit of problem ,
+
+
+626
+00:42:25,870 --> 00:42:28,930
+even though like, okay let's fix this you know this sort of deadlock problem,
+
+
+627
+00:42:28,930 --> 00:42:32,200
+that I have in global order, notice this order is global
+
+
+628
+00:42:32,560 --> 00:42:38,370
+and this is an issue a little bit,
+
+
+629
+00:42:38,490 --> 00:42:40,440
+when designing a system, because.
+
+
+630
+00:42:40,860 --> 00:42:42,120
+Um, hold on.
+
+
+631
+00:43:07,510 --> 00:43:10,480
+So you think about the sort of lock ordering .
+
+
+632
+00:43:15,050 --> 00:43:16,610
+You know there has to be sort of global.
+
+
+633
+00:43:18,030 --> 00:43:26,400
+And so we have one module, one m, you know calls method [method] two.
+
+
+634
+00:43:29,440 --> 00:43:33,970
+And the caller, you know m1g, you know might actually need to be aware
+
+
+635
+00:43:33,970 --> 00:43:37,480
+or could be you need to be aware actually what locks f,
+
+
+636
+00:43:37,960 --> 00:43:40,660
+acquired for one locks m2 uses.
+
+
+637
+00:43:42,630 --> 00:43:48,510
+Because if you m2 uses some set locks,
+
+
+638
+00:43:48,750 --> 00:43:51,960
+then you know follow our lock ordering rule,
+
+
+639
+00:43:52,110 --> 00:43:55,080
+[just] got to make sure that you know if it has some locks,
+
+
+640
+00:43:55,170 --> 00:43:57,720
+then acquires all locks from f and g,
+
+
+641
+00:43:57,720 --> 00:44:00,480
+together actually in some global order.
+
+
+642
+00:44:01,270 --> 00:44:03,880
+And so that really means that these sort of internals,
+
+
+643
+00:44:06,600 --> 00:44:17,570
+internals of m2, in terms of locks must be visible to m1.
+
+
+644
+00:44:21,400 --> 00:44:23,110
+So that you know and m1 can ensure that,
+
+
+645
+00:44:23,110 --> 00:44:28,360
+actually you know, calls m2 in the appropriate way.
+
+
+646
+00:44:29,120 --> 00:44:32,420
+And you know in some ways, that is kind of an abstraction violation,
+
+
+647
+00:44:34,700 --> 00:44:36,050
+actually work out perfectly
+
+
+648
+00:44:36,050 --> 00:44:39,350
+and m1 know we need to know anything about how m2 was implemented
+
+
+649
+00:44:39,830 --> 00:44:44,390
+and unfortunately locks are common example of where some of the internals,
+
+
+650
+00:44:44,780 --> 00:44:47,030
+m2 might actually leak out to m1,
+
+
+651
+00:44:47,240 --> 00:44:48,740
+because m1 really needs to know.
+
+
+652
+00:44:49,740 --> 00:44:53,400
+And so when you design a bigger system ,
+
+
+653
+00:44:53,400 --> 00:44:56,130
+you know, this makes the modularity more complicated.
+
+
+654
+00:45:01,730 --> 00:45:07,160
+Sorry I was just wondering, does need to be a complete ordering of locks
+
+
+655
+00:45:07,160 --> 00:45:14,750
+or can there be some locks that are, that can be ordered in whatever way they.
+
+
+656
+00:45:14,900 --> 00:45:19,370
+Yeah, it depends, if like f and g you know share any locks right,
+
+
+657
+00:45:19,970 --> 00:45:22,460
+for example if you're looking at xv6,
+
+
+658
+00:45:22,730 --> 00:45:27,560
+there are sort of multiple [strands] of lock orderings,
+
+
+659
+00:45:27,560 --> 00:45:29,570
+because some functions have nothing to do with other locks
+
+
+660
+00:45:29,570 --> 00:45:32,270
+and you know they're never acquired together.
+
+
+661
+00:45:33,000 --> 00:45:34,890
+And so if they're never acquired together,
+
+
+662
+00:45:34,890 --> 00:45:36,600
+just join locks sets, if you will
+
+
+663
+00:45:36,930 --> 00:45:41,340
+and then only you have to make sure that the ordering in one particular locks set is global
+
+
+664
+00:45:41,610 --> 00:45:45,630
+and the ordering the other locks set is completely independent of the other ordering.
+
+
+665
+00:45:47,730 --> 00:45:50,940
+So it is correct, that it doesn't have to be global ordering,
+
+
+666
+00:45:50,940 --> 00:45:55,560
+but like all the functions that manipulate the same share sort of lock set,
+
+
+667
+00:45:55,650 --> 00:45:57,480
+they need to agree on a global order.
+
+
+668
+00:45:59,130 --> 00:45:59,910
+Thank you.
+
+
+669
+00:46:04,430 --> 00:46:05,300
+Okay so.
+
+
+670
+00:46:05,880 --> 00:46:11,010
+One in, you know another sort of challenge with locks,
+
+
+671
+00:46:11,070 --> 00:46:14,130
+we've seen two challenges one is deadlock, one is modularity,
+
+
+672
+00:46:14,520 --> 00:46:19,640
+the second challenge for challenges just locks versus performance.
+
+
+673
+00:46:24,100 --> 00:46:26,800
+And you know really hinted at this a couple times,
+
+
+674
+00:46:26,800 --> 00:46:28,600
+but it needs to ,
+
+
+675
+00:46:28,630 --> 00:46:32,770
+is important enough to actually put some emphasis on.
+
+
+676
+00:46:33,400 --> 00:46:37,720
+And so basically we want to get performance,
+
+
+677
+00:46:37,720 --> 00:46:40,180
+you need to split up data structures,
+
+
+678
+00:46:40,660 --> 00:46:42,880
+so if you have one big kernel lock,
+
+
+679
+00:46:43,150 --> 00:46:46,660
+that will limit your performance to basically performance on a single CPU,
+
+
+680
+00:46:46,810 --> 00:46:51,850
+if you want to perform, you want that performed scales with numerous CPUs,
+
+
+681
+00:46:52,060 --> 00:46:53,140
+you gotta split up.
+
+
+682
+00:46:54,190 --> 00:46:55,690
+You need to split up data structures.
+
+
+683
+00:47:04,910 --> 00:47:10,130
+And best split, you know, it's not obvious
+
+
+684
+00:47:10,280 --> 00:47:11,420
+or can be a challenge,
+
+
+685
+00:47:17,780 --> 00:47:21,380
+you know, for example if you associate the lock with every directories,
+
+
+686
+00:47:21,380 --> 00:47:23,510
+should you associate the lock with every inode,
+
+
+687
+00:47:23,870 --> 00:47:25,940
+associated lock with every process or not.
+
+
+688
+00:47:26,480 --> 00:47:30,920
+Where is it better to sort of split the data structures in a different way.
+
+
+689
+00:47:31,930 --> 00:47:39,700
+And if you make a change you to redesign the locking discipline ,
+
+
+690
+00:47:39,700 --> 00:47:41,530
+and you've got to make sure
+
+
+691
+00:47:41,530 --> 00:47:43,540
+that you know you're still maintain the invariant,
+
+
+692
+00:47:43,540 --> 00:47:46,210
+that actually the kernels trying to maintain.
+
+
+693
+00:47:46,870 --> 00:47:48,790
+And if you split locks,
+
+
+694
+00:47:48,790 --> 00:47:50,590
+you also have to rewrite} the code.
+
+
+695
+00:47:51,540 --> 00:47:57,500
+You may have to need, may write, may need to, rewrite code too.
+
+
+696
+00:48:02,540 --> 00:48:03,830
+And so it turns out that,
+
+
+697
+00:48:03,830 --> 00:48:09,830
+basically you should refactor, you know part of your kernel
+
+
+698
+00:48:09,830 --> 00:48:11,360
+or part of your [] program,
+
+
+699
+00:48:11,660 --> 00:48:14,810
+to get better forms by splitting data structure
+
+
+700
+00:48:14,810 --> 00:48:16,340
+or introducing more locks,
+
+
+701
+00:48:16,610 --> 00:48:18,470
+you know there's just a lot of work,
+
+
+702
+00:48:18,470 --> 00:48:22,040
+you have to carefully think through that maintain the range that intended to maintain,
+
+
+703
+00:48:22,310 --> 00:48:24,110
+you have to be write code
+
+
+704
+00:48:24,350 --> 00:48:27,050
+and so generally, this is just a lot of work.
+
+
+705
+00:48:28,020 --> 00:48:28,800
+They're not easy.
+
+
+706
+00:48:32,500 --> 00:48:35,680
+And so there's a little bit of negative new's point, right,
+
+
+707
+00:48:35,680 --> 00:48:38,530
+because you know we want to get better performance,
+
+
+708
+00:48:38,560 --> 00:48:40,360
+that suggests you know more locks
+
+
+709
+00:48:40,690 --> 00:48:42,670
+and .
+
+
+710
+00:48:43,250 --> 00:48:46,280
+But that is actually a lot of work.
+
+
+711
+00:48:46,940 --> 00:48:51,210
+It's sort of general recipe, you know how to go about this,
+
+
+712
+00:48:51,570 --> 00:48:54,980
+is to you know start of coarse-grained locks,
+
+
+713
+00:49:05,160 --> 00:49:06,000
+and they measure.
+
+
+714
+00:49:11,600 --> 00:49:14,450
+So whatever run a bunch of applications on top of your kernel
+
+
+715
+00:49:14,690 --> 00:49:18,020
+and see whether you get actually any speedup,
+
+
+716
+00:49:18,020 --> 00:49:19,880
+if they actually exploit multiple cores.
+
+
+717
+00:49:20,560 --> 00:49:23,290
+And if they do, you know your basically be done, right,
+
+
+718
+00:49:23,290 --> 00:49:25,240
+that you're locking design is good enough,
+
+
+719
+00:49:25,990 --> 00:49:27,460
+if you don't get speed up,
+
+
+720
+00:49:27,460 --> 00:49:29,620
+basically that means that some lock is contended,
+
+
+721
+00:49:33,030 --> 00:49:35,820
+multiple processes or trying to get the same lock
+
+
+722
+00:49:35,850 --> 00:49:37,500
+and therefore they are serialized
+
+
+723
+00:49:37,710 --> 00:49:39,630
+and therefore you don't get speed up.
+
+
+724
+00:49:40,160 --> 00:49:44,390
+Then you you have to rethink about, then you need to redesign.
+
+
+725
+00:49:48,020 --> 00:49:52,640
+But the point is that, you want to be guided, you know by these measurements,
+
+
+726
+00:49:53,030 --> 00:49:55,550
+because it maybe the case that you know some module
+
+
+727
+00:49:55,550 --> 00:49:59,840
+that uses of cores coarse-grained lock is just not called in parallel often
+
+
+728
+00:49:59,930 --> 00:50:02,780
+and therefore it is not necessary to actually redesign,
+
+
+729
+00:50:03,140 --> 00:50:04,670
+since redesign there's a lot of work,
+
+
+730
+00:50:04,700 --> 00:50:08,510
+you know and you know it also can complicate the reasoning about code,
+
+
+731
+00:50:08,600 --> 00:50:12,200
+you know, then you know it's a good idea not actually do that redesign,
+
+
+732
+00:50:12,200 --> 00:50:13,190
+it's not necessary.
+
+
+733
+00:50:15,430 --> 00:50:19,480
+And so, in general, a good rule of form
+
+
+734
+00:50:19,480 --> 00:50:21,250
+is you start with coarse-grained locks,
+
+
+735
+00:50:21,340 --> 00:50:24,310
+measure when a contention that appears one of these locks
+
+
+736
+00:50:24,310 --> 00:50:26,230
+and then redesign that part of the system,
+
+
+737
+00:50:26,230 --> 00:50:28,480
+so that you get better, better parallelism.
+
+
+738
+00:50:30,740 --> 00:50:33,170
+Does that make sense, any questions so far?
+
+
+739
+00:50:39,030 --> 00:50:41,490
+Okay, let's look at .
+
+
+740
+00:50:42,140 --> 00:50:46,070
+Well let's look at xv6 and you know some code
+
+
+741
+00:50:46,190 --> 00:50:51,650
+to understand a little bit how this locking sort of works out in practice the xv6.
+
+
+742
+00:50:53,650 --> 00:50:57,190
+And so I'm gonna go back through a .
+
+
+743
+00:50:58,480 --> 00:51:03,180
+To the this screen, I really need this.
+
+
+744
+00:51:03,680 --> 00:51:05,690
+And I want to look at uart,
+
+
+745
+00:51:05,690 --> 00:51:08,270
+because we start talking about locking there.
+
+
+746
+00:51:10,240 --> 00:51:15,350
+On the, on Monday and I want to look a little bit more in detail.
+
+
+747
+00:51:16,390 --> 00:51:18,580
+And now that we know a little bit more about locks
+
+
+748
+00:51:18,580 --> 00:51:21,250
+and then also illustrate a couple of interesting points.
+
+
+749
+00:51:28,110 --> 00:51:32,490
+So first, you know it turns out you want to know,
+
+
+750
+00:51:32,520 --> 00:51:35,470
+what's looking at lock,
+
+
+751
+00:51:35,500 --> 00:51:38,860
+it turns out that the uart actually has only one lock,
+
+
+752
+00:51:39,070 --> 00:51:41,890
+so you can think about this as a reasonable coarse-grained,
+
+
+753
+00:51:41,950 --> 00:51:45,040
+design at this particular point at least for uart.
+
+
+754
+00:51:45,540 --> 00:51:49,830
+And that particular lock, it protects basically uart transmission buffer
+
+
+755
+00:51:50,190 --> 00:51:53,550
+and write pointer and read pointer.
+
+
+756
+00:51:55,150 --> 00:51:56,230
+So when we transmit,
+
+
+757
+00:51:56,230 --> 00:52:01,120
+you know the write pointer points to the next free slot in the transmission buffer
+
+
+758
+00:52:01,330 --> 00:52:04,570
+and the pointer is the next slot, that actually needs to be transmitted.
+
+
+759
+00:52:05,200 --> 00:52:10,510
+Maybe this is our standard design for parallelism.
+
+
+760
+00:52:11,060 --> 00:52:14,090
+Or for a consumer, producer consumer parallelism.
+
+
+761
+00:52:15,210 --> 00:52:19,230
+So let me go back and brought it out.
+
+
+762
+00:52:19,470 --> 00:52:25,820
+So, case study uart,
+
+
+763
+00:52:27,340 --> 00:52:28,870
+and there's basically buffer.
+
+
+764
+00:52:29,870 --> 00:52:32,150
+and there's a read pointer, there's a write pointer
+
+
+765
+00:52:32,480 --> 00:52:35,750
+or write read index and read index.
+
+
+766
+00:52:37,110 --> 00:52:40,620
+This has to go to uart being displayed,
+
+
+767
+00:52:42,820 --> 00:52:44,320
+and this is the writer,
+
+
+768
+00:52:46,740 --> 00:52:50,730
+printf maybe that actually sticks characters into this buffer.
+
+
+769
+00:52:52,490 --> 00:52:53,090
+Okay?
+
+
+770
+00:52:53,840 --> 00:52:56,240
+And so you know we can see is that the lock,
+
+
+771
+00:52:56,270 --> 00:52:58,760
+you know lock has multiple roles.
+
+
+772
+00:53:03,200 --> 00:53:06,200
+One is to basically protect this data structure.
+
+
+773
+00:53:11,640 --> 00:53:13,500
+This data structure has some invariance,
+
+
+774
+00:53:14,200 --> 00:53:17,890
+namely, the read to proceed write,
+
+
+775
+00:53:18,250 --> 00:53:23,080
+anything between R W or characters that need to be sent,
+
+
+776
+00:53:23,440 --> 00:53:27,100
+anything between W and R are things that actually are [empty] slots.
+
+
+777
+00:53:27,780 --> 00:53:30,060
+And the locks are basically help us,
+
+
+778
+00:53:30,060 --> 00:53:32,370
+maintain that invariant.
+
+
+779
+00:53:34,080 --> 00:53:37,980
+So, here are code again.
+
+
+780
+00:53:38,480 --> 00:53:41,210
+And let's look at the acquire.
+
+
+781
+00:53:41,900 --> 00:53:43,280
+So here's uartputc,
+
+
+782
+00:53:44,480 --> 00:53:47,600
+and you know the first thing you know uartputc [] does,
+
+
+783
+00:53:47,600 --> 00:53:49,190
+actually you know grab the lock,
+
+
+784
+00:53:49,900 --> 00:53:53,440
+and then stick a character,
+
+
+785
+00:53:53,500 --> 00:53:56,830
+if there's a place in the buffer sticks the barrel character in the buffer
+
+
+786
+00:53:57,190 --> 00:54:02,460
+and start you know the printing and then releases the lock,
+
+
+787
+00:54:02,670 --> 00:54:10,380
+so if two processes at the same time call uartputc, then there's lock will ensure that
+
+
+788
+00:54:10,410 --> 00:54:13,140
+you know one character from the first process goes in the first slot
+
+
+789
+00:54:13,170 --> 00:54:18,720
+and then the second character of the second process goes into the next slot
+
+
+790
+00:54:18,780 --> 00:54:21,840
+and they're known as happened to end up in the same slot.
+
+
+791
+00:54:22,680 --> 00:54:24,270
+Right, so this is a clear example
+
+
+792
+00:54:24,270 --> 00:54:30,690
+where lock it helps us to avoids a race condition,
+
+
+793
+00:54:30,750 --> 00:54:32,610
+because otherwise you know the,
+
+
+794
+00:54:33,280 --> 00:54:37,390
+the second process might overwrite , you know the first process's character,
+
+
+795
+00:54:38,740 --> 00:54:39,700
+that's one part.
+
+
+796
+00:54:40,150 --> 00:54:42,190
+Then you go look at .
+
+
+797
+00:54:42,960 --> 00:54:44,130
+And we did that a little bit before,
+
+
+798
+00:54:44,130 --> 00:54:46,740
+we look at start, we see a couple more things going on.
+
+
+799
+00:54:48,640 --> 00:54:49,600
+The .
+
+
+800
+00:54:50,140 --> 00:54:52,000
+We see actually that the.
+
+
+801
+00:54:53,220 --> 00:54:56,850
+If buffer is not you know, .
+
+
+802
+00:54:57,460 --> 00:54:58,750
+If the buffer is not empty,
+
+
+803
+00:54:59,080 --> 00:55:03,070
+then we know that basically there's a bunch of characters,
+
+
+804
+00:55:03,070 --> 00:55:05,800
+that are being progressed or being sent.
+
+
+805
+00:55:06,450 --> 00:55:11,160
+And you know the lock, you know, make sure that we don't really overwrite any of those,
+
+
+806
+00:55:11,370 --> 00:55:15,390
+so anything that's sort of the tail end of the queue,
+
+
+807
+00:55:15,390 --> 00:55:22,590
+is actually a being processed by the uart itself.
+
+
+808
+00:55:22,620 --> 00:55:27,460
+So, tailend is in flight.
+
+
+809
+00:55:30,370 --> 00:55:31,510
+And we make sure that
+
+
+810
+00:55:31,510 --> 00:55:37,090
+we basically don't modify or interfere with that particular aspect by grabbing a lock.
+
+
+811
+00:55:38,060 --> 00:55:41,390
+And then finally, they're sort of more and more thing
+
+
+812
+00:55:41,390 --> 00:55:46,520
+is that the writes to registers of the uart
+
+
+813
+00:55:46,520 --> 00:55:47,720
+like that THR register,
+
+
+814
+00:55:47,720 --> 00:55:49,160
+which one there's only one,
+
+
+815
+00:55:49,460 --> 00:55:54,770
+you know basically the lock ensures remember the uart start just called with lock held,
+
+
+816
+00:55:55,100 --> 00:55:58,880
+assures this is only one writer to the THR register.
+
+
+817
+00:55:59,870 --> 00:56:02,900
+And so, another sort of variant or another aspect,
+
+
+818
+00:56:02,900 --> 00:56:11,500
+that the locking enforces is that hardware registers, have one writer.
+
+
+819
+00:56:16,460 --> 00:56:17,090
+Okay?
+
+
+820
+00:56:18,530 --> 00:56:20,150
+You know, there's one other interesting thing,
+
+
+821
+00:56:20,150 --> 00:56:22,730
+that I want to talk a little bit about,
+
+
+822
+00:56:23,120 --> 00:56:27,020
+and that is you know you, uart just done correct,
+
+
+823
+00:56:27,020 --> 00:56:29,570
+hardware is done then, there was an interrupt.
+
+
+824
+00:56:30,170 --> 00:56:32,600
+And, as you know,
+
+
+825
+00:56:32,600 --> 00:56:34,370
+we notice before uart start right,
+
+
+826
+00:56:34,370 --> 00:56:37,250
+you know we have the caller,
+
+
+827
+00:56:37,250 --> 00:56:42,290
+it's a caller to acquire the lock to ensure that ,
+
+
+828
+00:56:42,290 --> 00:56:45,830
+we don't multiple entities running to the [right] register.
+
+
+829
+00:56:46,620 --> 00:56:54,000
+And so uart interrupt itself could run in parallel with another process,
+
+
+830
+00:56:54,000 --> 00:56:54,780
+that's called printf,
+
+
+831
+00:56:54,780 --> 00:56:57,030
+so there's some practical printf ,
+
+
+832
+00:56:57,030 --> 00:56:58,500
+that runs to CPU zero
+
+
+833
+00:56:58,560 --> 00:57:01,500
+and on CPU one actually takes the uart interrupt,
+
+
+834
+00:57:01,530 --> 00:57:02,910
+because maybe it's doing nothing,
+
+
+835
+00:57:02,910 --> 00:57:05,250
+and so it's ready to interrupt any particular point of time.
+
+
+836
+00:57:05,720 --> 00:57:08,360
+And it will [] call uartstart.
+
+
+837
+00:57:09,080 --> 00:57:10,610
+And it has to be the case correct,
+
+
+838
+00:57:10,610 --> 00:57:14,030
+you know we want to ensure that there's a single writer into the hardware registers
+
+
+839
+00:57:14,270 --> 00:57:19,100
+or to protect you know the variance actually of the transmission buffer,
+
+
+840
+00:57:19,460 --> 00:57:21,380
+you know, we have to acquire a lock.
+
+
+841
+00:57:21,810 --> 00:57:26,160
+And so it is the case that xv6 actually that interrupts,
+
+
+842
+00:57:26,160 --> 00:57:30,810
+you can run the bottom half of the driver can run truly concurrent
+
+
+843
+00:57:30,810 --> 00:57:35,790
+on a on different processors with the top half of the driver
+
+
+844
+00:57:36,000 --> 00:57:40,140
+and so therefore interrupt functions also require locks.
+
+
+845
+00:57:40,930 --> 00:57:44,530
+In fact, in this particular case you know requires the one lock,
+
+
+846
+00:57:44,530 --> 00:57:45,820
+that there's actually in the uart
+
+
+847
+00:57:45,850 --> 00:57:47,770
+and then calls uartstart
+
+
+848
+00:57:47,770 --> 00:57:48,940
+and then releases the lock.
+
+
+849
+00:57:50,720 --> 00:57:52,640
+And I'll come back to that in a second,
+
+
+850
+00:57:52,670 --> 00:57:57,110
+because there's a little bit trickiness in implementing a lock,
+
+
+851
+00:57:57,350 --> 00:57:59,690
+in such a way that this actually works out correctly.
+
+
+852
+00:58:00,490 --> 00:58:01,360
+And.
+
+
+853
+00:58:01,920 --> 00:58:05,280
+And the thing that actually you should be worried about is that,
+
+
+854
+00:58:05,580 --> 00:58:07,980
+all actually talk about in a second,
+
+
+855
+00:58:08,010 --> 00:58:09,510
+let me postpone that until I get there.
+
+
+856
+00:58:13,040 --> 00:58:15,440
+Okay, so any any questions about this,
+
+
+857
+00:58:15,440 --> 00:58:20,990
+a simple example of lock use and uart.
+
+
+858
+00:58:29,640 --> 00:58:32,220
+Okay, let me bring this kind of ,
+
+
+859
+00:58:32,220 --> 00:58:34,140
+let me talk about implementing a lock.
+
+
+860
+00:58:34,940 --> 00:58:41,120
+So the spec is that only one process can acquire lock,
+
+
+861
+00:58:41,240 --> 00:58:45,110
+there's no more than one lock holder at any given point of time.
+
+
+862
+00:58:45,640 --> 00:58:48,340
+And we want to look and understand
+
+
+863
+00:58:48,340 --> 00:58:51,400
+actually how you implement a lock in such a way that actually is guaranteed.
+
+
+864
+00:58:51,930 --> 00:58:53,610
+Let me first write a broken lock.
+
+
+865
+00:58:54,440 --> 00:59:00,280
+So we understand you know what the challenges or broken acquire.
+
+
+866
+00:59:05,310 --> 00:59:08,160
+So that we know what the challenge is actually an implement acquire.
+
+
+867
+00:59:09,610 --> 00:59:12,640
+So here's my broken one .
+
+
+868
+00:59:14,320 --> 00:59:19,480
+Well, construct [] acquires lock, star l,
+
+
+869
+00:59:21,970 --> 00:59:23,680
+you know what it does, is it follows,
+
+
+870
+00:59:23,680 --> 00:59:27,400
+it has an infinite loop, while one,
+
+
+871
+00:59:28,980 --> 00:59:37,190
+if l is locked zero mean nobody holding it.
+
+
+872
+00:59:37,900 --> 00:59:40,510
+Then, resuming to caller presumably grabbed the lock.
+
+
+873
+00:59:40,690 --> 00:59:45,040
+So, then we set l lock to one,
+
+
+874
+00:59:48,320 --> 00:59:50,360
+and you know at that point we got the lock,
+
+
+875
+00:59:50,360 --> 00:59:52,880
+so we can return nothing to do anymore.
+
+
+876
+00:59:53,590 --> 00:59:56,080
+And close loop, if we didn't get the lock,
+
+
+877
+00:59:56,080 --> 00:59:57,130
+because the lock was one,
+
+
+878
+00:59:57,130 --> 00:59:59,410
+it means somebody else is holding lock so we just keep spinning.
+
+
+879
+01:00:01,080 --> 01:00:03,720
+Waiting to go around the loop over and over and over
+
+
+880
+01:00:03,990 --> 01:00:08,310
+until do at some point you know the holder lock holder called release,
+
+
+881
+01:00:08,310 --> 01:00:11,790
+which will set lock to, to will set lock to zero.
+
+
+882
+01:00:14,740 --> 01:00:18,520
+And you know what's wrong with this particular implementation.
+
+
+883
+01:00:20,870 --> 01:00:26,690
+I think two processes, may read that it's not locked at the same time.
+
+
+884
+01:00:27,260 --> 01:00:28,520
+Yeah right.
+
+
+885
+01:00:30,040 --> 01:00:31,720
+So there's a race condition here
+
+
+886
+01:00:31,750 --> 01:00:36,160
+and just to make sure the races right here.
+
+
+887
+01:00:39,020 --> 01:00:42,170
+We can have basically two CPUs coming in,
+
+
+888
+01:00:42,230 --> 01:00:44,060
+you know we talk time diagram.
+
+
+889
+01:00:44,700 --> 01:00:49,080
+You know CPU one, CPU zero, CPU one,
+
+
+890
+01:00:50,600 --> 01:00:53,900
+you know this statement a, maybe this statement b,
+
+
+891
+01:00:54,500 --> 01:00:58,640
+both CPU one you know, reach statement a,
+
+
+892
+01:00:58,700 --> 01:01:05,530
+CPU zero and CPU the, zero one both reach [each] statement a,
+
+
+893
+01:01:05,530 --> 01:01:09,130
+so they both see locked being zero
+
+
+894
+01:01:09,370 --> 01:01:10,930
+and then they're both execute b.
+
+
+895
+01:01:13,470 --> 01:01:15,720
+Alright, so here they see locked zero.
+
+
+896
+01:01:17,020 --> 01:01:18,910
+This guy see locked zero.
+
+
+897
+01:01:20,760 --> 01:01:22,920
+And so they both executes statement b,
+
+
+898
+01:01:22,920 --> 01:01:25,800
+both have acquired lock
+
+
+899
+01:01:26,070 --> 01:01:30,150
+and which violated the spec, you know this particular function.
+
+
+900
+01:01:31,670 --> 01:01:32,270
+This makes sense?
+
+
+901
+01:01:35,740 --> 01:01:38,740
+So it turns out you know to solve this problem
+
+
+902
+01:01:38,800 --> 01:01:40,300
+and sort of get a correct implementation,
+
+
+903
+01:01:40,300 --> 01:01:41,680
+there are multiple ways of going about it,
+
+
+904
+01:01:41,980 --> 01:01:46,720
+but the most common ways to rely basically on a special hardware instruction.
+
+
+905
+01:01:47,620 --> 01:01:50,590
+An hardware instruction that basically what it does
+
+
+906
+01:01:50,860 --> 01:01:53,830
+and does this test and then set atomically.
+
+
+907
+01:01:56,050 --> 01:02:09,140
+And so solution to this problem is hardware test and set support.
+
+
+908
+01:02:16,680 --> 01:02:18,690
+And the way you can think about it,
+
+
+909
+01:02:18,690 --> 01:02:24,960
+you know on the RISC-V, you know this instruction actually there's the atomic memory operation swap,
+
+
+910
+01:02:26,680 --> 01:02:27,970
+that would gonna be using.
+
+
+911
+01:02:28,740 --> 01:02:32,100
+And basically boils down to test and set,
+
+
+912
+01:02:32,130 --> 01:02:34,170
+basically the hardware guarantees,
+
+
+913
+01:02:34,410 --> 01:02:39,450
+you will you take this, takes two arguments or [three] arguments and address,
+
+
+914
+01:02:40,130 --> 01:02:44,600
+register one r1 and register two
+
+
+915
+01:02:45,020 --> 01:02:47,660
+and essentially what the hardware does,
+
+
+916
+01:02:47,660 --> 01:02:54,250
+conceptually, is it locks the address, if you will.
+
+
+917
+01:02:54,980 --> 01:02:57,650
+We'll talk about that in a second little bit more locks address.
+
+
+918
+01:02:58,200 --> 01:02:59,850
+It, um.
+
+
+919
+01:03:01,290 --> 01:03:07,240
+It puts in a temporary variable, you know the value that actually is at that particular address.
+
+
+920
+01:03:09,570 --> 01:03:16,710
+And then, raise the value of r1 into the address.
+
+
+921
+01:03:17,560 --> 01:03:26,600
+And then basically puts the value that was at the originally address into temp- temporary value,
+
+
+922
+01:03:26,600 --> 01:03:30,200
+that was the original value was actually address actually into r2
+
+
+923
+01:03:30,470 --> 01:03:32,900
+and then basically unlocks it returns.
+
+
+924
+01:03:37,220 --> 01:03:39,890
+And you know in this lock,
+
+
+925
+01:03:39,890 --> 01:03:42,620
+if you will guarantee is that basically this test,
+
+
+926
+01:03:42,740 --> 01:03:45,350
+where the result of the test is returned into r2
+
+
+927
+01:03:45,620 --> 01:03:48,530
+and the set actually happened atomically.
+
+
+928
+01:03:49,070 --> 01:03:50,570
+And so this is a hardware instruction,
+
+
+929
+01:03:50,600 --> 01:03:53,960
+most processor have an hardware instruction like this.
+
+
+930
+01:03:54,440 --> 01:03:58,340
+Because it's a convenient way to actually implement locks.
+
+
+931
+01:04:00,560 --> 01:04:03,170
+So basically what we've done is,
+
+
+932
+01:04:03,170 --> 01:04:09,770
+like we've reduced the atomicity of this software lock implementation,
+
+
+933
+01:04:09,770 --> 01:04:12,320
+to basically a hardware lock implementation.
+
+
+934
+01:04:13,190 --> 01:04:16,100
+Um, and .
+
+
+935
+01:04:16,970 --> 01:04:19,760
+So the processor might implement this in very different ways,
+
+
+936
+01:04:19,790 --> 01:04:22,520
+so basically, the instruction set itself,
+
+
+937
+01:04:22,520 --> 01:04:23,900
+there's like a specification,
+
+
+938
+01:04:23,900 --> 01:04:25,460
+it doesn't actually say how it's implemented
+
+
+939
+01:04:25,850 --> 01:04:28,400
+and it is very dependent on the actual implementation.
+
+
+940
+01:04:30,320 --> 01:04:36,770
+Obvious dependent on how the memory system exactly works.
+
+
+941
+01:04:44,320 --> 01:04:50,620
+So, for example, if you know the [] processor shared single memory controller,
+
+
+942
+01:04:50,680 --> 01:04:52,120
+that read and writes to memory,
+
+
+943
+01:04:52,210 --> 01:04:54,760
+then the memory controller can actually support this operation,
+
+
+944
+01:04:55,060 --> 01:04:59,440
+basically allow you to lock in a particular address,
+
+
+945
+01:04:59,440 --> 01:05:04,000
+you know and then let you know one processor do two operations or three instructions
+
+
+946
+01:05:04,240 --> 01:05:05,380
+and then measure will unlock
+
+
+947
+01:05:05,410 --> 01:05:09,310
+and so since all the processors reads or writes go for this memory controller,
+
+
+948
+01:05:09,310 --> 01:05:11,470
+the memory controller into the ordering of locking.
+
+
+949
+01:05:12,290 --> 01:05:17,840
+If the memories are in this processor are sitting on a shared bus,
+
+
+950
+01:05:18,110 --> 01:05:20,210
+it's often the bus arbiter,
+
+
+951
+01:05:20,270 --> 01:05:21,260
+that can actually do that,
+
+
+952
+01:05:21,260 --> 01:05:27,500
+where bus arbiter has support for basically executing to memory operations in an atomic way.
+
+
+953
+01:05:28,340 --> 01:05:32,990
+If it's, if the processor have [caches] ,
+
+
+954
+01:05:32,990 --> 01:05:36,230
+then, it's sort of typically part of the cache coherence protocol,
+
+
+955
+01:05:36,230 --> 01:05:40,460
+where cache coherence protocol will ensure that
+
+
+956
+01:05:40,460 --> 01:05:41,360
+if there's a writer,
+
+
+957
+01:05:41,360 --> 01:05:48,350
+you know that that particular a cache line that holds a value we want to update,
+
+
+958
+01:05:48,350 --> 01:05:50,150
+ends up in one single cache.
+
+
+959
+01:05:50,580 --> 01:05:56,850
+And then basically the processor is kind of lock that single cache line across to operations.
+
+
+960
+01:05:57,330 --> 01:06:01,500
+So the implementation of this, you know can be done in many different ways ,
+
+
+961
+01:06:01,500 --> 01:06:03,960
+but conceptually the, what's going on,
+
+
+962
+01:06:03,960 --> 01:06:05,220
+it's like you lock the address,
+
+
+963
+01:06:05,520 --> 01:06:10,770
+you read your original value, you store in the new value and return your value.
+
+
+964
+01:06:12,360 --> 01:06:13,050
+Does that make sense?
+
+
+965
+01:06:15,820 --> 01:06:18,580
+To see how we can use that instruction,
+
+
+966
+01:06:19,240 --> 01:06:25,060
+let's actually look at the implementation of acquiring and release in xv6
+
+
+967
+01:06:25,300 --> 01:06:27,460
+and it will expose a couple of other interesting details.
+
+
+968
+01:06:31,800 --> 01:06:34,950
+So let me first bring up spinlock.h,
+
+
+969
+01:06:34,980 --> 01:06:40,570
+it's spinlock.h, as you can see, it's pretty straightforward,
+
+
+970
+01:06:40,600 --> 01:06:45,160
+it has this [flat] lock, exactly as in our pseudo code
+
+
+971
+01:06:45,460 --> 01:06:47,320
+and then there's two other things for debugging,
+
+
+972
+01:06:47,320 --> 01:06:48,700
+namely the name of the lock
+
+
+973
+01:06:48,790 --> 01:06:53,490
+and the CPU, the last, the current CPU that actually holding the lock.
+
+
+974
+01:06:54,170 --> 01:06:56,630
+And this is mostly to print out the debugging messages,
+
+
+975
+01:06:56,630 --> 01:06:59,690
+for example you do to acquire some of the same CPU.
+
+
+976
+01:07:01,450 --> 01:07:07,230
+Okay, so then let's look at the implementation.
+
+
+977
+01:07:12,020 --> 01:07:14,630
+And so let's start out with acquire.
+
+
+978
+01:07:15,140 --> 01:07:18,620
+And let's first look at this loop,
+
+
+979
+01:07:19,540 --> 01:07:23,530
+so this is actually the sort of test and set loop,
+
+
+980
+01:07:23,530 --> 01:07:24,880
+that I just talked about,
+
+
+981
+01:07:25,150 --> 01:07:30,640
+it turns out that in the C standard,
+
+
+982
+01:07:30,670 --> 01:07:34,390
+actually defines one of these atomic operations
+
+
+983
+01:07:34,420 --> 01:07:38,350
+and so C standard actually has a function,
+
+
+984
+01:07:38,350 --> 01:07:42,070
+that says you know __sync_lock_test_and_set
+
+
+985
+01:07:42,070 --> 01:07:45,130
+and basically specifies the behavior that I just described.
+
+
+986
+01:07:45,700 --> 01:07:50,740
+And then every processor basically required to implement that behavior
+
+
+987
+01:07:50,860 --> 01:07:55,180
+and since most processors have and matching of test and set hardware instruction,
+
+
+988
+01:07:55,420 --> 01:07:58,570
+this turns out to be a reasonable straightforward for the [process] to implement,
+
+
+989
+01:07:58,600 --> 01:08:01,420
+then so in fact if we look at kernel.asm,
+
+
+990
+01:08:01,420 --> 01:08:05,980
+we can look at the assembly instructions and see exactly what the RISC-V processor does.
+
+
+991
+01:08:08,000 --> 01:08:09,320
+Um, so.
+
+
+992
+01:08:11,200 --> 01:08:14,230
+But here is our assembly structures acquire
+
+
+993
+01:08:14,560 --> 01:08:19,390
+and let's here's our atomic swap instruction.
+
+
+994
+01:08:27,830 --> 01:08:29,240
+So you can see,
+
+
+995
+01:08:30,800 --> 01:08:35,240
+if you know atomic swap, basically called register a5
+
+
+996
+01:08:35,240 --> 01:08:39,770
+and the input and output also ends up in a5
+
+
+997
+01:08:40,160 --> 01:08:41,930
+and as long as the whole to the address
+
+
+998
+01:08:42,200 --> 01:08:48,880
+and if it's not equal, we return
+
+
+999
+01:08:48,910 --> 01:08:54,640
+and otherwise basically we go back to , jump back to ,
+
+
+1000
+01:08:57,170 --> 01:09:02,360
+double check I'm saying the right thing here, move a4 [six],
+
+
+1001
+01:09:02,360 --> 01:09:06,620
+if not equal to 0x twenty plus 22.
+
+
+1002
+01:09:07,260 --> 01:09:09,030
+Alright, that's a little hard to calculate,
+
+
+1003
+01:09:09,030 --> 01:09:11,400
+but basically in one case, we branch out
+
+
+1004
+01:09:11,490 --> 01:09:13,080
+and in the other case, we branch back.
+
+
+1005
+01:09:14,270 --> 01:09:16,730
+So this may be easier to look at the C code.
+
+
+1006
+01:09:19,580 --> 01:09:20,840
+So let's go away in here,
+
+
+1007
+01:09:20,840 --> 01:09:24,590
+so what happens, so if the if the lock is not held,
+
+
+1008
+01:09:25,140 --> 01:09:27,090
+what will be the value of l lock,
+
+
+1009
+01:09:27,090 --> 01:09:29,340
+well lock will be zero right.
+
+
+1010
+01:09:30,180 --> 01:09:31,920
+And so we call this test and set,
+
+
+1011
+01:09:32,100 --> 01:09:37,830
+what will happen is we'll write one in lock, return the previous value.
+
+
+1012
+01:09:38,620 --> 01:09:40,690
+So if the previous value is zero,
+
+
+1013
+01:09:41,140 --> 01:09:43,390
+then we're good right,
+
+
+1014
+01:09:43,390 --> 01:09:45,400
+because that means that nobody was holding the lock
+
+
+1015
+01:09:45,400 --> 01:09:47,680
+and we fall through and we're done with this while loop.
+
+
+1016
+01:09:49,740 --> 01:09:51,660
+Now, let's say the lock value was one,
+
+
+1017
+01:09:51,840 --> 01:09:54,990
+so probably the lock [action] lock,
+
+
+1018
+01:09:55,350 --> 01:09:56,940
+well, will this instruction do,
+
+
+1019
+01:09:57,030 --> 01:10:02,130
+it will , read the old value, put that in the side correct,
+
+
+1020
+01:10:02,130 --> 01:10:04,020
+there's one in this case
+
+
+1021
+01:10:04,110 --> 01:10:07,110
+and then write a new one into that location.
+
+
+1022
+01:10:07,790 --> 01:10:10,490
+And that will change nothing right,
+
+
+1023
+01:10:10,490 --> 01:10:12,260
+because it was already locked.
+
+
+1024
+01:10:12,810 --> 01:10:14,880
+And and the function will return one,
+
+
+1025
+01:10:15,210 --> 01:10:17,370
+indicating that actually some of the previous hold,
+
+
+1026
+01:10:17,370 --> 01:10:18,810
+that it was already locked
+
+
+1027
+01:10:18,840 --> 01:10:21,360
+and so in that case is unequal to zero
+
+
+1028
+01:10:21,480 --> 01:10:28,140
+and it will spin, will keep spinning until locked actually set back to zero,
+
+
+1029
+01:10:28,590 --> 01:10:30,270
+[] [level] happened in this release.
+
+
+1030
+01:10:32,500 --> 01:10:33,430
+Any questions about this?
+
+
+1031
+01:10:51,200 --> 01:10:51,980
+No questions.
+
+
+1032
+01:10:52,810 --> 01:10:54,190
+Okay .
+
+
+1033
+01:10:56,070 --> 01:11:01,430
+So now basically you know let's look at the corresponding the release operation,
+
+
+1034
+01:11:01,990 --> 01:11:02,920
+And.
+
+
+1035
+01:11:07,540 --> 01:11:10,390
+And here's release operation,
+
+
+1036
+01:11:10,690 --> 01:11:13,570
+and if you look at the kernel.asm again.
+
+
+1037
+01:11:15,960 --> 01:11:17,160
+That instruction,
+
+
+1038
+01:11:17,250 --> 01:11:20,940
+so lets look at release, probably right after, here release.
+
+
+1039
+01:11:22,220 --> 01:11:25,700
+So the release actually also uses this atomic swap instruction.
+
+
+1040
+01:11:27,960 --> 01:11:30,510
+And putting basically zero into s1.
+
+
+1041
+01:11:33,520 --> 01:11:37,180
+And so this guarantee is basically that this atomic update,
+
+
+1042
+01:11:37,180 --> 01:11:40,090
+you know to l locked or lk->locked,
+
+
+1043
+01:11:40,360 --> 01:11:44,530
+writing zero into lk->locked using atomic operation.
+
+
+1044
+01:11:46,080 --> 01:11:51,600
+Many of you ask why not just use store, store instruction to actually write zero.
+
+
+1045
+01:11:53,990 --> 01:11:59,390
+Anybody, may you want to guess why, why that might not work
+
+
+1046
+01:11:59,390 --> 01:12:00,950
+or what the problem could be.
+
+
+1047
+01:12:02,380 --> 01:12:07,180
+Because then some other process might be writing one to the lock or, no,
+
+
+1048
+01:12:07,760 --> 01:12:10,610
+or writing another zero but that can't be the case, right.
+
+
+1049
+01:12:11,320 --> 01:12:12,490
+Yeah, well there could be okay,
+
+
+1050
+01:12:12,490 --> 01:12:16,690
+so there could be two processes or two CPUs writing to l lock at the same time right,
+
+
+1051
+01:12:17,170 --> 01:12:20,380
+but I think what the question really is that,
+
+
+1052
+01:12:20,380 --> 01:12:23,230
+you know, for many people and I often assume this too,
+
+
+1053
+01:12:23,350 --> 01:12:25,450
+is that you're going to do a single store instruction,
+
+
+1054
+01:12:25,450 --> 01:12:27,070
+that is sort of like an atomic operation.
+
+
+1055
+01:12:28,250 --> 01:12:33,110
+There's not always the case, for example if you are
+
+
+1056
+01:12:33,110 --> 01:12:35,510
+and it really depends on the architecture implementation,
+
+
+1057
+01:12:35,540 --> 01:12:40,160
+like for example if the cache [] protocol works or cache system works using cache lines,
+
+
+1058
+01:12:40,160 --> 01:12:43,290
+where cache line maybe bigger than integer,
+
+
+1059
+01:12:43,290 --> 01:12:45,750
+are typically bigger than integer ,
+
+
+1060
+01:12:45,750 --> 01:12:46,860
+then really what's happening is,
+
+
+1061
+01:12:46,860 --> 01:12:49,110
+that the first operation is loading the cache line,
+
+
+1062
+01:12:49,110 --> 01:12:50,460
+and then updating the cache line,
+
+
+1063
+01:12:50,790 --> 01:12:54,510
+so in fact you know store instruction, basically has two micro operations in it
+
+
+1064
+01:12:54,690 --> 01:12:57,540
+and you can get the wrong result.
+
+
+1065
+01:12:58,990 --> 01:13:05,890
+So, you know to avoid you know having to understand anything of the hardware implementation,
+
+
+1066
+01:13:05,890 --> 01:13:08,860
+of exactly and whether integer operations are atomic or not
+
+
+1067
+01:13:08,890 --> 01:13:14,720
+or writing to 64 bit 64 bit memory values an atomic operation,
+
+
+1068
+01:13:14,870 --> 01:13:19,550
+you know we use the RISC-V operation,
+
+
+1069
+01:13:19,550 --> 01:13:21,560
+that is guaranteed to be executed atomically.
+
+
+1070
+01:13:25,020 --> 01:13:25,770
+Does that make sense?
+
+
+1071
+01:13:28,100 --> 01:13:28,640
+Yes.
+
+
+1072
+01:13:30,290 --> 01:13:35,610
+Okay, so just , just for your [amusement] ,
+
+
+1073
+01:13:36,180 --> 01:13:39,450
+atomic swap is not the only instruction that exists ,
+
+
+1074
+01:13:39,450 --> 01:13:41,160
+so here's the RISC-V manual,
+
+
+1075
+01:13:41,490 --> 01:13:44,700
+in lists, whole bunch of the atomic operation,
+
+
+1076
+01:13:44,700 --> 01:13:48,390
+so there's an atomic and, atomic or, there's max min,
+
+
+1077
+01:13:48,690 --> 01:13:53,820
+they're all, can read or write a value in an atomic operation.
+
+
+1078
+01:13:58,480 --> 01:13:59,050
+Okay?
+
+
+1079
+01:13:59,890 --> 01:14:04,150
+Okay so there's a couple other things, I want to point out, in this particular implementation.
+
+
+1080
+01:14:06,420 --> 01:14:10,710
+In, let me start again go back to acquire.
+
+
+1081
+01:14:12,850 --> 01:14:17,350
+So one of the first things that the acquire function does,
+
+
+1082
+01:14:17,650 --> 01:14:21,460
+is it turns off interrupts.
+
+
+1083
+01:14:22,900 --> 01:14:26,290
+And it's really good to understand why that is the case
+
+
+1084
+01:14:26,290 --> 01:14:29,140
+and so for now I'm gonna go back to uart example code.
+
+
+1085
+01:14:29,680 --> 01:14:31,300
+And you think a little bit about this.
+
+
+1086
+01:14:31,800 --> 01:14:34,200
+And so we want to think about the case,
+
+
+1087
+01:14:34,380 --> 01:14:39,430
+were acquire is actually maybe incorrectly implemented,
+
+
+1088
+01:14:39,430 --> 01:14:41,200
+does not turn off interrupts,
+
+
+1089
+01:14:41,320 --> 01:14:45,700
+so the way to think about this, is if we go through uartputc,
+
+
+1090
+01:14:46,090 --> 01:14:48,670
+and here let's say uartputc runs,
+
+
+1091
+01:14:49,170 --> 01:14:52,470
+and, acquires the lock.
+
+
+1092
+01:14:53,520 --> 01:14:56,340
+And but does not turn off interrupts, what can happen.
+
+
+1093
+01:15:03,050 --> 01:15:05,540
+Give everybody a couple seconds to think about it ,
+
+
+1094
+01:15:05,930 --> 01:15:09,950
+if you have an idea or why it might be wrong, like jumpin.
+
+
+1095
+01:15:18,340 --> 01:15:21,520
+Perhaps, it could be interrupted,
+
+
+1096
+01:15:21,520 --> 01:15:28,240
+because of, because of the [lock] and then something happens
+
+
+1097
+01:15:28,480 --> 01:15:31,090
+and it needs to print something else,
+
+
+1098
+01:15:31,090 --> 01:15:33,400
+and it tries to do uartputc again,
+
+
+1099
+01:15:33,970 --> 01:15:35,530
+but the lock is already taken.
+
+
+1100
+01:15:35,740 --> 01:15:37,180
+That might be a possible scenario,
+
+
+1101
+01:15:37,180 --> 01:15:40,300
+there is a much more direct example for this.
+
+
+1102
+01:15:40,840 --> 01:15:43,360
+So let's say uartputc grab the lock
+
+
+1103
+01:15:43,810 --> 01:15:46,690
+and uart were busy transmitting some character.
+
+
+1104
+01:15:47,590 --> 01:15:50,890
+So what uart done or transmitting character, what does it do.
+
+
+1105
+01:15:53,160 --> 01:15:57,090
+If causes an interrupt correct and uart interruptions,
+
+
+1106
+01:15:57,940 --> 01:15:59,560
+what uart interrupted do,
+
+
+1107
+01:16:00,740 --> 01:16:02,300
+it grabs the same lock,
+
+
+1108
+01:16:02,450 --> 01:16:04,520
+you know that the uartputc holding right,
+
+
+1109
+01:16:04,520 --> 01:16:07,310
+so what will happen here if there's only one CPU
+
+
+1110
+01:16:07,580 --> 01:16:10,580
+and so there's no other CPU where this interrupt could be running.
+
+
+1111
+01:16:12,460 --> 01:16:13,660
+Well, we have a deadlock right,
+
+
+1112
+01:16:13,660 --> 01:16:19,500
+because the current CPU is holding the lock as part of uartputc,
+
+
+1113
+01:16:19,560 --> 01:16:22,110
+then later the interrupt that came in
+
+
+1114
+01:16:22,260 --> 01:16:25,140
+and the first thing it tries to do is actually acquire a lock has already held.
+
+
+1115
+01:16:25,640 --> 01:16:28,550
+In fact, in the case of xv6, you will get a panic,
+
+
+1116
+01:16:28,640 --> 01:16:32,780
+because you know the same CPU, is actually trying to acquire the same lock again.
+
+
+1117
+01:16:37,460 --> 01:16:42,920
+So basically you know what acquires spinlock, deals with sort of two different types of concurrency,
+
+
+1118
+01:16:43,040 --> 01:16:45,710
+one they're sort of concurrency between two different CPUs,
+
+
+1119
+01:16:45,980 --> 01:16:50,240
+going to make sure like for example if the interrupt function runs on a different CPU,
+
+
+1120
+01:16:50,420 --> 01:16:52,940
+though basically we're going to raise on the transmission buffer.
+
+
+1121
+01:16:53,440 --> 01:16:55,150
+But if they run in the same CPU,
+
+
+1122
+01:16:55,150 --> 01:16:57,550
+we're going to make sure that it's still atomic
+
+
+1123
+01:16:57,550 --> 01:17:01,780
+and that is not being interrupted and therefore we actually turn the interrupts off in acquire.
+
+
+1124
+01:17:03,360 --> 01:17:06,450
+And they're only turned on again at the end of release,
+
+
+1125
+01:17:06,780 --> 01:17:09,570
+when the walk actually hasn't been released,
+
+
+1126
+01:17:09,570 --> 01:17:10,890
+at that point is see it again,
+
+
+1127
+01:17:10,920 --> 01:17:12,090
+you know to take these interrupts,
+
+
+1128
+01:17:12,270 --> 01:17:15,090
+because lock actually is not released anymore.
+
+
+1129
+01:17:16,190 --> 01:17:17,990
+Not acquire holding it, not held anymore.
+
+
+1130
+01:17:18,940 --> 01:17:19,810
+Does that make sense?
+
+
+1131
+01:17:28,560 --> 01:17:32,730
+Okay, there's one more subtle thing in this implementation,
+
+
+1132
+01:17:32,730 --> 01:17:33,900
+that I want to talk about,
+
+
+1133
+01:17:34,260 --> 01:17:39,110
+and, we need to deal with.
+
+
+1134
+01:17:43,200 --> 01:17:46,110
+And there is memory ordering.
+
+
+1135
+01:17:53,810 --> 01:17:57,860
+So for example you think about lock is,
+
+
+1136
+01:17:57,860 --> 01:18:01,900
+let's say, acquires its locked to one,
+
+
+1137
+01:18:02,290 --> 01:18:06,550
+maybe we have a critical section in which you actually x plus one
+
+
+1138
+01:18:06,940 --> 01:18:12,580
+and then require release you know set lock zero.
+
+
+1139
+01:18:13,260 --> 01:18:15,270
+So you sort of think about instruction scheme,
+
+
+1140
+01:18:15,270 --> 01:18:17,400
+that's being executed on a particular CPU,
+
+
+1141
+01:18:17,550 --> 01:18:20,280
+you know so these are the instructions are being executed, right.
+
+
+1142
+01:18:22,110 --> 01:18:25,620
+Now, if the code were just purely sequential.
+
+
+1143
+01:18:30,490 --> 01:18:36,670
+The compiler or a processor architecture or reorder instructions,
+
+
+1144
+01:18:36,670 --> 01:18:38,350
+you know just to get better performance,
+
+
+1145
+01:18:38,680 --> 01:18:43,120
+for example, if it were a sequential stream,
+
+
+1146
+01:18:43,120 --> 01:18:46,180
+would it be okay to move this instruction to afterwards.
+
+
+1147
+01:18:49,170 --> 01:18:53,010
+We don't change the correctness of the single stream of execution.
+
+
+1148
+01:18:58,180 --> 01:18:58,900
+You know, not really,
+
+
+1149
+01:18:58,930 --> 01:19:01,180
+because lock the next are totally independent of each other,
+
+
+1150
+01:19:01,180 --> 01:19:02,950
+there's no relation to it,
+
+
+1151
+01:19:02,950 --> 01:19:05,710
+would be perfectly fine if it were a sequential execution,
+
+
+1152
+01:19:06,010 --> 01:19:10,030
+that the x has moved after locked zero.
+
+
+1153
+01:19:10,620 --> 01:19:16,020
+So that you know on the single, single serial execution.
+
+
+1154
+01:19:18,140 --> 01:19:18,830
+That's okay.
+
+
+1155
+01:19:23,500 --> 01:19:25,630
+And effect and effect processors,
+
+
+1156
+01:19:25,630 --> 01:19:26,770
+you know do this all the time,
+
+
+1157
+01:19:26,770 --> 01:19:28,750
+you know they do expectantly execute stuff,
+
+
+1158
+01:19:29,170 --> 01:19:31,120
+we're expected to execute instructions
+
+
+1159
+01:19:31,120 --> 01:19:34,300
+and so that can result in basically these instructions re-orderings.
+
+
+1160
+01:19:34,760 --> 01:19:37,430
+The compiler, does it too,
+
+
+1161
+01:19:37,520 --> 01:19:40,700
+may be optimized some code path and also will reorder instructions,
+
+
+1162
+01:19:40,700 --> 01:19:43,730
+as long as you know results in the same serial execution.
+
+
+1163
+01:19:44,710 --> 01:19:47,680
+But clearly during concurrent execution this be disaster, right,
+
+
+1164
+01:19:47,680 --> 01:19:49,840
+because if lock are acquire,
+
+
+1165
+01:19:51,320 --> 01:19:52,940
+and this was our release,
+
+
+1166
+01:19:54,180 --> 01:19:55,290
+and basically what we've done,
+
+
+1167
+01:19:55,290 --> 01:20:00,930
+we move the critical section outside of the the acquiring region would be totally incorrect.
+
+
+1168
+01:20:01,580 --> 01:20:05,940
+So that's wrong, wrong in a concurrent execution.
+
+
+1169
+01:20:12,780 --> 01:20:17,580
+And so you know to forbid or tell the compiler and hardware not to do this,
+
+
+1170
+01:20:17,910 --> 01:20:21,750
+there's something that's called memory fence
+
+
+1171
+01:20:21,750 --> 01:20:23,070
+or something that synchronize,
+
+
+1172
+01:20:23,370 --> 01:20:24,870
+there's instructions basically says,
+
+
+1173
+01:20:24,870 --> 01:20:27,660
+like any loads or stores before this point,
+
+
+1174
+01:20:27,900 --> 01:20:30,540
+you are not allowed to move beyond this point.
+
+
+1175
+01:20:31,320 --> 01:20:34,860
+And so release has this and acquire has this
+
+
+1176
+01:20:35,190 --> 01:20:37,350
+and so for example, this x plus, x plus one,
+
+
+1177
+01:20:37,380 --> 01:20:41,880
+if that was updated after the acquire and before the release,
+
+
+1178
+01:20:41,910 --> 01:20:43,980
+the x plus x plus one has to stay
+
+
+1179
+01:20:43,980 --> 01:20:46,890
+before you know this particular memory synchronization point.
+
+
+1180
+01:20:47,410 --> 01:20:48,970
+And so it will not be,
+
+
+1181
+01:20:48,970 --> 01:20:52,630
+there will be no trouble with memory ordering,
+
+
+1182
+01:20:52,930 --> 01:20:55,750
+so this is the reason why synchronizes there,
+
+
+1183
+01:20:55,900 --> 01:20:59,530
+both in the release and also there's one in the acquire.
+
+
+1184
+01:21:03,560 --> 01:21:04,250
+Does that make sense?
+
+
+1185
+01:21:06,230 --> 01:21:07,670
+I have a question.
+
+
+1186
+01:21:08,880 --> 01:21:18,290
+Is it, is it by convention that the start of the [port],
+
+
+1187
+01:21:18,320 --> 01:21:22,670
+so I guess I guess the the compiler could figure out,
+
+
+1188
+01:21:22,670 --> 01:21:26,810
+that there is an instruction before the lock is even acquired
+
+
+1189
+01:21:26,810 --> 01:21:30,860
+and that it can be just as well moved after the lock is released.
+
+
+1190
+01:21:32,830 --> 01:21:37,210
+Can that happen, or will it encounter a barrier and see that.
+
+
+1191
+01:21:37,300 --> 01:21:41,440
+You also you know in this case, acquire as a barrier and release as a barrier,
+
+
+1192
+01:21:41,440 --> 01:21:45,640
+so anything that happened before locked in sector one will happen before that,
+
+
+1193
+01:21:45,880 --> 01:21:47,650
+it will never pass that instruction,
+
+
+1194
+01:21:47,680 --> 01:21:48,790
+so this is a barrier,
+
+
+1195
+01:21:48,910 --> 01:21:53,330
+if you will, this barrier one, and this is barrier two.
+
+
+1196
+01:21:55,520 --> 01:21:58,820
+And so it means that any instruction before here, stay here,
+
+
+1197
+01:21:59,150 --> 01:22:03,440
+and instruction between what happened between the two between acquire and release
+
+
+1198
+01:22:03,440 --> 01:22:06,530
+and instruction after will stay after the release.
+
+
+1199
+01:22:07,950 --> 01:22:08,550
+Okay.
+
+
+1200
+01:22:11,110 --> 01:22:11,710
+Okay?
+
+
+1201
+01:22:12,550 --> 01:22:15,130
+Okay so I'm running close to the end,
+
+
+1202
+01:22:15,160 --> 01:22:19,390
+so let me just actually wrapup here.
+
+
+1203
+01:22:27,710 --> 01:22:32,210
+So, to locks, you know locks are good for correctness,
+
+
+1204
+01:22:40,370 --> 01:22:42,050
+but can be bad for performance.
+
+
+1205
+01:22:47,480 --> 01:22:49,160
+Which sort of a bummer correct,
+
+
+1206
+01:22:49,160 --> 01:22:51,740
+because we are one reason we actually got into locks
+
+
+1207
+01:22:51,740 --> 01:22:54,620
+is basically to get correct during parallel execution,
+
+
+1208
+01:22:54,620 --> 01:22:58,130
+but locks actually limit parallel execution.
+
+
+1209
+01:22:58,850 --> 01:23:06,360
+That's one and two locks complicate programming.
+
+
+1210
+01:23:07,290 --> 01:23:09,420
+And you will experience that in some of the lab,
+
+
+1211
+01:23:09,420 --> 01:23:11,430
+that we're going to be doing, in fact from now on,
+
+
+1212
+01:23:11,430 --> 01:23:13,470
+we'll see lock shown all the time,
+
+
+1213
+01:23:13,890 --> 01:23:18,300
+and that will give us least you know some thought,
+
+
+1214
+01:23:18,300 --> 01:23:21,060
+you know it's going to be necessary to understand why the locks are there
+
+
+1215
+01:23:21,060 --> 01:23:22,230
+and what they protect.
+
+
+1216
+01:23:22,700 --> 01:23:26,420
+And there sort of inherent, if you do parallel programming,
+
+
+1217
+01:23:26,780 --> 01:23:29,210
+that you need to use locks.
+
+
+1218
+01:23:29,880 --> 01:23:33,840
+And so you know if you want to avoid the complications due to locks,
+
+
+1219
+01:23:33,840 --> 01:23:35,520
+you know a couple things you could do,
+
+
+1220
+01:23:35,550 --> 01:23:37,530
+you know don't share it, you don't have to.
+
+
+1221
+01:23:42,860 --> 01:23:44,480
+If you don't have shared data structures,
+
+
+1222
+01:23:46,340 --> 01:23:48,110
+these race conditions cannot happen,
+
+
+1223
+01:23:48,350 --> 01:23:51,500
+and so there and so you you don't need locks
+
+
+1224
+01:23:51,500 --> 01:23:53,390
+and so you don't need this complicated programming.
+
+
+1225
+01:23:54,000 --> 01:23:56,760
+But you know typically you will have some shared data structures,
+
+
+1226
+01:23:56,760 --> 01:23:58,920
+you will do, you will need locks
+
+
+1227
+01:23:59,100 --> 01:24:01,830
+and I think the thing to do is start with coarse-grained,
+
+
+1228
+01:24:04,130 --> 01:24:10,060
+and then move to fine-grained if necessary based on your measurements,
+
+
+1229
+01:24:10,060 --> 01:24:13,150
+you want to make determined to make sure that the lock actually [contended],
+
+
+1230
+01:24:13,150 --> 01:24:14,620
+before you actually start redesigning.
+
+
+1231
+01:24:15,480 --> 01:24:18,060
+And finally, you know use a race detector too.
+
+
+1232
+01:24:20,460 --> 01:24:25,950
+And one of these race detector tools actually finds problems or race conditions,
+
+
+1233
+01:24:25,950 --> 01:24:27,390
+because you put the locks in the wrong
+
+
+1234
+01:24:27,390 --> 01:24:28,260
+or you put the {acquire,and
+
+
+1235
+01:24:28,260 --> 01:24:29,370
+release in the wrong place
+
+
+1236
+01:24:29,370 --> 01:24:32,070
+and in fact you still have races.
+
+
+1237
+01:24:32,770 --> 01:24:34,900
+Okay so there's a quick introduction to locks,
+
+
+1238
+01:24:34,960 --> 01:24:36,670
+we're going to talk a lot more about locks
+
+
+1239
+01:24:36,670 --> 01:24:38,650
+in the basically for the rest of the semester,
+
+
+1240
+01:24:38,650 --> 01:24:39,340
+that will show up,
+
+
+1241
+01:24:39,340 --> 01:24:42,160
+and we'll talk a little bit more about lock free programming at the end
+
+
+1242
+01:24:42,460 --> 01:24:44,950
+and see how that's done in kernels.
+
+
+1243
+01:24:45,580 --> 01:24:47,380
+Okay, so let me stop here,
+
+
+1244
+01:24:47,740 --> 01:24:50,380
+so that anybody who has to go somewhere else can go,
+
+
+1245
+01:24:50,380 --> 01:24:53,650
+but if you have any more questions feel free, please feel free to ask them.
+
+
+1246
+01:24:54,820 --> 01:24:55,990
+We have a question in the chat,
+
+
+1247
+01:24:56,260 --> 01:24:58,930
+isn't the fence instruction unnecessary,
+
+
+1248
+01:24:58,930 --> 01:25:02,740
+because the amoswap instruction can have the acquire release ordering.
+
+
+1249
+01:25:04,060 --> 01:25:08,080
+Yeah, okay, so okay, so two things,
+
+
+1250
+01:25:08,170 --> 01:25:12,430
+the sync instruction there both for the compiler and for the hardware.
+
+
+1251
+01:25:25,000 --> 01:25:27,010
+Yeah I'm jumping off to start office hours,
+
+
+1252
+01:25:27,010 --> 01:25:28,450
+but I think there's still more questions in the.
+
+
+1253
+01:25:28,450 --> 01:25:30,880
+How do you do it for the compiler only?
+
+
+1254
+01:25:31,480 --> 01:25:35,350
+The compiler knows which architecture is compiling
+
+
+1255
+01:25:35,860 --> 01:25:39,490
+and so we will know when it actually has to ensure the appropriate fences
+
+
+1256
+01:25:39,760 --> 01:25:41,800
+for whatever architecture is running on
+
+
+1257
+01:25:41,800 --> 01:25:43,990
+and whatever memory consistency model, it has.
+
+
+1258
+01:25:44,740 --> 01:25:46,840
+So this gets a little bit more complicated discussion
+
+
+1259
+01:25:46,840 --> 01:25:49,810
+is that every piece of hardware has a memory model
+
+
+1260
+01:25:50,140 --> 01:25:56,080
+and the compilers decide you know given the memory model for that particular architecture,
+
+
+1261
+01:25:56,080 --> 01:25:57,790
+what actually can do what it cannot do.
+
+
+1262
+01:25:59,440 --> 01:26:01,150
+And I guess my question was that
+
+
+1263
+01:26:01,210 --> 01:26:05,950
+like defense instruction only becomes unnecessary, if you call amoswap,
+
+
+1264
+01:26:06,610 --> 01:26:09,310
+like [dot w dot] release,
+
+
+1265
+01:26:09,400 --> 01:26:19,290
+and like putting in the the sync and there that will sync,
+
+
+1266
+01:26:19,290 --> 01:26:23,910
+but the you know the compiler ordering and then the.
+
+
+1267
+01:26:24,460 --> 01:26:25,120
+Yeah.
+
+
+1268
+01:26:25,330 --> 01:26:28,240
+The memory ordering and the out of ordering.
+
+
+1269
+01:26:28,690 --> 01:26:29,200
+Yeah.
+
+
+1270
+01:26:29,230 --> 01:26:31,300
+Machinery using the fence instruction as well,
+
+
+1271
+01:26:31,300 --> 01:26:35,230
+the fence instructions only unnecessary in the case that you do [dot rl],
+
+
+1272
+01:26:35,230 --> 01:26:37,180
+so it seems like it wouldn't detect that,
+
+
+1273
+01:26:37,180 --> 01:26:38,230
+so how would you do it,
+
+
+1274
+01:26:38,530 --> 01:26:42,340
+so the compiler enforces the ordering on its end,
+
+
+1275
+01:26:42,670 --> 01:26:46,840
+but you already cover it using the [] like.
+
+
+1276
+01:26:46,870 --> 01:26:49,660
+Yeah, you very good question,
+
+
+1277
+01:26:49,690 --> 01:26:53,470
+and you know more sophisticated requirements implementation would be,
+
+
+1278
+01:26:53,470 --> 01:26:56,800
+we were like specialized ,
+
+
+1279
+01:26:57,140 --> 01:26:59,900
+acquire and release implementation where implementation for RISC-V,
+
+
+1280
+01:26:59,900 --> 01:27:02,390
+we probably do more sophisticated things than we do,
+
+
+1281
+01:27:02,390 --> 01:27:05,150
+a pretty coarse grain by just issuing defense instruction.
+
+
+1282
+01:27:05,800 --> 01:27:10,570
+Um the, the but it's slightly complicated,
+
+
+1283
+01:27:10,600 --> 01:27:14,620
+yeah, so if you're interested in this,
+
+
+1284
+01:27:14,650 --> 01:27:20,110
+the memory model for RISC-V is really complicated,
+
+
+1285
+01:27:20,110 --> 01:27:25,120
+so if you look at the instruction manual for the unprivileged instructions,
+
+
+1286
+01:27:25,120 --> 01:27:28,810
+as a whole chapter dedicated to memory ordering
+
+
+1287
+01:27:28,810 --> 01:27:34,410
+and tells you what they have to, put the compiler should do in this particular case.
+
+
+1288
+01:27:37,760 --> 01:27:40,640
+So you're saying that the compiler would pick up on the fact,
+
+
+1289
+01:27:40,640 --> 01:27:43,730
+that we just put that assembly instruction inside of there,
+
+
+1290
+01:27:43,760 --> 01:27:47,030
+and it wouldn't reorder any of the memory accesses on its own.
+
+
+1291
+01:27:47,120 --> 01:27:52,910
+Sorry, the synchronize this, this synchronized library function is a library function right,
+
+
+1292
+01:27:52,910 --> 01:27:54,530
+it can be implemented in different ways.
+
+
+1293
+01:27:55,030 --> 01:27:57,460
+And this is one particular implementation.
+
+
+1294
+01:27:58,440 --> 01:28:00,810
+And the library function is provided by the compiler.
+
+
+1295
+01:28:02,610 --> 01:28:06,300
+But is there like the option for the compiler to do optimization,
+
+
+1296
+01:28:06,300 --> 01:28:09,450
+where it itself moves the loads and stores around.
+
+
+1297
+01:28:10,560 --> 01:28:12,120
+Yes, compilers do.
+
+
+1298
+01:28:12,480 --> 01:28:16,080
+So how do you prevent that without emitting defense instruction,
+
+
+1299
+01:28:16,110 --> 01:28:17,040
+that's curious about.
+
+
+1300
+01:28:17,040 --> 01:28:20,520
+I guess what I'm saying is that ,
+
+
+1301
+01:28:20,800 --> 01:28:23,680
+and maybe what I'm saying is that basically the,
+
+
+1302
+01:28:24,470 --> 01:28:28,070
+this indication the synchronized basically both tells the compiler and hardware,
+
+
+1303
+01:28:28,070 --> 01:28:30,860
+but the compiler could actually implement sync synchronize differently,
+
+
+1304
+01:28:30,860 --> 01:28:32,660
+it knows that it can't move things around,
+
+
+1305
+01:28:32,900 --> 01:28:35,390
+but it doesn't have the issue and fence instruction on the RISC-V,
+
+
+1306
+01:28:35,390 --> 01:28:38,450
+it knew that it was running in a particular way on RISC-V.
+
+
+1307
+01:28:42,060 --> 01:28:46,530
+But isn't the RISC-V memory model like [loose] enough
+
+
+1308
+01:28:46,530 --> 01:28:50,160
+to where the out of order machinery could reorganize stuff,
+
+
+1309
+01:28:50,160 --> 01:28:55,150
+so you do need like the acquire, it's like the whole point of having.
+
+
+1310
+01:28:55,210 --> 01:29:02,130
+Okay, there more complicated interfaces syn- synchronize,
+
+
+1311
+01:29:03,120 --> 01:29:07,650
+and which give the compiler writer more gives the programmer more freedom
+
+
+1312
+01:29:07,650 --> 01:29:11,700
+and we'll get the compiler and decouple the compiler part and the processor part.
+
+
+1313
+01:29:13,000 --> 01:29:15,340
+So, for example I think there's a flag you can pass in,
+
+
+1314
+01:29:15,340 --> 01:29:19,240
+you know to say that there's a release consistent synchronize.
+
+
+1315
+01:29:19,970 --> 01:29:23,990
+You know I I don't know the details, right out of my head ,
+
+
+1316
+01:29:23,990 --> 01:29:25,100
+but you can look into this,
+
+
+1317
+01:29:25,400 --> 01:29:27,680
+this is the coarse-grained interface
+
+
+1318
+01:29:27,680 --> 01:29:30,500
+and a more fine-grained interfaces that give the programmer more control.
+
+
+1319
+01:29:31,300 --> 01:29:33,250
+Okay, thank you.
+
+
+1320
+01:29:35,660 --> 01:29:37,520
+I have [a question],
+
+
+1321
+01:29:37,520 --> 01:29:44,180
+one is, how do you like for having multiple threads and one processor
+
+
+1322
+01:29:44,210 --> 01:29:50,060
+do argue in roughly the same way as we did for multiple processors.
+
+
+1323
+01:29:50,920 --> 01:29:55,210
+Can you repeat that question just to make sure.
+
+
+1324
+01:29:56,700 --> 01:30:01,200
+So we didn't, I think I don't think we really talked about multiple threads,
+
+
+1325
+01:30:01,200 --> 01:30:03,870
+we mostly talked about multiple CPUs,
+
+
+1326
+01:30:04,140 --> 01:30:07,650
+so for multiple threads is the,
+
+
+1327
+01:30:07,740 --> 01:30:13,720
+I guess the solution the same as for when you have multiple CPUs,
+
+
+1328
+01:30:13,720 --> 01:30:16,090
+like do you have the same arguments there.
+
+
+1329
+01:30:16,480 --> 01:30:20,650
+More or less at least conceptually is the right way to think about it,
+
+
+1330
+01:30:20,710 --> 01:30:22,930
+so you have multiple threads,
+
+
+1331
+01:30:22,960 --> 01:30:26,500
+but only one CPU, it's still the case
+
+
+1332
+01:30:26,500 --> 01:30:30,910
+that you want to ensure that certain kernel code sequences are executed atomically.
+
+
+1333
+01:30:31,550 --> 01:30:35,600
+And so you still have to have a notion of critical sections.
+
+
+1334
+01:30:36,100 --> 01:30:39,760
+You might not need locks or releases explicitly,
+
+
+1335
+01:30:39,760 --> 01:30:42,640
+but you do need a way of turning on interrupts off and on
+
+
+1336
+01:30:42,640 --> 01:30:43,810
+in a particular piece of code.
+
+
+1337
+01:30:44,670 --> 01:30:48,360
+So if you look at older operating system kernels,
+
+
+1338
+01:30:48,360 --> 01:30:52,350
+they typically don't have really locking acquire in the kernel,
+
+
+1339
+01:30:52,350 --> 01:30:54,660
+because they assume they're running on a single processor,
+
+
+1340
+01:30:54,810 --> 01:30:56,610
+but they do have something like locks,
+
+
+1341
+01:30:56,610 --> 01:31:01,120
+you know to basically turn off interruption and interrupt on and off.
+
+
+1342
+01:31:03,460 --> 01:31:04,660
+Okay I see,
+
+
+1343
+01:31:04,960 --> 01:31:07,330
+and my other question was,
+
+
+1344
+01:31:07,420 --> 01:31:14,860
+actually on the slide with the uart picture, the buffer.
+
+
+1345
+01:31:17,570 --> 01:31:25,790
+Yeah, is it, yeah that one, is it always the case that the read is going to be like lagging behind,
+
+
+1346
+01:31:25,820 --> 01:31:26,930
+I didn't understand that.
+
+
+1347
+01:31:27,170 --> 01:31:28,730
+Yeah, okay so good.
+
+
+1348
+01:31:29,400 --> 01:31:30,690
+So this goes to the display,
+
+
+1349
+01:31:30,690 --> 01:31:33,480
+whatever is this basically this is the sequence of characters,
+
+
+1350
+01:31:33,480 --> 01:31:34,800
+that needs to go to the display.
+
+
+1351
+01:31:36,730 --> 01:31:42,190
+And the writer basically is depending more and more characters, right.
+
+
+1352
+01:31:42,190 --> 01:31:45,220
+And so, so the writers going that way
+
+
+1353
+01:31:45,220 --> 01:31:47,980
+and the readers, you know following the writer,
+
+
+1354
+01:31:48,340 --> 01:31:51,610
+because you can't print a character that hasn't been put into buffer yet.
+
+
+1355
+01:31:52,260 --> 01:31:58,620
+And so let's you know the the uart who puts things on the display.
+
+
+1356
+01:32:02,340 --> 01:32:07,710
+You will start basically putting first characters in this slot onto the display,
+
+
+1357
+01:32:08,100 --> 01:32:11,040
+meanwhile printf could come in multiple prints come in,
+
+
+1358
+01:32:11,070 --> 01:32:12,990
+you know they put more characters in here,
+
+
+1359
+01:32:13,020 --> 01:32:15,030
+so that the right pointer spacing standing here
+
+
+1360
+01:32:15,300 --> 01:32:17,310
+and then when there's one character is displayed,
+
+
+1361
+01:32:17,490 --> 01:32:21,540
+then the uart will move up this pointer to display the next character.
+
+
+1362
+01:32:22,430 --> 01:32:26,900
+The uart is always lagging a little behind the writer,
+
+
+1363
+01:32:26,930 --> 01:32:28,820
+until the point that it catches up right,
+
+
+1364
+01:32:28,820 --> 01:32:31,070
+then where r and w are the same,
+
+
+1365
+01:32:31,070 --> 01:32:34,220
+and at that point, basically, that means that there's no character anymore in the buffer.
+
+
+1366
+01:32:35,920 --> 01:32:38,800
+Oh okay I see, that makes that makes alot more sense.
+
+
+1367
+01:32:38,800 --> 01:32:40,060
+Okay, thank you so much.
+
+
+1368
+01:32:40,420 --> 01:32:40,900
+You're welcome.
+
+
+1369
+01:32:42,850 --> 01:32:43,780
+Any more questions?
+
+
+1370
+01:32:48,990 --> 01:32:49,980
+Just us left here.
+
+
+1371
+01:32:50,580 --> 01:32:51,060
+All right.
+
+
+1372
+01:32:53,680 --> 01:32:55,510
+All you guys see you later.
+
+
