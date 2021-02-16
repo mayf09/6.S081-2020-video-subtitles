@@ -1,0 +1,9740 @@
+1
+00:00:00,960 --> 00:00:05,120
+all right anyone hear me
+
+2
+00:00:05,120 --> 00:00:09,519
+good all right today we got meltdown
+
+3
+00:00:09,519 --> 00:00:11,920
+um the reason why we're reading this
+
+4
+00:00:11,920 --> 00:00:12,719
+paper
+
+5
+00:00:12,719 --> 00:00:15,599
+is that you know security has kind of
+
+6
+00:00:15,599 --> 00:00:17,039
+been
+
+7
+00:00:17,039 --> 00:00:20,320
+a topic all along and comes up a lot in
+
+8
+00:00:20,320 --> 00:00:22,000
+the design of the kernels
+
+9
+00:00:22,000 --> 00:00:24,560
+that we talked about in the class and as
+
+10
+00:00:24,560 --> 00:00:25,760
+we know the
+
+11
+00:00:25,760 --> 00:00:28,560
+main strategy we've talked about for
+
+12
+00:00:28,560 --> 00:00:30,400
+what it means for a kernel to
+
+13
+00:00:30,400 --> 00:00:33,600
+provide security is isolation in the
+
+14
+00:00:33,600 --> 00:00:35,200
+sense that you know user programs can't
+
+15
+00:00:35,200 --> 00:00:36,559
+read data from the kernel and user
+
+16
+00:00:36,559 --> 00:00:37,680
+programs can't read
+
+17
+00:00:37,680 --> 00:00:40,000
+other users data from other user
+
+18
+00:00:40,000 --> 00:00:41,360
+programs
+
+19
+00:00:41,360 --> 00:00:45,120
+and the specific techniques that um
+
+20
+00:00:45,120 --> 00:00:47,520
+we've seen operating systems use in
+
+21
+00:00:47,520 --> 00:00:49,360
+order to get isolation are things like
+
+22
+00:00:49,360 --> 00:00:50,960
+the user supervisor mode and the
+
+23
+00:00:50,960 --> 00:00:53,199
+hardware and the page tables and
+
+24
+00:00:53,199 --> 00:00:54,640
+hardware
+
+25
+00:00:54,640 --> 00:00:58,160
+as well as uh just sort of well-designed
+
+26
+00:00:58,160 --> 00:00:59,760
+kernel software like the system calls
+
+27
+00:00:59,760 --> 00:01:02,480
+are all defensive about how they
+
+28
+00:01:02,480 --> 00:01:07,429
+use user-supplied pointers
+
+29
+00:01:07,439 --> 00:01:10,159
+but it's worth thinking about looking at
+
+30
+00:01:10,159 --> 00:01:11,439
+examples of
+
+31
+00:01:11,439 --> 00:01:13,439
+how this kind of stuff goes wrong i mean
+
+32
+00:01:13,439 --> 00:01:15,360
+in fact you know colonels try hard to
+
+33
+00:01:15,360 --> 00:01:17,680
+provide isolation security but
+
+34
+00:01:17,680 --> 00:01:21,040
+um there are problems that come up
+
+35
+00:01:21,040 --> 00:01:23,119
+and this paper is one of the most
+
+36
+00:01:23,119 --> 00:01:24,799
+interesting problems
+
+37
+00:01:24,799 --> 00:01:26,159
+that's come up with operating system
+
+38
+00:01:26,159 --> 00:01:28,640
+security in recent times
+
+39
+00:01:28,640 --> 00:01:31,680
+meltdown is came out it
+
+40
+00:01:31,680 --> 00:01:33,759
+was published at the beginning of 2018
+
+41
+00:01:33,759 --> 00:01:35,680
+so not too long ago
+
+42
+00:01:35,680 --> 00:01:37,600
+and a lot of people like me found it
+
+43
+00:01:37,600 --> 00:01:39,200
+surprising and actually pretty
+
+44
+00:01:39,200 --> 00:01:40,400
+disturbing
+
+45
+00:01:40,400 --> 00:01:42,799
+pretty disturbing attack on user kernel
+
+46
+00:01:42,799 --> 00:01:45,830
+isolation
+
+47
+00:01:45,840 --> 00:01:49,520
+it really undermined faith or sort of
+
+48
+00:01:49,520 --> 00:01:52,079
+this very basic assumption that the page
+
+49
+00:01:52,079 --> 00:01:52,880
+tables
+
+50
+00:01:52,880 --> 00:01:54,960
+that the hardware supplies just gets you
+
+51
+00:01:54,960 --> 00:01:56,560
+isolation and that's the end of the
+
+52
+00:01:56,560 --> 00:01:57,520
+story
+
+53
+00:01:57,520 --> 00:02:00,880
+this attack does not support that view
+
+54
+00:02:00,880 --> 00:02:02,320
+at all
+
+55
+00:02:02,320 --> 00:02:05,360
+further it was an example of one of a
+
+56
+00:02:05,360 --> 00:02:06,799
+number of recent examples of what's
+
+57
+00:02:06,799 --> 00:02:08,640
+called a microarchitectural attack
+
+58
+00:02:08,640 --> 00:02:10,910
+an attack that involves
+
+59
+00:02:10,910 --> 00:02:12,959
+[Music]
+
+60
+00:02:12,959 --> 00:02:15,440
+exploitation of hidden implementation
+
+61
+00:02:15,440 --> 00:02:16,080
+details
+
+62
+00:02:16,080 --> 00:02:19,920
+inside the cpu that are often not even
+
+63
+00:02:19,920 --> 00:02:23,440
+known how this how cpus work but people
+
+64
+00:02:23,440 --> 00:02:24,239
+guess
+
+65
+00:02:24,239 --> 00:02:26,239
+and they're able to make successful
+
+66
+00:02:26,239 --> 00:02:28,640
+attacks based on correct guesses
+
+67
+00:02:28,640 --> 00:02:31,680
+about hidden details of cpu
+
+68
+00:02:31,680 --> 00:02:33,920
+implementation
+
+69
+00:02:33,920 --> 00:02:37,360
+meltdown turns out to be fixable and uh
+
+70
+00:02:37,360 --> 00:02:40,080
+seems to be pretty completely fixed but
+
+71
+00:02:40,080 --> 00:02:41,360
+nevertheless people it
+
+72
+00:02:41,360 --> 00:02:43,840
+sort of set people up to fear that there
+
+73
+00:02:43,840 --> 00:02:46,720
+might be an open-ended supply of
+
+74
+00:02:46,720 --> 00:02:50,560
+similar micro-architectural attacks
+
+75
+00:02:50,560 --> 00:02:54,239
+so it's a pretty important recent
+
+76
+00:02:54,239 --> 00:02:57,280
+event worth understanding
+
+77
+00:02:57,280 --> 00:03:02,470
+let me start by uh just
+
+78
+00:03:02,480 --> 00:03:06,319
+laying out the basic core of the attack
+
+79
+00:03:06,319 --> 00:03:08,159
+and we'll talk about what's going on
+
+80
+00:03:08,159 --> 00:03:09,840
+here but this is a somewhat simplified
+
+81
+00:03:09,840 --> 00:03:11,200
+version
+
+82
+00:03:11,200 --> 00:03:13,120
+of the code in the paper for how the
+
+83
+00:03:13,120 --> 00:03:14,480
+attack works
+
+84
+00:03:14,480 --> 00:03:16,080
+the basic idea is that you're an
+
+85
+00:03:16,080 --> 00:03:17,599
+attacker and
+
+86
+00:03:17,599 --> 00:03:19,280
+for one reason or another you're able to
+
+87
+00:03:19,280 --> 00:03:21,840
+run software on
+
+88
+00:03:21,840 --> 00:03:23,840
+some computer that has some secrets that
+
+89
+00:03:23,840 --> 00:03:24,959
+you'd like to steal
+
+90
+00:03:24,959 --> 00:03:26,319
+you're not allowed to directly get at
+
+91
+00:03:26,319 --> 00:03:28,000
+the secrets but they're in memory maybe
+
+92
+00:03:28,000 --> 00:03:29,599
+kernel memory or another processes
+
+93
+00:03:29,599 --> 00:03:30,400
+memory
+
+94
+00:03:30,400 --> 00:03:32,319
+but you've been able to run a process
+
+95
+00:03:32,319 --> 00:03:33,440
+maybe because you
+
+96
+00:03:33,440 --> 00:03:35,280
+logged into a time sharing machine like
+
+97
+00:03:35,280 --> 00:03:37,920
+an athena machine or maybe because you
+
+98
+00:03:37,920 --> 00:03:42,239
+bought time on some hosting service um
+
+99
+00:03:42,239 --> 00:03:44,480
+and so what the attack allows you to do
+
+100
+00:03:44,480 --> 00:03:46,560
+is run a program in which
+
+101
+00:03:46,560 --> 00:03:49,280
+you declare a buffer in your own memory
+
+102
+00:03:49,280 --> 00:03:50,640
+so this buff
+
+103
+00:03:50,640 --> 00:03:53,280
+is uh just ordinary user memory that's
+
+104
+00:03:53,280 --> 00:03:54,640
+accessible
+
+105
+00:03:54,640 --> 00:03:57,040
+you have the virtual address in the
+
+106
+00:03:57,040 --> 00:03:57,760
+kernel
+
+107
+00:03:57,760 --> 00:03:59,200
+of something that you're interested in
+
+108
+00:03:59,200 --> 00:04:02,630
+stealing
+
+109
+00:04:02,640 --> 00:04:05,200
+and you issue what i'm writing out here
+
+110
+00:04:05,200 --> 00:04:06,799
+is sort of a
+
+111
+00:04:06,799 --> 00:04:09,599
+you know a mix of c and assembler but
+
+112
+00:04:09,599 --> 00:04:11,280
+what i mean in line three is that
+
+113
+00:04:11,280 --> 00:04:13,599
+you have the address of the the kernel
+
+114
+00:04:13,599 --> 00:04:15,040
+virtual address of the data you want to
+
+115
+00:04:15,040 --> 00:04:17,199
+steal and register 1 and r1
+
+116
+00:04:17,199 --> 00:04:20,320
+and on line 3 or just imagine that this
+
+117
+00:04:20,320 --> 00:04:24,310
+is instructions to dereference
+
+118
+00:04:24,320 --> 00:04:26,240
+register 1 and load its results into
+
+119
+00:04:26,240 --> 00:04:27,600
+register 2.
+
+120
+00:04:27,600 --> 00:04:29,040
+that's the instruction that we're going
+
+121
+00:04:29,040 --> 00:04:31,120
+to run and then there's an instruction
+
+122
+00:04:31,120 --> 00:04:33,909
+that
+
+123
+00:04:33,919 --> 00:04:37,759
+just gets the low bit of register 2. so
+
+124
+00:04:37,759 --> 00:04:39,759
+this attack this particular version of
+
+125
+00:04:39,759 --> 00:04:41,360
+this attack reads just
+
+126
+00:04:41,360 --> 00:04:44,800
+a single bit just one low bit of
+
+127
+00:04:44,800 --> 00:04:47,199
+one memory location from the kernel and
+
+128
+00:04:47,199 --> 00:04:48,479
+multiply that four thousand
+
+129
+00:04:48,479 --> 00:04:49,919
+four thousand and ninety six and since
+
+130
+00:04:49,919 --> 00:04:52,000
+it's either zero or one that means that
+
+131
+00:04:52,000 --> 00:04:53,919
+r2 will end up being zero four thousand
+
+132
+00:04:53,919 --> 00:04:56,000
+nine six and then we simply read
+
+133
+00:04:56,000 --> 00:04:58,720
+the contents of our buffer which is a
+
+134
+00:04:58,720 --> 00:04:59,840
+buffer and user memory
+
+135
+00:04:59,840 --> 00:05:02,639
+we simply read either buffer of zero or
+
+136
+00:05:02,639 --> 00:05:06,080
+buffer of 4096
+
+137
+00:05:06,080 --> 00:05:11,520
+and that's the basic attack um
+
+138
+00:05:11,520 --> 00:05:14,560
+so one question is why doesn't this just
+
+139
+00:05:14,560 --> 00:05:15,440
+directly work
+
+140
+00:05:15,440 --> 00:05:17,919
+like line three is reading this kernel
+
+141
+00:05:17,919 --> 00:05:19,360
+address
+
+142
+00:05:19,360 --> 00:05:22,840
+can we just read addresses from the
+
+143
+00:05:22,840 --> 00:05:25,600
+kernel
+
+144
+00:05:25,600 --> 00:05:27,759
+no no we all have faith that the answer
+
+145
+00:05:27,759 --> 00:05:29,120
+can't possibly be us
+
+146
+00:05:29,120 --> 00:05:30,240
+we can't possibly be able to just
+
+147
+00:05:30,240 --> 00:05:31,919
+directly read from the kernel if we're
+
+148
+00:05:31,919 --> 00:05:33,120
+in user space
+
+149
+00:05:33,120 --> 00:05:36,400
+and the machinery that we know the cpu
+
+150
+00:05:36,400 --> 00:05:38,639
+somehow is invoking to make this not
+
+151
+00:05:38,639 --> 00:05:39,680
+work out
+
+152
+00:05:39,680 --> 00:05:42,320
+is that when we use a kernel virtual
+
+153
+00:05:42,320 --> 00:05:43,199
+address
+
+154
+00:05:43,199 --> 00:05:47,039
+that implies a lookup in the page table
+
+155
+00:05:47,039 --> 00:05:48,479
+and there's permission bits in the page
+
+156
+00:05:48,479 --> 00:05:50,080
+table and we're just assuming that the
+
+157
+00:05:50,080 --> 00:05:52,080
+operating system
+
+158
+00:05:52,080 --> 00:05:55,120
+has not set the flag in the page table
+
+159
+00:05:55,120 --> 00:05:56,800
+entries for kernel virtual addresses has
+
+160
+00:05:56,800 --> 00:05:59,759
+not set that flag that allows
+
+161
+00:05:59,759 --> 00:06:01,919
+users to use those addresses that's the
+
+162
+00:06:01,919 --> 00:06:03,680
+pteu flag on
+
+163
+00:06:03,680 --> 00:06:05,919
+the risk 5 and that therefore this
+
+164
+00:06:05,919 --> 00:06:07,120
+instruction must fail
+
+165
+00:06:07,120 --> 00:06:09,759
+must cause a page fault right and indeed
+
+166
+00:06:09,759 --> 00:06:11,199
+if we ran this code this instruction
+
+167
+00:06:11,199 --> 00:06:12,639
+would cause a page fault
+
+168
+00:06:12,639 --> 00:06:15,440
+and if we tried to if we you know added
+
+169
+00:06:15,440 --> 00:06:16,000
+a
+
+170
+00:06:16,000 --> 00:06:18,319
+code after this to say print the value
+
+171
+00:06:18,319 --> 00:06:20,000
+in register 3
+
+172
+00:06:20,000 --> 00:06:21,919
+we get a page fault on line three and
+
+173
+00:06:21,919 --> 00:06:23,680
+we'd never get to the print statement
+
+174
+00:06:23,680 --> 00:06:25,919
+and we'd find we couldn't directly steal
+
+175
+00:06:25,919 --> 00:06:30,870
+data out of the kernel
+
+176
+00:06:30,880 --> 00:06:32,400
+nevertheless the sequence turned out to
+
+177
+00:06:32,400 --> 00:06:36,230
+be useful as the paper shows
+
+178
+00:06:36,240 --> 00:06:40,150
+one thing that
+
+179
+00:06:40,160 --> 00:06:42,800
+one thing that the paper assumes which
+
+180
+00:06:42,800 --> 00:06:44,400
+is no longer really true for the most
+
+181
+00:06:44,400 --> 00:06:45,039
+part
+
+182
+00:06:45,039 --> 00:06:48,240
+is that the kernel is mapped into
+
+183
+00:06:48,240 --> 00:06:52,319
+every user processes address space
+
+184
+00:06:52,319 --> 00:06:54,319
+that is every when a user when user
+
+185
+00:06:54,319 --> 00:06:55,840
+code's running
+
+186
+00:06:55,840 --> 00:06:59,440
+a full set of kernel ptes is present in
+
+187
+00:06:59,440 --> 00:07:00,240
+the page table
+
+188
+00:07:00,240 --> 00:07:04,880
+but they have the pteu bit clear so
+
+189
+00:07:04,880 --> 00:07:06,720
+user code will get a fault if it tries
+
+190
+00:07:06,720 --> 00:07:08,160
+to use a kernel
+
+191
+00:07:08,160 --> 00:07:10,800
+a virtual address so all those mappings
+
+192
+00:07:10,800 --> 00:07:11,280
+in in
+
+193
+00:07:11,280 --> 00:07:13,280
+at the time this paper was written all
+
+194
+00:07:13,280 --> 00:07:15,039
+those mappings were there when executing
+
+195
+00:07:15,039 --> 00:07:16,880
+in user space
+
+196
+00:07:16,880 --> 00:07:19,919
+they just couldn't be used by user code
+
+197
+00:07:19,919 --> 00:07:21,440
+or they cause a fault they were used by
+
+198
+00:07:21,440 --> 00:07:22,479
+user code
+
+199
+00:07:22,479 --> 00:07:24,479
+and the reason why people by operating
+
+200
+00:07:24,479 --> 00:07:26,240
+system designers
+
+201
+00:07:26,240 --> 00:07:29,520
+mapped both kernel and user addresses
+
+202
+00:07:29,520 --> 00:07:31,440
+when you run a user code is that made
+
+203
+00:07:31,440 --> 00:07:33,840
+system calls um quite a bit faster
+
+204
+00:07:33,840 --> 00:07:35,199
+because that meant that on a when a
+
+205
+00:07:35,199 --> 00:07:36,720
+system call happened you didn't have to
+
+206
+00:07:36,720 --> 00:07:38,639
+switch page tables and switching page
+
+207
+00:07:38,639 --> 00:07:39,520
+tables usually
+
+208
+00:07:39,520 --> 00:07:41,919
+usually takes time itself and also
+
+209
+00:07:41,919 --> 00:07:42,960
+typically causes
+
+210
+00:07:42,960 --> 00:07:45,199
+cpu caches to be flushed which makes
+
+211
+00:07:45,199 --> 00:07:48,160
+subsequent codes slower
+
+212
+00:07:48,160 --> 00:07:50,080
+so people got a boost by mapping both
+
+213
+00:07:50,080 --> 00:07:52,319
+user and kernel mappings always in user
+
+214
+00:07:52,319 --> 00:07:55,350
+space
+
+215
+00:07:55,360 --> 00:07:56,879
+but but this attack actually and this
+
+216
+00:07:56,879 --> 00:08:00,080
+attack relies on that habit
+
+217
+00:08:00,080 --> 00:08:03,520
+okay so i'm going to explain
+
+218
+00:08:03,520 --> 00:08:04,720
+what's going on here that makes this
+
+219
+00:08:04,720 --> 00:08:06,800
+code useful but before i do that
+
+220
+00:08:06,800 --> 00:08:10,390
+any any questions about
+
+221
+00:08:10,400 --> 00:08:11,919
+any questions about this this code
+
+222
+00:08:11,919 --> 00:08:15,189
+fragment
+
+223
+00:08:15,199 --> 00:08:16,560
+is actually wondering if you could
+
+224
+00:08:16,560 --> 00:08:18,479
+repeat what you just said about
+
+225
+00:08:18,479 --> 00:08:21,599
+kernel to user mapping it didn't really
+
+226
+00:08:21,599 --> 00:08:22,720
+register
+
+227
+00:08:22,720 --> 00:08:26,000
+okay let's see the
+
+228
+00:08:26,000 --> 00:08:30,080
+um you know how in xv6
+
+229
+00:08:30,080 --> 00:08:31,680
+when you're executing when the process
+
+230
+00:08:31,680 --> 00:08:33,519
+is executing in user space
+
+231
+00:08:33,519 --> 00:08:36,159
+if you look at the page table that page
+
+232
+00:08:36,159 --> 00:08:37,599
+table has mappings for the user
+
+233
+00:08:37,599 --> 00:08:38,800
+addresses
+
+234
+00:08:38,800 --> 00:08:41,519
+and for like the trampoline page and the
+
+235
+00:08:41,519 --> 00:08:44,000
+trap frame page and nothing else
+
+236
+00:08:44,000 --> 00:08:47,839
+so that's how xv6 works the page table
+
+237
+00:08:47,839 --> 00:08:51,040
+that this paper assumes we're different
+
+238
+00:08:51,040 --> 00:08:52,320
+from that
+
+239
+00:08:52,320 --> 00:08:55,279
+this in the time this paper was written
+
+240
+00:08:55,279 --> 00:08:58,000
+most operating systems
+
+241
+00:08:58,000 --> 00:09:01,040
+um would have a set complete
+
+242
+00:09:01,040 --> 00:09:06,480
+set of kernel mappings in the page table
+
+243
+00:09:06,480 --> 00:09:09,910
+while user code was running
+
+244
+00:09:09,920 --> 00:09:13,440
+um and then so all those page table
+
+245
+00:09:13,440 --> 00:09:14,480
+entries would be there
+
+246
+00:09:14,480 --> 00:09:16,240
+all the kernel page table entries would
+
+247
+00:09:16,240 --> 00:09:18,000
+be there when user code was running but
+
+248
+00:09:18,000 --> 00:09:20,160
+since the pteu bit
+
+249
+00:09:20,160 --> 00:09:21,920
+was clear on each of those page table
+
+250
+00:09:21,920 --> 00:09:23,360
+entries user code wouldn't actually be
+
+251
+00:09:23,360 --> 00:09:25,839
+able to use the kernel virtual address
+
+252
+00:09:25,839 --> 00:09:27,440
+but the mappings were there and the
+
+253
+00:09:27,440 --> 00:09:28,880
+reason for that is that when you do a
+
+254
+00:09:28,880 --> 00:09:30,000
+system call
+
+255
+00:09:30,000 --> 00:09:32,959
+you didn't have to switch page tables
+
+256
+00:09:32,959 --> 00:09:33,519
+because
+
+257
+00:09:33,519 --> 00:09:35,839
+you do a system call into the kernel and
+
+258
+00:09:35,839 --> 00:09:37,440
+boom you're using the same page table
+
+259
+00:09:37,440 --> 00:09:37,920
+but
+
+260
+00:09:37,920 --> 00:09:40,880
+now you can use all those kernel pdes
+
+261
+00:09:40,880 --> 00:09:42,240
+because you're in supervisor mode and
+
+262
+00:09:42,240 --> 00:09:44,080
+that saved a bunch of time
+
+263
+00:09:44,080 --> 00:09:45,360
+getting into and out of the kernel
+
+264
+00:09:45,360 --> 00:09:48,000
+during system calls so so everybody
+
+265
+00:09:48,000 --> 00:09:49,600
+everybody used that technique and indeed
+
+266
+00:09:49,600 --> 00:09:52,000
+that was almost certainly what intel had
+
+267
+00:09:52,000 --> 00:09:52,560
+in mind
+
+268
+00:09:52,560 --> 00:09:54,560
+for how you should write an operating
+
+269
+00:09:54,560 --> 00:09:55,839
+system
+
+270
+00:09:55,839 --> 00:09:58,399
+okay so that for the whole paper that
+
+271
+00:09:58,399 --> 00:09:59,519
+structure is
+
+272
+00:09:59,519 --> 00:10:01,760
+is assumed for the attack of course
+
+273
+00:10:01,760 --> 00:10:03,040
+getting rid of it is
+
+274
+00:10:03,040 --> 00:10:05,680
+was the most immediate solution to this
+
+275
+00:10:05,680 --> 00:10:06,959
+problem
+
+276
+00:10:06,959 --> 00:10:08,560
+but at the time that people was written
+
+277
+00:10:08,560 --> 00:10:10,640
+all those kernel mappings were present
+
+278
+00:10:10,640 --> 00:10:13,670
+in user space
+
+279
+00:10:13,680 --> 00:10:16,790
+other questions
+
+280
+00:10:16,800 --> 00:10:19,040
+so you need to know the address that you
+
+281
+00:10:19,040 --> 00:10:20,160
+want to
+
+282
+00:10:20,160 --> 00:10:23,360
+get yeah that's right it is
+
+283
+00:10:23,360 --> 00:10:27,200
+uh and
+
+284
+00:10:27,200 --> 00:10:29,920
+um so you know so that's a good point
+
+285
+00:10:29,920 --> 00:10:31,279
+you need to know the kernel virtual
+
+286
+00:10:31,279 --> 00:10:33,360
+address and that's actually
+
+287
+00:10:33,360 --> 00:10:38,150
+maybe no joke um
+
+288
+00:10:38,160 --> 00:10:40,240
+you might think that would make the
+
+289
+00:10:40,240 --> 00:10:42,880
+attack harder
+
+290
+00:10:42,880 --> 00:10:45,839
+um but first of all a point of
+
+291
+00:10:45,839 --> 00:10:48,320
+philosophy
+
+292
+00:10:48,320 --> 00:10:50,560
+in security you just have to assume that
+
+293
+00:10:50,560 --> 00:10:52,079
+the attacker has infinite time and
+
+294
+00:10:52,079 --> 00:10:53,279
+patience
+
+295
+00:10:53,279 --> 00:10:54,720
+and that if they're after some valuable
+
+296
+00:10:54,720 --> 00:10:56,480
+secret they are probably willing to
+
+297
+00:10:56,480 --> 00:10:58,560
+spend like a couple of months
+
+298
+00:10:58,560 --> 00:11:02,000
+trying to steal that secret um or longer
+
+299
+00:11:02,000 --> 00:11:03,519
+right because you know it's going to be
+
+300
+00:11:03,519 --> 00:11:05,279
+somebody's password that like protects
+
+301
+00:11:05,279 --> 00:11:06,880
+all kinds of valuable stuff maybe money
+
+302
+00:11:06,880 --> 00:11:07,600
+or
+
+303
+00:11:07,600 --> 00:11:10,720
+you know secret email so
+
+304
+00:11:10,720 --> 00:11:12,160
+that means for example the attacker
+
+305
+00:11:12,160 --> 00:11:14,000
+probably has time to try every
+
+306
+00:11:14,000 --> 00:11:17,440
+single kernel address right looking for
+
+307
+00:11:17,440 --> 00:11:19,519
+whatever precious data they're after
+
+308
+00:11:19,519 --> 00:11:20,880
+maybe a password
+
+309
+00:11:20,880 --> 00:11:22,959
+or the attacker may have time to like
+
+310
+00:11:22,959 --> 00:11:24,880
+study to look through the kernel code
+
+311
+00:11:24,880 --> 00:11:25,680
+and look through
+
+312
+00:11:25,680 --> 00:11:27,920
+typical compiled kernels and find
+
+313
+00:11:27,920 --> 00:11:29,760
+addresses and maybe put print statements
+
+314
+00:11:29,760 --> 00:11:31,440
+in their kernels to
+
+315
+00:11:31,440 --> 00:11:33,360
+examine the structure of data and kernel
+
+316
+00:11:33,360 --> 00:11:34,720
+memory until they understand
+
+317
+00:11:34,720 --> 00:11:38,480
+how the kernel works well enough to
+
+318
+00:11:38,480 --> 00:11:41,279
+be able to get an address here now
+
+319
+00:11:41,279 --> 00:11:42,000
+actually
+
+320
+00:11:42,000 --> 00:11:44,000
+because this game has been going on
+
+321
+00:11:44,000 --> 00:11:45,760
+other versions of this game
+
+322
+00:11:45,760 --> 00:11:47,200
+of the security game have been going on
+
+323
+00:11:47,200 --> 00:11:49,120
+for a long time colonels actually defend
+
+324
+00:11:49,120 --> 00:11:50,560
+themselves
+
+325
+00:11:50,560 --> 00:11:54,160
+um against attacks that involve
+
+326
+00:11:54,160 --> 00:11:57,360
+guessing kernel addresses and one of the
+
+327
+00:11:57,360 --> 00:11:57,839
+things
+
+328
+00:11:57,839 --> 00:11:58,959
+that was actually mentioned in this
+
+329
+00:11:58,959 --> 00:12:01,200
+paper is this called thing called
+
+330
+00:12:01,200 --> 00:12:04,800
+uh kernel address space
+
+331
+00:12:04,800 --> 00:12:07,120
+layout randomization so modern kernels
+
+332
+00:12:07,120 --> 00:12:07,920
+actually
+
+333
+00:12:07,920 --> 00:12:10,320
+load the kernel at a random address in
+
+334
+00:12:10,320 --> 00:12:11,680
+order to make it harder
+
+335
+00:12:11,680 --> 00:12:15,440
+to guess kernel of kernel virtual
+
+336
+00:12:15,440 --> 00:12:17,279
+addresses and they did this before this
+
+337
+00:12:17,279 --> 00:12:19,760
+long before this paper came out because
+
+338
+00:12:19,760 --> 00:12:20,720
+it was helpful in
+
+339
+00:12:20,720 --> 00:12:24,000
+defeating other attacks so so
+
+340
+00:12:24,000 --> 00:12:27,430
+this is the game but
+
+341
+00:12:27,440 --> 00:12:30,079
+we have to assume that the attacker in
+
+342
+00:12:30,079 --> 00:12:31,920
+the end the attacker will
+
+343
+00:12:31,920 --> 00:12:34,959
+probably win this game okay
+
+344
+00:12:34,959 --> 00:12:37,920
+so we'll just assume the attacker either
+
+345
+00:12:37,920 --> 00:12:39,760
+knows a juicy kernel virtual address to
+
+346
+00:12:39,760 --> 00:12:41,760
+look at or can guess one or is willing
+
+347
+00:12:41,760 --> 00:12:44,480
+to exhaustively try every address
+
+348
+00:12:44,480 --> 00:12:46,240
+and the paper suggests that that's a
+
+349
+00:12:46,240 --> 00:12:48,240
+plausible strategy
+
+350
+00:12:48,240 --> 00:12:51,670
+once you have meltdown
+
+351
+00:12:51,680 --> 00:12:55,360
+okay okay so what's going to happen
+
+352
+00:12:55,360 --> 00:12:58,000
+well so we're wondering how can this
+
+353
+00:12:58,000 --> 00:12:58,639
+code be
+
+354
+00:12:58,639 --> 00:13:02,000
+um possibly be useful to an attacker and
+
+355
+00:13:02,000 --> 00:13:04,720
+the answer has to do like if the way
+
+356
+00:13:04,720 --> 00:13:07,279
+cpus worked was just what you read
+
+357
+00:13:07,279 --> 00:13:09,839
+in the cpu manual this attack clearly is
+
+358
+00:13:09,839 --> 00:13:10,720
+nonsense
+
+359
+00:13:10,720 --> 00:13:13,360
+like it'll fault at instruction three
+
+360
+00:13:13,360 --> 00:13:14,720
+and that'll be the end of it but it
+
+361
+00:13:14,720 --> 00:13:17,040
+turns out cpus
+
+362
+00:13:17,040 --> 00:13:19,519
+work in far more complex ways are is in
+
+363
+00:13:19,519 --> 00:13:21,680
+the manual
+
+364
+00:13:21,680 --> 00:13:24,800
+and the way the reason the attack works
+
+365
+00:13:24,800 --> 00:13:25,600
+is because of
+
+366
+00:13:25,600 --> 00:13:30,240
+some cpu implementation details
+
+367
+00:13:30,240 --> 00:13:31,920
+and there's there's actually two main
+
+368
+00:13:31,920 --> 00:13:34,639
+things that the attack relies on one is
+
+369
+00:13:34,639 --> 00:13:36,560
+an implementation trick of cpus called
+
+370
+00:13:36,560 --> 00:13:38,160
+speculative execution
+
+371
+00:13:38,160 --> 00:13:40,160
+which i'll talk about first and and the
+
+372
+00:13:40,160 --> 00:13:41,279
+other
+
+373
+00:13:41,279 --> 00:13:43,680
+implementation trick the attack relies
+
+374
+00:13:43,680 --> 00:13:48,399
+on is the way cpus do caching um
+
+375
+00:13:48,399 --> 00:13:51,519
+okay so first speculative execution
+
+376
+00:13:51,519 --> 00:13:54,880
+um let me let me uh
+
+377
+00:13:54,880 --> 00:13:57,760
+i have a code example for that also um
+
+378
+00:13:57,760 --> 00:13:58,079
+and
+
+379
+00:13:58,079 --> 00:13:59,199
+for the moment i'm not talking about
+
+380
+00:13:59,199 --> 00:14:01,760
+security at all i'm the speculative
+
+381
+00:14:01,760 --> 00:14:03,440
+execution this stuff is
+
+382
+00:14:03,440 --> 00:14:05,040
+just a technique to improve the
+
+383
+00:14:05,040 --> 00:14:06,480
+performance of uh
+
+384
+00:14:06,480 --> 00:14:09,600
+cpus and some optimization trick that
+
+385
+00:14:09,600 --> 00:14:11,199
+cpus use
+
+386
+00:14:11,199 --> 00:14:14,560
+so imagine that um you know we're just
+
+387
+00:14:14,560 --> 00:14:17,839
+we have we're just running this code um
+
+388
+00:14:17,839 --> 00:14:19,440
+this is a somewhat contrived example but
+
+389
+00:14:19,440 --> 00:14:21,519
+it's sort of illustrates
+
+390
+00:14:21,519 --> 00:14:23,360
+uh what speculative execution is all
+
+391
+00:14:23,360 --> 00:14:24,880
+about um
+
+392
+00:14:24,880 --> 00:14:27,920
+supposing i have a uh address in some
+
+393
+00:14:27,920 --> 00:14:30,399
+say register zero and just because the
+
+394
+00:14:30,399 --> 00:14:32,240
+logic my program the address
+
+395
+00:14:32,240 --> 00:14:33,839
+is either valid or not valid maybe it
+
+396
+00:14:33,839 --> 00:14:35,600
+contains zero if under some
+
+397
+00:14:35,600 --> 00:14:36,800
+circumstances like we haven't
+
+398
+00:14:36,800 --> 00:14:39,120
+initialized
+
+399
+00:14:39,120 --> 00:14:41,120
+my data yet so there's this we'll assume
+
+400
+00:14:41,120 --> 00:14:42,800
+there's some a valid variable that's
+
+401
+00:14:42,800 --> 00:14:45,120
+sitting in memory somewhere
+
+402
+00:14:45,120 --> 00:14:48,320
+and so before using the address here
+
+403
+00:14:48,320 --> 00:14:50,480
+this address and register 0 here on line
+
+404
+00:14:50,480 --> 00:14:51,519
+4 we're going to test
+
+405
+00:14:51,519 --> 00:14:52,959
+we're going to load valid from memory
+
+406
+00:14:52,959 --> 00:14:55,199
+and we're only going to use the address
+
+407
+00:14:55,199 --> 00:14:58,160
+if valid is set to 1. and a valid is set
+
+408
+00:14:58,160 --> 00:14:59,120
+to zero we're just
+
+409
+00:14:59,120 --> 00:15:00,880
+not going to use the address at all and
+
+410
+00:15:00,880 --> 00:15:02,079
+if valid is set to one then we're going
+
+411
+00:15:02,079 --> 00:15:03,680
+to dereference the address
+
+412
+00:15:03,680 --> 00:15:05,360
+and you know load the data it points to
+
+413
+00:15:05,360 --> 00:15:07,440
+and to register two and add one to it
+
+414
+00:15:07,440 --> 00:15:08,480
+and it doesn't really matter
+
+415
+00:15:08,480 --> 00:15:09,839
+we're gonna do something with that data
+
+416
+00:15:09,839 --> 00:15:12,000
+we loaded in this case add one to it
+
+417
+00:15:12,000 --> 00:15:15,839
+and set the register three equal to the
+
+418
+00:15:15,839 --> 00:15:19,120
+the data plus one all right well
+
+419
+00:15:19,120 --> 00:15:23,680
+um in a simple cpu implementation
+
+420
+00:15:23,680 --> 00:15:28,240
+uh on line two here um you gotta load
+
+421
+00:15:28,240 --> 00:15:29,920
+the valve is a variable sitting in
+
+422
+00:15:29,920 --> 00:15:32,320
+memory in ram um
+
+423
+00:15:32,320 --> 00:15:34,000
+and you we have to issue some kind of
+
+424
+00:15:34,000 --> 00:15:35,279
+this is gonna be line two is gonna be
+
+425
+00:15:35,279 --> 00:15:37,360
+some sort of load instruction that reads
+
+426
+00:15:37,360 --> 00:15:40,079
+valid out of ram um all else being equal
+
+427
+00:15:40,079 --> 00:15:42,399
+if we actually have to load it from ram
+
+428
+00:15:42,399 --> 00:15:45,440
+that'll take hundreds of cycles on our
+
+429
+00:15:45,440 --> 00:15:46,240
+say two
+
+430
+00:15:46,240 --> 00:15:49,759
+gigahertz machine like any load that
+
+431
+00:15:49,759 --> 00:15:51,199
+actually has to go to ram will take
+
+432
+00:15:51,199 --> 00:15:52,240
+hundreds of cycles
+
+433
+00:15:52,240 --> 00:15:53,920
+the machine you know can execute an
+
+434
+00:15:53,920 --> 00:15:55,600
+instruction
+
+435
+00:15:55,600 --> 00:15:57,920
+up to an instruction every cycle so if
+
+436
+00:15:57,920 --> 00:15:59,199
+we actually had to wait a couple of
+
+437
+00:15:59,199 --> 00:16:00,399
+hundred
+
+438
+00:16:00,399 --> 00:16:02,480
+cycles here we'd be the machine would be
+
+439
+00:16:02,480 --> 00:16:04,560
+sitting there idling for hundreds
+
+440
+00:16:04,560 --> 00:16:06,399
+hundreds of cycles sort of wasting its
+
+441
+00:16:06,399 --> 00:16:08,399
+time
+
+442
+00:16:08,399 --> 00:16:10,079
+and because that's a significant
+
+443
+00:16:10,079 --> 00:16:11,440
+significant slowdown
+
+444
+00:16:11,440 --> 00:16:12,959
+right if if all everything went well
+
+445
+00:16:12,959 --> 00:16:15,040
+we'd be able to execute an instruction
+
+446
+00:16:15,040 --> 00:16:16,399
+every cycle instead of every couple
+
+447
+00:16:16,399 --> 00:16:20,230
+hundred cycles
+
+448
+00:16:20,240 --> 00:16:22,959
+all modern all serious modern cpus do
+
+449
+00:16:22,959 --> 00:16:24,560
+use something called branch prediction
+
+450
+00:16:24,560 --> 00:16:27,600
+so this if statement is a branch um if
+
+451
+00:16:27,600 --> 00:16:29,040
+we'd actually turned it into machine
+
+452
+00:16:29,040 --> 00:16:30,639
+instructions we'd see there was a branch
+
+453
+00:16:30,639 --> 00:16:31,199
+here
+
+454
+00:16:31,199 --> 00:16:32,959
+and it's a conditional branch branch
+
+455
+00:16:32,959 --> 00:16:34,320
+based on this
+
+456
+00:16:34,320 --> 00:16:36,320
+uh test of whether register one is equal
+
+457
+00:16:36,320 --> 00:16:39,360
+to one and what cpus do is they use
+
+458
+00:16:39,360 --> 00:16:41,600
+what's called branch branch prediction
+
+459
+00:16:41,600 --> 00:16:43,199
+that is for every branch
+
+460
+00:16:43,199 --> 00:16:46,480
+um more or less the cpu
+
+461
+00:16:46,480 --> 00:16:47,839
+essentially remembers a cache of
+
+462
+00:16:47,839 --> 00:16:50,079
+information about each of the branches
+
+463
+00:16:50,079 --> 00:16:52,160
+in your program or at least each
+
+464
+00:16:52,160 --> 00:16:53,839
+recently executed branch
+
+465
+00:16:53,839 --> 00:16:56,000
+and remember so did that branch was the
+
+466
+00:16:56,000 --> 00:16:58,399
+branch taken or not taken
+
+467
+00:16:58,399 --> 00:17:00,240
+and if the cpu doesn't have enough
+
+468
+00:17:00,240 --> 00:17:02,639
+information
+
+469
+00:17:02,639 --> 00:17:04,880
+to predict so that's prediction based on
+
+470
+00:17:04,880 --> 00:17:06,720
+the last time you executed the branch
+
+471
+00:17:06,720 --> 00:17:08,640
+even if the cpu doesn't have a
+
+472
+00:17:08,640 --> 00:17:10,160
+prediction it may still
+
+473
+00:17:10,160 --> 00:17:12,480
+just go ahead and execute the
+
+474
+00:17:12,480 --> 00:17:13,600
+instructions
+
+475
+00:17:13,600 --> 00:17:16,160
+um either that the branch takes you to
+
+476
+00:17:16,160 --> 00:17:18,079
+or the fall through instructions
+
+477
+00:17:18,079 --> 00:17:21,199
+assuming the branch wasn't taken that is
+
+478
+00:17:21,199 --> 00:17:24,160
+even before the cpu knows whether this
+
+479
+00:17:24,160 --> 00:17:26,079
+conditional is true
+
+480
+00:17:26,079 --> 00:17:28,160
+it'll choose one way or the other and
+
+481
+00:17:28,160 --> 00:17:30,400
+start executing down that path
+
+482
+00:17:30,400 --> 00:17:32,559
+even though it might be the wrong path
+
+483
+00:17:32,559 --> 00:17:34,160
+it doesn't know yet
+
+484
+00:17:34,160 --> 00:17:36,480
+and so in this case maybe before this
+
+485
+00:17:36,480 --> 00:17:38,240
+load completes and before
+
+486
+00:17:38,240 --> 00:17:40,880
+the value of valid is known the cpu may
+
+487
+00:17:40,880 --> 00:17:41,280
+start
+
+488
+00:17:41,280 --> 00:17:44,640
+executing instruction four and do the
+
+489
+00:17:44,640 --> 00:17:46,160
+load with whatever
+
+490
+00:17:46,160 --> 00:17:48,480
+value is sitting in r0 which may or may
+
+491
+00:17:48,480 --> 00:17:50,640
+not be a valid pointer
+
+492
+00:17:50,640 --> 00:17:52,640
+and once that load yields something
+
+493
+00:17:52,640 --> 00:17:54,480
+maybe even add one to it and set
+
+494
+00:17:54,480 --> 00:17:56,799
+register three equal to that value
+
+495
+00:17:56,799 --> 00:17:59,280
+and then maybe a long time later when
+
+496
+00:17:59,280 --> 00:18:00,080
+this load
+
+497
+00:18:00,080 --> 00:18:03,280
+at line two finally completes um
+
+498
+00:18:03,280 --> 00:18:05,360
+i mean now we know what the value of
+
+499
+00:18:05,360 --> 00:18:06,559
+valid is
+
+500
+00:18:06,559 --> 00:18:09,440
+the cpu will then this real you know
+
+501
+00:18:09,440 --> 00:18:11,039
+didn't know it kept track of the fact
+
+502
+00:18:11,039 --> 00:18:11,679
+that it
+
+503
+00:18:11,679 --> 00:18:14,240
+executed lines four and five without
+
+504
+00:18:14,240 --> 00:18:17,039
+really knowing whether that was proper
+
+505
+00:18:17,039 --> 00:18:19,360
+if valid is one then that's fine and it
+
+506
+00:18:19,360 --> 00:18:20,400
+just keeps going
+
+507
+00:18:20,400 --> 00:18:23,200
+if valid is zero then the cpu has enough
+
+508
+00:18:23,200 --> 00:18:24,559
+cleverness to cancel
+
+509
+00:18:24,559 --> 00:18:27,600
+the effects of its execution of line
+
+510
+00:18:27,600 --> 00:18:28,000
+four and
+
+511
+00:18:28,000 --> 00:18:30,960
+five and restart execution in the proper
+
+512
+00:18:30,960 --> 00:18:32,240
+place after the branch
+
+513
+00:18:32,240 --> 00:18:35,760
+at line seven and this execution of code
+
+514
+00:18:35,760 --> 00:18:37,360
+before you know whether you really
+
+515
+00:18:37,360 --> 00:18:39,039
+should be executing it
+
+516
+00:18:39,039 --> 00:18:47,270
+is called speculation
+
+517
+00:18:47,280 --> 00:18:48,880
+and again the point is performance if
+
+518
+00:18:48,880 --> 00:18:51,039
+the cpu guess is right
+
+519
+00:18:51,039 --> 00:18:53,679
+then it got a big head start executing
+
+520
+00:18:53,679 --> 00:18:54,480
+these instructions
+
+521
+00:18:54,480 --> 00:18:56,160
+and didn't have to wait for the member
+
+522
+00:18:56,160 --> 00:19:00,549
+for the expensive memory load
+
+523
+00:19:00,559 --> 00:19:08,870
+any questions about what this means
+
+524
+00:19:08,880 --> 00:19:12,400
+okay this machinery
+
+525
+00:19:12,400 --> 00:19:14,480
+the hardware the transistors in the cpu
+
+526
+00:19:14,480 --> 00:19:16,799
+for speculation
+
+527
+00:19:16,799 --> 00:19:20,160
+are extremely complex there's a
+
+528
+00:19:20,160 --> 00:19:22,240
+huge amount going on in the cpu to make
+
+529
+00:19:22,240 --> 00:19:23,360
+this work
+
+530
+00:19:23,360 --> 00:19:26,000
+none of which is published right it's
+
+531
+00:19:26,000 --> 00:19:27,679
+all
+
+532
+00:19:27,679 --> 00:19:30,480
+intel internal stuff not in the instruct
+
+533
+00:19:30,480 --> 00:19:33,440
+not in the machine manual
+
+534
+00:19:33,440 --> 00:19:36,799
+so surrounding meltdown and attacks like
+
+535
+00:19:36,799 --> 00:19:39,360
+it is a huge amount of speculation about
+
+536
+00:19:39,360 --> 00:19:41,280
+what's probably going on inside the cpu
+
+537
+00:19:41,280 --> 00:19:43,039
+in order to make such-and-such attack
+
+538
+00:19:43,039 --> 00:19:45,039
+work or not work
+
+539
+00:19:45,039 --> 00:19:50,710
+okay back to speculation though um
+
+540
+00:19:50,720 --> 00:19:55,120
+the uh um
+
+541
+00:19:55,120 --> 00:19:58,160
+uh one thing that's going on is that um
+
+542
+00:19:58,160 --> 00:20:01,840
+in order to undo speculative
+
+543
+00:20:01,840 --> 00:20:04,720
+failed specula mispredicted speculative
+
+544
+00:20:04,720 --> 00:20:05,919
+execution
+
+545
+00:20:05,919 --> 00:20:08,559
+the machine had keeps shadow versions of
+
+546
+00:20:08,559 --> 00:20:10,080
+registers essentially
+
+547
+00:20:10,080 --> 00:20:11,760
+you know it'll assign to registers 2 and
+
+548
+00:20:11,760 --> 00:20:13,120
+register 3 but
+
+549
+00:20:13,120 --> 00:20:14,880
+it'll it's assigning kind of a temporary
+
+550
+00:20:14,880 --> 00:20:16,400
+registers
+
+551
+00:20:16,400 --> 00:20:19,679
+if the speculation succeeds
+
+552
+00:20:19,679 --> 00:20:21,280
+then those registers those shadow
+
+553
+00:20:21,280 --> 00:20:22,960
+registers become the real registers
+
+554
+00:20:22,960 --> 00:20:25,520
+if it fails then those shadow registers
+
+555
+00:20:25,520 --> 00:20:27,280
+are discarded the cpu discards the
+
+556
+00:20:27,280 --> 00:20:28,640
+shadow registers
+
+557
+00:20:28,640 --> 00:20:31,039
+so these two assignments r2 and r3 would
+
+558
+00:20:31,039 --> 00:20:37,190
+just be as if they never happened
+
+559
+00:20:37,200 --> 00:20:41,520
+so in this code we need to think about
+
+560
+00:20:41,520 --> 00:20:44,640
+what happens if register 0
+
+561
+00:20:44,640 --> 00:20:46,640
+is a valid pointer and what happens if
+
+562
+00:20:46,640 --> 00:20:48,880
+it's not a valid pointer
+
+563
+00:20:48,880 --> 00:20:51,600
+right if we're speculatively executing
+
+564
+00:20:51,600 --> 00:20:54,789
+line four
+
+565
+00:20:54,799 --> 00:20:57,360
+and register two is a valid pointer then
+
+566
+00:20:57,360 --> 00:20:59,039
+it turns out the cpu will actually do
+
+567
+00:20:59,039 --> 00:21:01,679
+the load
+
+568
+00:21:01,679 --> 00:21:03,600
+and load it into at least the transient
+
+569
+00:21:03,600 --> 00:21:05,120
+version of register two so we'll
+
+570
+00:21:05,120 --> 00:21:06,240
+actually go out and
+
+571
+00:21:06,240 --> 00:21:10,559
+and uh try to fetch what r0 points do
+
+572
+00:21:10,559 --> 00:21:11,200
+and
+
+573
+00:21:11,200 --> 00:21:14,000
+that will certainly work if that if r0
+
+574
+00:21:14,000 --> 00:21:15,440
+if the data r0 is
+
+575
+00:21:15,440 --> 00:21:18,799
+pointed to is sitting in the cache and i
+
+576
+00:21:18,799 --> 00:21:21,440
+don't know if if the cpu will do the
+
+577
+00:21:21,440 --> 00:21:22,000
+load
+
+578
+00:21:22,000 --> 00:21:23,600
+if it misses in the cache and has to
+
+579
+00:21:23,600 --> 00:21:27,669
+load from ram it might
+
+580
+00:21:27,679 --> 00:21:28,960
+but maybe the more interesting question
+
+581
+00:21:28,960 --> 00:21:30,720
+for us for this attack is what happens
+
+582
+00:21:30,720 --> 00:21:36,070
+if register 0 is not a valid pointer
+
+583
+00:21:36,080 --> 00:21:38,799
+in that case if we're speculatively
+
+584
+00:21:38,799 --> 00:21:41,990
+executing here
+
+585
+00:21:42,000 --> 00:21:45,120
+the machine can't fault at this point
+
+586
+00:21:45,120 --> 00:21:46,640
+because we're speculatively executing
+
+587
+00:21:46,640 --> 00:21:47,120
+the machine
+
+588
+00:21:47,120 --> 00:21:49,679
+doesn't know it may know that r0 was an
+
+589
+00:21:49,679 --> 00:21:50,880
+invalid that
+
+590
+00:21:50,880 --> 00:21:52,640
+that this speculatively executed
+
+591
+00:21:52,640 --> 00:21:54,960
+instruction tried to use an invalid
+
+592
+00:21:54,960 --> 00:21:55,440
+pointer
+
+593
+00:21:55,440 --> 00:21:57,520
+an invalid address but it can't page
+
+594
+00:21:57,520 --> 00:22:00,159
+fault because it's not sure whether this
+
+595
+00:22:00,159 --> 00:22:00,960
+execution
+
+596
+00:22:00,960 --> 00:22:04,480
+is val is a correct speculative
+
+597
+00:22:04,480 --> 00:22:06,120
+execution or
+
+598
+00:22:06,120 --> 00:22:09,120
+misspeculation and so it's only
+
+599
+00:22:09,120 --> 00:22:12,880
+so so it can't actually raise a fault on
+
+600
+00:22:12,880 --> 00:22:13,600
+line four
+
+601
+00:22:13,600 --> 00:22:17,200
+until after valid the value of valid is
+
+602
+00:22:17,200 --> 00:22:18,159
+known and
+
+603
+00:22:18,159 --> 00:22:22,000
+after this branch this
+
+604
+00:22:22,000 --> 00:22:25,440
+specular predicted branch um is after we
+
+605
+00:22:25,440 --> 00:22:27,120
+know what after the machine knows what
+
+606
+00:22:27,120 --> 00:22:28,480
+the condition is
+
+607
+00:22:28,480 --> 00:22:30,240
+if the machine see you know if the
+
+608
+00:22:30,240 --> 00:22:32,559
+machines that line 4 sees oh register 0
+
+609
+00:22:32,559 --> 00:22:34,000
+is an invalid
+
+610
+00:22:34,000 --> 00:22:38,640
+address and then valid turns out to be 1
+
+611
+00:22:38,640 --> 00:22:40,960
+then and only then does the machine
+
+612
+00:22:40,960 --> 00:22:42,559
+actually generate the page fault
+
+613
+00:22:42,559 --> 00:22:45,520
+if r0 was an invalid address then valid
+
+614
+00:22:45,520 --> 00:22:46,640
+turns out to be zero
+
+615
+00:22:46,640 --> 00:22:49,440
+the machine does not generate a page
+
+616
+00:22:49,440 --> 00:22:50,960
+fault
+
+617
+00:22:50,960 --> 00:22:52,720
+so the pate the decision about whether
+
+618
+00:22:52,720 --> 00:22:54,960
+default is deferred possibly for
+
+619
+00:22:54,960 --> 00:22:56,159
+hundreds of
+
+620
+00:22:56,159 --> 00:22:59,440
+cycles until the value of valid is known
+
+621
+00:22:59,440 --> 00:23:01,360
+and the technical term for the point at
+
+622
+00:23:01,360 --> 00:23:02,720
+which we
+
+623
+00:23:02,720 --> 00:23:05,760
+know whether an instruction
+
+624
+00:23:05,760 --> 00:23:09,600
+was correctly speculatively executed
+
+625
+00:23:09,600 --> 00:23:12,080
+rather than being thrown away is called
+
+626
+00:23:12,080 --> 00:23:15,510
+retirement
+
+627
+00:23:15,520 --> 00:23:19,200
+so we say an instruction is speculative
+
+628
+00:23:19,200 --> 00:23:19,760
+and and
+
+629
+00:23:19,760 --> 00:23:21,200
+at some point it's retired and that's
+
+630
+00:23:21,200 --> 00:23:23,120
+when we know
+
+631
+00:23:23,120 --> 00:23:24,799
+it's either going to be thrown away or
+
+632
+00:23:24,799 --> 00:23:26,720
+was real and should be its effect should
+
+633
+00:23:26,720 --> 00:23:28,080
+be committed to the
+
+634
+00:23:28,080 --> 00:23:30,159
+visible state of the machine and the
+
+635
+00:23:30,159 --> 00:23:33,590
+rule is that
+
+636
+00:23:33,600 --> 00:23:36,080
+an instruction can only be retired if
+
+637
+00:23:36,080 --> 00:23:36,799
+first of all
+
+638
+00:23:36,799 --> 00:23:39,200
+it's finished executing you know loading
+
+639
+00:23:39,200 --> 00:23:41,120
+memory or adding one to something
+
+640
+00:23:41,120 --> 00:23:43,600
+and every instruction before it that was
+
+641
+00:23:43,600 --> 00:23:46,080
+executed before it has also retired
+
+642
+00:23:46,080 --> 00:23:48,159
+so you know this line four can't be
+
+643
+00:23:48,159 --> 00:23:49,679
+retired until the
+
+644
+00:23:49,679 --> 00:23:51,440
+load of valid completes and the
+
+645
+00:23:51,440 --> 00:23:53,840
+condition is
+
+646
+00:23:53,840 --> 00:23:56,320
+is evaluated only then can be retired so
+
+647
+00:23:56,320 --> 00:23:57,600
+if it's going to fall to me it's going
+
+648
+00:23:57,600 --> 00:23:58,159
+to fault
+
+649
+00:23:58,159 --> 00:24:01,919
+possibly hundreds of instructions after
+
+650
+00:24:01,919 --> 00:24:05,200
+it did the memory load
+
+651
+00:24:05,200 --> 00:24:11,510
+or attempted to do the memory load
+
+652
+00:24:11,520 --> 00:24:16,870
+and as a critical detail for this attack
+
+653
+00:24:16,880 --> 00:24:20,720
+there's an even more uh that if
+
+654
+00:24:20,720 --> 00:24:24,240
+let's see if the um if the address in r0
+
+655
+00:24:24,240 --> 00:24:24,559
+is
+
+656
+00:24:24,559 --> 00:24:26,400
+invalid and has no mapping in the page
+
+657
+00:24:26,400 --> 00:24:27,679
+table at all
+
+658
+00:24:27,679 --> 00:24:30,840
+then i actually don't know what happens
+
+659
+00:24:30,840 --> 00:24:32,799
+um
+
+660
+00:24:32,799 --> 00:24:36,799
+if the address in r0 has a page table
+
+661
+00:24:36,799 --> 00:24:37,279
+mapping
+
+662
+00:24:37,279 --> 00:24:39,440
+but there's no permission for it that is
+
+663
+00:24:39,440 --> 00:24:40,880
+the ptu flag
+
+664
+00:24:40,880 --> 00:24:44,000
+is not set then what intel machines
+
+665
+00:24:44,000 --> 00:24:44,799
+actually do
+
+666
+00:24:44,799 --> 00:24:48,640
+is load that data and assign it into the
+
+667
+00:24:48,640 --> 00:24:53,190
+transient register 2
+
+668
+00:24:53,200 --> 00:24:55,200
+and where it can be used by the
+
+669
+00:24:55,200 --> 00:24:57,279
+speculative execution of line 5.
+
+670
+00:24:57,279 --> 00:25:00,000
+so even if r0 wasn't was a address for
+
+671
+00:25:00,000 --> 00:25:01,440
+which we don't have permission because
+
+672
+00:25:01,440 --> 00:25:03,200
+it's a kernel address
+
+673
+00:25:03,200 --> 00:25:05,440
+we'll still see its value loaded into r3
+
+674
+00:25:05,440 --> 00:25:06,880
+and its value plus one
+
+675
+00:25:06,880 --> 00:25:08,480
+sorry we won't see it but it will be
+
+676
+00:25:08,480 --> 00:25:10,559
+loaded into r2
+
+677
+00:25:10,559 --> 00:25:14,240
+and that plus one and r3 and then
+
+678
+00:25:14,240 --> 00:25:16,559
+when this load is retired the machine
+
+679
+00:25:16,559 --> 00:25:18,720
+will realize aha
+
+680
+00:25:18,720 --> 00:25:20,960
+that was an invalid load because the
+
+681
+00:25:20,960 --> 00:25:23,200
+page table entry didn't allow it
+
+682
+00:25:23,200 --> 00:25:25,039
+and so we're going to raise a fault and
+
+683
+00:25:25,039 --> 00:25:26,320
+cancel
+
+684
+00:25:26,320 --> 00:25:27,919
+the execution of the subsequent
+
+685
+00:25:27,919 --> 00:25:29,520
+instructions and cancel the
+
+686
+00:25:29,520 --> 00:25:33,120
+effects of this instruction undo
+
+687
+00:25:33,120 --> 00:25:36,400
+the modification to r2 and r3 so in this
+
+688
+00:25:36,400 --> 00:25:37,760
+example
+
+689
+00:25:37,760 --> 00:25:41,679
+there's two speculations going on
+
+690
+00:25:41,679 --> 00:25:44,000
+one is we're speculating about where
+
+691
+00:25:44,000 --> 00:25:45,440
+this bran the machine's speculating
+
+692
+00:25:45,440 --> 00:25:47,279
+about where this branch went
+
+693
+00:25:47,279 --> 00:25:49,039
+and just saying oh it went one way or
+
+694
+00:25:49,039 --> 00:25:50,240
+the other i'm just going to give that a
+
+695
+00:25:50,240 --> 00:25:51,919
+shot speculatively
+
+696
+00:25:51,919 --> 00:25:53,919
+in addition there's speculative
+
+697
+00:25:53,919 --> 00:25:55,360
+execution after each load we're
+
+698
+00:25:55,360 --> 00:25:56,960
+essentially speculating about
+
+699
+00:25:56,960 --> 00:25:58,720
+whether the um the machine is
+
+700
+00:25:58,720 --> 00:26:00,080
+speculating
+
+701
+00:26:00,080 --> 00:26:02,720
+about whether that load uh completes
+
+702
+00:26:02,720 --> 00:26:03,919
+successfully
+
+703
+00:26:03,919 --> 00:26:06,480
+and in the case of a load intel machines
+
+704
+00:26:06,480 --> 00:26:08,000
+always just go on
+
+705
+00:26:08,000 --> 00:26:10,960
+you know if data could be provided
+
+706
+00:26:10,960 --> 00:26:12,320
+because it's in the cache and
+
+707
+00:26:12,320 --> 00:26:13,840
+at least the page table entry exists
+
+708
+00:26:13,840 --> 00:26:15,840
+permissions are not the machine will
+
+709
+00:26:15,840 --> 00:26:19,120
+speculatively continue to execute
+
+710
+00:26:19,120 --> 00:26:22,159
+and only on retirement of the load
+
+711
+00:26:22,159 --> 00:26:24,000
+will it actually generate the fault and
+
+712
+00:26:24,000 --> 00:26:25,600
+that will cause the speculation to be
+
+713
+00:26:25,600 --> 00:26:28,470
+cancelled
+
+714
+00:26:28,480 --> 00:26:39,679
+all right any questions about this stuff
+
+715
+00:26:39,679 --> 00:26:42,080
+i'm a little confused about um the the
+
+716
+00:26:42,080 --> 00:26:44,240
+second speculation which is uh loading
+
+717
+00:26:44,240 --> 00:26:46,240
+r0 into r2
+
+718
+00:26:46,240 --> 00:26:49,679
+so um does that mean that like
+
+719
+00:26:49,679 --> 00:26:52,159
+the value of r0 is loaded into r2 and
+
+720
+00:26:52,159 --> 00:26:55,510
+the flags are checked later
+
+721
+00:26:55,520 --> 00:26:59,120
+um yes yes
+
+722
+00:26:59,120 --> 00:27:01,200
+so what happens yes that's exactly right
+
+723
+00:27:01,200 --> 00:27:02,720
+so what actually happens
+
+724
+00:27:02,720 --> 00:27:07,120
+is that during the speculative phase um
+
+725
+00:27:07,120 --> 00:27:09,279
+whatever it is that our zero points do
+
+726
+00:27:09,279 --> 00:27:11,200
+if there's sort of an
+
+727
+00:27:11,200 --> 00:27:13,440
+if it points to anything if r0 points to
+
+728
+00:27:13,440 --> 00:27:14,240
+anything
+
+729
+00:27:14,240 --> 00:27:17,039
+then uh the the data at that memory
+
+730
+00:27:17,039 --> 00:27:20,000
+location will be loaded into r2
+
+731
+00:27:20,000 --> 00:27:24,240
+later when this load is retired
+
+732
+00:27:24,240 --> 00:27:26,640
+and it turn then the permissions will be
+
+733
+00:27:26,640 --> 00:27:28,480
+checked
+
+734
+00:27:28,480 --> 00:27:30,000
+and if we didn't have permission to do
+
+735
+00:27:30,000 --> 00:27:31,600
+that load
+
+736
+00:27:31,600 --> 00:27:34,559
+then all subsequent instructions effects
+
+737
+00:27:34,559 --> 00:27:35,919
+will be canceled like all these
+
+738
+00:27:35,919 --> 00:27:37,440
+modifications are registered will be
+
+739
+00:27:37,440 --> 00:27:39,120
+undone
+
+740
+00:27:39,120 --> 00:27:42,320
+um and default will be raised
+
+741
+00:27:42,320 --> 00:27:43,760
+with the state of the machines and
+
+742
+00:27:43,760 --> 00:27:45,679
+registers as they were just before
+
+743
+00:27:45,679 --> 00:27:46,640
+instruction
+
+744
+00:27:46,640 --> 00:27:49,679
+for okay that's interesting
+
+745
+00:27:49,679 --> 00:27:54,320
+yes yes i also have a question
+
+746
+00:27:54,320 --> 00:27:57,760
+is there no possible way to restrict the
+
+747
+00:27:57,760 --> 00:27:58,559
+cpu
+
+748
+00:27:58,559 --> 00:28:00,799
+from checking permissions before doing
+
+749
+00:28:00,799 --> 00:28:06,389
+uh speculative load
+
+750
+00:28:06,399 --> 00:28:09,279
+um you mean is there a way to cause the
+
+751
+00:28:09,279 --> 00:28:09,840
+machine
+
+752
+00:28:09,840 --> 00:28:13,279
+to do the check before the load
+
+753
+00:28:13,279 --> 00:28:15,120
+yes i guess more concretely like the
+
+754
+00:28:15,120 --> 00:28:16,960
+only reason this is a problem
+
+755
+00:28:16,960 --> 00:28:20,640
+or one of the ways is that we're just
+
+756
+00:28:20,640 --> 00:28:24,399
+loading a page that if we can be aware
+
+757
+00:28:24,399 --> 00:28:25,279
+that it has
+
+758
+00:28:25,279 --> 00:28:28,240
+permissions that are gonna like be bad
+
+759
+00:28:28,240 --> 00:28:28,960
+somehow
+
+760
+00:28:28,960 --> 00:28:30,559
+right we're actually accessing a page
+
+761
+00:28:30,559 --> 00:28:32,240
+that we don't we shouldn't be able to
+
+762
+00:28:32,240 --> 00:28:33,279
+access
+
+763
+00:28:33,279 --> 00:28:36,159
+the can the speculative execution be
+
+764
+00:28:36,159 --> 00:28:37,840
+cancelled given that we can read these
+
+765
+00:28:37,840 --> 00:28:40,470
+permissions
+
+766
+00:28:40,480 --> 00:28:44,960
+yes yes that's uh yeah um
+
+767
+00:28:44,960 --> 00:28:46,880
+well there's two answers one is that's
+
+768
+00:28:46,880 --> 00:28:48,240
+not the way the intel chips
+
+769
+00:28:48,240 --> 00:28:51,440
+cpus actually worked and the other
+
+770
+00:28:51,440 --> 00:28:52,480
+answer is yes
+
+771
+00:28:52,480 --> 00:28:55,360
+it would have been i i believe it would
+
+772
+00:28:55,360 --> 00:28:56,559
+have been easy for them
+
+773
+00:28:56,559 --> 00:28:59,520
+to have done and enforce the check even
+
+774
+00:28:59,520 --> 00:29:01,440
+for speculative loads so that
+
+775
+00:29:01,440 --> 00:29:03,520
+even in speculation register 2 would
+
+776
+00:29:03,520 --> 00:29:05,919
+never have been written
+
+777
+00:29:05,919 --> 00:29:09,110
+so so
+
+778
+00:29:09,120 --> 00:29:11,520
+and indeed it turns out that you may not
+
+779
+00:29:11,520 --> 00:29:12,880
+have noticed the paper mentioned that
+
+780
+00:29:12,880 --> 00:29:13,200
+the
+
+781
+00:29:13,200 --> 00:29:16,240
+meltdown seems not to work on amd
+
+782
+00:29:16,240 --> 00:29:19,279
+cpus even though emd cpu's
+
+783
+00:29:19,279 --> 00:29:22,799
+the instruction manual is the same as
+
+784
+00:29:22,799 --> 00:29:24,720
+for intel cpus essentially that is
+
+785
+00:29:24,720 --> 00:29:26,080
+they've on the same instruction said and
+
+786
+00:29:26,080 --> 00:29:27,760
+the instructions mean the same things
+
+787
+00:29:27,760 --> 00:29:31,039
+the attack doesn't work on amd cpus
+
+788
+00:29:31,039 --> 00:29:32,960
+and it's widely believed that the reason
+
+789
+00:29:32,960 --> 00:29:36,159
+is that amd cpus
+
+790
+00:29:36,159 --> 00:29:39,520
+even when speculatively executing
+
+791
+00:29:39,520 --> 00:29:42,720
+if you don't have permission to
+
+792
+00:29:42,720 --> 00:29:44,799
+read this address won't even
+
+793
+00:29:44,799 --> 00:29:46,080
+speculatively
+
+794
+00:29:46,080 --> 00:29:49,600
+load the value into r2
+
+795
+00:29:49,600 --> 00:29:51,039
+and that's why the attack didn't work on
+
+796
+00:29:51,039 --> 00:29:52,640
+amd cpus and
+
+797
+00:29:52,640 --> 00:29:56,240
+recent intel cpus apparently
+
+798
+00:29:56,240 --> 00:29:57,919
+have adopted that approach and they
+
+799
+00:29:57,919 --> 00:29:59,600
+actually
+
+800
+00:29:59,600 --> 00:30:03,919
+won't won't speculatively load
+
+801
+00:30:03,919 --> 00:30:06,640
+if they don't have permissions and as
+
+802
+00:30:06,640 --> 00:30:08,880
+far as i know there's no
+
+803
+00:30:08,880 --> 00:30:11,279
+particular sacrifice and performance i
+
+804
+00:30:11,279 --> 00:30:13,440
+think the information was all there
+
+805
+00:30:13,440 --> 00:30:16,640
+but for but just i don't know just
+
+806
+00:30:16,640 --> 00:30:19,200
+say maybe a few gates they decided only
+
+807
+00:30:19,200 --> 00:30:23,520
+to apply it on on retirement
+
+808
+00:30:23,520 --> 00:30:24,720
+because they still need to be very
+
+809
+00:30:24,720 --> 00:30:28,310
+interesting
+
+810
+00:30:28,320 --> 00:30:30,720
+yeah let me just warn you this there's a
+
+811
+00:30:30,720 --> 00:30:32,960
+lot of guesswork here
+
+812
+00:30:32,960 --> 00:30:35,279
+um and i believe what i'm saying is true
+
+813
+00:30:35,279 --> 00:30:37,440
+but
+
+814
+00:30:37,440 --> 00:30:39,039
+in intel and amd have not been very
+
+815
+00:30:39,039 --> 00:30:43,110
+revealing about what's going on
+
+816
+00:30:43,120 --> 00:30:46,640
+okay um there's a there's a uh
+
+817
+00:30:46,640 --> 00:30:48,480
+some terminology here that's it's
+
+818
+00:30:48,480 --> 00:30:50,720
+important the what you read
+
+819
+00:30:50,720 --> 00:30:53,440
+in the manual for the cpu that says oh
+
+820
+00:30:53,440 --> 00:30:54,880
+you know an ad structure takes two
+
+821
+00:30:54,880 --> 00:30:56,399
+registers and adds them and puts them in
+
+822
+00:30:56,399 --> 00:30:56,880
+a third
+
+823
+00:30:56,880 --> 00:31:00,000
+that's stuff um that aspect of the
+
+824
+00:31:00,000 --> 00:31:03,039
+design is called architectural
+
+825
+00:31:03,039 --> 00:31:06,320
+um it's sort of the advertised
+
+826
+00:31:06,320 --> 00:31:10,310
+uh behavior
+
+827
+00:31:10,320 --> 00:31:13,120
+the advertised behavior the machine um
+
+828
+00:31:13,120 --> 00:31:14,399
+and so the advertised behavior of the
+
+829
+00:31:14,399 --> 00:31:15,440
+machine is that if you load from an
+
+830
+00:31:15,440 --> 00:31:16,559
+address you don't permissions for you've
+
+831
+00:31:16,559 --> 00:31:17,919
+got a page fault period and you're not
+
+832
+00:31:17,919 --> 00:31:19,600
+allowed to load
+
+833
+00:31:19,600 --> 00:31:22,080
+and that's indistinction to what the
+
+834
+00:31:22,080 --> 00:31:23,840
+machine's actually doing which is called
+
+835
+00:31:23,840 --> 00:31:26,389
+micro
+
+836
+00:31:26,399 --> 00:31:29,590
+architectural
+
+837
+00:31:29,600 --> 00:31:30,960
+that is you know actually the machine
+
+838
+00:31:30,960 --> 00:31:32,559
+has speculative executions doing all
+
+839
+00:31:32,559 --> 00:31:33,679
+these crazy things
+
+840
+00:31:33,679 --> 00:31:36,960
+without telling you and the intent
+
+841
+00:31:36,960 --> 00:31:39,600
+of the cpu designers when they design
+
+842
+00:31:39,600 --> 00:31:40,720
+all these complex micro
+
+843
+00:31:40,720 --> 00:31:42,320
+architectural optimizations is that they
+
+844
+00:31:42,320 --> 00:31:44,480
+be transparent that yeah you know it's
+
+845
+00:31:44,480 --> 00:31:46,159
+doing all this stuff internally but
+
+846
+00:31:46,159 --> 00:31:48,240
+it looks the results you get from
+
+847
+00:31:48,240 --> 00:31:50,080
+programs are the same results you would
+
+848
+00:31:50,080 --> 00:31:52,240
+get from a simpler machine that
+
+849
+00:31:52,240 --> 00:31:53,679
+just did the straightforward thing that
+
+850
+00:31:53,679 --> 00:31:55,279
+was in the manual
+
+851
+00:31:55,279 --> 00:31:57,200
+right they're intended to be transparent
+
+852
+00:31:57,200 --> 00:31:59,600
+and so you know for example
+
+853
+00:31:59,600 --> 00:32:02,000
+at some level what intel was is doing
+
+854
+00:32:02,000 --> 00:32:03,760
+here is transparent yeah maybe they
+
+855
+00:32:03,760 --> 00:32:05,519
+don't check for permissions when you
+
+856
+00:32:05,519 --> 00:32:07,279
+when you do the memory load
+
+857
+00:32:07,279 --> 00:32:09,840
+but if there was a problem on retirement
+
+858
+00:32:09,840 --> 00:32:10,640
+it's going to undo
+
+859
+00:32:10,640 --> 00:32:12,240
+all these effects and so you'll never
+
+860
+00:32:12,240 --> 00:32:14,000
+see that memory you weren't supposed to
+
+861
+00:32:14,000 --> 00:32:16,960
+see so gosh that looks just like what
+
+862
+00:32:16,960 --> 00:32:17,840
+the manual said
+
+863
+00:32:17,840 --> 00:32:19,120
+you're not allowed to load stuff you
+
+864
+00:32:19,120 --> 00:32:22,080
+don't have permission for it
+
+865
+00:32:22,080 --> 00:32:26,149
+so this distinction is
+
+866
+00:32:26,159 --> 00:32:28,000
+a lot of what this attack is playing on
+
+867
+00:32:28,000 --> 00:32:30,399
+that it's knows all the attack knows a
+
+868
+00:32:30,399 --> 00:32:31,039
+lot about
+
+869
+00:32:31,039 --> 00:32:35,909
+what's going on inside
+
+870
+00:32:35,919 --> 00:32:39,039
+okay other questions about uh
+
+871
+00:32:39,039 --> 00:32:47,909
+speculative execution
+
+872
+00:32:47,919 --> 00:32:50,240
+okay i'm going to put that aside for a
+
+873
+00:32:50,240 --> 00:32:51,919
+moment and talk about another
+
+874
+00:32:51,919 --> 00:33:00,549
+piece of microarchitecture
+
+875
+00:33:00,559 --> 00:33:06,230
+and that's uh caches
+
+876
+00:33:06,240 --> 00:33:07,919
+and these again i mean everybody knows
+
+877
+00:33:07,919 --> 00:33:09,200
+caches are there but you know they're
+
+878
+00:33:09,200 --> 00:33:10,640
+supposed to be more or less
+
+879
+00:33:10,640 --> 00:33:16,149
+or less transparent so
+
+880
+00:33:16,159 --> 00:33:17,600
+and let me draw a picture of the caches
+
+881
+00:33:17,600 --> 00:33:19,279
+i think are relevant the cache structure
+
+882
+00:33:19,279 --> 00:33:20,080
+that i think is
+
+883
+00:33:20,080 --> 00:33:22,640
+most relevant to meltdown so first of
+
+884
+00:33:22,640 --> 00:33:23,760
+all you have the
+
+885
+00:33:23,760 --> 00:33:27,360
+you you have the core which is the
+
+886
+00:33:27,360 --> 00:33:29,120
+you know the part of the machine that
+
+887
+00:33:29,120 --> 00:33:31,519
+parses instructions and has registers
+
+888
+00:33:31,519 --> 00:33:31,919
+and
+
+889
+00:33:31,919 --> 00:33:34,399
+has an addition unit and a division unit
+
+890
+00:33:34,399 --> 00:33:35,200
+and
+
+891
+00:33:35,200 --> 00:33:38,000
+you know whatever the sort of execution
+
+892
+00:33:38,000 --> 00:33:38,559
+part
+
+893
+00:33:38,559 --> 00:33:41,600
+of the machine and then
+
+894
+00:33:41,600 --> 00:33:43,360
+whenever it needs to do a load or a
+
+895
+00:33:43,360 --> 00:33:46,549
+store
+
+896
+00:33:46,559 --> 00:33:51,360
+it talks to the the memory system
+
+897
+00:33:51,360 --> 00:33:52,960
+and the memory system has a bunch of
+
+898
+00:33:52,960 --> 00:33:54,960
+caches so in particular in the machines
+
+899
+00:33:54,960 --> 00:33:55,679
+we're talking about
+
+900
+00:33:55,679 --> 00:33:59,760
+there's a data cache
+
+901
+00:33:59,760 --> 00:34:03,600
+called a level one data cache
+
+902
+00:34:03,600 --> 00:34:06,720
+that is maybe
+
+903
+00:34:06,720 --> 00:34:09,760
+uh you know 64 kilobytes in size or
+
+904
+00:34:09,760 --> 00:34:10,800
+something not very big but it's
+
+905
+00:34:10,800 --> 00:34:12,159
+extremely fast
+
+906
+00:34:12,159 --> 00:34:14,800
+um if you if the data you need is in the
+
+907
+00:34:14,800 --> 00:34:16,000
+l1 cache that
+
+908
+00:34:16,000 --> 00:34:17,599
+it'll get back to you in a couple of
+
+909
+00:34:17,599 --> 00:34:19,760
+cycles and the structure of the l1 cache
+
+910
+00:34:19,760 --> 00:34:21,440
+it has a bunch of lines what are called
+
+911
+00:34:21,440 --> 00:34:22,879
+lines
+
+912
+00:34:22,879 --> 00:34:25,280
+each of which holds probably 64 bytes of
+
+913
+00:34:25,280 --> 00:34:27,359
+data the lines are indexed
+
+914
+00:34:27,359 --> 00:34:30,240
+it's a table really the cache the lines
+
+915
+00:34:30,240 --> 00:34:32,240
+are indexed by virtual address
+
+916
+00:34:32,240 --> 00:34:36,079
+um if a virtual address is in the cache
+
+917
+00:34:36,079 --> 00:34:37,359
+then
+
+918
+00:34:37,359 --> 00:34:40,240
+the cache holds the data for that
+
+919
+00:34:40,240 --> 00:34:41,359
+virtual dress
+
+920
+00:34:41,359 --> 00:34:45,349
+and in addition as it turns out
+
+921
+00:34:45,359 --> 00:34:49,280
+it's believed that a l1 cache entry
+
+922
+00:34:49,280 --> 00:34:51,200
+contains a copy of the permissions taken
+
+923
+00:34:51,200 --> 00:34:53,200
+from the page table entry that
+
+924
+00:34:53,200 --> 00:34:55,919
+corresponds to this virtual address
+
+925
+00:34:55,919 --> 00:34:59,680
+so there's a whole this is a
+
+926
+00:34:59,680 --> 00:35:02,320
+table when when the core is used a load
+
+927
+00:35:02,320 --> 00:35:03,359
+instruction
+
+928
+00:35:03,359 --> 00:35:05,200
+um the first thing that happens is that
+
+929
+00:35:05,200 --> 00:35:07,359
+the hardware looks in the l1 cache and
+
+930
+00:35:07,359 --> 00:35:08,800
+see if there's a
+
+931
+00:35:08,800 --> 00:35:11,280
+cache entry whose virtual address
+
+932
+00:35:11,280 --> 00:35:12,320
+matches the
+
+933
+00:35:12,320 --> 00:35:15,430
+requested
+
+934
+00:35:15,440 --> 00:35:16,800
+the address we're trying to load from it
+
+935
+00:35:16,800 --> 00:35:18,720
+and if so the we can just the
+
+936
+00:35:18,720 --> 00:35:20,160
+machine just returns this data from the
+
+937
+00:35:20,160 --> 00:35:22,320
+cache we're done very quickly
+
+938
+00:35:22,320 --> 00:35:24,560
+if the data is not in the l1 cache then
+
+939
+00:35:24,560 --> 00:35:26,400
+the next step
+
+940
+00:35:26,400 --> 00:35:28,560
+is that we um the rest of the memory
+
+941
+00:35:28,560 --> 00:35:29,599
+system is
+
+942
+00:35:29,599 --> 00:35:31,440
+is in is addressed with physical
+
+943
+00:35:31,440 --> 00:35:32,640
+addresses so we at this point we're
+
+944
+00:35:32,640 --> 00:35:34,160
+going to need a physical address if we
+
+945
+00:35:34,160 --> 00:35:34,960
+missed
+
+946
+00:35:34,960 --> 00:35:37,520
+the l1 cache this translation look aside
+
+947
+00:35:37,520 --> 00:35:41,040
+buffer is a cache of page table entries
+
+948
+00:35:41,040 --> 00:35:42,640
+so we're going to look up the virtual
+
+949
+00:35:42,640 --> 00:35:44,079
+address that the
+
+950
+00:35:44,079 --> 00:35:45,760
+program issued in the translation
+
+951
+00:35:45,760 --> 00:35:47,359
+leukocyte buffer
+
+952
+00:35:47,359 --> 00:35:48,800
+it may not be there in which case now
+
+953
+00:35:48,800 --> 00:35:49,839
+we've got a lot of work to do because
+
+954
+00:35:49,839 --> 00:35:51,440
+we've got to load the relevant page
+
+955
+00:35:51,440 --> 00:35:54,240
+table entry from memory
+
+956
+00:35:54,240 --> 00:35:55,359
+but let's assume we hit in the
+
+957
+00:35:55,359 --> 00:35:59,040
+translation look aside buffer we can now
+
+958
+00:35:59,040 --> 00:36:00,880
+get the needed physical address
+
+959
+00:36:00,880 --> 00:36:02,720
+typically there's another cache another
+
+960
+00:36:02,720 --> 00:36:04,720
+much bigger cache
+
+961
+00:36:04,720 --> 00:36:07,680
+that's physically indexed indexed with
+
+962
+00:36:07,680 --> 00:36:10,710
+the physical address
+
+963
+00:36:10,720 --> 00:36:12,079
+and so we might now that we have the
+
+964
+00:36:12,079 --> 00:36:13,359
+physical address we can look in this
+
+965
+00:36:13,359 --> 00:36:14,640
+cache
+
+966
+00:36:14,640 --> 00:36:17,680
+um and if we miss there then we have to
+
+967
+00:36:17,680 --> 00:36:19,280
+send the physical address after the ram
+
+968
+00:36:19,280 --> 00:36:20,079
+system
+
+969
+00:36:20,079 --> 00:36:21,359
+takes a long time but when we finally
+
+970
+00:36:21,359 --> 00:36:22,960
+get data back then we can populate the
+
+971
+00:36:22,960 --> 00:36:24,960
+level two cache
+
+972
+00:36:24,960 --> 00:36:26,720
+and populate the level one cache with
+
+973
+00:36:26,720 --> 00:36:28,480
+the stuff we got back from ram
+
+974
+00:36:28,480 --> 00:36:31,440
+and return the uh the data back to the
+
+975
+00:36:31,440 --> 00:36:36,630
+core
+
+976
+00:36:36,640 --> 00:36:40,720
+so this is caching
+
+977
+00:36:40,720 --> 00:36:45,200
+um uh just
+
+978
+00:36:45,200 --> 00:36:47,920
+uh by the by the hidden l1 cache
+
+979
+00:36:47,920 --> 00:36:49,440
+probably takes a few cycles the hidden
+
+980
+00:36:49,440 --> 00:36:51,760
+l2 cache probably takes a dozen or two
+
+981
+00:36:51,760 --> 00:36:52,560
+cycles
+
+982
+00:36:52,560 --> 00:36:54,079
+and a miss that requires you to go
+
+983
+00:36:54,079 --> 00:36:55,119
+around probably takes you a couple
+
+984
+00:36:55,119 --> 00:36:56,480
+hundred cycles
+
+985
+00:36:56,480 --> 00:36:59,920
+and these cycles are you know
+
+986
+00:36:59,920 --> 00:37:02,560
+less say half a nanosecond on a two
+
+987
+00:37:02,560 --> 00:37:05,280
+gigahertz machine
+
+988
+00:37:05,280 --> 00:37:07,040
+so it's extremely advantageous to have
+
+989
+00:37:07,040 --> 00:37:08,400
+caching i mean you would if you didn't
+
+990
+00:37:08,400 --> 00:37:10,320
+have caching you'd be sacrificing
+
+991
+00:37:10,320 --> 00:37:11,760
+a factor of a couple of hundred in
+
+992
+00:37:11,760 --> 00:37:14,160
+performance so these are just absolutely
+
+993
+00:37:14,160 --> 00:37:16,320
+critical to decent performance these
+
+994
+00:37:16,320 --> 00:37:20,829
+caches
+
+995
+00:37:20,839 --> 00:37:23,680
+now um
+
+996
+00:37:23,680 --> 00:37:27,040
+this cache is is the l1 cache
+
+997
+00:37:27,040 --> 00:37:29,200
+um well both it turns out both both
+
+998
+00:37:29,200 --> 00:37:30,960
+these caches can contain
+
+999
+00:37:30,960 --> 00:37:32,480
+if we're running in user space both
+
+1000
+00:37:32,480 --> 00:37:34,000
+these caches and the
+
+1001
+00:37:34,000 --> 00:37:36,320
+operating systems meltdown was aimed at
+
+1002
+00:37:36,320 --> 00:37:38,079
+both of these caches can contain both
+
+1003
+00:37:38,079 --> 00:37:38,880
+user data
+
+1004
+00:37:38,880 --> 00:37:42,079
+and kernel data the l2 cache can contain
+
+1005
+00:37:42,079 --> 00:37:46,230
+kernel data because um
+
+1006
+00:37:46,240 --> 00:37:48,560
+it's physically addressed and there's
+
+1007
+00:37:48,560 --> 00:37:49,520
+just no problem
+
+1008
+00:37:49,520 --> 00:37:52,240
+um the l1 cache is a little bit trickier
+
+1009
+00:37:52,240 --> 00:37:54,000
+it's virtually addressed when we change
+
+1010
+00:37:54,000 --> 00:37:56,640
+page tables the contents of the l1 cache
+
+1011
+00:37:56,640 --> 00:37:58,240
+are no longer valid because
+
+1012
+00:37:58,240 --> 00:38:00,079
+we change page tables that means that
+
+1013
+00:38:00,079 --> 00:38:01,839
+the meaning of virtual addresses change
+
+1014
+00:38:01,839 --> 00:38:03,520
+so you'd have to flush the l1 cache if
+
+1015
+00:38:03,520 --> 00:38:04,960
+you change page tables
+
+1016
+00:38:04,960 --> 00:38:08,079
+although there's more complex tricks
+
+1017
+00:38:08,079 --> 00:38:08,480
+that
+
+1018
+00:38:08,480 --> 00:38:11,839
+can allow you to avoid that and so but
+
+1019
+00:38:11,839 --> 00:38:13,760
+the fact that these operating systems
+
+1020
+00:38:13,760 --> 00:38:15,839
+in the days of this paper didn't change
+
+1021
+00:38:15,839 --> 00:38:17,839
+page tables when changing between user
+
+1022
+00:38:17,839 --> 00:38:19,520
+space and kernel space because both were
+
+1023
+00:38:19,520 --> 00:38:20,160
+mapped
+
+1024
+00:38:20,160 --> 00:38:23,119
+meant that uh data we didn't have to
+
+1025
+00:38:23,119 --> 00:38:24,640
+flush the l1 cache
+
+1026
+00:38:24,640 --> 00:38:26,480
+and that meant that l1 cache would have
+
+1027
+00:38:26,480 --> 00:38:28,240
+both user and kernel data in it and that
+
+1028
+00:38:28,240 --> 00:38:30,320
+made system calls even faster right if
+
+1029
+00:38:30,320 --> 00:38:32,079
+you call a system called a system called
+
+1030
+00:38:32,079 --> 00:38:34,079
+returns there's still going to be
+
+1031
+00:38:34,079 --> 00:38:37,040
+uh likely still to be useful user data
+
+1032
+00:38:37,040 --> 00:38:38,640
+in the cache because
+
+1033
+00:38:38,640 --> 00:38:40,800
+we never change the mean we never change
+
+1034
+00:38:40,800 --> 00:38:42,079
+page tables or change the meanings of
+
+1035
+00:38:42,079 --> 00:38:45,510
+these addresses
+
+1036
+00:38:45,520 --> 00:38:47,200
+anyway so there's likely to be kernel
+
+1037
+00:38:47,200 --> 00:38:48,960
+data even though you're running on user
+
+1038
+00:38:48,960 --> 00:38:51,200
+space there's likely to be kernel data
+
+1039
+00:38:51,200 --> 00:38:53,520
+in the l1 cache and it's these
+
+1040
+00:38:53,520 --> 00:38:55,040
+permissions which are copied out of the
+
+1041
+00:38:55,040 --> 00:38:55,680
+tlb
+
+1042
+00:38:55,680 --> 00:38:57,599
+copied out of page table entries that
+
+1043
+00:38:57,599 --> 00:38:58,800
+tells the machine
+
+1044
+00:38:58,800 --> 00:39:00,560
+that oh even though the data is in the
+
+1045
+00:39:00,560 --> 00:39:02,960
+cache you're not allowed to see it
+
+1046
+00:39:02,960 --> 00:39:11,829
+and raise it raise the page fault
+
+1047
+00:39:11,839 --> 00:39:15,119
+so this is a good time to mention that
+
+1048
+00:39:15,119 --> 00:39:18,400
+even though the intent of micro
+
+1049
+00:39:18,400 --> 00:39:20,800
+architectural optimizations is they be
+
+1050
+00:39:20,800 --> 00:39:24,790
+completely transparent
+
+1051
+00:39:24,800 --> 00:39:27,040
+that can't possibly be true because the
+
+1052
+00:39:27,040 --> 00:39:28,079
+whole point
+
+1053
+00:39:28,079 --> 00:39:29,920
+of these micro architectural
+
+1054
+00:39:29,920 --> 00:39:31,200
+optimizations is almost
+
+1055
+00:39:31,200 --> 00:39:33,440
+always to improve performance and so
+
+1056
+00:39:33,440 --> 00:39:34,400
+they will you're
+
+1057
+00:39:34,400 --> 00:39:37,680
+guaranteed to be at least visible
+
+1058
+00:39:37,680 --> 00:39:39,520
+in terms of performance that is you
+
+1059
+00:39:39,520 --> 00:39:41,119
+could tell if your machine has a cache
+
+1060
+00:39:41,119 --> 00:39:41,839
+or not
+
+1061
+00:39:41,839 --> 00:39:43,520
+because if it doesn't have a cache it'll
+
+1062
+00:39:43,520 --> 00:39:46,160
+run a couple hundred times slower
+
+1063
+00:39:46,160 --> 00:39:49,280
+right in addition you can tell whether
+
+1064
+00:39:49,280 --> 00:39:51,040
+the data you're trying to fetch
+
+1065
+00:39:51,040 --> 00:39:52,480
+if you're capable of measuring time
+
+1066
+00:39:52,480 --> 00:39:54,640
+accurately enough and you do a load
+
+1067
+00:39:54,640 --> 00:39:56,800
+you can tell if the load returned in a
+
+1068
+00:39:56,800 --> 00:39:57,920
+couple cycles
+
+1069
+00:39:57,920 --> 00:39:59,520
+the data must have been cached if the
+
+1070
+00:39:59,520 --> 00:40:01,040
+load returned after
+
+1071
+00:40:01,040 --> 00:40:04,560
+100 times that the data probably was had
+
+1072
+00:40:04,560 --> 00:40:06,000
+to be loaded from ram
+
+1073
+00:40:06,000 --> 00:40:07,680
+and so the differences are profound and
+
+1074
+00:40:07,680 --> 00:40:09,440
+if you can measure time to
+
+1075
+00:40:09,440 --> 00:40:11,440
+you know 10 a few nanoseconds or even
+
+1076
+00:40:11,440 --> 00:40:12,720
+tens of nanoseconds
+
+1077
+00:40:12,720 --> 00:40:14,400
+you can tell the difference so in the
+
+1078
+00:40:14,400 --> 00:40:16,400
+performance level the micro architecture
+
+1079
+00:40:16,400 --> 00:40:16,720
+is
+
+1080
+00:40:16,720 --> 00:40:19,440
+absolutely not transparent and all the
+
+1081
+00:40:19,440 --> 00:40:20,400
+things we talk about
+
+1082
+00:40:20,400 --> 00:40:21,920
+like branch prediction caches or
+
+1083
+00:40:21,920 --> 00:40:24,800
+whatever all that stuff is
+
+1084
+00:40:24,800 --> 00:40:27,760
+at least indirectly visible through
+
+1085
+00:40:27,760 --> 00:40:30,870
+timing
+
+1086
+00:40:30,880 --> 00:40:32,560
+and so of course many people even though
+
+1087
+00:40:32,560 --> 00:40:34,400
+the
+
+1088
+00:40:34,400 --> 00:40:37,760
+microarchitectural design is
+
+1089
+00:40:37,760 --> 00:40:40,560
+sort of in any detailed level secret to
+
+1090
+00:40:40,560 --> 00:40:41,920
+intel it's just their private business
+
+1091
+00:40:41,920 --> 00:40:42,960
+how they implement this
+
+1092
+00:40:42,960 --> 00:40:45,440
+in fact it's all along been of extremely
+
+1093
+00:40:45,440 --> 00:40:46,079
+intense
+
+1094
+00:40:46,079 --> 00:40:48,720
+interest um to a lot of people because
+
+1095
+00:40:48,720 --> 00:40:50,640
+it affects performance a lot
+
+1096
+00:40:50,640 --> 00:40:53,440
+so compiler writers for example know a
+
+1097
+00:40:53,440 --> 00:40:55,920
+lot about microarchitecture because
+
+1098
+00:40:55,920 --> 00:40:57,520
+the most many many compiler
+
+1099
+00:40:57,520 --> 00:41:00,720
+optimizations are implicitly exploiting
+
+1100
+00:41:00,720 --> 00:41:02,880
+people's good guesses about what the
+
+1101
+00:41:02,880 --> 00:41:05,839
+machine's actually doing inside
+
+1102
+00:41:05,839 --> 00:41:10,240
+and indeed the cpu manufacturers publish
+
+1103
+00:41:10,240 --> 00:41:13,119
+optimization guides that reveal some of
+
+1104
+00:41:13,119 --> 00:41:15,040
+the micro architectural tricks
+
+1105
+00:41:15,040 --> 00:41:18,000
+but they rarely go into much detail
+
+1106
+00:41:18,000 --> 00:41:19,520
+certainly not enough detail to really
+
+1107
+00:41:19,520 --> 00:41:20,640
+understand
+
+1108
+00:41:20,640 --> 00:41:24,160
+sort of exactly why uh meltdown works
+
+1109
+00:41:24,160 --> 00:41:26,319
+um so the microarchitecture stuff is
+
+1110
+00:41:26,319 --> 00:41:27,680
+sort of sits somewhere between
+
+1111
+00:41:27,680 --> 00:41:29,520
+supposed to be transparent and visible
+
+1112
+00:41:29,520 --> 00:41:31,119
+and hidden and
+
+1113
+00:41:31,119 --> 00:41:35,119
+sort of partially
+
+1114
+00:41:35,119 --> 00:41:38,150
+you know certainly
+
+1115
+00:41:38,160 --> 00:41:39,680
+a lot of people are interested and a lot
+
+1116
+00:41:39,680 --> 00:41:41,119
+of people know all kinds of random
+
+1117
+00:41:41,119 --> 00:41:43,760
+things about it
+
+1118
+00:41:43,760 --> 00:41:48,720
+okay so the reason why this cache stuff
+
+1119
+00:41:48,720 --> 00:41:50,960
+is interesting for meltdown first of all
+
+1120
+00:41:50,960 --> 00:41:52,560
+any any questions about
+
+1121
+00:41:52,560 --> 00:41:58,710
+about caching
+
+1122
+00:41:58,720 --> 00:42:04,000
+okay let me talk then
+
+1123
+00:42:04,000 --> 00:42:07,520
+um about the sort of main way that the
+
+1124
+00:42:07,520 --> 00:42:08,480
+paper
+
+1125
+00:42:08,480 --> 00:42:10,720
+uses caching the paper talks about this
+
+1126
+00:42:10,720 --> 00:42:12,240
+technique called flush plus
+
+1127
+00:42:12,240 --> 00:42:16,960
+flush and reload
+
+1128
+00:42:16,960 --> 00:42:20,000
+um and
+
+1129
+00:42:20,000 --> 00:42:22,079
+what flesh and reload is up to is that
+
+1130
+00:42:22,079 --> 00:42:24,240
+it's answering the question
+
+1131
+00:42:24,240 --> 00:42:28,839
+um did a particular piece of code
+
+1132
+00:42:28,839 --> 00:42:31,200
+um use
+
+1133
+00:42:31,200 --> 00:42:35,040
+the memory at a particular address and
+
+1134
+00:42:35,040 --> 00:42:38,400
+it's not directly a security
+
+1135
+00:42:38,400 --> 00:42:40,640
+exploit because it only works for memory
+
+1136
+00:42:40,640 --> 00:42:42,079
+that you can get at
+
+1137
+00:42:42,079 --> 00:42:43,839
+so if you're user code and you have some
+
+1138
+00:42:43,839 --> 00:42:45,119
+memory that's your memory and you're
+
+1139
+00:42:45,119 --> 00:42:46,319
+allowed to use it
+
+1140
+00:42:46,319 --> 00:42:48,000
+you can and you call one of your own
+
+1141
+00:42:48,000 --> 00:42:49,680
+functions or you know
+
+1142
+00:42:49,680 --> 00:42:52,240
+then you you'll be able to tell you can
+
+1143
+00:42:52,240 --> 00:42:53,599
+use flush and reload
+
+1144
+00:42:53,599 --> 00:42:55,359
+to tell whether the function your
+
+1145
+00:42:55,359 --> 00:42:57,280
+function that you just executed
+
+1146
+00:42:57,280 --> 00:43:00,880
+used your memory you can't directly use
+
+1147
+00:43:00,880 --> 00:43:01,599
+this attack
+
+1148
+00:43:01,599 --> 00:43:03,280
+or it's not an attack you can't use this
+
+1149
+00:43:03,280 --> 00:43:05,440
+technique to figure out if
+
+1150
+00:43:05,440 --> 00:43:08,079
+some other process use that process as
+
+1151
+00:43:08,079 --> 00:43:10,950
+private memory
+
+1152
+00:43:10,960 --> 00:43:13,359
+although because processes sometimes
+
+1153
+00:43:13,359 --> 00:43:16,240
+share memory uh
+
+1154
+00:43:16,240 --> 00:43:19,280
+you may still be able to do it well
+
+1155
+00:43:19,280 --> 00:43:20,560
+the right way to put it is you can only
+
+1156
+00:43:20,560 --> 00:43:22,079
+find out about memory you're allowed to
+
+1157
+00:43:22,079 --> 00:43:23,359
+access
+
+1158
+00:43:23,359 --> 00:43:26,640
+okay so it's answering the question
+
+1159
+00:43:26,640 --> 00:43:29,040
+did a particular function uh use this
+
+1160
+00:43:29,040 --> 00:43:30,160
+memory so
+
+1161
+00:43:30,160 --> 00:43:33,349
+step one
+
+1162
+00:43:33,359 --> 00:43:37,040
+um is we're going to flush supposing we
+
+1163
+00:43:37,040 --> 00:43:41,119
+were interested in address x
+
+1164
+00:43:41,119 --> 00:43:43,280
+we want to flush the cache we want to
+
+1165
+00:43:43,280 --> 00:43:44,160
+make sure the cache
+
+1166
+00:43:44,160 --> 00:43:47,599
+doesn't contain the memory at location x
+
+1167
+00:43:47,599 --> 00:43:48,960
+and it turns out that for our
+
+1168
+00:43:48,960 --> 00:43:50,800
+convenience intel
+
+1169
+00:43:50,800 --> 00:43:54,000
+supplies an instruction
+
+1170
+00:43:54,000 --> 00:43:57,359
+called cl flush and you give it an
+
+1171
+00:43:57,359 --> 00:43:58,640
+address
+
+1172
+00:43:58,640 --> 00:44:02,000
+and it will get rid of it'll
+
+1173
+00:44:02,000 --> 00:44:05,040
+ensure that that location is not
+
+1174
+00:44:05,040 --> 00:44:07,280
+cached in any of the caches and so
+
+1175
+00:44:07,280 --> 00:44:10,550
+that's super convenient
+
+1176
+00:44:10,560 --> 00:44:12,240
+even if the machine didn't provide this
+
+1177
+00:44:12,240 --> 00:44:13,599
+instruction though it turns out there's
+
+1178
+00:44:13,599 --> 00:44:15,280
+ways of getting rid of stuff from the
+
+1179
+00:44:15,280 --> 00:44:16,480
+cache like for example
+
+1180
+00:44:16,480 --> 00:44:19,920
+if you know the cache holds 64 kilobytes
+
+1181
+00:44:19,920 --> 00:44:22,960
+then it's likely to be the case that if
+
+1182
+00:44:22,960 --> 00:44:25,200
+you load 64 kilobytes of
+
+1183
+00:44:25,200 --> 00:44:27,359
+random memory you know just load
+
+1184
+00:44:27,359 --> 00:44:28,240
+instructions
+
+1185
+00:44:28,240 --> 00:44:31,200
+that um those will be loaded into the
+
+1186
+00:44:31,200 --> 00:44:32,240
+cache
+
+1187
+00:44:32,240 --> 00:44:34,319
+and after you've loaded 64 kilobytes of
+
+1188
+00:44:34,319 --> 00:44:36,240
+new data into the cache
+
+1189
+00:44:36,240 --> 00:44:37,599
+everything that used to be in it must be
+
+1190
+00:44:37,599 --> 00:44:39,680
+gone because the cache can only hold 64
+
+1191
+00:44:39,680 --> 00:44:41,599
+kilobytes or whatever it may be
+
+1192
+00:44:41,599 --> 00:44:44,560
+so even without this nifty instruction
+
+1193
+00:44:44,560 --> 00:44:45,520
+you can still
+
+1194
+00:44:45,520 --> 00:44:48,079
+flush everything in the cache then step
+
+1195
+00:44:48,079 --> 00:44:49,040
+two is
+
+1196
+00:44:49,040 --> 00:44:50,480
+you know you're interested in whether
+
+1197
+00:44:50,480 --> 00:44:52,400
+some particular piece of code
+
+1198
+00:44:52,400 --> 00:44:55,359
+uses um the data x you just call that
+
+1199
+00:44:55,359 --> 00:44:56,079
+code
+
+1200
+00:44:56,079 --> 00:44:59,599
+whatever it is and it does what it does
+
+1201
+00:44:59,599 --> 00:45:02,839
+maybe uses x maybe doesn't
+
+1202
+00:45:02,839 --> 00:45:05,599
+um and now you want to tell if x is
+
+1203
+00:45:05,599 --> 00:45:07,440
+actually in the cache because if it is
+
+1204
+00:45:07,440 --> 00:45:08,960
+since you flushed it from the cache if
+
+1205
+00:45:08,960 --> 00:45:10,800
+it's in the cache now it must be that
+
+1206
+00:45:10,800 --> 00:45:12,800
+f causes it to be loaded unless
+
+1207
+00:45:12,800 --> 00:45:14,319
+something else is going on
+
+1208
+00:45:14,319 --> 00:45:16,960
+um so you need to you want to do a load
+
+1209
+00:45:16,960 --> 00:45:18,400
+but you want to know how long the load
+
+1210
+00:45:18,400 --> 00:45:19,359
+takes
+
+1211
+00:45:19,359 --> 00:45:20,960
+so but you know we're only talking about
+
+1212
+00:45:20,960 --> 00:45:22,960
+nanoseconds like 5 nanoseconds versus
+
+1213
+00:45:22,960 --> 00:45:24,319
+100 nanoseconds here
+
+1214
+00:45:24,319 --> 00:45:26,480
+how can we measure time that accurately
+
+1215
+00:45:26,480 --> 00:45:28,319
+that's a
+
+1216
+00:45:28,319 --> 00:45:31,760
+tough assignment however again the cpus
+
+1217
+00:45:31,760 --> 00:45:32,480
+come to our a
+
+1218
+00:45:32,480 --> 00:45:34,319
+they in fact provide an instruction
+
+1219
+00:45:34,319 --> 00:45:35,520
+which gives you
+
+1220
+00:45:35,520 --> 00:45:39,510
+cycle granularity time
+
+1221
+00:45:39,520 --> 00:45:42,319
+and it's called rdtsc so we're just
+
+1222
+00:45:42,319 --> 00:45:44,950
+gonna
+
+1223
+00:45:44,960 --> 00:45:47,280
+execute the rdtsc instruction which
+
+1224
+00:45:47,280 --> 00:45:48,720
+tells us essentially the number of
+
+1225
+00:45:48,720 --> 00:45:50,079
+cycles that have elapsed
+
+1226
+00:45:50,079 --> 00:45:52,079
+since the machine cycles that have
+
+1227
+00:45:52,079 --> 00:45:54,160
+elapsed since the machine started
+
+1228
+00:45:54,160 --> 00:45:55,520
+and since it's probably you know two
+
+1229
+00:45:55,520 --> 00:45:57,599
+gigahertz machine that means that the
+
+1230
+00:45:57,599 --> 00:45:59,359
+precision we have here is half a
+
+1231
+00:45:59,359 --> 00:46:01,119
+nanosecond which is
+
+1232
+00:46:01,119 --> 00:46:07,829
+pretty small and now we're going to load
+
+1233
+00:46:07,839 --> 00:46:10,880
+we're just going to say junk
+
+1234
+00:46:10,880 --> 00:46:14,720
+equals star x now we're going to load
+
+1235
+00:46:14,720 --> 00:46:16,079
+the
+
+1236
+00:46:16,079 --> 00:46:18,960
+data at location x and get the time
+
+1237
+00:46:18,960 --> 00:46:23,109
+again
+
+1238
+00:46:23,119 --> 00:46:26,839
+and look at the difference right b minus
+
+1239
+00:46:26,839 --> 00:46:29,359
+a
+
+1240
+00:46:29,359 --> 00:46:32,400
+if b minus a is you know 5 or 6 or 7 or
+
+1241
+00:46:32,400 --> 00:46:33,520
+something
+
+1242
+00:46:33,520 --> 00:46:35,920
+that means that the this load hit in the
+
+1243
+00:46:35,920 --> 00:46:37,280
+cache and that means that
+
+1244
+00:46:37,280 --> 00:46:39,760
+this function used the data if b minus a
+
+1245
+00:46:39,760 --> 00:46:42,800
+is 150 then
+
+1246
+00:46:42,800 --> 00:46:45,920
+that means that x wasn't in the cache
+
+1247
+00:46:45,920 --> 00:46:48,960
+and you know that
+
+1248
+00:46:48,960 --> 00:46:50,800
+may that probably means that f that may
+
+1249
+00:46:50,800 --> 00:46:52,640
+mean that f didn't ever use dx now
+
+1250
+00:46:52,640 --> 00:46:53,440
+that's not
+
+1251
+00:46:53,440 --> 00:46:55,359
+quite that cut and dry because f might
+
+1252
+00:46:55,359 --> 00:46:59,200
+have used x and then use something else
+
+1253
+00:46:59,200 --> 00:47:00,880
+that conflicted with x in the cache and
+
+1254
+00:47:00,880 --> 00:47:03,040
+caused x to be kicked out of the cache
+
+1255
+00:47:03,040 --> 00:47:03,599
+again
+
+1256
+00:47:03,599 --> 00:47:06,960
+but you know for simple situations
+
+1257
+00:47:06,960 --> 00:47:10,480
+a very large value of b minus a means f
+
+1258
+00:47:10,480 --> 00:47:13,599
+didn't use it and a small value of b
+
+1259
+00:47:13,599 --> 00:47:14,720
+minus a means that f
+
+1260
+00:47:14,720 --> 00:47:18,069
+did use that data
+
+1261
+00:47:18,079 --> 00:47:20,160
+so this is not an attack yet because
+
+1262
+00:47:20,160 --> 00:47:21,280
+again
+
+1263
+00:47:21,280 --> 00:47:24,720
+we have to be able to access this memory
+
+1264
+00:47:24,720 --> 00:47:28,230
+so this is our memory
+
+1265
+00:47:28,240 --> 00:47:40,230
+any questions about flush plus reload
+
+1266
+00:47:40,240 --> 00:47:43,119
+all right i think that's all the
+
+1267
+00:47:43,119 --> 00:47:44,400
+preliminaries
+
+1268
+00:47:44,400 --> 00:47:48,950
+uh let's go back to meltdown
+
+1269
+00:47:48,960 --> 00:47:51,200
+so this is a more full version i showed
+
+1270
+00:47:51,200 --> 00:47:52,000
+you a
+
+1271
+00:47:52,000 --> 00:47:53,920
+sort of core meltdown at the beginning
+
+1272
+00:47:53,920 --> 00:47:55,359
+this is a more
+
+1273
+00:47:55,359 --> 00:47:59,510
+complete meltdown
+
+1274
+00:47:59,520 --> 00:48:01,599
+and so we actually now have i added the
+
+1275
+00:48:01,599 --> 00:48:04,240
+flush and reload part
+
+1276
+00:48:04,240 --> 00:48:06,240
+again we're going to declare this buffer
+
+1277
+00:48:06,240 --> 00:48:07,760
+and um
+
+1278
+00:48:07,760 --> 00:48:10,240
+the idea is that uh depending on we're
+
+1279
+00:48:10,240 --> 00:48:10,800
+going to be
+
+1280
+00:48:10,800 --> 00:48:14,480
+just patching one bit from the kernel
+
+1281
+00:48:14,480 --> 00:48:16,079
+and we're going to multiply that one bit
+
+1282
+00:48:16,079 --> 00:48:18,480
+by 4096 so we're hoping to use flush
+
+1283
+00:48:18,480 --> 00:48:20,000
+plus reload to see that either
+
+1284
+00:48:20,000 --> 00:48:22,680
+buff of zero is in the cache or buff of
+
+1285
+00:48:22,680 --> 00:48:23,920
+4096
+
+1286
+00:48:23,920 --> 00:48:26,400
+in the cache and the reason for the
+
+1287
+00:48:26,400 --> 00:48:28,480
+large separation there
+
+1288
+00:48:28,480 --> 00:48:31,920
+um is that apparently the pref
+
+1289
+00:48:31,920 --> 00:48:33,680
+this hardware has a prefetcher in it so
+
+1290
+00:48:33,680 --> 00:48:35,760
+if you load one thing from memory
+
+1291
+00:48:35,760 --> 00:48:37,200
+it'll like load the next couple things
+
+1292
+00:48:37,200 --> 00:48:39,040
+up from memory to the next couple cache
+
+1293
+00:48:39,040 --> 00:48:39,680
+lines
+
+1294
+00:48:39,680 --> 00:48:41,680
+and so we can't have the two different
+
+1295
+00:48:41,680 --> 00:48:42,800
+cache lines
+
+1296
+00:48:42,800 --> 00:48:44,000
+that we're going to apply flush and
+
+1297
+00:48:44,000 --> 00:48:46,240
+reload to be to be particularly close
+
+1298
+00:48:46,240 --> 00:48:48,000
+we need them to be far enough apart that
+
+1299
+00:48:48,000 --> 00:48:50,079
+even prefix hardware prefetching won't
+
+1300
+00:48:50,079 --> 00:48:51,440
+uh
+
+1301
+00:48:51,440 --> 00:48:53,760
+cause confusion so we put them the whole
+
+1302
+00:48:53,760 --> 00:48:55,599
+page apart
+
+1303
+00:48:55,599 --> 00:48:57,359
+the flush part now that we just call the
+
+1304
+00:48:57,359 --> 00:48:58,960
+cl flush instruction
+
+1305
+00:48:58,960 --> 00:49:02,960
+to make sure that the relevant parts of
+
+1306
+00:49:02,960 --> 00:49:07,040
+our buffer are not cached
+
+1307
+00:49:07,040 --> 00:49:14,829
+now
+
+1308
+00:49:14,839 --> 00:49:18,230
+um
+
+1309
+00:49:18,240 --> 00:49:20,720
+we're exploiting this line seven is not
+
+1310
+00:49:20,720 --> 00:49:21,520
+maybe
+
+1311
+00:49:21,520 --> 00:49:24,720
+may or may not be necessary but what um
+
+1312
+00:49:24,720 --> 00:49:26,240
+what's going on here is we're exploiting
+
+1313
+00:49:26,240 --> 00:49:28,240
+the sort of the um
+
+1314
+00:49:28,240 --> 00:49:31,040
+um we're going to be exploiting the gap
+
+1315
+00:49:31,040 --> 00:49:33,599
+in time
+
+1316
+00:49:33,599 --> 00:49:36,640
+uh between you know we
+
+1317
+00:49:36,640 --> 00:49:39,839
+uh we're doing this loaded line
+
+1318
+00:49:39,839 --> 00:49:41,839
+10 it's a load of a kernel address so
+
+1319
+00:49:41,839 --> 00:49:43,599
+it's going to fault
+
+1320
+00:49:43,599 --> 00:49:45,200
+but we're hoping to be able to execute
+
+1321
+00:49:45,200 --> 00:49:47,040
+another couple of instructions
+
+1322
+00:49:47,040 --> 00:49:49,599
+speculatively before the this
+
+1323
+00:49:49,599 --> 00:49:51,200
+instruction is retired
+
+1324
+00:49:51,200 --> 00:49:53,119
+and before it actually raises the fault
+
+1325
+00:49:53,119 --> 00:49:54,319
+and cancels
+
+1326
+00:49:54,319 --> 00:49:57,119
+these instructions right if the fault if
+
+1327
+00:49:57,119 --> 00:49:59,200
+this load would be to retired say at
+
+1328
+00:49:59,200 --> 00:50:00,640
+this point
+
+1329
+00:50:00,640 --> 00:50:02,800
+that would be too early for us because
+
+1330
+00:50:02,800 --> 00:50:04,000
+it's going to turn out we actually
+
+1331
+00:50:04,000 --> 00:50:06,480
+need line 13 to be speculatively
+
+1332
+00:50:06,480 --> 00:50:07,440
+executed
+
+1333
+00:50:07,440 --> 00:50:09,760
+in order to complete the attack so we
+
+1334
+00:50:09,760 --> 00:50:11,760
+want to make sure that this load isn't
+
+1335
+00:50:11,760 --> 00:50:13,040
+retired
+
+1336
+00:50:13,040 --> 00:50:16,000
+for as long as possible in order to
+
+1337
+00:50:16,000 --> 00:50:17,119
+delay the fault and
+
+1338
+00:50:17,119 --> 00:50:20,400
+delay the speculative cancellation
+
+1339
+00:50:20,400 --> 00:50:22,240
+now we know instructions aren't retired
+
+1340
+00:50:22,240 --> 00:50:24,079
+until all previous instructions have
+
+1341
+00:50:24,079 --> 00:50:25,119
+retired
+
+1342
+00:50:25,119 --> 00:50:28,559
+that's one of the rules so at line seven
+
+1343
+00:50:28,559 --> 00:50:30,720
+i'm imagining that we're going to launch
+
+1344
+00:50:30,720 --> 00:50:32,240
+some expensive instruction that doesn't
+
+1345
+00:50:32,240 --> 00:50:33,680
+complete for a long time
+
+1346
+00:50:33,680 --> 00:50:35,040
+you know maybe it loads something else
+
+1347
+00:50:35,040 --> 00:50:37,119
+that's known to have to come from ram so
+
+1348
+00:50:37,119 --> 00:50:38,880
+it'll take a few hundred cycles or
+
+1349
+00:50:38,880 --> 00:50:41,200
+maybe it does a divide or a square root
+
+1350
+00:50:41,200 --> 00:50:42,480
+or something who knows what
+
+1351
+00:50:42,480 --> 00:50:44,160
+something that takes a long time and
+
+1352
+00:50:44,160 --> 00:50:46,480
+won't be retired for a long time
+
+1353
+00:50:46,480 --> 00:50:48,400
+and therefore will cause this load not
+
+1354
+00:50:48,400 --> 00:50:50,559
+to be retired for a long time
+
+1355
+00:50:50,559 --> 00:50:52,480
+giving these instructions time to
+
+1356
+00:50:52,480 --> 00:50:54,880
+execute speculatively
+
+1357
+00:50:54,880 --> 00:50:58,079
+okay all right now
+
+1358
+00:50:58,079 --> 00:51:00,400
+we're assuming again we have a virtual
+
+1359
+00:51:00,400 --> 00:51:02,640
+address in the kernel
+
+1360
+00:51:02,640 --> 00:51:07,280
+um uh i'm going to execute line 10
+
+1361
+00:51:07,280 --> 00:51:09,359
+line 10 won't raise a fault until that
+
+1362
+00:51:09,359 --> 00:51:10,480
+we know it's going to raise the fall it
+
+1363
+00:51:10,480 --> 00:51:12,960
+won't raise a fault until it retires but
+
+1364
+00:51:12,960 --> 00:51:14,880
+we're intending we believe we've set
+
+1365
+00:51:14,880 --> 00:51:16,400
+things up so we'll retire for a while
+
+1366
+00:51:16,400 --> 00:51:18,240
+since it hasn't retired
+
+1367
+00:51:18,240 --> 00:51:20,880
+and because on intel cpus the data's
+
+1368
+00:51:20,880 --> 00:51:22,000
+returned
+
+1369
+00:51:22,000 --> 00:51:23,760
+even if you weren't allowed to see it
+
+1370
+00:51:23,760 --> 00:51:25,119
+the data's
+
+1371
+00:51:25,119 --> 00:51:26,960
+returned for speculative execution even
+
+1372
+00:51:26,960 --> 00:51:28,960
+if you didn't have permission
+
+1373
+00:51:28,960 --> 00:51:31,200
+that means that we can speculatively
+
+1374
+00:51:31,200 --> 00:51:32,160
+execute
+
+1375
+00:51:32,160 --> 00:51:33,760
+the machine will speculatively execute
+
+1376
+00:51:33,760 --> 00:51:36,400
+line 11 and get the low bit of
+
+1377
+00:51:36,400 --> 00:51:40,559
+kernel data now multiplied by 4096.
+
+1378
+00:51:40,559 --> 00:51:43,040
+line 13 is itself a load it's another
+
+1379
+00:51:43,040 --> 00:51:45,440
+load
+
+1380
+00:51:45,440 --> 00:51:47,200
+using an address basically the address
+
+1381
+00:51:47,200 --> 00:51:48,800
+of buffer
+
+1382
+00:51:48,800 --> 00:51:52,240
+plus the contents of r2
+
+1383
+00:51:52,240 --> 00:51:55,359
+we know it's going to get cancelled
+
+1384
+00:51:55,359 --> 00:51:57,599
+because we know this will fault right we
+
+1385
+00:51:57,599 --> 00:51:58,880
+know the actual
+
+1386
+00:51:58,880 --> 00:52:01,839
+right to r3 will be canceled but line 13
+
+1387
+00:52:01,839 --> 00:52:04,480
+will cause
+
+1388
+00:52:04,480 --> 00:52:07,920
+um some data from buffer to be loaded
+
+1389
+00:52:07,920 --> 00:52:09,440
+into the cache
+
+1390
+00:52:09,440 --> 00:52:11,359
+even if it doesn't end up affecting
+
+1391
+00:52:11,359 --> 00:52:13,040
+register three so
+
+1392
+00:52:13,040 --> 00:52:16,079
+r3 line 13 is going to cause
+
+1393
+00:52:16,079 --> 00:52:18,000
+something to be loaded into the cache
+
+1394
+00:52:18,000 --> 00:52:19,680
+and in this case depending on whether
+
+1395
+00:52:19,680 --> 00:52:23,839
+the low bit is 0 1 line 13 will
+
+1396
+00:52:23,839 --> 00:52:25,760
+cause the actual cache to contain either
+
+1397
+00:52:25,760 --> 00:52:30,829
+buffer 0 or buffer 4096
+
+1398
+00:52:30,839 --> 00:52:33,359
+then right and that you know that
+
+1399
+00:52:33,359 --> 00:52:36,960
+even though r2 and r3 are cancelled the
+
+1400
+00:52:36,960 --> 00:52:38,559
+change in the cache you know because
+
+1401
+00:52:38,559 --> 00:52:39,359
+it's supposed to be hidden
+
+1402
+00:52:39,359 --> 00:52:40,960
+microarchitectural state it will
+
+1403
+00:52:40,960 --> 00:52:41,839
+actually be
+
+1404
+00:52:41,839 --> 00:52:45,200
+the cache will be changed finally at
+
+1405
+00:52:45,200 --> 00:52:46,960
+some point the fault will happen
+
+1406
+00:52:46,960 --> 00:52:50,079
+um and we need to sort of recover after
+
+1407
+00:52:50,079 --> 00:52:50,960
+the fault but
+
+1408
+00:52:50,960 --> 00:52:52,880
+it it's just a page fault and it turns
+
+1409
+00:52:52,880 --> 00:52:54,240
+out um
+
+1410
+00:52:54,240 --> 00:52:56,000
+you can or user process can register a
+
+1411
+00:52:56,000 --> 00:52:58,240
+page fault handler and get control back
+
+1412
+00:52:58,240 --> 00:52:59,359
+after a page fault and
+
+1413
+00:52:59,359 --> 00:53:00,640
+the paper mentions a couple of other
+
+1414
+00:53:00,640 --> 00:53:03,200
+ways of being able to continue after the
+
+1415
+00:53:03,200 --> 00:53:05,359
+fault
+
+1416
+00:53:05,359 --> 00:53:06,720
+and so now all we have to do is figure
+
+1417
+00:53:06,720 --> 00:53:08,160
+out whether it was buff of zero or
+
+1418
+00:53:08,160 --> 00:53:10,000
+buffer 496
+
+1419
+00:53:10,000 --> 00:53:11,839
+that was loaded into the cache and now
+
+1420
+00:53:11,839 --> 00:53:13,359
+we can do the reload part of flush and
+
+1421
+00:53:13,359 --> 00:53:14,319
+reload
+
+1422
+00:53:14,319 --> 00:53:18,480
+you know read the accurate time
+
+1423
+00:53:18,480 --> 00:53:20,319
+load buff is zero read the time again
+
+1424
+00:53:20,319 --> 00:53:21,760
+load buff of one
+
+1425
+00:53:21,760 --> 00:53:23,680
+read the time again and compare the two
+
+1426
+00:53:23,680 --> 00:53:24,880
+differences in time
+
+1427
+00:53:24,880 --> 00:53:26,400
+and whichever one of these took the
+
+1428
+00:53:26,400 --> 00:53:28,480
+shorter amount of time
+
+1429
+00:53:28,480 --> 00:53:31,839
+is likely to indicate whether the low
+
+1430
+00:53:31,839 --> 00:53:32,960
+bit of the
+
+1431
+00:53:32,960 --> 00:53:39,190
+kernel data was zero or one
+
+1432
+00:53:39,200 --> 00:53:41,440
+and then if we report that repeat that
+
+1433
+00:53:41,440 --> 00:53:44,240
+you know a couple of billion times
+
+1434
+00:53:44,240 --> 00:53:47,599
+we can scan all of kernel memory um but
+
+1435
+00:53:47,599 --> 00:53:49,200
+in this example
+
+1436
+00:53:49,200 --> 00:53:52,480
+if b minus a is smaller than c minus b
+
+1437
+00:53:52,480 --> 00:53:55,440
+doesn't that mean that buff of zero was
+
+1438
+00:53:55,440 --> 00:53:57,119
+cashed
+
+1439
+00:53:57,119 --> 00:54:00,880
+um let's see if i got this wrong b minus
+
+1440
+00:54:00,880 --> 00:54:01,839
+a
+
+1441
+00:54:01,839 --> 00:54:03,520
+yeah it means that buffer zero was cash
+
+1442
+00:54:03,520 --> 00:54:10,640
+oh yeah yeah you're right yeah
+
+1443
+00:54:10,640 --> 00:54:14,390
+now we're cooking
+
+1444
+00:54:14,400 --> 00:54:17,430
+good catch
+
+1445
+00:54:17,440 --> 00:54:21,520
+oh sorry do you need for before we had
+
+1446
+00:54:21,520 --> 00:54:25,599
+an if before like my line nine
+
+1447
+00:54:25,599 --> 00:54:28,400
+do we need it if now or is it is it
+
+1448
+00:54:28,400 --> 00:54:29,440
+still
+
+1449
+00:54:29,440 --> 00:54:33,280
+you know oh the if was to help me
+
+1450
+00:54:33,280 --> 00:54:34,079
+illustrate
+
+1451
+00:54:34,079 --> 00:54:37,119
+uh the legitimate reasons for
+
+1452
+00:54:37,119 --> 00:54:40,480
+speculative execution keep computing
+
+1453
+00:54:40,480 --> 00:54:41,920
+even though we don't know whether the
+
+1454
+00:54:41,920 --> 00:54:45,839
+branch took or not but here the real
+
+1455
+00:54:45,839 --> 00:54:48,400
+core of the speculation is that we don't
+
+1456
+00:54:48,400 --> 00:54:51,280
+know if this load will fault
+
+1457
+00:54:51,280 --> 00:54:53,359
+right and so we're the machine is
+
+1458
+00:54:53,359 --> 00:54:56,319
+speculatively executing past the load
+
+1459
+00:54:56,319 --> 00:54:58,079
+on the theory that it's probably you
+
+1460
+00:54:58,079 --> 00:55:00,319
+know most leaders don't fault
+
+1461
+00:55:00,319 --> 00:55:01,440
+right or even though they may take a
+
+1462
+00:55:01,440 --> 00:55:03,040
+long time like a load could take
+
+1463
+00:55:03,040 --> 00:55:04,799
+hundreds of cycles
+
+1464
+00:55:04,799 --> 00:55:06,640
+um so we'd love to be able to so the
+
+1465
+00:55:06,640 --> 00:55:08,720
+machine will speculatively execute past
+
+1466
+00:55:08,720 --> 00:55:09,920
+the load
+
+1467
+00:55:09,920 --> 00:55:12,559
+even though it doesn't you know not
+
+1468
+00:55:12,559 --> 00:55:13,839
+knowing whether it's going to fault or
+
+1469
+00:55:13,839 --> 00:55:15,119
+not and if the
+
+1470
+00:55:15,119 --> 00:55:17,200
+load did fault it will then undo all
+
+1471
+00:55:17,200 --> 00:55:18,640
+this speculative execution
+
+1472
+00:55:18,640 --> 00:55:21,680
+there's a speculative execution comes up
+
+1473
+00:55:21,680 --> 00:55:25,200
+any time you have
+
+1474
+00:55:25,200 --> 00:55:26,880
+a long-running instruction that may or
+
+1475
+00:55:26,880 --> 00:55:28,960
+may not succeed so like divide
+
+1476
+00:55:28,960 --> 00:55:30,000
+so we know whether it's going to be
+
+1477
+00:55:30,000 --> 00:55:32,000
+divided by 0 or not no so
+
+1478
+00:55:32,000 --> 00:55:33,359
+instructions after divide are also
+
+1479
+00:55:33,359 --> 00:55:35,910
+speculative
+
+1480
+00:55:35,920 --> 00:55:37,920
+anyway the speculation the real critical
+
+1481
+00:55:37,920 --> 00:55:39,599
+speculation starts here now in fact we
+
+1482
+00:55:39,599 --> 00:55:40,640
+tried
+
+1483
+00:55:40,640 --> 00:55:42,880
+you know in order to make the attack
+
+1484
+00:55:42,880 --> 00:55:44,240
+likely to be more successful we
+
+1485
+00:55:44,240 --> 00:55:46,240
+sort of ensured that speculation starts
+
+1486
+00:55:46,240 --> 00:55:48,240
+here but this is the real speculation we
+
+1487
+00:55:48,240 --> 00:56:01,589
+care about
+
+1488
+00:56:01,599 --> 00:56:06,150
+other questions
+
+1489
+00:56:06,160 --> 00:56:09,760
+for this example we've only read
+
+1490
+00:56:09,760 --> 00:56:12,870
+one bit
+
+1491
+00:56:12,880 --> 00:56:15,440
+yes is there some like really small
+
+1492
+00:56:15,440 --> 00:56:17,200
+simple modification that we could make
+
+1493
+00:56:17,200 --> 00:56:18,880
+to read like a full register
+
+1494
+00:56:18,880 --> 00:56:22,000
+size of bits yeah run this 64 times one
+
+1495
+00:56:22,000 --> 00:56:25,030
+for each bit
+
+1496
+00:56:25,040 --> 00:56:28,720
+why is it not possible to just read 64
+
+1497
+00:56:28,720 --> 00:56:32,240
+bits at a time well 60
+
+1498
+00:56:32,240 --> 00:56:34,799
+60 well you need the buffer the size of
+
+1499
+00:56:34,799 --> 00:56:36,400
+this buffer has to be
+
+1500
+00:56:36,400 --> 00:56:39,680
+uh two to the um you know two to the
+
+1501
+00:56:39,680 --> 00:56:41,200
+number of bits you're reading
+
+1502
+00:56:41,200 --> 00:56:44,559
+times or something
+
+1503
+00:56:44,559 --> 00:56:46,160
+so 64 bits is too big because we don't
+
+1504
+00:56:46,160 --> 00:56:47,599
+have enough memory to uh
+
+1505
+00:56:47,599 --> 00:56:50,640
+make a buffer that big right
+
+1506
+00:56:50,640 --> 00:56:54,630
+we need this the way this is set up
+
+1507
+00:56:54,640 --> 00:56:59,119
+but i rated it
+
+1508
+00:56:59,119 --> 00:57:00,559
+yeah 64 bits too much you could
+
+1509
+00:57:00,559 --> 00:57:02,240
+certainly read eight bits at a time
+
+1510
+00:57:02,240 --> 00:57:08,040
+and have this buffer size be 256 times
+
+1511
+00:57:08,040 --> 00:57:11,190
+4096.
+
+1512
+00:57:11,200 --> 00:57:15,030
+um the paper actually argues in a
+
+1513
+00:57:15,040 --> 00:57:18,079
+the paper observes
+
+1514
+00:57:18,079 --> 00:57:21,760
+that since the most of the time is here
+
+1515
+00:57:21,760 --> 00:57:25,349
+in the fleshless reload
+
+1516
+00:57:25,359 --> 00:57:28,559
+um if you read a byte at a time
+
+1517
+00:57:28,559 --> 00:57:30,319
+then figuring out what the bits of that
+
+1518
+00:57:30,319 --> 00:57:32,200
+byte are takes
+
+1519
+00:57:32,200 --> 00:57:35,200
+256
+
+1520
+00:57:35,200 --> 00:57:39,040
+flush and reloads right one free once
+
+1521
+00:57:39,040 --> 00:57:40,720
+for each possible value
+
+1522
+00:57:40,720 --> 00:57:43,760
+if you load a bit at a time then each
+
+1523
+00:57:43,760 --> 00:57:44,400
+bit
+
+1524
+00:57:44,400 --> 00:57:47,839
+takes just one flush plus reload or
+
+1525
+00:57:47,839 --> 00:57:50,640
+sort of two two probes or two flush plus
+
+1526
+00:57:50,640 --> 00:57:51,440
+reloads
+
+1527
+00:57:51,440 --> 00:57:53,440
+so if you read a bit at a time then you
+
+1528
+00:57:53,440 --> 00:57:54,880
+end up only doing 16
+
+1529
+00:57:54,880 --> 00:57:56,720
+flush plus reloads if you eat a bite at
+
+1530
+00:57:56,720 --> 00:57:59,200
+a time you end up doing 256 flush plus
+
+1531
+00:57:59,200 --> 00:58:00,000
+reloads
+
+1532
+00:58:00,000 --> 00:58:02,160
+so the paper says that it's faster to do
+
+1533
+00:58:02,160 --> 00:58:03,680
+it a bit at a time than a bite
+
+1534
+00:58:03,680 --> 00:58:06,960
+of time which seems a little
+
+1535
+00:58:06,960 --> 00:58:09,680
+counterintuitive but
+
+1536
+00:58:09,680 --> 00:58:18,950
+seems to be true
+
+1537
+00:58:18,960 --> 00:58:28,710
+other questions
+
+1538
+00:58:28,720 --> 00:58:31,200
+so uh where would this user or where did
+
+1539
+00:58:31,200 --> 00:58:32,400
+this program have to be
+
+1540
+00:58:32,400 --> 00:58:35,280
+run from is there like any particular
+
+1541
+00:58:35,280 --> 00:58:36,079
+location
+
+1542
+00:58:36,079 --> 00:58:39,280
+on the machine like does it have to be
+
+1543
+00:58:39,280 --> 00:58:43,349
+or like where would you ride it i guess
+
+1544
+00:58:43,359 --> 00:58:45,119
+like where would this program be run
+
+1545
+00:58:45,119 --> 00:58:47,839
+from uh can it be like a user
+
+1546
+00:58:47,839 --> 00:58:51,040
+well yeah that depends on
+
+1547
+00:58:51,040 --> 00:58:52,400
+what kind of access you have to the
+
+1548
+00:58:52,400 --> 00:58:54,799
+machine and where the data is that you
+
+1549
+00:58:54,799 --> 00:58:55,920
+want to steal
+
+1550
+00:58:55,920 --> 00:58:59,839
+and that you know who knows right but
+
+1551
+00:58:59,839 --> 00:59:03,359
+one example is supposing you're logged
+
+1552
+00:59:03,359 --> 00:59:04,960
+into an athena dial-up
+
+1553
+00:59:04,960 --> 00:59:07,200
+machine you know with a couple hundred
+
+1554
+00:59:07,200 --> 00:59:08,160
+other users
+
+1555
+00:59:08,160 --> 00:59:09,359
+and you want to steal somebody's
+
+1556
+00:59:09,359 --> 00:59:11,359
+password
+
+1557
+00:59:11,359 --> 00:59:14,480
+and you're patient you can use and
+
+1558
+00:59:14,480 --> 00:59:16,640
+let's assume that athena's is now as a
+
+1559
+00:59:16,640 --> 00:59:18,000
+couple years ago and athena was running
+
+1560
+00:59:18,000 --> 00:59:19,520
+a version of linux that mapped the
+
+1561
+00:59:19,520 --> 00:59:20,960
+kernel into every user's
+
+1562
+00:59:20,960 --> 00:59:23,440
+every processes address space then you
+
+1563
+00:59:23,440 --> 00:59:24,400
+can use meltdown
+
+1564
+00:59:24,400 --> 00:59:26,559
+to get out you know bit by bit or
+
+1565
+00:59:26,559 --> 00:59:27,839
+everything in the kernel including say
+
+1566
+00:59:27,839 --> 00:59:29,760
+the i o buffers and the network
+
+1567
+00:59:29,760 --> 00:59:31,440
+buffers and stuff and if somebody's
+
+1568
+00:59:31,440 --> 00:59:33,440
+typing their password if you're lucky
+
+1569
+00:59:33,440 --> 00:59:36,000
+or patient and somebody's typing your
+
+1570
+00:59:36,000 --> 00:59:37,359
+password and you load all of kernel
+
+1571
+00:59:37,359 --> 00:59:39,040
+memory you're going to see that password
+
+1572
+00:59:39,040 --> 00:59:41,280
+in kernel memory
+
+1573
+00:59:41,280 --> 00:59:43,680
+right and because in fact the kernel
+
+1574
+00:59:43,680 --> 00:59:44,799
+probably maps
+
+1575
+00:59:44,799 --> 00:59:47,760
+like xv6 maps all of physical memory
+
+1576
+00:59:47,760 --> 00:59:48,960
+that means you can probably read all
+
+1577
+00:59:48,960 --> 00:59:50,079
+physical memory that is
+
+1578
+00:59:50,079 --> 00:59:53,359
+all of all other processes memory
+
+1579
+00:59:53,359 --> 00:59:55,200
+using this technique on a time sharing
+
+1580
+00:59:55,200 --> 00:59:57,520
+machine
+
+1581
+00:59:57,520 --> 00:59:59,599
+so i can see what's everybody's in text
+
+1582
+00:59:59,599 --> 01:00:02,480
+editor contents or whatever i like
+
+1583
+01:00:02,480 --> 01:00:05,599
+now you have to
+
+1584
+01:00:05,599 --> 01:00:06,640
+that's the way you could use it if
+
+1585
+01:00:06,640 --> 01:00:08,000
+you're using a time sharing machine for
+
+1586
+01:00:08,000 --> 01:00:10,400
+other situations
+
+1587
+01:00:10,400 --> 01:00:13,750
+yeah it would be different
+
+1588
+01:00:13,760 --> 01:00:15,520
+i mean time sharing is not that
+
+1589
+01:00:15,520 --> 01:00:17,040
+pervasive anymore
+
+1590
+01:00:17,040 --> 01:00:20,240
+um but the sort of killer scenario would
+
+1591
+01:00:20,240 --> 01:00:21,920
+be some kind of cloud computing thing
+
+1592
+01:00:21,920 --> 01:00:22,720
+where
+
+1593
+01:00:22,720 --> 01:00:24,160
+you know you're using a cloud provider
+
+1594
+01:00:24,160 --> 01:00:26,240
+like amazon and
+
+1595
+01:00:26,240 --> 01:00:27,599
+you know which runs many customers on
+
+1596
+01:00:27,599 --> 01:00:29,839
+the same machine and you know depending
+
+1597
+01:00:29,839 --> 01:00:31,359
+on the details of how they set up their
+
+1598
+01:00:31,359 --> 01:00:32,240
+virtual
+
+1599
+01:00:32,240 --> 01:00:35,040
+machine monitor or container system or
+
+1600
+01:00:35,040 --> 01:00:36,720
+whatever it may be
+
+1601
+01:00:36,720 --> 01:00:41,280
+if you buy time from amazon
+
+1602
+01:00:41,280 --> 01:00:43,359
+then you may be able to peer into the
+
+1603
+01:00:43,359 --> 01:00:46,079
+memory of other customers
+
+1604
+01:00:46,079 --> 01:00:47,760
+software running on the same amazon
+
+1605
+01:00:47,760 --> 01:00:50,549
+machine maybe
+
+1606
+01:00:50,559 --> 01:00:53,440
+so i think that's the really you know
+
+1607
+01:00:53,440 --> 01:00:54,480
+that's how people would actually use
+
+1608
+01:00:54,480 --> 01:00:55,280
+this probably
+
+1609
+01:00:55,280 --> 01:00:56,960
+actually another time that it might be
+
+1610
+01:00:56,960 --> 01:00:58,400
+useful is
+
+1611
+01:00:58,400 --> 01:00:59,760
+your browser when you're browsing the
+
+1612
+01:00:59,760 --> 01:01:01,119
+web your browser actually runs a lot of
+
+1613
+01:01:01,119 --> 01:01:02,160
+code in it that
+
+1614
+01:01:02,160 --> 01:01:03,839
+is not trusted that is supplied by the
+
+1615
+01:01:03,839 --> 01:01:06,079
+random websites that you visit
+
+1616
+01:01:06,079 --> 01:01:09,359
+um maybe in the form of plugins maybe in
+
+1617
+01:01:09,359 --> 01:01:11,040
+the form of javascript that's
+
+1618
+01:01:11,040 --> 01:01:14,480
+loaded into your browser and compiled by
+
+1619
+01:01:14,480 --> 01:01:16,000
+the browser and executed
+
+1620
+01:01:16,000 --> 01:01:18,319
+and it is possible that this attack
+
+1621
+01:01:18,319 --> 01:01:19,680
+could be carried out
+
+1622
+01:01:19,680 --> 01:01:23,280
+by a code that you
+
+1623
+01:01:23,280 --> 01:01:24,880
+run in your browser when you browse the
+
+1624
+01:01:24,880 --> 01:01:28,079
+web that you may not
+
+1625
+01:01:28,079 --> 01:01:29,440
+even know is running there a little
+
+1626
+01:01:29,440 --> 01:01:30,799
+different website something with steel
+
+1627
+01:01:30,799 --> 01:01:33,680
+whatever stuff is sitting on your laptop
+
+1628
+01:01:33,680 --> 01:01:35,200
+i don't know if the details of that
+
+1629
+01:01:35,200 --> 01:01:37,040
+quite work out but
+
+1630
+01:01:37,040 --> 01:01:39,520
+has anyone demonstrated an attack
+
+1631
+01:01:39,520 --> 01:01:41,520
+through either javascript or like web
+
+1632
+01:01:41,520 --> 01:01:42,240
+assembly
+
+1633
+01:01:42,240 --> 01:01:44,240
+i don't know i don't know i i feel
+
+1634
+01:01:44,240 --> 01:01:45,599
+certainly people were worried about web
+
+1635
+01:01:45,599 --> 01:01:46,799
+assembly
+
+1636
+01:01:46,799 --> 01:01:48,000
+i don't know whether the attack was
+
+1637
+01:01:48,000 --> 01:01:50,640
+literally possible
+
+1638
+01:01:50,640 --> 01:01:53,760
+for javascript i know that um
+
+1639
+01:01:53,760 --> 01:01:54,960
+maybe the sticking point was the
+
+1640
+01:01:54,960 --> 01:01:57,200
+accurate time
+
+1641
+01:01:57,200 --> 01:02:00,400
+timing that you couldn't quite get this
+
+1642
+01:02:00,400 --> 01:02:01,599
+nanosecond timing
+
+1643
+01:02:01,599 --> 01:02:03,599
+so you couldn't quite execute flush plus
+
+1644
+01:02:03,599 --> 01:02:06,000
+reload now you know whether somebody
+
+1645
+01:02:06,000 --> 01:02:07,760
+with a bit more cleverness could figure
+
+1646
+01:02:07,760 --> 01:02:08,960
+out a way to do it i don't know
+
+1647
+01:02:08,960 --> 01:02:10,480
+webassembly is much closer to just
+
+1648
+01:02:10,480 --> 01:02:11,359
+running
+
+1649
+01:02:11,359 --> 01:02:14,480
+um machine code and
+
+1650
+01:02:14,480 --> 01:02:15,839
+you know i don't know exactly how the
+
+1651
+01:02:15,839 --> 01:02:18,000
+details worked out but you know boy was
+
+1652
+01:02:18,000 --> 01:02:19,039
+it
+
+1653
+01:02:19,039 --> 01:02:25,270
+something people rapidly thought about
+
+1654
+01:02:25,280 --> 01:02:28,079
+okay it turns out the attack doesn't
+
+1655
+01:02:28,079 --> 01:02:29,359
+always work
+
+1656
+01:02:29,359 --> 01:02:31,359
+like and for reasons that i don't think
+
+1657
+01:02:31,359 --> 01:02:32,880
+the authors never
+
+1658
+01:02:32,880 --> 01:02:35,119
+explained or only speculated about and
+
+1659
+01:02:35,119 --> 01:02:36,720
+you can see
+
+1660
+01:02:36,720 --> 01:02:38,079
+i don't know if you can see this well
+
+1661
+01:02:38,079 --> 01:02:40,160
+maybe you can't see this but if you turn
+
+1662
+01:02:40,160 --> 01:02:42,160
+to the last page of their paper
+
+1663
+01:02:42,160 --> 01:02:44,160
+you'll see the output it's actually you
+
+1664
+01:02:44,160 --> 01:02:45,760
+know they've
+
+1665
+01:02:45,760 --> 01:02:47,039
+mounted the attack on their own machines
+
+1666
+01:02:47,039 --> 01:02:49,280
+and extracted a bunch of data from their
+
+1667
+01:02:49,280 --> 01:02:49,599
+own
+
+1668
+01:02:49,599 --> 01:02:52,880
+the kernel on their own machine and
+
+1669
+01:02:52,880 --> 01:02:54,240
+if you look closely you'll see there's a
+
+1670
+01:02:54,240 --> 01:02:56,319
+huge all these lines
+
+1671
+01:02:56,319 --> 01:02:59,359
+are just x x x x x x x x x x x all these
+
+1672
+01:02:59,359 --> 01:03:00,079
+lines
+
+1673
+01:03:00,079 --> 01:03:02,319
+x x's with dots these are places where
+
+1674
+01:03:02,319 --> 01:03:04,559
+they didn't manage to extract anything
+
+1675
+01:03:04,559 --> 01:03:07,039
+where meltdown failed even though they
+
+1676
+01:03:07,039 --> 01:03:09,280
+repeated it many times
+
+1677
+01:03:09,280 --> 01:03:11,599
+um and you can tell they must have been
+
+1678
+01:03:11,599 --> 01:03:12,640
+you know they were
+
+1679
+01:03:12,640 --> 01:03:15,039
+the papers version of this attack was
+
+1680
+01:03:15,039 --> 01:03:16,079
+retrying many many
+
+1681
+01:03:16,079 --> 01:03:18,240
+times because for example section 6.2
+
+1682
+01:03:18,240 --> 01:03:19,920
+that talks about performance
+
+1683
+01:03:19,920 --> 01:03:22,400
+says that in some cases they the rate at
+
+1684
+01:03:22,400 --> 01:03:23,839
+which they could extract data was only
+
+1685
+01:03:23,839 --> 01:03:25,359
+10 bytes per second
+
+1686
+01:03:25,359 --> 01:03:26,319
+which means they were sitting there
+
+1687
+01:03:26,319 --> 01:03:27,680
+trying again and again and again and
+
+1688
+01:03:27,680 --> 01:03:30,559
+after thousands of times they finally
+
+1689
+01:03:30,559 --> 01:03:33,599
+managed to get some data that is that
+
+1690
+01:03:33,599 --> 01:03:35,920
+flush plus reload indicated that the two
+
+1691
+01:03:35,920 --> 01:03:39,119
+cache lines had different load times
+
+1692
+01:03:39,119 --> 01:03:40,480
+so there's something unexplained going
+
+1693
+01:03:40,480 --> 01:03:42,880
+on about why it's quite frequent
+
+1694
+01:03:42,880 --> 01:03:45,680
+for meltdown to actually fail i get some
+
+1695
+01:03:45,680 --> 01:03:46,319
+data they
+
+1696
+01:03:46,319 --> 01:03:48,160
+actually got real data here but there
+
+1697
+01:03:48,160 --> 01:03:49,280
+was also a bunch of data that they
+
+1698
+01:03:49,280 --> 01:03:50,400
+didn't get
+
+1699
+01:03:50,400 --> 01:03:54,319
+and um i don't know if people
+
+1700
+01:03:54,319 --> 01:03:56,000
+as far as i know people are not really
+
+1701
+01:03:56,000 --> 01:03:58,400
+sure what all the conditions are
+
+1702
+01:03:58,400 --> 01:03:59,920
+about when it succeeds and when it
+
+1703
+01:03:59,920 --> 01:04:01,039
+doesn't you know the most
+
+1704
+01:04:01,039 --> 01:04:02,720
+straightforward possibility
+
+1705
+01:04:02,720 --> 01:04:05,039
+is that if the kernel data is in the l1
+
+1706
+01:04:05,039 --> 01:04:06,000
+cache
+
+1707
+01:04:06,000 --> 01:04:07,839
+the meltdown succeeds and if the kernel
+
+1708
+01:04:07,839 --> 01:04:09,920
+data is not in the l1 cache it doesn't
+
+1709
+01:04:09,920 --> 01:04:10,480
+succeed
+
+1710
+01:04:10,480 --> 01:04:12,240
+that's very easy to believe that that
+
+1711
+01:04:12,240 --> 01:04:15,750
+could be what's going on
+
+1712
+01:04:15,760 --> 01:04:17,680
+because if it's not in the l1 cache then
+
+1713
+01:04:17,680 --> 01:04:19,520
+there's a whole bunch more machinery
+
+1714
+01:04:19,520 --> 01:04:21,680
+involved in a speculative load
+
+1715
+01:04:21,680 --> 01:04:25,039
+and it's easy to imagine that the cpu
+
+1716
+01:04:25,039 --> 01:04:27,760
+for a speculative load that's maybe not
+
+1717
+01:04:27,760 --> 01:04:29,599
+known if it's even needed
+
+1718
+01:04:29,599 --> 01:04:32,400
+would not bother doing all the work
+
+1719
+01:04:32,400 --> 01:04:33,599
+required to
+
+1720
+01:04:33,599 --> 01:04:37,760
+load stuff from ram but
+
+1721
+01:04:37,760 --> 01:04:40,319
+it's not quite that simple and you can
+
+1722
+01:04:40,319 --> 01:04:41,920
+tell it's not quite that simple because
+
+1723
+01:04:41,920 --> 01:04:43,520
+the paper says that sometimes when they
+
+1724
+01:04:43,520 --> 01:04:46,480
+were tried many retried many times
+
+1725
+01:04:46,480 --> 01:04:49,520
+it finally worked so there's some
+
+1726
+01:04:49,520 --> 01:04:52,400
+more complex condition maybe a race
+
+1727
+01:04:52,400 --> 01:04:54,720
+effectively a erase inside the cpu
+
+1728
+01:04:54,720 --> 01:04:57,839
+under which it occasionally works even
+
+1729
+01:04:57,839 --> 01:04:58,880
+for data that's not
+
+1730
+01:04:58,880 --> 01:05:06,950
+not in the cache
+
+1731
+01:05:06,960 --> 01:05:08,720
+the end of the papers actually also if
+
+1732
+01:05:08,720 --> 01:05:10,319
+you didn't get that for worth reading
+
+1733
+01:05:10,319 --> 01:05:11,440
+because it it does
+
+1734
+01:05:11,440 --> 01:05:13,680
+explain a sort of more real world like
+
+1735
+01:05:13,680 --> 01:05:15,200
+we wanted to find out this particular
+
+1736
+01:05:15,200 --> 01:05:16,480
+thing you know this like
+
+1737
+01:05:16,480 --> 01:05:18,480
+we know there's passwords stored in our
+
+1738
+01:05:18,480 --> 01:05:20,319
+firefox's password manager
+
+1739
+01:05:20,319 --> 01:05:22,000
+we wanted to get them out we want to
+
+1740
+01:05:22,000 --> 01:05:23,760
+steal them using meltdown
+
+1741
+01:05:23,760 --> 01:05:25,520
+you know what are all the how do you
+
+1742
+01:05:25,520 --> 01:05:27,760
+find out what the address is for example
+
+1743
+01:05:27,760 --> 01:05:30,400
+they sort of lay out a complete attack i
+
+1744
+01:05:30,400 --> 01:05:31,839
+mean
+
+1745
+01:05:31,839 --> 01:05:33,520
+a complete attack done by academics not
+
+1746
+01:05:33,520 --> 01:05:35,119
+real attackers but nevertheless
+
+1747
+01:05:35,119 --> 01:05:40,470
+i fill in many of the pragmatic details
+
+1748
+01:05:40,480 --> 01:05:42,079
+the final thing i want to talk about is
+
+1749
+01:05:42,079 --> 01:05:43,599
+is fixes
+
+1750
+01:05:43,599 --> 01:05:45,839
+um which we've already touched on a
+
+1751
+01:05:45,839 --> 01:05:47,280
+little bit
+
+1752
+01:05:47,280 --> 01:05:51,109
+when this paper came out
+
+1753
+01:05:51,119 --> 01:05:52,799
+it got a lot of attention and there was
+
+1754
+01:05:52,799 --> 01:05:54,319
+actually another second paper by
+
+1755
+01:05:54,319 --> 01:05:55,920
+overlapping set of people about a
+
+1756
+01:05:55,920 --> 01:05:57,440
+different
+
+1757
+01:05:57,440 --> 01:05:59,920
+attack that also used different
+
+1758
+01:05:59,920 --> 01:06:01,119
+different kind of
+
+1759
+01:06:01,119 --> 01:06:03,200
+speculation inside cpus called spectre
+
+1760
+01:06:03,200 --> 01:06:05,039
+so the pair of the papers
+
+1761
+01:06:05,039 --> 01:06:09,029
+came out at about the same time and was
+
+1762
+01:06:09,039 --> 01:06:11,039
+very exciting and so people hustled
+
+1763
+01:06:11,039 --> 01:06:12,559
+people realized that boy
+
+1764
+01:06:12,559 --> 01:06:13,920
+this is extremely damaging because now
+
+1765
+01:06:13,920 --> 01:06:15,280
+we're talking about is that you know
+
+1766
+01:06:15,280 --> 01:06:16,960
+isolation has been broken
+
+1767
+01:06:16,960 --> 01:06:19,760
+right you don't hardly it's so basic you
+
+1768
+01:06:19,760 --> 01:06:21,200
+hardly even think about it anymore but
+
+1769
+01:06:21,200 --> 01:06:22,480
+you know
+
+1770
+01:06:22,480 --> 01:06:24,079
+this thing this is a technique for
+
+1771
+01:06:24,079 --> 01:06:26,400
+breaking page table protections
+
+1772
+01:06:26,400 --> 01:06:28,880
+which is you know how we enforce
+
+1773
+01:06:28,880 --> 01:06:30,559
+isolation between user and kernel that's
+
+1774
+01:06:30,559 --> 01:06:31,200
+like
+
+1775
+01:06:31,200 --> 01:06:34,480
+deeply fundamental attack
+
+1776
+01:06:34,480 --> 01:06:37,760
+or at any rate undermines a extremely
+
+1777
+01:06:37,760 --> 01:06:40,000
+important piece of security
+
+1778
+01:06:40,000 --> 01:06:41,520
+in a very general way right seems like
+
+1779
+01:06:41,520 --> 01:06:43,599
+you'd read anything
+
+1780
+01:06:43,599 --> 01:06:45,920
+and so people really really hustled to
+
+1781
+01:06:45,920 --> 01:06:47,599
+uh deploy fixes for this
+
+1782
+01:06:47,599 --> 01:06:49,760
+and the immediate fix that a lot of
+
+1783
+01:06:49,760 --> 01:06:51,039
+operating systems
+
+1784
+01:06:51,039 --> 01:06:54,640
+um installed within weeks of uh
+
+1785
+01:06:54,640 --> 01:06:57,119
+um this paper coming out and sometimes
+
+1786
+01:06:57,119 --> 01:06:58,160
+had already installed
+
+1787
+01:06:58,160 --> 01:07:00,480
+this thing called kaiser and which is
+
+1788
+01:07:00,480 --> 01:07:01,359
+now called
+
+1789
+01:07:01,359 --> 01:07:04,799
+kpti in linux and it's there's
+
+1790
+01:07:04,799 --> 01:07:06,880
+pretty straightforward idea the idea is
+
+1791
+01:07:06,880 --> 01:07:08,240
+just like not to put
+
+1792
+01:07:08,240 --> 01:07:10,079
+the kernel mappings in the user page
+
+1793
+01:07:10,079 --> 01:07:11,839
+table
+
+1794
+01:07:11,839 --> 01:07:16,240
+and instead as in xv6
+
+1795
+01:07:16,240 --> 01:07:18,319
+switch page tables during system calls
+
+1796
+01:07:18,319 --> 01:07:19,760
+so in user space you just have user
+
+1797
+01:07:19,760 --> 01:07:20,720
+mappings
+
+1798
+01:07:20,720 --> 01:07:22,480
+make a system call there's some kind of
+
+1799
+01:07:22,480 --> 01:07:24,000
+trampoline arrangement like in
+
+1800
+01:07:24,000 --> 01:07:27,520
+xv6 and you switch page tables to a page
+
+1801
+01:07:27,520 --> 01:07:29,039
+table that has the kernel mappings
+
+1802
+01:07:29,039 --> 01:07:32,240
+in order to execute the kernel and that
+
+1803
+01:07:32,240 --> 01:07:33,599
+causes this attack
+
+1804
+01:07:33,599 --> 01:07:38,079
+to not work because um
+
+1805
+01:07:38,079 --> 01:07:40,839
+the in that because you switch page
+
+1806
+01:07:40,839 --> 01:07:42,960
+tables
+
+1807
+01:07:42,960 --> 01:07:47,430
+this the virtual address in r1
+
+1808
+01:07:47,440 --> 01:07:50,559
+is not only no longer valid it's no
+
+1809
+01:07:50,559 --> 01:07:52,000
+longer meaningful
+
+1810
+01:07:52,000 --> 01:07:55,039
+because there's no translation for it
+
+1811
+01:07:55,039 --> 01:07:57,280
+um and so the cpu doesn't know what to
+
+1812
+01:07:57,280 --> 01:07:58,640
+do with it
+
+1813
+01:07:58,640 --> 01:08:00,000
+like this virtual address won't be
+
+1814
+01:08:00,000 --> 01:08:02,480
+cached it's not even in the
+
+1815
+01:08:02,480 --> 01:08:05,119
+tlb so there's just no way for the
+
+1816
+01:08:05,119 --> 01:08:05,839
+kernel to
+
+1817
+01:08:05,839 --> 01:08:07,680
+decide what memory corresponds to this
+
+1818
+01:08:07,680 --> 01:08:10,400
+virtual address
+
+1819
+01:08:10,400 --> 01:08:11,839
+you know when this attack is executed in
+
+1820
+01:08:11,839 --> 01:08:13,760
+user space because this virtual this
+
+1821
+01:08:13,760 --> 01:08:15,200
+kernel virtual address no longer means
+
+1822
+01:08:15,200 --> 01:08:16,480
+anything
+
+1823
+01:08:16,480 --> 01:08:18,719
+um it's not it's not illegal it's just
+
+1824
+01:08:18,719 --> 01:08:20,159
+meaningless
+
+1825
+01:08:20,159 --> 01:08:21,920
+and so that would cause the attack not
+
+1826
+01:08:21,920 --> 01:08:23,279
+to work
+
+1827
+01:08:23,279 --> 01:08:26,640
+the downside of this kaiser fix
+
+1828
+01:08:26,640 --> 01:08:27,839
+is that now system calls are more
+
+1829
+01:08:27,839 --> 01:08:30,560
+expensive because switching page tables
+
+1830
+01:08:30,560 --> 01:08:34,000
+now if you don't do anything
+
+1831
+01:08:34,000 --> 01:08:37,040
+switching page tables causes the tlb to
+
+1832
+01:08:37,040 --> 01:08:38,400
+be flushed because now all those
+
+1833
+01:08:38,400 --> 01:08:40,239
+virtual addresses in the tlb are the
+
+1834
+01:08:40,239 --> 01:08:41,520
+wrong virtual addresses they don't
+
+1835
+01:08:41,520 --> 01:08:43,279
+correspond to this page table anymore
+
+1836
+01:08:43,279 --> 01:08:45,359
+and it causes the l1 cache to be flushed
+
+1837
+01:08:45,359 --> 01:08:47,199
+because it's virtually addressed
+
+1838
+01:08:47,199 --> 01:08:50,319
+and so on uh on some machines the
+
+1839
+01:08:50,319 --> 01:08:52,159
+switching page table tables made
+
+1840
+01:08:52,159 --> 01:08:56,709
+system calls considerably slower
+
+1841
+01:08:56,719 --> 01:08:58,239
+and but recent machines actually have
+
+1842
+01:08:58,239 --> 01:08:59,759
+this trick called pcid
+
+1843
+01:08:59,759 --> 01:09:01,759
+which you can look up but basically
+
+1844
+01:09:01,759 --> 01:09:03,440
+makes it so you can avoid
+
+1845
+01:09:03,440 --> 01:09:05,120
+flushing these caches on a page table
+
+1846
+01:09:05,120 --> 01:09:07,920
+switch although it still takes some time
+
+1847
+01:09:07,920 --> 01:09:09,279
+and if you poke around on the web
+
+1848
+01:09:09,279 --> 01:09:10,960
+looking for people there was a lot of
+
+1849
+01:09:10,960 --> 01:09:12,960
+worry at the time that this split
+
+1850
+01:09:12,960 --> 01:09:15,600
+that this two-page table idea would be
+
+1851
+01:09:15,600 --> 01:09:17,759
+unacceptably slow
+
+1852
+01:09:17,759 --> 01:09:20,159
+and in fact that didn't really turn out
+
+1853
+01:09:20,159 --> 01:09:21,279
+to be a serious problem
+
+1854
+01:09:21,279 --> 01:09:23,120
+and if you poke around you'll see that
+
+1855
+01:09:23,120 --> 01:09:26,400
+people's guesses about typical workloads
+
+1856
+01:09:26,400 --> 01:09:28,239
+you know how much it impacts overall
+
+1857
+01:09:28,239 --> 01:09:30,000
+performance of typical workloads which
+
+1858
+01:09:30,000 --> 01:09:31,839
+after all don't spend all their time
+
+1859
+01:09:31,839 --> 01:09:34,239
+entering an exiting kernel is like five
+
+1860
+01:09:34,239 --> 01:09:36,000
+percent
+
+1861
+01:09:36,000 --> 01:09:41,510
+so it wasn't such a bad deal
+
+1862
+01:09:41,520 --> 01:09:46,829
+do any questions about this kaiser
+
+1863
+01:09:46,839 --> 01:09:51,430
+fix
+
+1864
+01:09:51,440 --> 01:09:55,120
+um so people adopted this pretty rapidly
+
+1865
+01:09:55,120 --> 01:09:56,640
+in fact there had been colonels that had
+
+1866
+01:09:56,640 --> 01:09:58,400
+already adopted it because it defended
+
+1867
+01:09:58,400 --> 01:10:00,840
+against some other attacks
+
+1868
+01:10:00,840 --> 01:10:04,000
+um there's also a reasonable hardware
+
+1869
+01:10:04,000 --> 01:10:05,040
+fix that
+
+1870
+01:10:05,040 --> 01:10:06,960
+i believe intel is actually made in
+
+1871
+01:10:06,960 --> 01:10:08,080
+recent processors
+
+1872
+01:10:08,080 --> 01:10:09,920
+and that amd had already made and that's
+
+1873
+01:10:09,920 --> 01:10:12,000
+basically to um
+
+1874
+01:10:12,000 --> 01:10:15,040
+because the uh in fact
+
+1875
+01:10:15,040 --> 01:10:19,360
+the permission you know this is
+
+1876
+01:10:19,360 --> 01:10:21,840
+the structure of the cache when when an
+
+1877
+01:10:21,840 --> 01:10:23,600
+instruction loads something from the l1
+
+1878
+01:10:23,600 --> 01:10:25,440
+cache like this kernel data we're trying
+
+1879
+01:10:25,440 --> 01:10:26,239
+to attack
+
+1880
+01:10:26,239 --> 01:10:30,000
+um the permissions where people believe
+
+1881
+01:10:30,000 --> 01:10:31,440
+that the permissions are sitting right
+
+1882
+01:10:31,440 --> 01:10:33,440
+there in the cache entry and so there's
+
+1883
+01:10:33,440 --> 01:10:34,960
+no trouble with the cpu checking the
+
+1884
+01:10:34,960 --> 01:10:36,239
+permissions at that point
+
+1885
+01:10:36,239 --> 01:10:40,640
+and indeed amd cpus and perhaps modern
+
+1886
+01:10:40,640 --> 01:10:42,640
+intel cpus will actually do the
+
+1887
+01:10:42,640 --> 01:10:44,239
+permission check very early and
+
+1888
+01:10:44,239 --> 01:10:46,560
+won't return this data they won't even
+
+1889
+01:10:46,560 --> 01:10:48,080
+return it to the core
+
+1890
+01:10:48,080 --> 01:10:49,840
+if the permission checks don't work out
+
+1891
+01:10:49,840 --> 01:10:51,360
+so there's none of this
+
+1892
+01:10:51,360 --> 01:10:53,040
+speculative instructions they're able to
+
+1893
+01:10:53,040 --> 01:10:54,880
+see
+
+1894
+01:10:54,880 --> 01:10:58,239
+forbidden data so i i don't know if you
+
+1895
+01:10:58,239 --> 01:11:00,080
+know the answer to this question it's
+
+1896
+01:11:00,080 --> 01:11:01,080
+probably just uh
+
+1897
+01:11:01,080 --> 01:11:05,120
+speculative but um uh no pun intended um
+
+1898
+01:11:05,120 --> 01:11:05,440
+but
+
+1899
+01:11:05,440 --> 01:11:07,600
+why why do you think intel would do this
+
+1900
+01:11:07,600 --> 01:11:09,199
+like this seems like
+
+1901
+01:11:09,199 --> 01:11:11,440
+okay because to me it seems like it was
+
+1902
+01:11:11,440 --> 01:11:13,360
+a discussion should we check permissions
+
+1903
+01:11:13,360 --> 01:11:13,760
+on
+
+1904
+01:11:13,760 --> 01:11:15,360
+transient instructions and they were
+
+1905
+01:11:15,360 --> 01:11:17,440
+just like no why why bother
+
+1906
+01:11:17,440 --> 01:11:20,000
+running just a simple check but why
+
+1907
+01:11:20,000 --> 01:11:20,719
+bother
+
+1908
+01:11:20,719 --> 01:11:22,400
+indeed stuff's transparent right i mean
+
+1909
+01:11:22,400 --> 01:11:23,360
+the user is not going to be able to see
+
+1910
+01:11:23,360 --> 01:11:24,880
+the data either way
+
+1911
+01:11:24,880 --> 01:11:26,960
+doing the check early you know that's
+
+1912
+01:11:26,960 --> 01:11:28,239
+like some gates
+
+1913
+01:11:28,239 --> 01:11:30,960
+on a pretty critical path right the the
+
+1914
+01:11:30,960 --> 01:11:32,000
+you know
+
+1915
+01:11:32,000 --> 01:11:35,280
+the court or l1 data cache
+
+1916
+01:11:35,280 --> 01:11:38,000
+path is extremely performance critical
+
+1917
+01:11:38,000 --> 01:11:39,520
+you know and if you can shave a few
+
+1918
+01:11:39,520 --> 01:11:40,239
+transistors
+
+1919
+01:11:40,239 --> 01:11:43,679
+off the you know off the critical path
+
+1920
+01:11:43,679 --> 01:11:44,719
+here between
+
+1921
+01:11:44,719 --> 01:11:46,159
+issuing instruction getting the data
+
+1922
+01:11:46,159 --> 01:11:48,080
+back you know that may
+
+1923
+01:11:48,080 --> 01:11:49,520
+allow you to have a slightly faster
+
+1924
+01:11:49,520 --> 01:11:53,679
+cycle time and run programs faster
+
+1925
+01:11:53,679 --> 01:11:55,520
+and so it's got to be the case that well
+
+1926
+01:11:55,520 --> 01:11:56,960
+i don't know got to be the case but
+
+1927
+01:11:56,960 --> 01:11:59,280
+it's easy to imagine that it would have
+
+1928
+01:11:59,280 --> 01:12:01,280
+cost them a few transistors
+
+1929
+01:12:01,280 --> 01:12:03,679
+um to actually enforce the permissions
+
+1930
+01:12:03,679 --> 01:12:04,480
+early
+
+1931
+01:12:04,480 --> 01:12:06,880
+because after all they still need all of
+
+1932
+01:12:06,880 --> 01:12:08,400
+the stuff at retirement
+
+1933
+01:12:08,400 --> 01:12:10,560
+it's not like doing it early would save
+
+1934
+01:12:10,560 --> 01:12:12,640
+them some work later on
+
+1935
+01:12:12,640 --> 01:12:14,320
+they still have to defer the fault until
+
+1936
+01:12:14,320 --> 01:12:15,679
+retirement
+
+1937
+01:12:15,679 --> 01:12:19,600
+um so all that stuff's still there
+
+1938
+01:12:19,600 --> 01:12:22,480
+i'm just guessing that didn't seem like
+
+1939
+01:12:22,480 --> 01:12:24,560
+it would have any advantages and
+
+1940
+01:12:24,560 --> 01:12:25,760
+would have been like a little bit of
+
+1941
+01:12:25,760 --> 01:12:29,910
+extra work
+
+1942
+01:12:29,920 --> 01:12:31,920
+um and to either way completely
+
+1943
+01:12:31,920 --> 01:12:33,120
+invisible you know
+
+1944
+01:12:33,120 --> 01:12:34,719
+theoretically invisible to the
+
+1945
+01:12:34,719 --> 01:12:36,239
+architectural level
+
+1946
+01:12:36,239 --> 01:12:38,960
+did any kernel decide to like revert
+
+1947
+01:12:38,960 --> 01:12:39,280
+this
+
+1948
+01:12:39,280 --> 01:12:42,400
+kaiser um fix now that p
+
+1949
+01:12:42,400 --> 01:12:45,600
+like intel has fixed the cpu
+
+1950
+01:12:45,600 --> 01:12:47,760
+to improve performance again i know it's
+
+1951
+01:12:47,760 --> 01:12:49,280
+optional on a lot of kernels
+
+1952
+01:12:49,280 --> 01:12:53,830
+i'm i'm not totally sure
+
+1953
+01:12:53,840 --> 01:12:56,080
+what's going on with the intel fix i'm
+
+1954
+01:12:56,080 --> 01:12:57,600
+fairly sure that they have this fix out
+
+1955
+01:12:57,600 --> 01:12:58,400
+there but
+
+1956
+01:12:58,400 --> 01:13:01,520
+exactly you know i i
+
+1957
+01:13:01,520 --> 01:13:03,120
+i don't really know what's going on i
+
+1958
+01:13:03,120 --> 01:13:04,800
+think the linux kernel you can just ask
+
+1959
+01:13:04,800 --> 01:13:05,679
+you know which
+
+1960
+01:13:05,679 --> 01:13:07,440
+hardware fixes have been implemented and
+
+1961
+01:13:07,440 --> 01:13:10,080
+linux changes the
+
+1962
+01:13:10,080 --> 01:13:11,760
+mitigation that it enables depending on
+
+1963
+01:13:11,760 --> 01:13:14,800
+what actually the hardware tells it
+
+1964
+01:13:14,800 --> 01:13:17,360
+so my dashboard also so you can you can
+
+1965
+01:13:17,360 --> 01:13:18,000
+actually do that
+
+1966
+01:13:18,000 --> 01:13:20,320
+like you can read enough info about the
+
+1967
+01:13:20,320 --> 01:13:21,199
+processor
+
+1968
+01:13:21,199 --> 01:13:23,840
+as the kernel to know whether what to do
+
+1969
+01:13:23,840 --> 01:13:25,040
+but you can run on your
+
+1970
+01:13:25,040 --> 01:13:26,320
+running your laptop there's a linux
+
+1971
+01:13:26,320 --> 01:13:30,159
+command that is actually yeah uh on like
+
+1972
+01:13:30,159 --> 01:13:32,159
+we just tells you exactly you know what
+
+1973
+01:13:32,159 --> 01:13:33,600
+fixes have been implemented where things
+
+1974
+01:13:33,600 --> 01:13:35,840
+are mitigated in hardware
+
+1975
+01:13:35,840 --> 01:13:37,679
+because there's a wide range of these
+
+1976
+01:13:37,679 --> 01:13:40,560
+you know special guesting attacks
+
+1977
+01:13:40,560 --> 01:13:41,679
+are you saying that linux will actually
+
+1978
+01:13:41,679 --> 01:13:44,239
+use the combined page table if the cpu
+
+1979
+01:13:44,239 --> 01:13:49,669
+yes i'm pleased oh cool
+
+1980
+01:13:49,679 --> 01:13:52,480
+yeah i think it was you know ninety-nine
+
+1981
+01:13:52,480 --> 01:13:53,760
+percent i haven't checked it
+
+1982
+01:13:53,760 --> 01:14:03,910
+recently right i believe that's the case
+
+1983
+01:14:03,920 --> 01:14:05,360
+all right sorry so what were people
+
+1984
+01:14:05,360 --> 01:14:08,000
+doing like like how did they find
+
+1985
+01:14:08,000 --> 01:14:11,280
+find this what were they trying to do
+
+1986
+01:14:11,280 --> 01:14:13,280
+what are they trying to do trying to
+
+1987
+01:14:13,280 --> 01:14:14,880
+break into computers
+
+1988
+01:14:14,880 --> 01:14:19,440
+now now well the the um
+
+1989
+01:14:19,440 --> 01:14:20,640
+who knows what they're really trying to
+
+1990
+01:14:20,640 --> 01:14:22,719
+do i mean the papers are you know
+
+1991
+01:14:22,719 --> 01:14:24,880
+written by uh
+
+1992
+01:14:24,880 --> 01:14:28,000
+academics maybe you know their
+
+1993
+01:14:28,000 --> 01:14:34,149
+research is finding security problems
+
+1994
+01:14:34,159 --> 01:14:35,440
+one thing that motivated them for a long
+
+1995
+01:14:35,440 --> 01:14:37,600
+time is that they wanted to break uh
+
+1996
+01:14:37,600 --> 01:14:40,560
+address-based randomization and they had
+
+1997
+01:14:40,560 --> 01:14:42,239
+earlier papers you know the different
+
+1998
+01:14:42,239 --> 01:14:44,239
+schemes trying to make uh break address
+
+1999
+01:14:44,239 --> 01:14:46,000
+panelization so like one group of
+
+2000
+01:14:46,000 --> 01:14:47,679
+you know one stream of researchers that
+
+2001
+01:14:47,679 --> 01:14:49,679
+were in this area uh had that as a
+
+2002
+01:14:49,679 --> 01:14:50,719
+background
+
+2003
+01:14:50,719 --> 01:14:52,880
+uh i think the project zero people came
+
+2004
+01:14:52,880 --> 01:14:58,790
+from a completely different angle
+
+2005
+01:14:58,800 --> 01:15:01,840
+i see thank you this is people i think
+
+2006
+01:15:01,840 --> 01:15:03,199
+robert said before people have been
+
+2007
+01:15:03,199 --> 01:15:04,800
+working in this area for decades you
+
+2008
+01:15:04,800 --> 01:15:07,199
+know trying to
+
+2009
+01:15:07,199 --> 01:15:10,800
+find bugs that they can exploit and
+
+2010
+01:15:10,800 --> 01:15:17,189
+understand
+
+2011
+01:15:17,199 --> 01:15:20,080
+so i guess it's how this is a hard
+
+2012
+01:15:20,080 --> 01:15:21,440
+question answer but like
+
+2013
+01:15:21,440 --> 01:15:25,199
+how likely is it that there's another
+
+2014
+01:15:25,199 --> 01:15:27,520
+like meltdown out there because it seems
+
+2015
+01:15:27,520 --> 01:15:28,640
+like extremely
+
+2016
+01:15:28,640 --> 01:15:31,840
+likely okay he's like the micro
+
+2017
+01:15:31,840 --> 01:15:33,440
+the fundamental like thing with micro
+
+2018
+01:15:33,440 --> 01:15:37,040
+architecture like exposing changes
+
+2019
+01:15:37,040 --> 01:15:39,120
+that's right i i think part of what's
+
+2020
+01:15:39,120 --> 01:15:40,159
+going on is that the
+
+2021
+01:15:40,159 --> 01:15:42,800
+cpu manufacturers uh have you know for
+
+2022
+01:15:42,800 --> 01:15:45,520
+decades and decades have been
+
+2023
+01:15:45,520 --> 01:15:48,719
+um you know adding more and more and
+
+2024
+01:15:48,719 --> 01:15:51,120
+more optimism there's many many many
+
+2025
+01:15:51,120 --> 01:15:53,120
+sort of cool little tricks inside the
+
+2026
+01:15:53,120 --> 01:15:54,719
+micro architecture for
+
+2027
+01:15:54,719 --> 01:15:57,760
+making things go faster and
+
+2028
+01:15:57,760 --> 01:16:01,199
+you know now and and people didn't worry
+
+2029
+01:16:01,199 --> 01:16:01,920
+that much
+
+2030
+01:16:01,920 --> 01:16:03,920
+or it just wasn't on the radar that this
+
+2031
+01:16:03,920 --> 01:16:05,040
+could be
+
+2032
+01:16:05,040 --> 01:16:07,679
+like a serious security problem and so
+
+2033
+01:16:07,679 --> 01:16:08,560
+now
+
+2034
+01:16:08,560 --> 01:16:09,840
+people are now very aware that this
+
+2035
+01:16:09,840 --> 01:16:11,199
+stuff could be a serious security
+
+2036
+01:16:11,199 --> 01:16:11,679
+problem
+
+2037
+01:16:11,679 --> 01:16:13,360
+but we're now in a position where we're
+
+2038
+01:16:13,360 --> 01:16:15,760
+living with you know 30 years of
+
+2039
+01:16:15,760 --> 01:16:19,280
+clever ideas inside the cpus and so
+
+2040
+01:16:19,280 --> 01:16:21,760
+indeed a bunch of i mean since this
+
+2041
+01:16:21,760 --> 01:16:23,120
+paper came out and indeed before this
+
+2042
+01:16:23,120 --> 01:16:24,080
+paper came out
+
+2043
+01:16:24,080 --> 01:16:27,440
+a bunch of kind of a bunch of this style
+
+2044
+01:16:27,440 --> 01:16:30,480
+of attacks have come to light exploiting
+
+2045
+01:16:30,480 --> 01:16:33,560
+various different uh
+
+2046
+01:16:33,560 --> 01:16:36,560
+microarchitectural
+
+2047
+01:16:36,560 --> 01:16:39,280
+thingies and the cpus so i i i think
+
+2048
+01:16:39,280 --> 01:16:41,120
+this is going to be a while before
+
+2049
+01:16:41,120 --> 01:16:43,120
+this is all laid to rest yeah you look
+
+2050
+01:16:43,120 --> 01:16:44,719
+to the security conferences in the last
+
+2051
+01:16:44,719 --> 01:16:46,480
+you know two years basically every
+
+2052
+01:16:46,480 --> 01:16:48,239
+year every conference has basically
+
+2053
+01:16:48,239 --> 01:16:50,000
+session on like
+
+2054
+01:16:50,000 --> 01:16:52,560
+exploiting speculative execution
+
+2055
+01:16:52,560 --> 01:16:53,360
+properties
+
+2056
+01:16:53,360 --> 01:16:57,520
+and see if they can make uh attacks work
+
+2057
+01:16:57,520 --> 01:17:00,239
+maybe a larger question is whether you
+
+2058
+01:17:00,239 --> 01:17:02,320
+know whether the situation is well you
+
+2059
+01:17:02,320 --> 01:17:03,760
+know there's
+
+2060
+01:17:03,760 --> 01:17:07,199
+you know 15 or 20 or 30 things that
+
+2061
+01:17:07,199 --> 01:17:09,360
+sort of have to be worked out and then
+
+2062
+01:17:09,360 --> 01:17:11,440
+we'll be done
+
+2063
+01:17:11,440 --> 01:17:14,560
+or whether there's some
+
+2064
+01:17:14,560 --> 01:17:17,679
+much higher level um
+
+2065
+01:17:17,679 --> 01:17:21,920
+approach gone wrong you know that we all
+
+2066
+01:17:21,920 --> 01:17:23,199
+i mean this is probably way too
+
+2067
+01:17:23,199 --> 01:17:25,199
+pessimistic but you know people had a
+
+2068
+01:17:25,199 --> 01:17:26,800
+lot of faith in isolation
+
+2069
+01:17:26,800 --> 01:17:28,480
+as an idea that uh there's a totally
+
+2070
+01:17:28,480 --> 01:17:30,880
+reasonable thing to
+
+2071
+01:17:30,880 --> 01:17:32,640
+assume that isolation works and we'll
+
+2072
+01:17:32,640 --> 01:17:34,560
+design stuff like cloud computing
+
+2073
+01:17:34,560 --> 01:17:36,880
+and you know running javascript in the
+
+2074
+01:17:36,880 --> 01:17:38,320
+browser and all this stuff under the
+
+2075
+01:17:38,320 --> 01:17:38,960
+assumption
+
+2076
+01:17:38,960 --> 01:17:40,960
+which is not actually true but was close
+
+2077
+01:17:40,960 --> 01:17:42,480
+enough believed to be close enough to
+
+2078
+01:17:42,480 --> 01:17:43,120
+true
+
+2079
+01:17:43,120 --> 01:17:45,520
+that isolation will just you know cause
+
+2080
+01:17:45,520 --> 01:17:46,800
+there not to be serious security
+
+2081
+01:17:46,800 --> 01:17:47,760
+problems
+
+2082
+01:17:47,760 --> 01:17:50,080
+and that's actually probably still
+
+2083
+01:17:50,080 --> 01:17:50,880
+doable
+
+2084
+01:17:50,880 --> 01:17:54,480
+but this whole bag of microarchitectural
+
+2085
+01:17:54,480 --> 01:17:56,480
+attacks has
+
+2086
+01:17:56,480 --> 01:17:58,960
+not made that story seem more convincing
+
+2087
+01:17:58,960 --> 01:18:00,880
+that's for sure
+
+2088
+01:18:00,880 --> 01:18:04,320
+um just to add on to that
+
+2089
+01:18:04,320 --> 01:18:07,280
+uh i'm i'm not sure uh the office levels
+
+2090
+01:18:07,280 --> 01:18:08,080
+expertise
+
+2091
+01:18:08,080 --> 01:18:11,199
+with like cpu design but to what extent
+
+2092
+01:18:11,199 --> 01:18:14,239
+can cpu design be
+
+2093
+01:18:14,239 --> 01:18:17,120
+made straightforwardly without a micro
+
+2094
+01:18:17,120 --> 01:18:18,400
+architecture
+
+2095
+01:18:18,400 --> 01:18:20,960
+while still preserving its high
+
+2096
+01:18:20,960 --> 01:18:21,679
+performance
+
+2097
+01:18:21,679 --> 01:18:24,480
+oh oh performance i mean people believe
+
+2098
+01:18:24,480 --> 01:18:25,520
+this
+
+2099
+01:18:25,520 --> 01:18:28,320
+nicely security too but yeah well some
+
+2100
+01:18:28,320 --> 01:18:29,840
+of this clearly can be fixed like this
+
+2101
+01:18:29,840 --> 01:18:32,000
+meltdown thing i mean there is a fix
+
+2102
+01:18:32,000 --> 01:18:33,920
+this you know to actually check the
+
+2103
+01:18:33,920 --> 01:18:35,360
+permissions
+
+2104
+01:18:35,360 --> 01:18:38,159
+um that probably doesn't sacrifice any
+
+2105
+01:18:38,159 --> 01:18:39,120
+performance
+
+2106
+01:18:39,120 --> 01:18:40,400
+for some of the other attacks that have
+
+2107
+01:18:40,400 --> 01:18:43,440
+come up um
+
+2108
+01:18:43,440 --> 01:18:45,199
+it's not clear that you could fix them
+
+2109
+01:18:45,199 --> 01:18:46,800
+without sacrificing performance i mean
+
+2110
+01:18:46,800 --> 01:18:48,400
+some of this very very deep like
+
+2111
+01:18:48,400 --> 01:18:52,790
+the fact that we're sharing you know
+
+2112
+01:18:52,800 --> 01:18:54,480
+there's a lot of sharing like in a time
+
+2113
+01:18:54,480 --> 01:18:55,920
+sharing or cloud environment there's
+
+2114
+01:18:55,920 --> 01:18:57,280
+just a lot of sharing
+
+2115
+01:18:57,280 --> 01:19:00,480
+and um so for example
+
+2116
+01:19:00,480 --> 01:19:02,080
+supposing there's a disk drive or a
+
+2117
+01:19:02,080 --> 01:19:03,520
+network
+
+2118
+01:19:03,520 --> 01:19:07,360
+on your cloud server right
+
+2119
+01:19:07,360 --> 01:19:08,640
+gosh you might be able to get
+
+2120
+01:19:08,640 --> 01:19:10,080
+information about the other people on
+
+2121
+01:19:10,080 --> 01:19:11,600
+that cloud server
+
+2122
+01:19:11,600 --> 01:19:13,760
+simply by watching how their traffic
+
+2123
+01:19:13,760 --> 01:19:15,199
+interferes with your traffic disk
+
+2124
+01:19:15,199 --> 01:19:17,120
+traffic or network traffic or memory
+
+2125
+01:19:17,120 --> 01:19:17,600
+traffic
+
+2126
+01:19:17,600 --> 01:19:20,400
+or something so there's some sort of you
+
+2127
+01:19:20,400 --> 01:19:21,280
+know i don't know whether that's
+
+2128
+01:19:21,280 --> 01:19:23,120
+practical maybe it's not although
+
+2129
+01:19:23,120 --> 01:19:25,040
+you know for many many things in which
+
+2130
+01:19:25,040 --> 01:19:26,480
+people said boy that attack just doesn't
+
+2131
+01:19:26,480 --> 01:19:27,760
+seem to be practical
+
+2132
+01:19:27,760 --> 01:19:29,840
+you know it's turned out to be practical
+
+2133
+01:19:29,840 --> 01:19:32,080
+enough um
+
+2134
+01:19:32,080 --> 01:19:35,600
+and i think and so a lot of this
+
+2135
+01:19:35,600 --> 01:19:37,199
+microarchitectural stuff maybe could be
+
+2136
+01:19:37,199 --> 01:19:38,800
+cleaned up without performance loss or
+
+2137
+01:19:38,800 --> 01:19:40,080
+maybe can't be cleaned up to that
+
+2138
+01:19:40,080 --> 01:19:41,280
+performance loss
+
+2139
+01:19:41,280 --> 01:19:44,560
+you know but i i think it's i think it's
+
+2140
+01:19:44,560 --> 01:19:45,920
+a much more serious problem than just
+
+2141
+01:19:45,920 --> 01:19:47,360
+we're gonna
+
+2142
+01:19:47,360 --> 01:19:52,480
+apply some fixes they'll all go away
+
+2143
+01:19:52,480 --> 01:19:54,800
+like the place has been most acute is
+
+2144
+01:19:54,800 --> 01:19:55,920
+cryptography
+
+2145
+01:19:55,920 --> 01:19:59,040
+there's been many many years of people
+
+2146
+01:19:59,040 --> 01:20:01,360
+looking into these kind of clever
+
+2147
+01:20:01,360 --> 01:20:05,280
+um often cash timing based a ways of
+
+2148
+01:20:05,280 --> 01:20:09,040
+sensing uh
+
+2149
+01:20:09,040 --> 01:20:11,600
+bits out of keys and other people's
+
+2150
+01:20:11,600 --> 01:20:13,040
+cryptographical you know
+
+2151
+01:20:13,040 --> 01:20:14,320
+people running i'm running a
+
+2152
+01:20:14,320 --> 01:20:15,920
+cryptographic encryption on the same
+
+2153
+01:20:15,920 --> 01:20:17,679
+machine as you
+
+2154
+01:20:17,679 --> 01:20:21,199
+can you guess anything about my key by
+
+2155
+01:20:21,199 --> 01:20:24,320
+watching by doing cache timing
+
+2156
+01:20:24,320 --> 01:20:27,040
+the answer is absolutely and it's not
+
+2157
+01:20:27,040 --> 01:20:28,560
+like a microarchitectural bug
+
+2158
+01:20:28,560 --> 01:20:32,080
+it's you know
+
+2159
+01:20:32,080 --> 01:20:35,520
+it's just a consequence of sharing often
+
+2160
+01:20:35,520 --> 01:20:36,719
+anyway i don't know how this is going to
+
+2161
+01:20:36,719 --> 01:20:38,080
+play out but it's not it's not
+
+2162
+01:20:38,080 --> 01:20:40,560
+straightforward
+
+2163
+01:20:40,560 --> 01:20:42,639
+i mean the scariest part is when people
+
+2164
+01:20:42,639 --> 01:20:43,920
+made progress on
+
+2165
+01:20:43,920 --> 01:20:47,040
+um just measuring the
+
+2166
+01:20:47,040 --> 01:20:49,920
+like em radiation from a cpu and
+
+2167
+01:20:49,920 --> 01:20:51,840
+figuring out what instructions are run
+
+2168
+01:20:51,840 --> 01:20:53,120
+and what data is in it
+
+2169
+01:20:53,120 --> 01:20:55,120
+with machine learning with like some
+
+2170
+01:20:55,120 --> 01:20:57,360
+accuracy you know not 100
+
+2171
+01:20:57,360 --> 01:21:00,480
+not nearly but like a scary amount of
+
+2172
+01:21:00,480 --> 01:21:02,239
+accuracy because anything over zero is
+
+2173
+01:21:02,239 --> 01:21:07,750
+scary
+
+2174
+01:21:07,760 --> 01:21:12,070
+yeah we all live in you know it's all
+
+2175
+01:21:12,080 --> 01:21:14,400
+well there's a boundary between attacks
+
+2176
+01:21:14,400 --> 01:21:15,920
+that are
+
+2177
+01:21:15,920 --> 01:21:18,719
+or there's some threshold between
+
+2178
+01:21:18,719 --> 01:21:19,679
+attacks that are like
+
+2179
+01:21:19,679 --> 01:21:22,159
+possible but you know gosh just seems
+
+2180
+01:21:22,159 --> 01:21:23,760
+like that would be too expensive or
+
+2181
+01:21:23,760 --> 01:21:24,880
+awkward or painful
+
+2182
+01:21:24,880 --> 01:21:28,239
+or whatever complex to carry out
+
+2183
+01:21:28,239 --> 01:21:31,120
+and the taxi really could be carried out
+
+2184
+01:21:31,120 --> 01:21:32,400
+of course we only should defend against
+
+2185
+01:21:32,400 --> 01:21:34,000
+the second class because the first
+
+2186
+01:21:34,000 --> 01:21:35,679
+class is often too expensive to defend
+
+2187
+01:21:35,679 --> 01:21:37,360
+against but as
+
+2188
+01:21:37,360 --> 01:21:39,040
+the value of stuff contained in
+
+2189
+01:21:39,040 --> 01:21:41,120
+computers gets larger and
+
+2190
+01:21:41,120 --> 01:21:43,120
+you know attackers get more clever get
+
+2191
+01:21:43,120 --> 01:21:44,560
+more closer access
+
+2192
+01:21:44,560 --> 01:21:47,280
+to shared environments the kind of
+
+2193
+01:21:47,280 --> 01:21:51,510
+threshold by which attacks are
+
+2194
+01:21:51,520 --> 01:21:54,830
+feasible enough to defend against
+
+2195
+01:21:54,840 --> 01:21:58,470
+changes
+
+2196
+01:21:58,480 --> 01:22:03,040
+all right i'm done with the lecture but
+
+2197
+01:22:03,040 --> 01:22:09,110
+i'm happy to take more questions
+
+2198
+01:22:09,120 --> 01:22:12,639
+thank you thank you
+
+2199
+01:22:12,639 --> 01:22:14,159
+thanks oh i actually had a question
+
+2200
+01:22:14,159 --> 01:22:16,560
+about the cash um so
+
+2201
+01:22:16,560 --> 01:22:20,480
+the l on cash it's it's per cpu
+
+2202
+01:22:20,480 --> 01:22:25,360
+right yes a nail too is it shared
+
+2203
+01:22:25,360 --> 01:22:28,239
+well so this picture is different for
+
+2204
+01:22:28,239 --> 01:22:28,960
+each cpu
+
+2205
+01:22:28,960 --> 01:22:32,159
+for different models of cpu etc the
+
+2206
+01:22:32,159 --> 01:22:35,760
+the habit today is um
+
+2207
+01:22:35,760 --> 01:22:38,800
+looks it's uh is a little bit more
+
+2208
+01:22:38,800 --> 01:22:40,159
+complex than this
+
+2209
+01:22:40,159 --> 01:22:43,120
+typically you have multiple cores you
+
+2210
+01:22:43,120 --> 01:22:43,679
+know
+
+2211
+01:22:43,679 --> 01:22:46,880
+two or four or eight or 64 or something
+
+2212
+01:22:46,880 --> 01:22:49,520
+each one has a l1 cache that's quite
+
+2213
+01:22:49,520 --> 01:22:50,880
+close to the cpu but
+
+2214
+01:22:50,880 --> 01:22:53,840
+small fast and small each core typically
+
+2215
+01:22:53,840 --> 01:22:55,760
+also has a bigger l2 cache
+
+2216
+01:22:55,760 --> 01:22:58,480
+that's you know and it's sort of
+
+2217
+01:22:58,480 --> 01:23:00,320
+dedicated to that
+
+2218
+01:23:00,320 --> 01:23:04,080
+cpu um
+
+2219
+01:23:04,080 --> 01:23:07,600
+and then um
+
+2220
+01:23:07,600 --> 01:23:11,520
+and and then there's often a shared
+
+2221
+01:23:11,520 --> 01:23:14,639
+l3 cache often but not always
+
+2222
+01:23:14,639 --> 01:23:16,960
+and another approach is to make the
+
+2223
+01:23:16,960 --> 01:23:19,760
+summation of the l2 caches
+
+2224
+01:23:19,760 --> 01:23:22,080
+sort of convenient for all the cpus to
+
+2225
+01:23:22,080 --> 01:23:22,880
+use so that i have
+
+2226
+01:23:22,880 --> 01:23:25,199
+super high speed access to my l2 cache
+
+2227
+01:23:25,199 --> 01:23:27,600
+but i can get at other people's at a
+
+2228
+01:23:27,600 --> 01:23:29,600
+slightly bigger penalty so the effective
+
+2229
+01:23:29,600 --> 01:23:30,639
+cache size is larger
+
+2230
+01:23:30,639 --> 01:23:32,880
+so you often see either three level
+
+2231
+01:23:32,880 --> 01:23:34,480
+caches or
+
+2232
+01:23:34,480 --> 01:23:36,880
+or uh these sort of joint two second
+
+2233
+01:23:36,880 --> 01:23:40,870
+level caches
+
+2234
+01:23:40,880 --> 01:23:42,800
+and typically the l2 and l3 are
+
+2235
+01:23:42,800 --> 01:23:44,320
+physically addressed
+
+2236
+01:23:44,320 --> 01:23:48,080
+l1 is virtual
+
+2237
+01:23:48,080 --> 01:23:50,400
+so what's the point of having physically
+
+2238
+01:23:50,400 --> 01:23:51,760
+addressed
+
+2239
+01:23:51,760 --> 01:23:54,880
+is that the different processes
+
+2240
+01:23:54,880 --> 01:23:57,760
+yeah it's easy the the um stuff in the
+
+2241
+01:23:57,760 --> 01:23:58,239
+l1
+
+2242
+01:23:58,239 --> 01:24:02,320
+in a virtually addressed cache um
+
+2243
+01:24:02,320 --> 01:24:04,800
+if if the same data is used with
+
+2244
+01:24:04,800 --> 01:24:06,159
+different virtual addresses you can't
+
+2245
+01:24:06,159 --> 01:24:07,280
+you know the
+
+2246
+01:24:07,280 --> 01:24:08,400
+virtual address cache doesn't really
+
+2247
+01:24:08,400 --> 01:24:10,800
+help you find it um if it was cached
+
+2248
+01:24:10,800 --> 01:24:12,560
+under a different address where these
+
+2249
+01:24:12,560 --> 01:24:15,440
+l2 caches the data is independent is
+
+2250
+01:24:15,440 --> 01:24:17,360
+usable no matter what virtual address
+
+2251
+01:24:17,360 --> 01:24:20,719
+um you addressed it under you see
+
+2252
+01:24:20,719 --> 01:24:24,800
+yeah where does the mmu sit
+
+2253
+01:24:24,800 --> 01:24:26,639
+uh relative to all these caches in the
+
+2254
+01:24:26,639 --> 01:24:28,159
+tlb oh
+
+2255
+01:24:28,159 --> 01:24:30,320
+it's not it's distributed really because
+
+2256
+01:24:30,320 --> 01:24:31,600
+the uh
+
+2257
+01:24:31,600 --> 01:24:35,440
+i mean the most obvious um
+
+2258
+01:24:35,440 --> 01:24:38,800
+i mean i think in real life
+
+2259
+01:24:38,800 --> 01:24:41,360
+the tlb the most critical thing is the
+
+2260
+01:24:41,360 --> 01:24:43,199
+tlb and i believe it's indexed in
+
+2261
+01:24:43,199 --> 01:24:46,000
+parallel with the l1 cache typically
+
+2262
+01:24:46,000 --> 01:24:47,920
+all right so if you hit in the cache the
+
+2263
+01:24:47,920 --> 01:24:49,199
+l1 cache great
+
+2264
+01:24:49,199 --> 01:24:52,629
+although there may be a
+
+2265
+01:24:52,639 --> 01:24:53,840
+anyway and if you're missing the l1
+
+2266
+01:24:53,840 --> 01:24:56,159
+cache then the now you have the physical
+
+2267
+01:24:56,159 --> 01:24:57,679
+you were looking up in the tb the same
+
+2268
+01:24:57,679 --> 01:24:59,199
+time now you're the physical cat
+
+2269
+01:24:59,199 --> 01:25:02,880
+addressed the mmu though is not just a
+
+2270
+01:25:02,880 --> 01:25:04,480
+single
+
+2271
+01:25:04,480 --> 01:25:06,239
+box that sits somewhere it's actually
+
+2272
+01:25:06,239 --> 01:25:07,520
+kind of
+
+2273
+01:25:07,520 --> 01:25:11,600
+involved oh okay but isn't it hardware
+
+2274
+01:25:11,600 --> 01:25:14,159
+so oh everything is here's hardware yeah
+
+2275
+01:25:14,159 --> 01:25:15,679
+oh that was interesting
+
+2276
+01:25:15,679 --> 01:25:17,600
+but but remember these you know these
+
+2277
+01:25:17,600 --> 01:25:20,159
+chips have billions of transistors on
+
+2278
+01:25:20,159 --> 01:25:20,800
+them
+
+2279
+01:25:20,800 --> 01:25:23,199
+so yeah maybe it's hardware but we're
+
+2280
+01:25:23,199 --> 01:25:25,040
+talking about
+
+2281
+01:25:25,040 --> 01:25:27,679
+massively complex hardware that that's
+
+2282
+01:25:27,679 --> 01:25:29,679
+designed using very sophisticated
+
+2283
+01:25:29,679 --> 01:25:31,600
+software-like design techniques
+
+2284
+01:25:31,600 --> 01:25:34,800
+so that it can do very very complex and
+
+2285
+01:25:34,800 --> 01:25:36,400
+sophisticated things
+
+2286
+01:25:36,400 --> 01:25:39,920
+so yeah it's hardware but yeah it's not
+
+2287
+01:25:39,920 --> 01:25:43,590
+at all at all straightforward
+
+2288
+01:25:43,600 --> 01:25:46,159
+so do table mapping like page table
+
+2289
+01:25:46,159 --> 01:25:48,560
+mappings ever end up in the
+
+2290
+01:25:48,560 --> 01:25:50,960
+caches at all or are they always just
+
+2291
+01:25:50,960 --> 01:25:52,159
+routed through the tlb
+
+2292
+01:25:52,159 --> 01:25:54,080
+because if you miss it the tlb you have
+
+2293
+01:25:54,080 --> 01:25:55,360
+to go to memory
+
+2294
+01:25:55,360 --> 01:25:57,360
+retrieve that right so there certainly
+
+2295
+01:25:57,360 --> 01:25:58,800
+the l2 cache
+
+2296
+01:25:58,800 --> 01:26:01,760
+will hold uh the from the point of view
+
+2297
+01:26:01,760 --> 01:26:03,040
+the l2 cache
+
+2298
+01:26:03,040 --> 01:26:06,159
+tob misses tmp reloads or just
+
+2299
+01:26:06,159 --> 01:26:08,239
+memory accesses so the tob needs to load
+
+2300
+01:26:08,239 --> 01:26:09,840
+a bunch of page table junk
+
+2301
+01:26:09,840 --> 01:26:12,159
+it's just a memory load and it could
+
+2302
+01:26:12,159 --> 01:26:13,840
+stuff could easily be cached in the l2
+
+2303
+01:26:13,840 --> 01:26:15,520
+but it has to skip to l1 because
+
+2304
+01:26:15,520 --> 01:26:17,440
+l1 has virtual addresses which i don't
+
+2305
+01:26:17,440 --> 01:26:18,800
+obviously don't think
+
+2306
+01:26:18,800 --> 01:26:21,040
+the tlb would consult the l1 for its
+
+2307
+01:26:21,040 --> 01:26:22,480
+okay
+
+2308
+01:26:22,480 --> 01:26:25,920
+because it's uh virtually addressed yes
+
+2309
+01:26:25,920 --> 01:26:27,840
+and then one thing about the spectre
+
+2310
+01:26:27,840 --> 01:26:30,080
+attack um
+
+2311
+01:26:30,080 --> 01:26:33,280
+um how would you i i so so the thing is
+
+2312
+01:26:33,280 --> 01:26:34,159
+like i've heard about
+
+2313
+01:26:34,159 --> 01:26:36,719
+meltdown inspector like at least a dozen
+
+2314
+01:26:36,719 --> 01:26:38,480
+times and every time i looked it up i
+
+2315
+01:26:38,480 --> 01:26:40,159
+would not understand it so this is the
+
+2316
+01:26:40,159 --> 01:26:41,520
+first time i actually understand what's
+
+2317
+01:26:41,520 --> 01:26:42,480
+going on
+
+2318
+01:26:42,480 --> 01:26:46,239
+um but for spectre is there um like how
+
+2319
+01:26:46,239 --> 01:26:49,360
+similar is it to meltdown it's not it's
+
+2320
+01:26:49,360 --> 01:26:53,440
+not okay or
+
+2321
+01:26:53,440 --> 01:26:56,880
+well my understanding of the spectre
+
+2322
+01:26:56,880 --> 01:26:58,880
+attack is by training the branch
+
+2323
+01:26:58,880 --> 01:26:59,600
+predictor
+
+2324
+01:26:59,600 --> 01:27:03,360
+that you know the the other code that
+
+2325
+01:27:03,360 --> 01:27:04,320
+you're
+
+2326
+01:27:04,320 --> 01:27:06,080
+trying to attack stuff from let's
+
+2327
+01:27:06,080 --> 01:27:07,760
+suppose it's um
+
+2328
+01:27:07,760 --> 01:27:09,199
+another process and you share some
+
+2329
+01:27:09,199 --> 01:27:11,280
+memory with it right you know because
+
+2330
+01:27:11,280 --> 01:27:12,320
+you're
+
+2331
+01:27:12,320 --> 01:27:14,239
+it's really the same program as you but
+
+2332
+01:27:14,239 --> 01:27:15,920
+it's some other user
+
+2333
+01:27:15,920 --> 01:27:20,719
+running the program right um you can
+
+2334
+01:27:20,719 --> 01:27:23,360
+the branch the branch the tables that
+
+2335
+01:27:23,360 --> 01:27:25,040
+the branch predictor uses
+
+2336
+01:27:25,040 --> 01:27:29,199
+are shared uh between
+
+2337
+01:27:29,199 --> 01:27:30,880
+different you know if i run out of cpu
+
+2338
+01:27:30,880 --> 01:27:32,320
+for bidding that you run or maybe you
+
+2339
+01:27:32,320 --> 01:27:33,679
+run on different hyper threads of the
+
+2340
+01:27:33,679 --> 01:27:35,520
+same cpu everybody sees the same branch
+
+2341
+01:27:35,520 --> 01:27:35,920
+you know
+
+2342
+01:27:35,920 --> 01:27:38,400
+sees the same branch predictor so i can
+
+2343
+01:27:38,400 --> 01:27:40,000
+train the branch predictor to predict
+
+2344
+01:27:40,000 --> 01:27:41,520
+branches in a certain way
+
+2345
+01:27:41,520 --> 01:27:44,880
+and then i let you run you're running
+
+2346
+01:27:44,880 --> 01:27:45,600
+with my
+
+2347
+01:27:45,600 --> 01:27:48,239
+branch predictor training right and so
+
+2348
+01:27:48,239 --> 01:27:50,000
+that means i can essentially trick your
+
+2349
+01:27:50,000 --> 01:27:52,000
+program into speculatively executing
+
+2350
+01:27:52,000 --> 01:27:54,560
+instructions of my choice
+
+2351
+01:27:54,560 --> 01:27:55,920
+right now this is only speculative so of
+
+2352
+01:27:55,920 --> 01:27:57,600
+course they'll be undone but
+
+2353
+01:27:57,600 --> 01:28:00,800
+they they will cause cash loads
+
+2354
+01:28:00,800 --> 01:28:03,920
+um that to some extent i can control
+
+2355
+01:28:03,920 --> 01:28:05,520
+because i control how you speculate
+
+2356
+01:28:05,520 --> 01:28:07,040
+execute and then if we share memory i
+
+2357
+01:28:07,040 --> 01:28:07,520
+can use
+
+2358
+01:28:07,520 --> 01:28:10,480
+flesh and reload to sense what cache
+
+2359
+01:28:10,480 --> 01:28:12,560
+lines your program loaded and this
+
+2360
+01:28:12,560 --> 01:28:15,840
+speculative execution that
+
+2361
+01:28:15,840 --> 01:28:19,440
+so in that case you you don't need to um
+
+2362
+01:28:19,440 --> 01:28:21,600
+you don't need to like no like directly
+
+2363
+01:28:21,600 --> 01:28:22,800
+address address
+
+2364
+01:28:22,800 --> 01:28:25,199
+assist a piece of memory you just need
+
+2365
+01:28:25,199 --> 01:28:26,480
+to make sure that
+
+2366
+01:28:26,480 --> 01:28:28,639
+program will speculatively execute it
+
+2367
+01:28:28,639 --> 01:28:30,880
+like in meltdown we did it ourselves
+
+2368
+01:28:30,880 --> 01:28:34,400
+but especially just directed there
+
+2369
+01:28:34,400 --> 01:28:35,760
+that's kind of cool because you can just
+
+2370
+01:28:35,760 --> 01:28:37,600
+say oh you know just go and load that
+
+2371
+01:28:37,600 --> 01:28:38,560
+secret
+
+2372
+01:28:38,560 --> 01:28:40,320
+by training the branch predictor without
+
+2373
+01:28:40,320 --> 01:28:42,159
+knowing where the secret is yeah
+
+2374
+01:28:42,159 --> 01:28:44,320
+or like you got to know someone yeah you
+
+2375
+01:28:44,320 --> 01:28:45,520
+you kind of have to know
+
+2376
+01:28:45,520 --> 01:28:46,960
+you need an upgrade you know in great
+
+2377
+01:28:46,960 --> 01:28:48,960
+depth oh yeah sorry yeah yeah
+
+2378
+01:28:48,960 --> 01:28:50,480
+yeah but you don't have to load it
+
+2379
+01:28:50,480 --> 01:28:52,080
+yourself yes that's not secret right
+
+2380
+01:28:52,080 --> 01:28:53,840
+you're probably running a program that
+
+2381
+01:28:53,840 --> 01:28:55,199
+i know what program you're running you
+
+2382
+01:28:55,199 --> 01:28:57,679
+know yeah
+
+2383
+01:28:57,679 --> 01:29:01,590
+okay that makes sense thank you
+
+2384
+01:29:01,600 --> 01:29:03,920
+yeah i was just wondering it seems like
+
+2385
+01:29:03,920 --> 01:29:05,040
+when you when a
+
+2386
+01:29:05,040 --> 01:29:06,719
+research paper like this gets released
+
+2387
+01:29:06,719 --> 01:29:08,719
+you know it's out there for like
+
+2388
+01:29:08,719 --> 01:29:11,679
+people linux and windows and like intel
+
+2389
+01:29:11,679 --> 01:29:13,600
+for them to try to go and
+
+2390
+01:29:13,600 --> 01:29:15,199
+scramble to patch the bug but it's also
+
+2391
+01:29:15,199 --> 01:29:16,880
+out there for like hackers can start to
+
+2392
+01:29:16,880 --> 01:29:18,159
+like learn from the paper and be like oh
+
+2393
+01:29:18,159 --> 01:29:20,159
+this is a method we could use
+
+2394
+01:29:20,159 --> 01:29:23,360
+um and i'm i'm wondering like it
+
+2395
+01:29:23,360 --> 01:29:24,960
+as a researcher is there a general
+
+2396
+01:29:24,960 --> 01:29:27,040
+practice of like as we're working on the
+
+2397
+01:29:27,040 --> 01:29:29,199
+paper we'll like sort of tip off the
+
+2398
+01:29:29,199 --> 01:29:31,199
+yes the quote unquote good guys first so
+
+2399
+01:29:31,199 --> 01:29:32,400
+that they can get a head start on
+
+2400
+01:29:32,400 --> 01:29:35,280
+the authors informed every you know the
+
+2401
+01:29:35,280 --> 01:29:36,639
+cpu manufacturers and the os
+
+2402
+01:29:36,639 --> 01:29:38,000
+manufacturers before they publish the
+
+2403
+01:29:38,000 --> 01:29:38,880
+paper
+
+2404
+01:29:38,880 --> 01:29:40,000
+yeah there's a whole there's a whole
+
+2405
+01:29:40,000 --> 01:29:41,920
+protocol and you know the paper even
+
+2406
+01:29:41,920 --> 01:29:42,320
+these
+
+2407
+01:29:42,320 --> 01:29:43,600
+these kind of papers won't even be
+
+2408
+01:29:43,600 --> 01:29:45,120
+accepted anymore unless you know you
+
+2409
+01:29:45,120 --> 01:29:46,080
+follow the protocol
+
+2410
+01:29:46,080 --> 01:29:47,440
+yeah that doesn't mean the attackers
+
+2411
+01:29:47,440 --> 01:29:48,880
+weren't already using it right because
+
+2412
+01:29:48,880 --> 01:29:49,360
+yeah
+
+2413
+01:29:49,360 --> 01:29:50,800
+probably know the attackers discovered
+
+2414
+01:29:50,800 --> 01:29:55,830
+this 20 years ago but
+
+2415
+01:29:55,840 --> 01:29:58,159
+thank you been following the protocol
+
+2416
+01:29:58,159 --> 01:29:59,440
+it's not straightforward you know i
+
+2417
+01:29:59,440 --> 01:29:59,840
+think in
+
+2418
+01:29:59,840 --> 01:30:01,280
+this particular case i think you know
+
+2419
+01:30:01,280 --> 01:30:03,840
+there was some intel was not too excited
+
+2420
+01:30:03,840 --> 01:30:04,880
+about
+
+2421
+01:30:04,880 --> 01:30:06,080
+the collaboration between the linux
+
+2422
+01:30:06,080 --> 01:30:07,600
+community and intel was not completely
+
+2423
+01:30:07,600 --> 01:30:10,950
+smooth i think
+
+2424
+01:30:10,960 --> 01:30:13,199
+when this happened i think they worked
+
+2425
+01:30:13,199 --> 01:30:14,239
+out some of the kinks
+
+2426
+01:30:14,239 --> 01:30:18,550
+but
+
+2427
+01:30:18,560 --> 01:30:21,040
+i think it was kind of scary because i i
+
+2428
+01:30:21,040 --> 01:30:21,679
+read
+
+2429
+01:30:21,679 --> 01:30:24,880
+on wikipedia that the ubuntu
+
+2430
+01:30:24,880 --> 01:30:27,920
+fix was published after the paper was
+
+2431
+01:30:27,920 --> 01:30:28,719
+published
+
+2432
+01:30:28,719 --> 01:30:36,790
+which i found scary but
+
+2433
+01:30:36,800 --> 01:30:42,149
+yeah thank you so much thank you
+
+2434
+01:30:42,159 --> 01:30:46,120
+thank you thank you well see you next
+
+2435
+01:30:46,120 --> 01:30:49,120
+week
+
