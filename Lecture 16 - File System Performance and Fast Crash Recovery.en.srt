@@ -1,0 +1,4704 @@
+1
+00:00:02,020 --> 00:00:04,150
+Alright, actually, it's time to start.
+
+2
+00:00:05,740 --> 00:00:11,650
+Alright, okay as Franz were saying for you, feel free to interrupt with questions
+
+3
+00:00:11,650 --> 00:00:14,740
+and feel free to leave your camera on,
+
+4
+00:00:14,740 --> 00:00:17,450
+so that we can see each other people.
+
+5
+00:00:18,320 --> 00:00:20,870
+This is going to be another lecture about logging,
+
+6
+00:00:21,230 --> 00:00:28,580
+this time a case study of the current logging sys- system in Linux is ext3 file system,
+
+7
+00:00:28,580 --> 00:00:30,260
+which is extremely widely used
+
+8
+00:00:30,620 --> 00:00:35,480
+and will try to dip into some of the kind of real-world design problems,
+
+9
+00:00:35,510 --> 00:00:39,870
+that a high performance file system has to deal with,
+
+10
+00:00:39,870 --> 00:00:41,940
+when it adds logging to the file system.
+
+11
+00:00:42,550 --> 00:00:44,740
+I'm just gonna go spend a few minutes,
+
+12
+00:00:44,920 --> 00:00:47,890
+basically reviewing why we're talking about logging,
+
+13
+00:00:48,820 --> 00:00:53,500
+the reason, that we feel logging is pretty important is that,
+
+14
+00:00:53,500 --> 00:00:56,800
+it's been a tremendously successful and important idea,
+
+15
+00:00:57,550 --> 00:01:01,210
+it's almost like logging is kind of a magic way
+
+16
+00:01:01,210 --> 00:01:07,270
+to add crash recovery to any almost any existing storage system.
+
+17
+00:01:07,940 --> 00:01:12,990
+Sort of, in many ways pretty orthogonal to whatever it is, you're actually trying to store
+
+18
+00:01:13,410 --> 00:01:18,660
+and so you see logging applied in a huge number of different storage situations,
+
+19
+00:01:19,200 --> 00:01:21,000
+certainly databases and file systems,
+
+20
+00:01:21,000 --> 00:01:26,190
+but also many very specialized systems that need to store things and recover after crashes,
+
+21
+00:01:26,460 --> 00:01:30,780
+you also see logging used a lot in distributed systems,
+
+22
+00:01:30,780 --> 00:01:34,620
+as a way of organizing the recovery from failure,
+
+23
+00:01:34,860 --> 00:01:37,980
+because among other things logging is a structured way of saying,
+
+24
+00:01:37,980 --> 00:01:40,770
+well here's all the things that happened just before the crash
+
+25
+00:01:40,770 --> 00:01:45,120
+and if we can understand them, then maybe we can recover from the crash more easily.
+
+26
+00:01:46,700 --> 00:01:50,180
+Plus there's a huge amount of interesting stuff to chew on,
+
+27
+00:01:50,210 --> 00:01:56,820
+when you try to build high performance logging systems.
+
+28
+00:01:57,560 --> 00:01:59,060
+And as I mentioned a few minutes ago,
+
+29
+00:01:59,060 --> 00:02:03,590
+just as a point of terminology when we talk about log,
+
+30
+00:02:03,680 --> 00:02:06,770
+it's talking about this exactly the same thing as today's reader,
+
+31
+00:02:06,860 --> 00:02:11,150
+reading was talking about when it said use the word journal, they're just synonyms,
+
+32
+00:02:12,200 --> 00:02:16,700
+and furthermore the today's reading talked about adding a journal to ext2,
+
+33
+00:02:16,970 --> 00:02:20,720
+the modern name for the resulting file system is ext3,
+
+34
+00:02:22,810 --> 00:02:24,820
+which is how I'm going to refer to it.
+
+35
+00:02:25,840 --> 00:02:38,150
+Okay, I want to spend, the way I'm going to talk about ext3 is by contrasting it to some extent with xv6
+
+36
+00:02:38,150 --> 00:02:46,640
+and explaining ways in which ext3 fixes some performance problems, that xv6 logging has
+
+37
+00:02:46,640 --> 00:02:53,720
+and along the way changes a few of the semantic of, what happens during crashes.
+
+38
+00:02:55,380 --> 00:03:02,580
+Alright, so this is xv6 log review, should remember,
+
+39
+00:03:09,500 --> 00:03:16,850
+this disk, the file system disk for xv6, there's you know you can think of it as having two parts,
+
+40
+00:03:16,850 --> 00:03:20,960
+it's got a file system tree on it, with a root directory
+
+41
+00:03:20,960 --> 00:03:23,660
+and under the root directory, maybe there's other directories
+
+42
+00:03:23,660 --> 00:03:28,760
+and in those, this might be directory one and directory two,
+
+43
+00:03:28,760 --> 00:03:33,380
+we can think of this as file system is just a data structure, is a tree structure data structure,
+
+44
+00:03:33,650 --> 00:03:38,000
+may be it has files, sitting in the directories
+
+45
+00:03:38,120 --> 00:03:42,950
+and each file has a block number of a bunch of blocks in it
+
+46
+00:03:43,100 --> 00:03:46,130
+and there's some other data, that's not really tree structure,
+
+47
+00:03:46,130 --> 00:03:53,750
+like, there's the bitmap, in that indicates for every block, whether that block is you know free or allocated.
+
+48
+00:03:54,540 --> 00:04:02,070
+And the inodes and the directory contents and the bitmap blocks are going to refer to as metadata,
+
+49
+00:04:02,760 --> 00:04:07,740
+contrast blocks that hold file content which we'll call file content blocks.
+
+50
+00:04:08,640 --> 00:04:10,920
+Okay, so in addition to the file system,
+
+51
+00:04:11,370 --> 00:04:15,240
+xv6 log near the beginning of the disk
+
+52
+00:04:15,240 --> 00:04:17,640
+and xv6 log is relatively simple,
+
+53
+00:04:17,640 --> 00:04:24,530
+it has this header block, and then some number of blocks,
+
+54
+00:04:24,530 --> 00:04:31,310
+that contain updated versions of blocks from the file system data blocks and metadata blocks.
+
+55
+00:04:33,510 --> 00:04:38,940
+And in this [initial] header block, there's a block numbers,
+
+56
+00:04:39,060 --> 00:04:45,190
+where these blocks in the log ought to be written to,
+
+57
+00:04:45,190 --> 00:04:50,260
+like maybe the first one should go to block 17 and then 29, who knows whatever it maybe
+
+58
+00:04:51,550 --> 00:04:58,300
+and then in the computer, we have some user process, that's maybe calling write, create,
+
+59
+00:04:58,300 --> 00:05:00,430
+some other system call that modifies the file system.
+
+60
+00:05:03,110 --> 00:05:09,530
+And, there's a block cache in the computer and initially the writes just go to the block cache.
+
+61
+00:05:13,470 --> 00:05:16,560
+It's just copies of a block from the disk,
+
+62
+00:05:17,410 --> 00:05:22,600
+so initially write updates file blocks or inodes or whatever,
+
+63
+00:05:22,990 --> 00:05:26,320
+those writes go there, and then at the end of an operation,
+
+64
+00:05:27,490 --> 00:05:30,550
+these blocks are copied to the log and when we've copied all the blocks log,
+
+65
+00:05:30,550 --> 00:05:33,540
+then we write the block numbers to the header block,
+
+66
+00:05:33,540 --> 00:05:37,980
+to indicate that a this transactions [worth of] updates is complete
+
+67
+00:05:39,060 --> 00:05:41,430
+and in the code for the file system, you'll see,
+
+68
+00:05:43,240 --> 00:05:47,470
+that every system call that modifies the file system,
+
+69
+00:05:48,070 --> 00:05:54,610
+somewhere has a begin_op which says about to start a group of updates to the file system,
+
+70
+00:05:54,790 --> 00:05:57,670
+please don't do any of them until I finished,
+
+71
+00:05:57,790 --> 00:06:01,060
+so we have and then there's a bunch of blocked reason writes
+
+72
+00:06:01,060 --> 00:06:09,310
+and then end_op, which tells the file system logging system completely done all the writes I'm gonna do,
+
+73
+00:06:09,550 --> 00:06:15,160
+so between the begin_op and the end_op, the writes only go to the cache
+
+74
+00:06:15,400 --> 00:06:18,970
+and when the system call makes this end_op call,
+
+75
+00:06:19,180 --> 00:06:24,220
+then the file system copies, the modified blocks from the cache into the log.
+
+76
+00:06:24,670 --> 00:06:28,780
+And after it's written all these modified blocks into the log,
+
+77
+00:06:28,810 --> 00:06:36,040
+only then does the file system write the block numbers in a single disk, right, to the header block.
+
+78
+00:06:36,760 --> 00:06:42,880
+And that's called the commit point, this is the point before the file system wrote these blocked numbers to the header block,
+
+79
+00:06:43,120 --> 00:06:50,110
+if the crash had happened, then none of these writes would have been applied, after the crash and reboot.
+
+80
+00:06:50,750 --> 00:06:54,050
+After the file system writes these block numbers of the header block,
+
+81
+00:06:54,470 --> 00:06:56,360
+after that disk [write] is complete,
+
+82
+00:06:56,390 --> 00:07:01,820
+then it's guaranteed that even if there's a crash at this point, the recovery software will look at the log,
+
+83
+00:07:01,850 --> 00:07:04,520
+see that there's block numbers in the header block
+
+84
+00:07:04,580 --> 00:07:11,990
+and write all these blocks that are mentioned in the header block to their home locations in the file system.
+
+85
+00:07:12,960 --> 00:07:17,430
+And so what's going on here is a technique to allow all of the writes,
+
+86
+00:07:17,430 --> 00:07:24,540
+that happen in the system call between the begin_op and the end_up to be atomic with respect to crashes,
+
+87
+00:07:25,160 --> 00:07:27,440
+that is either all of them happen,
+
+88
+00:07:28,380 --> 00:07:31,860
+because the file system got as far as writing the header block before the crash
+
+89
+00:07:32,100 --> 00:07:37,670
+or none of them happened, because the crash happened before the file system wrote the header block.
+
+90
+00:07:39,620 --> 00:07:41,720
+And so it's important that after a crash and restart,
+
+91
+00:07:41,720 --> 00:07:44,330
+there's some recovery software that runs that reads the log,
+
+92
+00:07:44,420 --> 00:07:49,490
+looks at the header block and decides is the header block actually block numbers in it or not,
+
+93
+00:07:49,580 --> 00:07:55,400
+if it does, writes possibly rewrite all these blocks to their home locations,
+
+94
+00:07:55,580 --> 00:07:59,570
+if the header blocks doesn't have any blocked numbers in it, then the recovery software does nothing.
+
+95
+00:08:02,260 --> 00:08:03,790
+Any questions about this quick review.
+
+96
+00:08:10,740 --> 00:08:14,790
+Okay, there's a couple of super important points,
+
+97
+00:08:16,660 --> 00:08:21,820
+to remember about xv6 and indeed most logging systems.
+
+98
+00:08:21,850 --> 00:08:27,280
+One is that xv6 all logging systems, essentially obey what's called the write-ahead rule.
+
+99
+00:08:28,530 --> 00:08:35,510
+That is whenever you have a bunch of writes done by some operation
+
+100
+00:08:35,510 --> 00:08:37,550
+and those writes all need to be atomic,
+
+101
+00:08:39,760 --> 00:08:47,220
+the system has to write all of these updated, all the updated data to the log,
+
+102
+00:08:47,340 --> 00:08:52,590
+before it is allowed to apply any of those updates to the home locations in the file system,
+
+103
+00:08:52,770 --> 00:08:59,400
+that is that we're required to sort of pre declare all the updates that we want to have the atomic,
+
+104
+00:08:59,430 --> 00:09:03,060
+pre declare them in the log, before we can apply any of them to the file system,
+
+105
+00:09:03,270 --> 00:09:04,650
+as called the write-ahead rule.
+
+106
+00:09:05,970 --> 00:09:11,790
+This is really the foundation of how logging allows crash recovery.
+
+107
+00:09:12,360 --> 00:09:18,610
+So the write-head rule allows this collection of updates to appear atomic with respect to crashes,
+
+108
+00:09:18,970 --> 00:09:28,910
+there's another rule I haven't talked about, which is that we can't free or reuse the log,
+
+109
+00:09:28,910 --> 00:09:32,930
+you know we xv6 use the log over and over again ones for every system call,
+
+110
+00:09:32,990 --> 00:09:40,070
+we cannot allow to reuse the log, until all of the writes that are in the log have actually been written to their home locations on the disk.
+
+111
+00:09:40,510 --> 00:09:43,570
+So this is also what I called freeing rule,
+
+112
+00:09:47,690 --> 00:09:58,330
+which says, we can't overwrite or reuse the log until, or the part of log that holds a particular transaction,
+
+113
+00:09:58,570 --> 00:10:00,340
+you know set of writes that need to be atomic,
+
+114
+00:10:00,400 --> 00:10:04,690
+we can't reuse that part of the log until all the writes that are not part of the log,
+
+115
+00:10:04,690 --> 00:10:13,070
+all of them have been reflected into the actual home location in the file system,
+
+116
+00:10:13,280 --> 00:10:18,740
+so the deal in xv6 that, what end_op does actually triggers a whole lot of work first
+
+117
+00:10:18,740 --> 00:10:25,600
+and the file system, you know as I mentioned writes all the blocks, the log writes the header log, writes the header block,
+
+118
+00:10:25,630 --> 00:10:30,700
+and then the file system writes all these blocks their home locations,
+
+119
+00:10:30,700 --> 00:10:33,310
+this is assuming no crash which is the ordinary case,
+
+120
+00:10:33,670 --> 00:10:39,400
+so then the file system, write the second time you know all these blocks to the home locations on the disk,
+
+121
+00:10:39,400 --> 00:10:42,700
+and then after all the home locations have been updated,
+
+122
+00:10:42,760 --> 00:10:50,230
+only then does the file system go xv6 file system, erase these blocked numbers from the header block,
+
+123
+00:10:50,230 --> 00:10:54,670
+to indicate that we're done with this transaction and we can reuse the log
+
+124
+00:10:54,880 --> 00:10:59,710
+and it's critical to erase the block numbers, before writing anything new to the log,
+
+125
+00:10:59,710 --> 00:11:01,240
+because we wouldn't want to be in a position,
+
+126
+00:11:01,240 --> 00:11:08,710
+where there were some block numbers from a previous transaction in the header, but blocks from a new transaction,
+
+127
+00:11:09,260 --> 00:11:11,840
+presumably different block numbers sitting in the log,
+
+128
+00:11:12,170 --> 00:11:20,120
+because then a crash would might apply these contents to the stale block numbers left over in the header block,
+
+129
+00:11:20,150 --> 00:11:21,740
+so if you erase the header block first,
+
+130
+00:11:21,920 --> 00:11:27,680
+so this is freeing rule that says before we're allowed to erase a transaction from the log,
+
+131
+00:11:27,710 --> 00:11:29,660
+we have to write all these blocks to the file system.
+
+132
+00:11:31,920 --> 00:11:36,790
+Okay, so the net effect of this is to make file system updates,
+
+133
+00:11:36,790 --> 00:11:39,550
+which can be complicated and require many writes
+
+134
+00:11:39,580 --> 00:11:42,580
+and the net effect is to make each system call essentially be atomic,
+
+135
+00:11:43,060 --> 00:11:45,610
+all its writes are none of them with respect to crashes.
+
+136
+00:11:47,680 --> 00:11:54,230
+Okay, so, so the sort of bridge to Linux is
+
+137
+00:11:54,230 --> 00:11:58,220
+logging scheme, is the question of what's wrong with xv6 logging,
+
+138
+00:11:58,220 --> 00:12:02,090
+why doesn't Linux just use exactly the same scheme, the xv6 does.
+
+139
+00:12:02,720 --> 00:12:06,710
+And the answer is basically that it's slow, the xv6 scheme is quite slow,
+
+140
+00:12:08,240 --> 00:12:12,830
+every system call, before a system call like write or create can return in xv6,
+
+141
+00:12:12,920 --> 00:12:16,850
+all of this stuff I just talked about has to complete,
+
+142
+00:12:16,910 --> 00:12:22,340
+so before your file creation system call can return to user space,
+
+143
+00:12:22,990 --> 00:12:25,810
+the has to finish all the stuff that end_op does,
+
+144
+00:12:25,810 --> 00:12:28,780
+which means write every block to the log, write the header block,
+
+145
+00:12:28,840 --> 00:12:31,090
+write all those blocks to the locations here,
+
+146
+00:12:31,090 --> 00:12:32,200
+and erase the header block,
+
+147
+00:12:32,200 --> 00:12:33,370
+and then you can return.
+
+148
+00:12:33,400 --> 00:12:38,330
+And during that time, not only does each system call take a long time,
+
+149
+00:12:38,330 --> 00:12:41,210
+but nothing else could happen in the file system,
+
+150
+00:12:41,240 --> 00:12:47,300
+while any system call is committing and then writing its blocks to their home location,
+
+151
+00:12:47,300 --> 00:12:49,820
+so the system calls really occur one at a time
+
+152
+00:12:49,940 --> 00:12:53,600
+and each system call requires many disk writes.
+
+153
+00:12:54,500 --> 00:13:02,360
+And the technical term for every system call has to wait for all of its disk writes to complete is called synchronous.
+
+154
+00:13:02,840 --> 00:13:10,940
+Um, this, probably spelled differently from that.
+
+155
+00:13:11,210 --> 00:13:14,180
+Anyway xv6 system call are synchronous with respect to describe,
+
+156
+00:13:14,180 --> 00:13:19,220
+so they're very very slow, and they were horribly, so with mechanical hard drives,
+
+157
+00:13:19,220 --> 00:13:23,090
+because each write you know basically take ten milliseconds,
+
+158
+00:13:23,270 --> 00:13:24,980
+we're talking about many writes for system calls,
+
+159
+00:13:24,980 --> 00:13:30,680
+so xv6 could only do a few file system modifying system calls for a second.
+
+160
+00:13:31,240 --> 00:13:35,260
+And I wonder if we ran xv6 solid state drive to be faster,
+
+161
+00:13:35,260 --> 00:13:38,050
+but still not nearly as efficient as it could be.
+
+162
+00:13:39,260 --> 00:13:44,990
+Another more detail thing to notice about this is that every block is written twice in the xv6 scheme,
+
+163
+00:13:45,710 --> 00:13:49,310
+it's written once to the log and then at second time to the disk.
+
+164
+00:13:49,790 --> 00:13:53,020
+And so this is also something that, there's good reasons for that,
+
+165
+00:13:53,020 --> 00:13:57,640
+but it's something that ext3 partially fixes.
+
+166
+00:13:59,730 --> 00:14:05,820
+Okay, so on the Linux is, under the today's reading and it's sort of,
+
+167
+00:14:06,420 --> 00:14:12,050
+I'm going to talk about the this ext3 file system,
+
+168
+00:14:12,050 --> 00:14:18,110
+which is what the today's reading had turned into a few years later after a bit more development,
+
+169
+00:14:19,020 --> 00:14:21,000
+and was widely used.
+
+170
+00:14:22,520 --> 00:14:34,640
+Okay, so ext3, it's actually a modification previous log lists file system,
+
+171
+00:14:34,640 --> 00:14:39,640
+so they really did play this game of taking existing storage system
+
+172
+00:14:39,640 --> 00:14:41,500
+and sort of layering logging on top of,
+
+173
+00:14:41,500 --> 00:14:50,800
+it in a way that left the underlying ext2 file system, almost unmodified although not quite,
+
+174
+00:14:50,950 --> 00:14:54,970
+so in a sense, the logging was a very kind of easy,
+
+175
+00:14:55,240 --> 00:14:57,700
+you know this principle, easy upgrade for them,
+
+176
+00:14:58,490 --> 00:15:10,240
+ex3 keeps data structures that are similar to xv6's,
+
+177
+00:15:10,240 --> 00:15:15,790
+in memory, there's a block cache, a write back cache,
+
+178
+00:15:19,450 --> 00:15:21,100
+there's a bunch of cache blocks,
+
+179
+00:15:21,920 --> 00:15:26,000
+some of them are clean in the sense that they have been modified, since you know identical to what's on the disk,
+
+180
+00:15:26,000 --> 00:15:30,320
+some of them dirty, the sense that they've been written to, since they were read from the disk
+
+181
+00:15:30,560 --> 00:15:34,520
+and some of them were pinned and that they're not allowed to be written back to disk,
+
+182
+00:15:34,670 --> 00:15:40,520
+because of the write back rule, I mean because of the freeing rule, the write-ahead rule,
+
+183
+00:15:41,130 --> 00:15:46,800
+ext2 also [cause] maintain some transaction information,
+
+184
+00:15:49,840 --> 00:15:58,420
+you can maintain information actually about multiple transactions that are concurrently in different stages of execution,
+
+185
+00:15:58,570 --> 00:16:04,420
+so, there might be a number of different transactions that the ext3 system is,
+
+186
+00:16:04,810 --> 00:16:08,860
+keeping track of each one, each transaction has a sequence number,
+
+187
+00:16:12,460 --> 00:16:21,880
+a set of block numbers that the transaction system is logging system is remembering are blocks modified by that transaction,
+
+188
+00:16:22,210 --> 00:16:26,600
+so these are set of block numbers.
+
+189
+00:16:27,400 --> 00:16:29,800
+And this really refers to cache blocks,
+
+190
+00:16:29,800 --> 00:16:33,280
+because any modifications at least initially you know happen only in the cache.
+
+191
+00:16:33,820 --> 00:16:36,280
+And then a set of what are called handles,
+
+192
+00:16:39,970 --> 00:16:44,380
+which are information about system calls that are still concurrently executing
+
+193
+00:16:44,470 --> 00:16:49,480
+and as part of this transaction and reading and writing cache blocks.
+
+194
+00:16:51,000 --> 00:17:00,140
+And on the disk, on the disk, just like xv6 there's the usual file system tree,
+
+195
+00:17:00,720 --> 00:17:03,810
+inode directory blocks and files and whatnot,
+
+196
+00:17:04,050 --> 00:17:13,050
+and there's bitmap blocks indicating, you know whether each block, is data block is allocated or free
+
+197
+00:17:13,530 --> 00:17:17,190
+and so these are what I'll be calling the home locations of file system blocks
+
+198
+00:17:17,580 --> 00:17:23,270
+and then on a sort of designated part of the disk, there's the lock.
+
+199
+00:17:25,510 --> 00:17:27,760
+And so, so far this is pretty similar to xv6,
+
+200
+00:17:27,790 --> 00:17:39,060
+the main difference is the ext3's ability to keep track of multiple transactions at the same time in different stages of their execution.
+
+201
+00:17:42,290 --> 00:17:47,960
+Now I want to look more closely at what's inside the log in ext3,
+
+202
+00:17:47,960 --> 00:17:51,770
+is a bit different from what's in the xv6 log.
+
+203
+00:17:58,730 --> 00:18:00,260
+There's a log format,
+
+204
+00:18:04,010 --> 00:18:08,000
+at the beginning of the log, there's something called the super block,
+
+205
+00:18:11,080 --> 00:18:17,010
+and the super block, this is the log super block different from the file system super block.
+
+206
+00:18:18,290 --> 00:18:27,020
+The log super block contains the offset and sequence number of the first valid transaction in the log,
+
+207
+00:18:27,050 --> 00:18:31,780
+so it's gonna have an offset, just a byte number, block number in the log
+
+208
+00:18:31,780 --> 00:18:37,060
+and then this lo- sequence number, remember I said that every transaction has its own sequence number,
+
+209
+00:18:37,240 --> 00:18:43,570
+and then the rest of the log, the log is just a bunch of sequential blocks on disks of a known size.
+
+210
+00:18:46,150 --> 00:18:52,420
+Every transaction, the rest of the log consists of transactions, each transaction consists of a descriptor block,
+
+211
+00:18:55,510 --> 00:19:04,180
+which contains block numbers just as in the, much like the header block in the xv6
+
+212
+00:19:04,180 --> 00:19:13,370
+and then the set of, for each of these block numbers, the actual updated content block, corresponding that block number
+
+213
+00:19:13,370 --> 00:19:17,180
+and then finally for transaction that's actually finished and committed,
+
+214
+00:19:17,600 --> 00:19:25,410
+they'll be a commit block, this is a separate block in the log,
+
+215
+00:19:26,380 --> 00:19:30,430
+and because there can be more than one transaction log
+
+216
+00:19:30,430 --> 00:19:36,310
+that commit block may be followed by the next transaction's descriptor block
+
+217
+00:19:36,580 --> 00:19:38,110
+and then some data blocks
+
+218
+00:19:38,110 --> 00:19:43,150
+and then maybe the next transmission, transmission's commit block.
+
+219
+00:19:44,610 --> 00:19:49,770
+So we have multiple, log file can be quite long and contain many transactions in it.
+
+220
+00:19:52,600 --> 00:19:56,980
+So this we can think of this offset and sequence numbers basically between them,
+
+221
+00:19:57,100 --> 00:20:06,750
+pointing to at the very, the first the beginning of the earliest lowest numbered valid transaction log.
+
+222
+00:20:10,950 --> 00:20:15,180
+A little detail here that will become important a little while,
+
+223
+00:20:15,180 --> 00:20:19,230
+is that these the descriptor blocks and the commit blocks,
+
+224
+00:20:20,760 --> 00:20:24,510
+in order to be able to help distinguish them from data, from data blocks,
+
+225
+00:20:24,600 --> 00:20:27,570
+if when they're scanning log after a crash and recovery,
+
+226
+00:20:27,660 --> 00:20:34,810
+the description of the commit blocks start with a magic number, which is just some 32 bit number,
+
+227
+00:20:34,810 --> 00:20:40,230
+that is unlikely to occur in data,
+
+228
+00:20:41,350 --> 00:20:48,320
+and that helps the log software distinguish descriptor and commit blocks from data blocks.
+
+229
+00:20:52,460 --> 00:20:55,670
+Okay, with this in mind, with this structure in mind,
+
+230
+00:20:55,670 --> 00:21:00,950
+I'm going to talk about the high-level the ways, that ext3 gets good performance.
+
+231
+00:21:00,950 --> 00:21:02,660
+And there's really three main.
+
+232
+00:21:02,780 --> 00:21:04,940
+But, a question,
+
+233
+00:21:05,090 --> 00:21:10,370
+is it possible for at least this system to have a descriptor block before they commit block,
+
+234
+00:21:10,370 --> 00:21:12,800
+let's say two transactions going on at the same time.
+
+235
+00:21:13,930 --> 00:21:18,120
+There can be multiple transactions in the log.
+
+236
+00:21:19,160 --> 00:21:22,730
+That's a transaction to finish before the next one can start.
+
+237
+00:21:23,210 --> 00:21:25,490
+Yeah we're talking a moment about that,
+
+238
+00:21:25,490 --> 00:21:33,760
+but it is the case, yes, that there's there's only one open transaction at a time,
+
+239
+00:21:34,150 --> 00:21:38,160
+and this is really not quite the right picture for that,
+
+240
+00:21:38,160 --> 00:21:46,470
+because the current open transaction, the current open transaction is the transaction into which system calls are performing their writes
+
+241
+00:21:47,310 --> 00:21:50,550
+and so the current open transaction really only exists in memory,
+
+242
+00:21:51,670 --> 00:21:54,760
+and because current system calls are sort of updating,
+
+243
+00:21:54,820 --> 00:21:59,110
+their just updating block the cached block file system blocks in memory,
+
+244
+00:21:59,470 --> 00:22:06,770
+when the ext3 system decides to finished the current open transaction,
+
+245
+00:22:07,370 --> 00:22:10,400
+you know after it decides to finish it, it'll do two things,
+
+246
+00:22:10,400 --> 00:22:13,790
+one is it will start a new open transaction which will be the next transaction
+
+247
+00:22:13,880 --> 00:22:23,030
+and it will then write the the just finished transaction, start writing with just finished transactions to disk, may actually take quite a while,
+
+248
+00:22:24,080 --> 00:22:31,610
+so, so you know the full story is that there's a bunch of older transactions on this,
+
+249
+00:22:31,610 --> 00:22:37,430
+that all of which are closed plus one open transaction really only exists in memory.
+
+250
+00:22:38,690 --> 00:22:46,450
+And at least initially, these transactions that are on disk, may only exist in the form of the log records
+
+251
+00:22:46,480 --> 00:22:49,540
+and haven't initially at least been written to their home locations
+
+252
+00:22:49,540 --> 00:22:54,610
+and then after a while in the background, the starting with the oldest transaction,
+
+253
+00:22:54,820 --> 00:23:02,080
+the logging system will you know write these, update blocks in the log to their home locations
+
+254
+00:23:02,080 --> 00:23:05,500
+and then once that's been done for each complete transaction,
+
+255
+00:23:05,560 --> 00:23:10,760
+then the logging system can free and reuse this space in the log
+
+256
+00:23:11,120 --> 00:23:12,770
+and so this is really a circular log,
+
+257
+00:23:12,770 --> 00:23:20,660
+when you get to the end of the log, the logging system start using the blocks at the beginning
+
+258
+00:23:20,720 --> 00:23:27,080
+and you have to free them, free these blocks by writing them to their home locations before it can be used.
+
+259
+00:23:29,590 --> 00:23:30,160
+Okay.
+
+260
+00:23:31,110 --> 00:23:35,790
+Okay, so there's three ways that the system gets ext3 gets good performance,
+
+261
+00:23:36,210 --> 00:23:44,580
+one is that it has asynchronous system calls, that is system calls return before they've written the disk,
+
+262
+00:23:44,610 --> 00:23:49,020
+the system call just updates cache blocks in memory, and then returns,
+
+263
+00:23:49,020 --> 00:23:52,140
+never never has to write the disk, never has to wait for disk writes,
+
+264
+00:23:52,680 --> 00:23:54,330
+although may wait for disk reads.
+
+265
+00:23:55,470 --> 00:23:58,860
+The next big idea for performance is batching,
+
+266
+00:24:01,690 --> 00:24:05,560
+we can batch many system calls into a single transaction.
+
+267
+00:24:06,010 --> 00:24:08,980
+And the final big idea for performance is concurrency.
+
+268
+00:24:12,480 --> 00:24:18,900
+And these are all the things, these are basically the things that ext3 does, that xv6 doesn't do.
+
+269
+00:24:20,270 --> 00:24:24,560
+Okay, so I'm gonna talk about each one of these three performance techniques.
+
+270
+00:24:28,170 --> 00:24:31,530
+Oh, sorry I wanted to ask about batching,
+
+271
+00:24:32,640 --> 00:24:42,720
+xv6 allow for there to be multiple system calls that do start_op end_op, like at kind of the same time,
+
+272
+00:24:42,780 --> 00:24:46,110
+so then they will commit together.
+
+273
+00:24:46,230 --> 00:24:49,050
+Yeah, that's true, xv6 is a limited amount of batching.
+
+274
+00:24:50,370 --> 00:24:52,110
+Right, thank you.
+
+275
+00:24:56,340 --> 00:25:03,920
+OK, so first asynchronous system calls,
+
+276
+00:25:08,520 --> 00:25:13,020
+this just means the system calls return, but they were modified blocks in the cache then return,
+
+277
+00:25:13,590 --> 00:25:17,020
+don't particularly, don't trigger disk writes.
+
+278
+00:25:18,280 --> 00:25:21,940
+So this has the obvious advantage of the system calls return quickly,
+
+279
+00:25:22,800 --> 00:25:30,840
+it also allows for IO concurrency, that is, the application can make some file system system calls,
+
+280
+00:25:30,840 --> 00:25:35,010
+that imply that the file system to do a bunch of disk operations disk writes,
+
+281
+00:25:35,610 --> 00:25:45,650
+but the application can then return to computing at in parallel with the file system doing whatever the writes are that are required by those system calls,
+
+282
+00:25:46,670 --> 00:25:48,500
+so this called IO concurrency.
+
+283
+00:25:49,600 --> 00:25:54,190
+And without asynchronous system calls, it's hard to get IO concurrency,
+
+284
+00:25:55,520 --> 00:26:00,590
+hard to get overlap between disk operations and application computing,
+
+285
+00:26:00,590 --> 00:26:04,130
+if the applications always have to wait for the disk writes to complete.
+
+286
+00:26:05,070 --> 00:26:13,950
+The other thing that's nice about asynchronous system calls, is that they allow, they make it easier to do large amounts of batching,
+
+287
+00:26:14,250 --> 00:26:15,900
+so there's help batching.
+
+288
+00:26:19,080 --> 00:26:23,550
+The downside of asynchronous system calls is that,
+
+289
+00:26:24,060 --> 00:26:30,010
+it means that just because the system calls return doesn't mean
+
+290
+00:26:30,010 --> 00:26:36,820
+that the work that you, the system call ought to have done, has actually been completed,
+
+291
+00:26:36,880 --> 00:26:41,380
+so for example if you write a program that creates a file and write some data,
+
+292
+00:26:41,380 --> 00:26:46,030
+and then closes the file, and then prints done on the console to the user,
+
+293
+00:26:46,470 --> 00:26:51,820
+and then you pull out the power plug on your computer, have to restart the computer,
+
+294
+00:26:51,820 --> 00:26:55,120
+your data may not be there even though all the system calls returned
+
+295
+00:26:55,120 --> 00:26:59,620
+and even though the programs are just said look you know I called those system calls they returned.
+
+296
+00:27:00,140 --> 00:27:05,810
+And this means that in a world with asynchronous system calls,
+
+297
+00:27:05,870 --> 00:27:08,330
+applications have to be written more carefully,
+
+298
+00:27:08,330 --> 00:27:13,310
+if they if they care about their behavior with respect to crashes,
+
+299
+00:27:13,340 --> 00:27:19,130
+this is actually kind of a big deal in, in xv6,
+
+300
+00:27:19,130 --> 00:27:25,020
+if a write returned, the data was on the disk and would be there after a crash,
+
+301
+00:27:25,020 --> 00:27:28,470
+in ext3, if a write returns, this,
+
+302
+00:27:28,530 --> 00:27:31,860
+you don't know anything about what will happen after a crash, may or may not be there.
+
+303
+00:27:32,440 --> 00:27:37,750
+So it is possible despite asynchronous system calls to write careful programs,
+
+304
+00:27:37,750 --> 00:27:39,700
+like databases need to be careful,
+
+305
+00:27:39,910 --> 00:27:41,740
+text editors need to be careful,
+
+306
+00:27:41,770 --> 00:27:47,710
+if I write out a file, you know I do not want, if there's a power failure while I'm writing out a file in my text editor,
+
+307
+00:27:47,740 --> 00:27:51,820
+that I don't want after be starting to see garbage or a partial file
+
+308
+00:27:51,850 --> 00:27:54,400
+and I want to see either the old file or the new file.
+
+309
+00:27:54,920 --> 00:27:59,720
+And so the file system also provides some techniques for careful applications,
+
+310
+00:27:59,750 --> 00:28:05,170
+to get predictable behavior despite crashes,
+
+311
+00:28:05,170 --> 00:28:10,990
+and the main tool for that is called system called, called fsync,
+
+312
+00:28:10,990 --> 00:28:14,230
+which you know all unix systems have,
+
+313
+00:28:14,230 --> 00:28:18,670
+and what this basically says is that you pass it a file descriptor,
+
+314
+00:28:19,240 --> 00:28:22,810
+and it tells the file system look actually do all of the writes,
+
+315
+00:28:22,900 --> 00:28:25,420
+I may have called write a bunch of things and call fsync,
+
+316
+00:28:25,450 --> 00:28:27,640
+I now want you to actually do the writes
+
+317
+00:28:27,670 --> 00:28:31,480
+and don't return from this system call until the writes are on disk
+
+318
+00:28:31,480 --> 00:28:35,410
+and are guaranteed to be still there, if there's a crash.
+
+319
+00:28:35,530 --> 00:28:39,550
+So if you look at the source code for databases or text editors,
+
+320
+00:28:39,550 --> 00:28:42,190
+a number of other programs that really care about their data,
+
+321
+00:28:42,310 --> 00:28:45,430
+you'll see sort of carefully placed calls to fsync,
+
+322
+00:28:45,810 --> 00:28:49,960
+in order to sort of overcome this,
+
+323
+00:28:50,620 --> 00:28:52,960
+to fight back against these asynchronous system calls,
+
+324
+00:28:52,990 --> 00:29:00,130
+most programs are like your compiler, it's no big deal if a the output of the compiler goes away, if there's a crash,
+
+325
+00:29:00,130 --> 00:29:06,550
+there for many many programs, you don't call fsync are very happy to get the good performance of asynchronous system calls
+
+326
+00:29:06,970 --> 00:29:08,980
+and are not worried about their crash behavior.
+
+327
+00:29:12,530 --> 00:29:13,280
+Okay, so.
+
+328
+00:29:13,400 --> 00:29:16,910
+This is this also called like flush sometimes,
+
+329
+00:29:16,910 --> 00:29:20,390
+because I think that that words, I've heard that word before.
+
+330
+00:29:20,450 --> 00:29:24,050
+Yeah you could, a reasonable way to explain what fsync does
+
+331
+00:29:24,050 --> 00:29:28,280
+is that it flushes all previous writes to this file to the disk
+
+332
+00:29:28,370 --> 00:29:33,320
+and only returns, that flushes a reasonable world for this, flushing writes to disk.
+
+333
+00:29:37,090 --> 00:29:38,710
+Okay, so that's the asynchronous system calls.
+
+334
+00:29:38,710 --> 00:29:43,690
+The next technique, the ext3 uses is batching.
+
+335
+00:29:46,560 --> 00:29:52,590
+And, the game here is that, there's at any one time,
+
+336
+00:29:52,590 --> 00:30:00,560
+there's always one open transaction in the ex3 ext3,
+
+337
+00:30:01,480 --> 00:30:08,650
+a transaction in ext3 can actually hold the writes of many different many distinct system calls,
+
+338
+00:30:08,890 --> 00:30:13,360
+so the what ext3 does is going to start a new transaction now
+
+339
+00:30:13,360 --> 00:30:18,040
+and then for the next couple of seconds all system calls that execute are,
+
+340
+00:30:18,130 --> 00:30:21,970
+their writes are part of that one big transaction,
+
+341
+00:30:22,210 --> 00:30:27,010
+I think by default, ext3 only creates a new transaction every five seconds,
+
+342
+00:30:27,040 --> 00:30:32,740
+so each transaction may have up to five seconds worth of system calls it, all has a huge batch,
+
+343
+00:30:32,740 --> 00:30:34,660
+and then at the end of the five seconds,
+
+344
+00:30:36,480 --> 00:30:41,610
+ext3 will commit this single big transaction that may have hundreds of updated blocks in it,
+
+345
+00:30:43,020 --> 00:30:46,020
+commit this transaction to this, [] as a single transaction.
+
+346
+00:30:46,440 --> 00:30:48,060
+And so the reason why this is a win,
+
+347
+00:30:48,930 --> 00:30:52,320
+first of all, it spreads some fixed transaction costs,
+
+348
+00:30:52,350 --> 00:30:55,950
+amortizes some fixed transaction costs across many system calls,
+
+349
+00:30:55,950 --> 00:30:59,700
+so for example you have to write the descriptor block and the commit block
+
+350
+00:31:00,030 --> 00:31:02,760
+and then you have to seek on a mechanical drive,
+
+351
+00:31:02,760 --> 00:31:06,300
+at least you have to seek and let the drive rotate to the place where the log is,
+
+352
+00:31:06,300 --> 00:31:12,210
+and those are significant costs and they only have to be done once for batch, instead of once per system call.
+
+353
+00:31:12,540 --> 00:31:17,100
+So it lowers the impact of those those costs.
+
+354
+00:31:17,580 --> 00:31:22,800
+The other big deal is that, another big deal is that it allows write absorption,
+
+355
+00:31:23,850 --> 00:31:33,110
+that is, it's often the case that you have a whole sequence of system calls,
+
+356
+00:31:33,110 --> 00:31:36,590
+that end up modifying the very same blocks over and over again,
+
+357
+00:31:36,740 --> 00:31:39,890
+so for example if I create a whole bunch of files,
+
+358
+00:31:40,070 --> 00:31:42,350
+I need to allocate a bunch of inodes
+
+359
+00:31:42,350 --> 00:31:46,040
+and that means all inodes are small, maybe 64 bytes,
+
+360
+00:31:46,040 --> 00:31:47,840
+so many, many inodes fit in a block,
+
+361
+00:31:48,050 --> 00:31:54,320
+so creating a bunch of files in a row is gonna dirty many inodes in a few blocks,
+
+362
+00:31:54,600 --> 00:31:57,090
+because there's many inodes for block,
+
+363
+00:31:57,120 --> 00:32:01,680
+similarly if I'm writing a bunch of data to a file,
+
+364
+00:32:01,680 --> 00:32:03,630
+I may need to allocate a lot of data blocks,
+
+365
+00:32:03,660 --> 00:32:08,910
+I may [h] flip many of the bits in the block free map
+
+366
+00:32:09,630 --> 00:32:11,790
+and if I allocate blocks that are next to each other,
+
+367
+00:32:11,910 --> 00:32:14,160
+their bits are going to be in the same block.
+
+368
+00:32:14,520 --> 00:32:17,340
+And so I may put many bits in just one block,
+
+369
+00:32:17,430 --> 00:32:23,250
+so many system calls again may operating the same blocks over and over again,
+
+370
+00:32:23,250 --> 00:32:31,790
+and in the system with batching, those many many writes the same blocks, just happen very quickly to the cached,
+
+371
+00:32:31,940 --> 00:32:35,390
+just the cache copies of blocks because we're not writing the disk
+
+372
+00:32:35,600 --> 00:32:42,460
+and then we write the those small number of blocks to the disk only once at the end of the transaction
+
+373
+00:32:42,610 --> 00:32:47,110
+and the single block write into the, on the writing of the log,
+
+374
+00:32:47,170 --> 00:32:51,610
+reflects many many system calls worth of modifications to the same block,
+
+375
+00:32:51,640 --> 00:32:58,240
+so this write absorption can be reduce the amount of the total number times,
+
+376
+00:32:58,240 --> 00:33:04,020
+we have to write the block dramatically compared to a synchronous system, like xv6.
+
+377
+00:33:05,870 --> 00:33:10,790
+And the final big win is dis scheduling,
+
+378
+00:33:12,530 --> 00:33:17,810
+in general, even if we are,
+
+379
+00:33:18,590 --> 00:33:21,800
+suppose we have to write a thousand blocks to the disk,
+
+380
+00:33:22,340 --> 00:33:25,520
+it turns out to be much more efficient, certainly in mechanical drives,
+
+381
+00:33:25,520 --> 00:33:32,090
+but even in solid state drives, to write a thousand blocks all at once in sequential locations,
+
+382
+00:33:32,150 --> 00:33:33,380
+as you would do to a log,
+
+383
+00:33:33,800 --> 00:33:39,980
+as much faster to do that than to write a thousand blocks, one at a time to different locations
+
+384
+00:33:40,370 --> 00:33:46,490
+or even a thousand blocks, you know even write the same block a thousand times in a log.
+
+385
+00:33:47,860 --> 00:33:51,910
+So by handing up the disk, large batches of writes to do,
+
+386
+00:33:52,240 --> 00:33:54,490
+this can be much more efficient,
+
+387
+00:33:55,660 --> 00:34:01,030
+there's also not only do we get an efficiency from writing a large number of blocks sequentially in the log,
+
+388
+00:34:01,180 --> 00:34:07,540
+but even when we go to write the home locations for this for a batch of writes,
+
+389
+00:34:07,540 --> 00:34:11,200
+resulting from a batch of operations in a single big transaction,
+
+390
+00:34:11,530 --> 00:34:16,090
+even then if we can hand a very large number of writes to that drive,
+
+391
+00:34:16,090 --> 00:34:22,020
+even if there are different locations, because there to the home locations, you know referred to by many different system calls,
+
+392
+00:34:22,290 --> 00:34:28,020
+if we allow the disk to schedule a large number of distinct writes,
+
+393
+00:34:28,050 --> 00:34:29,760
+it can pick an order to do them in,
+
+394
+00:34:29,760 --> 00:34:33,240
+that's particularly efficient on a mechanical drive, this would done.
+
+395
+00:34:34,350 --> 00:34:39,750
+Involve sorting them and sorting them by track number on the drive
+
+396
+00:34:39,750 --> 00:34:43,740
+and doing you know just a little seek from one to the next,
+
+397
+00:34:43,800 --> 00:34:48,080
+and they can do this sort, if you get all of the blocks at the same time
+
+398
+00:34:48,500 --> 00:34:55,430
+and but even on a solid state drive, it turns out there's a smaller winds to be gotten from keeping the disk lots of work to do.
+
+399
+00:34:56,150 --> 00:34:59,990
+Anyway, so this you can only really get this kind of disk scheduling,
+
+400
+00:35:00,500 --> 00:35:03,590
+if you have very large batches of write to give to drive,
+
+401
+00:35:03,650 --> 00:35:05,270
+so there's another win from batch.
+
+402
+00:35:09,180 --> 00:35:10,590
+Alright,,
+
+403
+00:35:11,410 --> 00:35:17,770
+and, a final big win from the ext3 gets concurrency,
+
+404
+00:35:18,190 --> 00:35:29,310
+it's really get two kinds of concurrency that it benefits from compared to xv6.
+
+405
+00:35:34,340 --> 00:35:38,660
+One is that it can allow many system calls to execute at the same time,
+
+406
+00:35:38,660 --> 00:35:43,520
+so we can have many individual system calls in parallel.
+
+407
+00:35:45,520 --> 00:35:56,670
+Because at least, until, ext3 decides to close out and commit the current transaction,
+
+408
+00:35:58,110 --> 00:35:59,670
+the system call don't have to wait for each other,
+
+409
+00:35:59,670 --> 00:36:02,190
+they can all modify blocks that are part of the current transaction
+
+410
+00:36:02,190 --> 00:36:09,370
+and all these many many system calls can execute in parallel and contribute blocks to the current transaction,
+
+411
+00:36:09,610 --> 00:36:11,980
+that's particularly important on a multi-core machine,
+
+412
+00:36:12,040 --> 00:36:14,980
+where we don't want to have the different cores, we're waiting for a lock,
+
+413
+00:36:15,850 --> 00:36:20,920
+in xv6 we often, it's often the case that you're not allowed, system call can't proceed,
+
+414
+00:36:20,920 --> 00:36:26,010
+because the current transaction is busy doing something else.
+
+415
+00:36:26,690 --> 00:36:32,840
+Most of the time in ext3, many system calls can modify the current transaction.
+
+416
+00:36:33,860 --> 00:36:37,520
+The other way that ext3 gets concurrency is that
+
+417
+00:36:37,730 --> 00:36:43,640
+there can be multiple transactions, older transactions in different stages of execution.
+
+418
+00:36:46,670 --> 00:36:51,620
+So it's true, system calls only the one open transaction can receive system calls,
+
+419
+00:36:51,620 --> 00:36:54,800
+but the other transactions that are writing things to disk can go on in parallel,
+
+420
+00:36:55,040 --> 00:37:06,500
+so many older transactions and the different sort of stages in a transaction's life, that can go on in parallel.
+
+421
+00:37:07,820 --> 00:37:09,860
+First there's the one open transaction,
+
+422
+00:37:12,220 --> 00:37:15,790
+there can be some number of transactions that are recent
+
+423
+00:37:15,940 --> 00:37:18,640
+and the file system is committing them,
+
+424
+00:37:18,640 --> 00:37:21,400
+but they're still writing their blocks to the disk,
+
+425
+00:37:21,430 --> 00:37:26,460
+so we have some number of transactions are currently committing to the log.
+
+426
+00:37:30,280 --> 00:37:32,020
+And we don't have to wait for these to finish,
+
+427
+00:37:32,080 --> 00:37:36,250
+that is we can continue with system calls in the new open transaction,
+
+428
+00:37:36,250 --> 00:37:42,250
+while the previous transactions still writing to the log hasn't actually finished, committing yet.
+
+429
+00:37:42,730 --> 00:37:48,010
+Of course this stage ends when the transaction writes its commit block to the disk, the log.
+
+430
+00:37:49,790 --> 00:37:55,340
+There can be a transactions, that are even older transactions that are writing,
+
+431
+00:37:56,250 --> 00:38:03,090
+they're blocks from the cache to the home locations, the modified blocks
+
+432
+00:38:03,150 --> 00:38:07,470
+and finally this doesn't take much work,
+
+433
+00:38:07,470 --> 00:38:12,030
+but there can be the oldest transactions are being freed.
+
+434
+00:38:13,960 --> 00:38:15,700
+This doesn't really take work itself,
+
+435
+00:38:15,700 --> 00:38:21,760
+the work is, it's really writing a transactions to their home, the blocks of their home locations,
+
+436
+00:38:21,790 --> 00:38:27,430
+but anyway there's typically multiple transactions existence in these different stages
+
+437
+00:38:28,450 --> 00:38:34,240
+and so in particular, new system calls can execute without waiting for older transactions
+
+438
+00:38:34,240 --> 00:38:39,610
+to either finish committing to the log or finish writing their blocks, their home locations,
+
+439
+00:38:40,180 --> 00:38:45,490
+in contrast to xv6 where new system calls had to wait for this to complete for all,
+
+440
+00:38:46,710 --> 00:38:48,330
+for the one previous transaction.
+
+441
+00:38:49,100 --> 00:38:50,000
+I have a quick question,
+
+442
+00:38:50,540 --> 00:38:56,120
+so how does it work, when there's an operation or when something is writing to a cache block
+
+443
+00:38:56,150 --> 00:38:58,700
+and the block is also being written to the disk.
+
+444
+00:38:59,260 --> 00:39:03,610
+OK, so there's a so that is indeed a problem,
+
+445
+00:39:03,640 --> 00:39:12,550
+and the, there's a potential difficulty here,
+
+446
+00:39:12,550 --> 00:39:17,860
+because a transaction you know, stuff that a transaction writes to the log
+
+447
+00:39:17,860 --> 00:39:23,170
+should only include updates made by a system calls that were in that transaction,
+
+448
+00:39:23,410 --> 00:39:29,440
+shouldn't include any any block updates made by system calls that came after that transaction,
+
+449
+00:39:29,680 --> 00:39:42,580
+because if you did, you risk sort of committing, but having the log updates that only represent partial system calls,
+
+450
+00:39:42,790 --> 00:39:50,250
+as we want to make sure that a transaction only contains all of any given system calls updates,
+
+451
+00:39:50,400 --> 00:39:59,310
+so we can't afford to have a transaction include updates made by anything that happened after the transaction started to close
+
+452
+00:39:59,880 --> 00:40:01,710
+and the way you see three deals with that,
+
+453
+00:40:02,350 --> 00:40:08,530
+is that at least notional ie, it makes a copy when it decides to wrap up the current open transaction,
+
+454
+00:40:08,830 --> 00:40:15,130
+it makes a copy of all the blocks for that transaction as of the time it closed out this transaction.
+
+455
+00:40:15,730 --> 00:40:18,530
+So it sort of makes copies of all the blocks
+
+456
+00:40:18,530 --> 00:40:24,230
+and then it's though that copy of the blocks that the transaction commits into its log
+
+457
+00:40:24,560 --> 00:40:29,670
+and any newer transactions have their own copy of that block that they modify,
+
+458
+00:40:29,670 --> 00:40:32,760
+it's different copy from over committing to the lock.
+
+459
+00:40:34,570 --> 00:40:39,130
+And in order to make this efficient the system actually uses a kind of copy on write scheme
+
+460
+00:40:39,130 --> 00:40:45,430
+to avoid making the copies until it actually notices that a newer transaction needs to write that block.
+
+461
+00:40:46,080 --> 00:40:47,130
+Cool, makes sense.
+
+462
+00:40:51,730 --> 00:40:53,020
+Okay.
+
+463
+00:40:54,590 --> 00:40:57,950
+Good, and so the the reason why concurrency helps performance again
+
+464
+00:40:57,950 --> 00:41:02,660
+is that it can help us if we can run system calls in parallel,
+
+465
+00:41:02,660 --> 00:41:04,670
+we get multi-core parallelism,
+
+466
+00:41:04,880 --> 00:41:10,340
+and if we can run applications and system calls at the same time,
+
+467
+00:41:10,340 --> 00:41:16,160
+we're writing a disk, then we can get IO concurrency that is overlap between CPU,
+
+468
+00:41:16,520 --> 00:41:19,520
+and CPU execution and disk IO.
+
+469
+00:41:19,670 --> 00:41:25,310
+And all these sort of help, use the hardware resources, the machine more efficiently more intensively.
+
+470
+00:41:27,370 --> 00:41:30,070
+Alright any questions about concurrency.
+
+471
+00:41:35,810 --> 00:41:41,120
+Alright, I want to just give you a taste of what the actual file system code,
+
+472
+00:41:41,180 --> 00:41:46,050
+if you look at the Linux source for the file system,
+
+473
+00:41:46,990 --> 00:41:48,850
+sort of somewhat abstract level,
+
+474
+00:41:49,300 --> 00:41:51,850
+this is the way each system call looks,
+
+475
+00:41:52,030 --> 00:41:55,180
+so you might have unlink system call,
+
+476
+00:41:57,710 --> 00:42:03,110
+and this is you know, pretty familiar from xv6,
+
+477
+00:42:03,350 --> 00:42:08,060
+we need to every system call needs to say, here's the beginning of the sequence of writes,
+
+478
+00:42:08,090 --> 00:42:11,720
+I'm about to do a sequence of writes and they need to be atomic with respect to crash.
+
+479
+00:42:11,720 --> 00:42:14,900
+So every system call on any transaction system,
+
+480
+00:42:14,900 --> 00:42:17,510
+there has to be a clear sort of begin endd,
+
+481
+00:42:17,810 --> 00:42:21,680
+everything between these two points needs to be atomic.
+
+482
+00:42:22,270 --> 00:42:27,980
+And there's a start call the system called code makes.
+
+483
+00:42:30,620 --> 00:42:36,350
+And it turns out that ext3 has to be aware of the different system calls that are active,
+
+484
+00:42:36,770 --> 00:42:39,500
+for reasons I'll explain that in a minute or two,
+
+485
+00:42:39,710 --> 00:42:43,760
+so every system call, when I call started actually gets what's called a handle,
+
+486
+00:42:44,240 --> 00:42:48,500
+this is a unique identifier of this particular system call,
+
+487
+00:42:48,920 --> 00:42:55,370
+and the writes that makes are logging is the file systems for keep track [echo yeah], that write,
+
+488
+00:42:55,370 --> 00:42:58,650
+was done by this particular system calls
+
+489
+00:42:59,070 --> 00:43:01,530
+and then the system call these read and write blocks
+
+490
+00:43:01,560 --> 00:43:08,760
+and so it makes a get hold of a block, or really a buffer a block cache buffer,
+
+491
+00:43:08,910 --> 00:43:10,790
+makes it get call
+
+492
+00:43:11,000 --> 00:43:14,690
+and it tells the handle and then the block number it needs to read or write.
+
+493
+00:43:18,090 --> 00:43:22,140
+Then it may do a bunch of these write if you need to modify many blocks.
+
+494
+00:43:22,600 --> 00:43:27,220
+And then modifies so then modify the blocks in the cache.
+
+495
+00:43:31,680 --> 00:43:37,320
+And when it's done, this, this particular system calls done, it makes a stop call.
+
+496
+00:43:39,970 --> 00:43:42,040
+And pass the handle to stop call.
+
+497
+00:43:45,490 --> 00:43:52,570
+So, a lot of what this is about is informing the logging system,
+
+498
+00:43:52,570 --> 00:43:54,850
+you know once a system call starts,
+
+499
+00:43:54,970 --> 00:43:56,980
+a transaction is not allowed to commit
+
+500
+00:43:57,010 --> 00:44:00,970
+until all the system calls that started in that transaction have finished,
+
+501
+00:44:01,180 --> 00:44:06,490
+so and because they're gonna be multiple transactions,
+
+502
+00:44:07,210 --> 00:44:10,540
+the system has to be able to assess one of the reasons for the handles,
+
+503
+00:44:10,540 --> 00:44:16,000
+so the system the file system can remember for each system called which transaction it was part of,
+
+504
+00:44:16,000 --> 00:44:18,430
+so it knows, oh and this just finishes,
+
+505
+00:44:19,810 --> 00:44:24,370
+that's one of the system calls a particular transaction was waiting for before it could actually commit.
+
+506
+00:44:26,850 --> 00:44:28,830
+We pass the handle to the get system call,
+
+507
+00:44:28,830 --> 00:44:32,670
+so that every system every transaction has a bunch of blocks,
+
+508
+00:44:32,670 --> 00:44:36,810
+that are associated with with blocks modified as part of that transaction,
+
+509
+00:44:37,140 --> 00:44:41,010
+so what we're saying here among as well as getting a pointer to the block
+
+510
+00:44:41,070 --> 00:44:48,090
+is we're telling the logging system, look this block number is part of the transaction that this handle refers to.
+
+511
+00:44:51,110 --> 00:44:53,570
+This stop call doesn't actually calls a commit,
+
+512
+00:44:53,840 --> 00:45:01,040
+it just tells that logging system look you know you have one fewer system calls that are active in this transaction.
+
+513
+00:45:01,860 --> 00:45:09,090
+And so a transaction can only commit, if all of the system calls that started in this transaction have called stops,
+
+514
+00:45:09,090 --> 00:45:12,840
+the transaction has to do some bookkeeping has remember all the handles that started,
+
+515
+00:45:12,840 --> 00:45:17,190
+so that it can sort of check them off as those calls finish.
+
+516
+00:45:20,440 --> 00:45:25,240
+So with this structure in mind, I'm just going to lay out the complete sequence
+
+517
+00:45:25,240 --> 00:45:28,270
+of what it takes to commit a transaction,
+
+518
+00:45:28,450 --> 00:45:30,670
+so you know at some point when all the,
+
+519
+00:45:31,030 --> 00:45:34,780
+every five seconds, the file system is going to think to itself,
+
+520
+00:45:34,780 --> 00:45:37,900
+oh now would be a good time to commit the current open transaction.
+
+521
+00:45:38,600 --> 00:45:47,280
+And so here's what happens when the, here's what's involved in the file system committing a transaction,
+
+522
+00:45:47,280 --> 00:45:48,720
+so these are like steps.
+
+523
+00:45:55,810 --> 00:46:01,110
+So first, we have to block any new system calls,
+
+524
+00:46:01,230 --> 00:46:08,630
+we need to have our transaction reflect only entire system calls,
+
+525
+00:46:08,630 --> 00:46:11,540
+so we don't want to let anything new start,
+
+526
+00:46:12,620 --> 00:46:14,900
+when we're trying to commit the transaction,
+
+527
+00:46:15,020 --> 00:46:18,200
+we want to only include system calls that have already started,
+
+528
+00:46:19,100 --> 00:46:21,020
+so you need to block new system calls,
+
+529
+00:46:21,020 --> 00:46:22,820
+there's actually another reason, I'll talk about,
+
+530
+00:46:25,630 --> 00:46:27,550
+why we need to block new system calls.
+
+531
+00:46:29,980 --> 00:46:32,110
+This is actually a little bit of a performance defect,
+
+532
+00:46:32,110 --> 00:46:34,510
+there's going to be a period of time here,
+
+533
+00:46:34,510 --> 00:46:38,410
+when system calls have to wait and are not allowed to execute,
+
+534
+00:46:38,440 --> 00:46:39,400
+so that's too bad.
+
+535
+00:46:40,040 --> 00:46:45,430
+The second step is that, there are a bunch of system calls have already started that are part of this transaction,
+
+536
+00:46:46,510 --> 00:46:48,370
+that we need to wait for them to finish,
+
+537
+00:46:48,610 --> 00:46:53,140
+so we need to wait for the outstanding system calls,
+
+538
+00:46:54,850 --> 00:46:55,960
+that are in this transaction.
+
+539
+00:46:59,440 --> 00:47:02,740
+Because of course we want the transaction to reflect all of their writes,
+
+540
+00:47:03,220 --> 00:47:04,660
+so we need to wait for them to finish.
+
+541
+00:47:05,170 --> 00:47:10,240
+The next thing that happens is you know once all the system calls for this transaction are finished,
+
+542
+00:47:10,300 --> 00:47:11,860
+and have done their writes into the cache,
+
+543
+00:47:11,920 --> 00:47:16,270
+it turns out then it's okay to start a new transaction and let these blocked system calls continue,
+
+544
+00:47:16,540 --> 00:47:23,120
+so now we're gonna open a new transaction for these, for any subsequent system calls,
+
+545
+00:47:28,710 --> 00:47:33,690
+but now this, I'm continuing the story with our original transaction which is now closed,
+
+546
+00:47:34,860 --> 00:47:41,010
+so remember the log next in ext3 contains descriptors and data blocks and commit blocks,
+
+547
+00:47:41,850 --> 00:47:48,640
+so now, we know the full set of blocks modified
+
+548
+00:47:48,670 --> 00:47:51,010
+by all the system calls that were in this transaction,
+
+549
+00:47:51,430 --> 00:47:53,830
+because they all called get with a handle,
+
+550
+00:47:53,830 --> 00:47:57,400
+that told us about what transactions are part of,
+
+551
+00:47:57,490 --> 00:48:00,220
+we know the full set of modified blocks for this transaction,
+
+552
+00:48:00,370 --> 00:48:02,350
+so now we can write a descriptor block,
+
+553
+00:48:05,960 --> 00:48:12,490
+that has all the block numbers for all the blocks dirty to this transaction.
+
+554
+00:48:17,770 --> 00:48:25,600
+We're also going to write the actual modified blocks from the disk cache into the log
+
+555
+00:48:25,720 --> 00:48:30,520
+and in fact if somebody somebody asks a question about oh what happens if the next transaction modifies this,
+
+556
+00:48:30,520 --> 00:48:39,920
+what we're actually writing in this stage is the sort of saved copies of this transactions blocks as of the time when it finished.
+
+557
+00:48:41,050 --> 00:48:46,240
+So I'm gonna write the actual blocks to the log.
+
+558
+00:48:52,070 --> 00:48:56,900
+Now, we're gonna wait for these wights to finish.
+
+559
+00:49:02,630 --> 00:49:06,830
+These need to finish, Before we can proceed.
+
+560
+00:49:07,980 --> 00:49:11,970
+Once the descriptor and the data blocks are guaranteed to be on the disk,
+
+561
+00:49:12,000 --> 00:49:14,730
+then we can write the commit record to the log.
+
+562
+00:49:21,180 --> 00:49:25,620
+And once that write is finished, we have to wait for it to finish.
+
+563
+00:49:31,420 --> 00:49:34,030
+So we're waiting for the waiting for the commit write to finish,
+
+564
+00:49:34,150 --> 00:49:36,940
+at this point, once the commit write is finished,
+
+565
+00:49:37,600 --> 00:49:43,720
+this transaction, with the sort of technical term is that this transaction has reached its commit point
+
+566
+00:49:43,750 --> 00:49:50,530
+that is, it's guaranteed the writes and transaction are guaranteed to survive a crash at this point,
+
+567
+00:49:50,710 --> 00:49:54,850
+if the crash had occurred before this before writing the commit block,
+
+568
+00:49:55,560 --> 00:49:59,850
+the writes of the transaction would not appear after a crash and reboot
+
+569
+00:50:00,240 --> 00:50:01,680
+and running the recovery software,
+
+570
+00:50:01,800 --> 00:50:07,110
+if a crash occurs now after the commit point after the commit block has written to the disk,
+
+571
+00:50:07,530 --> 00:50:16,520
+then they're guaranteed to those writes all the writes in the transaction are guaranteed to appear after crash reboot and recovery.
+
+572
+00:50:18,010 --> 00:50:24,850
+Okay, and now not, only now, in the background all this kind of happened in the background,
+
+573
+00:50:24,850 --> 00:50:27,220
+no process was really waiting for this stuff,
+
+574
+00:50:28,540 --> 00:50:34,310
+now we can write the transactions blocks to their home locations in the file system.
+
+575
+00:50:43,540 --> 00:50:50,620
+And, I ll talk about in a few minutes after all of these writes have completed,
+
+576
+00:50:51,200 --> 00:50:55,430
+for all the blocks that are part of this transaction,
+
+577
+00:50:55,550 --> 00:51:00,860
+then only then can we reuse that part of the log.
+
+578
+00:51:03,760 --> 00:51:05,590
+So in a very busy system,
+
+579
+00:51:05,860 --> 00:51:08,050
+if the head of the log catches up with the tail,
+
+580
+00:51:08,050 --> 00:51:10,960
+there may actually may not be able to start a new transaction
+
+581
+00:51:10,960 --> 00:51:14,140
+until all of these writes have finished for the oldest transaction,
+
+582
+00:51:14,170 --> 00:51:17,740
+because we may need log space, so we won't,
+
+583
+00:51:17,950 --> 00:51:20,290
+we may need to reuse the oldest transaction log space,
+
+584
+00:51:20,290 --> 00:51:24,970
+we have to write for it to write all the cache cache blocks their home locations,
+
+585
+00:51:25,600 --> 00:51:30,280
+this usually you, people try to make the log big enough, this happens pretty rarely,
+
+586
+00:51:30,370 --> 00:51:33,130
+so that this stuff can go on in the background.
+
+587
+00:51:35,490 --> 00:51:36,810
+Any questions about these steps.
+
+588
+00:51:39,600 --> 00:51:41,730
+Oh sorry, where are those run.
+
+589
+00:51:42,560 --> 00:51:43,130
+That's why.
+
+590
+00:51:43,130 --> 00:51:48,290
+We write for, doing this file system stuff.
+
+591
+00:51:51,480 --> 00:51:57,570
+Oh, so you said that no process is waiting for those things to get done,
+
+592
+00:51:57,600 --> 00:52:01,680
+so where, where are they scheduled where they run.
+
+593
+00:52:02,520 --> 00:52:11,380
+Oh, there's a background thread, ss a background thread, in the kernel dedicated.
+
+594
+00:52:12,130 --> 00:52:13,540
+Thank you.
+
+595
+00:52:18,500 --> 00:52:22,930
+I get question actually about reusing part of the log,
+
+596
+00:52:23,110 --> 00:52:33,600
+so let's, let's say eventually we start using a particular section of log, and lo-, the that particular, as I think just mentioned,
+
+597
+00:52:33,720 --> 00:52:40,260
+that particular log of particular part of the log actually in my new transaction, actually,
+
+598
+00:52:41,070 --> 00:52:44,220
+end up using the whole log part was just freed up
+
+599
+00:52:44,250 --> 00:52:48,380
+and there's nothing else, there's number space for the log,
+
+600
+00:52:48,680 --> 00:52:52,010
+but the log then like with the system just wait
+
+601
+00:52:52,250 --> 00:52:56,170
+until the another portion of log is freed up,
+
+602
+00:52:56,200 --> 00:52:58,270
+or would it do something else to.
+
+603
+00:52:58,690 --> 00:53:01,090
+Yes, it'll wait,
+
+604
+00:53:01,840 --> 00:53:04,540
+let me though, let me just draw a picture
+
+605
+00:53:04,570 --> 00:53:07,930
+to help me make sure I'm answering the right question here,
+
+606
+00:53:08,200 --> 00:53:12,580
+we can think of the log as just this, [] [] part of the disk
+
+607
+00:53:12,700 --> 00:53:19,940
+and any given time, you know maybe maybe the oldest valid transaction is you know t7,
+
+608
+00:53:20,180 --> 00:53:25,130
+then there's t8 in this region and we have t9
+
+609
+00:53:25,160 --> 00:53:27,050
+and we want to start,
+
+610
+00:53:27,850 --> 00:53:30,010
+you know, we want to put t10 here.
+
+611
+00:53:33,120 --> 00:53:33,900
+The.
+
+612
+00:53:39,140 --> 00:53:44,090
+Let's see what one you know, we'd like to start a new transaction put it here.
+
+613
+00:53:44,870 --> 00:53:54,720
+The, we may have to wait for t7 to write all it's blocked to their home locations,
+
+614
+00:53:54,720 --> 00:53:55,890
+so that we can free it.
+
+615
+00:53:57,100 --> 00:54:02,920
+And that may mean that the transaction stuff in transaction ten may have to pause,
+
+616
+00:54:03,480 --> 00:54:07,160
+waiting for this space in the log to free up.
+
+617
+00:54:08,180 --> 00:54:09,110
+Is that what you're talking about?
+
+618
+00:54:09,710 --> 00:54:11,150
+Yeah, so let's say that,
+
+619
+00:54:11,840 --> 00:54:13,610
+so it could be the case at the beginning,
+
+620
+00:54:13,730 --> 00:54:19,730
+you can put in blocks for a transaction ten in the actual free space right now,
+
+621
+00:54:19,730 --> 00:54:24,320
+but eventually, if log grows big enough, it's just going to run out of free space
+
+622
+00:54:24,320 --> 00:54:26,840
+and at that point it's just going to wait for transaction seven to.
+
+623
+00:54:27,170 --> 00:54:27,800
+Yes.
+
+624
+00:54:27,860 --> 00:54:28,880
+Be recorded, OK.
+
+625
+00:54:28,880 --> 00:54:32,120
+Yes yes, certainly if there's enough activity going on
+
+626
+00:54:32,210 --> 00:54:34,220
+and the log wraps around quickly enough,
+
+627
+00:54:34,340 --> 00:54:39,500
+you may end up having to wait for a new new system calls,
+
+628
+00:54:41,080 --> 00:54:43,270
+we may not even be able to start the system calls,
+
+629
+00:54:43,270 --> 00:54:49,180
+because before we can free up space in the log for the blocks that they're going to modify
+
+630
+00:54:49,360 --> 00:54:55,690
+and you know if you care about the details of this it turns out there's some potential deadlocks here.
+
+631
+00:54:56,510 --> 00:55:06,320
+That require that mean ext3 ends up, system calls have to pre declare how many blocks they're going to need,
+
+632
+00:55:06,470 --> 00:55:10,940
+so that the logging system knows, how much,
+
+633
+00:55:11,300 --> 00:55:16,710
+you can reason about whether or there's enough space for this transaction,
+
+634
+00:55:17,010 --> 00:55:19,860
+because we don't want to allow a transaction to start that,
+
+635
+00:55:20,710 --> 00:55:22,780
+we wouldn't actually be able to commit into the log.
+
+636
+00:55:26,390 --> 00:55:27,020
+Okay.
+
+637
+00:55:27,260 --> 00:55:32,720
+Let's let's say it's the new log or the new transaction you're trying to put,
+
+638
+00:55:32,720 --> 00:55:35,690
+goes to like eight transaction and eight,
+
+639
+00:55:36,080 --> 00:55:39,170
+so you will have to wait for seven and eight right,
+
+640
+00:55:39,170 --> 00:55:40,700
+so how does that work.
+
+641
+00:55:40,730 --> 00:55:49,880
+You mean, okay so, it's transaction seven and transaction eitht transaction nine at least in this diagram have all completed
+
+642
+00:55:50,000 --> 00:55:52,430
+or that all the system calls have finished.
+
+643
+00:55:53,180 --> 00:55:58,610
+And these transactions are committed in the log, because these are the old transactions.
+
+644
+00:55:59,000 --> 00:56:04,020
+So, in this picture at least we're just starting transaction ten.
+
+645
+00:56:05,230 --> 00:56:08,560
+And so new system calls are going to be writing into a transaction ten.
+
+646
+00:56:11,750 --> 00:56:17,810
+Right, but you said that, transaction ten is not big enough to fill that space,
+
+647
+00:56:17,810 --> 00:56:21,650
+so you need to free transactions seven right,
+
+648
+00:56:21,860 --> 00:56:24,860
+you need to wait for that to like commit to disk.
+
+649
+00:56:26,200 --> 00:56:27,640
+Yes.
+
+650
+00:56:27,670 --> 00:56:34,450
+But what happens if you if it's, if ten is like bigger than like seven like it goes to eight transaction.
+
+651
+00:56:34,450 --> 00:56:38,680
+We have to wait for to, yeah, we may have to wait for,
+
+652
+00:56:38,890 --> 00:56:45,580
+however big transaction ten is, you know we need, we need enough space on the disk to fit
+
+653
+00:56:45,970 --> 00:56:48,250
+and not enough space in the log to fit
+
+654
+00:56:48,490 --> 00:56:51,940
+and so indeed if transaction ten and it turns out being big,
+
+655
+00:56:52,300 --> 00:57:01,280
+it may need to force multiple transmit multiple of the oldest transactions to write to their home locations
+
+656
+00:57:01,580 --> 00:57:02,960
+and free themselves.
+
+657
+00:57:03,110 --> 00:57:05,720
+I guess how, how does code for that work,
+
+658
+00:57:05,750 --> 00:57:08,540
+like does it just run through how big it is
+
+659
+00:57:08,540 --> 00:57:11,480
+and like say hey there's a transaction here and a transaction here
+
+660
+00:57:11,480 --> 00:57:13,310
+and it's like I have to wait for both of them.
+
+661
+00:57:15,300 --> 00:57:22,000
+The file system knows, knows how big all the transactions in the log are.
+
+662
+00:57:23,110 --> 00:57:24,880
+And it remembers and remember,
+
+663
+00:57:24,880 --> 00:57:28,720
+I mean actually the file system remembers quite a bit about each of these older transactions,
+
+664
+00:57:28,720 --> 00:57:31,630
+it knows for each one whether it's written,
+
+665
+00:57:32,530 --> 00:57:37,600
+for file system keeps track of for every block in all of each of these older transactions
+
+666
+00:57:37,600 --> 00:57:40,420
+whether it has written that block to the home location.
+
+667
+00:57:41,230 --> 00:57:45,580
+So that it can know, oh I've written it could know whether or not.
+
+668
+00:57:46,360 --> 00:57:50,770
+And recognize the point at which is finished writing all the transactions seven blocks are transactions these blocks,
+
+669
+00:57:50,770 --> 00:57:52,870
+so there's quite a lot of bookkeeping going on here.
+
+670
+00:57:53,880 --> 00:58:00,410
+After the file system to understand in detail the state of every old transaction.
+
+671
+00:58:07,420 --> 00:58:07,930
+Okay.
+
+672
+00:58:09,880 --> 00:58:15,370
+Okay, so, indeed there's there's on the topic of how to reuse log space,
+
+673
+00:58:15,370 --> 00:58:18,640
+there's one little detail here that needs to be said,
+
+674
+00:58:18,700 --> 00:58:21,280
+if you remember at the beginning of the,
+
+675
+00:58:21,310 --> 00:58:24,400
+let me let me writing diagram,
+
+676
+00:58:24,880 --> 00:58:31,420
+is actually a super block though, log super block at the beginning of the log.
+
+677
+00:58:32,470 --> 00:58:37,300
+And so in any given time, you might have the log super block,
+
+678
+00:58:37,330 --> 00:58:41,900
+and then, some set of transactions.
+
+679
+00:58:43,410 --> 00:58:47,520
+You know, maybe those transaction four which is the newest transaction
+
+680
+00:58:47,520 --> 00:58:53,370
+and then a transaction one, the older transactions,
+
+681
+00:58:53,370 --> 00:58:56,220
+so what this means is that, of course the log is wrapped around.
+
+682
+00:59:01,200 --> 00:59:06,980
+And you know the, yeah, the rule for whether we could reuse a part of the log,
+
+683
+00:59:07,730 --> 00:59:09,890
+now I've mentioned this project want to say it again
+
+684
+00:59:09,950 --> 00:59:13,790
+is that we can reuse the log so we can reuse this part of the log,
+
+685
+00:59:13,790 --> 00:59:16,970
+that transaction two is in, if t2 has committed
+
+686
+00:59:17,360 --> 00:59:22,850
+and all of t2 blocks have been written to their home locations in the file system,
+
+687
+00:59:23,600 --> 00:59:27,740
+so that there can never be any need after a crash replay.
+
+688
+00:59:28,250 --> 00:59:30,380
+These blocks, right.
+
+689
+00:59:31,160 --> 00:59:36,890
+And if all transactions prior to transaction to have also been freed.
+
+690
+00:59:37,510 --> 00:59:39,250
+So if those conditions are all true,
+
+691
+00:59:39,280 --> 00:59:44,890
+then we can free and reuse the part of the log that t2 sits in,
+
+692
+00:59:45,610 --> 00:59:54,910
+so we can only use t2 and after t2 is after t1 has finished all committing and writing its blocks to log in to the home locations also,
+
+693
+00:59:55,210 --> 01:00:01,750
+and then this super block for the convenience of the recovery software after a crash,
+
+694
+01:00:01,960 --> 01:00:09,660
+now if we decide that we can, if the file system decides it can free and reuse a particular part of the log,
+
+695
+01:00:09,960 --> 01:00:19,740
+it rewrites the super block to super block as a pointer to the begin the first transaction log
+
+696
+01:00:19,770 --> 01:00:22,890
+and so as part of freeing part of the log,
+
+697
+01:00:23,160 --> 01:00:31,350
+file system modifies a super block point to the new beginning of the of the now oldest transaction in the log.
+
+698
+01:00:32,540 --> 01:00:38,550
+And then there's crash, at the recovery software reads the super block, finds the beginning log.
+
+699
+01:00:42,160 --> 01:00:52,690
+Okay, so if there's a crash, of course a crash, causes everything in RAM to evaporate,
+
+700
+01:00:52,780 --> 01:00:58,660
+so all that bookkeeping that the file system is keeping about what blocks have been written to the home locations,
+
+701
+01:00:58,660 --> 01:01:01,330
+that's all lost if there's a crash or power failure,
+
+702
+01:01:01,360 --> 01:01:05,650
+however so that one of the assumptions is there's nothing useful in RAM,
+
+703
+01:01:05,830 --> 01:01:11,380
+the only stuff that's can be preserved across the crash is whatever's on the disk,
+
+704
+01:01:12,460 --> 01:01:16,270
+but we are absolutely in all these discussions about logging,
+
+705
+01:01:16,330 --> 01:01:19,030
+assuming that the disk is completely intact,
+
+706
+01:01:19,030 --> 01:01:20,710
+that nothing went wrong with the disk.
+
+707
+01:01:22,360 --> 01:01:25,840
+So, so maybe the right model for you to think in terms of is that there was a power failure,
+
+708
+01:01:25,840 --> 01:01:27,940
+that everything was humming along and then the power failed,
+
+709
+01:01:27,940 --> 01:01:29,740
+the system just stopped at some point
+
+710
+01:01:30,040 --> 01:01:37,120
+and the disk is after power is restored, this just has whatever it had on it, at the point of the power failure.
+
+711
+01:01:37,620 --> 01:01:40,770
+So we're absolutely not considering situations
+
+712
+01:01:40,770 --> 01:01:46,800
+in which the disk was somehow corrupted or destroyed by the crash.
+
+713
+01:01:51,740 --> 01:01:53,930
+And so the crash of course may interrupt,
+
+714
+01:01:55,740 --> 01:01:59,820
+yeah whatever transactions were in the middle of committing are not yet committing yet
+
+715
+01:01:59,820 --> 01:02:02,640
+or whatever the crash may interrupt,
+
+716
+01:02:03,000 --> 01:02:10,560
+either the commit of a transaction or the writing of a transactions blocks into their home locations.
+
+717
+01:02:11,130 --> 01:02:14,700
+So, what that means is that the on disk log,
+
+718
+01:02:14,790 --> 01:02:17,160
+when the power is restored and recovery sufferers run,
+
+719
+01:02:17,160 --> 01:02:21,480
+it's going to have a bunch of complete transact older complete transactions,
+
+720
+01:02:21,600 --> 01:02:23,160
+you know may be t1 and t2.
+
+721
+01:02:24,600 --> 01:02:30,060
+Let me take a new example for for recovery.
+
+722
+01:02:30,840 --> 01:02:34,470
+Let's say we have the again the super block.
+
+723
+01:02:37,470 --> 01:02:41,420
+And, maybe at the time of the crash,
+
+724
+01:02:41,420 --> 01:02:49,710
+the oldest transaction was t6 and then there's t7,
+
+725
+01:02:49,710 --> 01:02:58,500
+then we wrapped around still before the crash t8 and there was a t5,
+
+726
+01:02:59,480 --> 01:03:06,560
+but t8 has, let us imagine has started has overwritten the first part of t5,
+
+727
+01:03:06,590 --> 01:03:10,940
+because t5 was, we know that t5 was freed before the crash,
+
+728
+01:03:10,940 --> 01:03:15,140
+but the recovery software doesn't necessarily know that.
+
+729
+01:03:16,650 --> 01:03:24,960
+And let's say the super block points to t6 as being the start of the oldest valid transaction,
+
+730
+01:03:26,100 --> 01:03:27,930
+t5 is free.
+
+731
+01:03:28,490 --> 01:03:32,480
+We're going to reboot with an attack disk,
+
+732
+01:03:32,480 --> 01:03:34,430
+the recovery software reads the super block
+
+733
+01:03:34,430 --> 01:03:38,000
+and so then it knows the where the beginning of the log is
+
+734
+01:03:38,030 --> 01:03:41,420
+then the recover software's going to scan forward in the log
+
+735
+01:03:41,450 --> 01:03:43,700
+to try to find the end of the log.
+
+736
+01:03:44,190 --> 01:03:47,640
+We need to have a way for it,
+
+737
+01:03:48,600 --> 01:03:52,350
+to actually figure out, oh you know that's the end of the log,
+
+738
+01:03:52,440 --> 01:04:01,380
+the way it does that, is we know that every transaction consists of a descriptor block
+
+739
+01:04:01,470 --> 01:04:04,890
+that indicates how many data blocks are on the transaction,
+
+740
+01:04:05,190 --> 01:04:07,830
+such as descriptor blocks says, oh yeah there's 17 data blocks
+
+741
+01:04:07,830 --> 01:04:10,710
+and we expect 17 data blocks and finally commit record.
+
+742
+01:04:11,120 --> 01:04:13,640
+And then another descriptor record
+
+743
+01:04:13,640 --> 01:04:17,330
+and then the number of data blocks implied by the descriptor block
+
+744
+01:04:17,450 --> 01:04:18,920
+and then another commit block,
+
+745
+01:04:19,160 --> 01:04:25,300
+and so the log software in the scan forward, maybe t6 and t7 are fine,
+
+746
+01:04:25,300 --> 01:04:28,150
+then it's going to look at t8 t8 got some descriptor block.
+
+747
+01:04:29,800 --> 01:04:37,250
+And, then the recovery suffers gonna look forward to where the end of transaction,
+
+748
+01:04:37,250 --> 01:04:42,440
+it should be and look for a commit block
+
+749
+01:04:42,560 --> 01:04:45,890
+and so there's a couple of things that may have happened here,
+
+750
+01:04:45,890 --> 01:04:49,800
+it could be that transaction it did commit
+
+751
+01:04:49,800 --> 01:04:52,230
+and that the recovery software finds the commit block,
+
+752
+01:04:53,040 --> 01:05:01,080
+it'll then look for another you know it doesn't know that transaction is last transactions needs to figure that out,
+
+753
+01:05:01,080 --> 01:05:03,390
+so it's going to look at the very next block
+
+754
+01:05:03,540 --> 01:05:07,570
+to see if this is a valid descriptor block,
+
+755
+01:05:08,620 --> 01:05:14,080
+now we know that this block was really just a random block in the middle of transaction five
+
+756
+01:05:14,080 --> 01:05:15,670
+and not a descriptor block at all,
+
+757
+01:05:15,910 --> 01:05:24,810
+then the question is how can the recovery software reliably distinguish between oh this is a, just some data block in the middle of an old transaction
+
+758
+01:05:24,810 --> 01:05:28,950
+or it's the maybe the descriptor block for transaction nine.
+
+759
+01:05:30,850 --> 01:05:33,490
+Any guesses for a reliable method to do that.
+
+760
+01:05:33,970 --> 01:05:35,530
+Is that the magic number.
+
+761
+01:05:36,040 --> 01:05:36,580
+Yeah.
+
+762
+01:05:36,580 --> 01:05:38,290
+Or is there just a reserved bit.
+
+763
+01:05:39,110 --> 01:05:45,050
+There is indeed every { descriptor commit block starts with some magic number,
+
+764
+01:05:45,080 --> 01:05:48,290
+just just a 32 bit value, that the recovery software is looking for,
+
+765
+01:05:48,470 --> 01:05:49,790
+I don't actually know what it is,
+
+766
+01:05:49,790 --> 01:05:55,780
+so, definitely the game is that we come to the end of transaction eight
+
+767
+01:05:55,780 --> 01:05:58,510
+if the very next block starts with the magic number,
+
+768
+01:05:58,870 --> 01:06:03,820
+then the recovery software's gonna assume that oh this is a valid descriptor block.
+
+769
+01:06:06,200 --> 01:06:09,110
+Could you, sorry quick question,
+
+770
+01:06:09,350 --> 01:06:17,360
+would it be unreliable to try to like, interpret it as a descriptor block,
+
+771
+01:06:17,390 --> 01:06:21,170
+try to read the number of data blocks that specifies them,
+
+772
+01:06:21,170 --> 01:06:26,720
+like see if there's a commit block at the expected location after the number of blocks.
+
+773
+01:06:27,630 --> 01:06:31,230
+Well certainly if this log does look like a descriptor block,
+
+774
+01:06:31,500 --> 01:06:35,490
+then it will skip forward and try to read the corresponding commit block,
+
+775
+01:06:35,880 --> 01:06:38,850
+and if that commit block doesn't look like a commit block with the right magic number,
+
+776
+01:06:38,850 --> 01:06:41,010
+it will not believe in this transaction.
+
+777
+01:06:43,760 --> 01:06:48,380
+The the the the the thing that's one little remaining detail here,
+
+778
+01:06:48,380 --> 01:06:52,070
+is that this block that we're looking at here and we're wondering
+
+779
+01:06:52,070 --> 01:06:56,170
+or the recovery software wondering if it's a descriptor block,
+
+780
+01:06:56,350 --> 01:07:03,190
+this could be just a block right in the middle of transaction five containing any arbitrary bit pattern,
+
+781
+01:07:03,730 --> 01:07:06,190
+it could be just like the data block from a file
+
+782
+01:07:06,190 --> 01:07:08,830
+that just happens to begin with the magic number.
+
+783
+01:07:10,940 --> 01:07:12,920
+So you know as a final detail,
+
+784
+01:07:12,920 --> 01:07:18,740
+the logging system needs to be able to distinguish between a valid descriptor block that starts with this magic number
+
+785
+01:07:18,770 --> 01:07:22,910
+and just some data block that starts with the magic number.
+
+786
+01:07:24,920 --> 01:07:27,470
+And you can imagine various ways of doing that,
+
+787
+01:07:27,620 --> 01:07:32,390
+in fact what ext3 does is whenever it's going to write a block to the log,
+
+788
+01:07:32,390 --> 01:07:34,580
+that's not a descriptor blocker or commit block,
+
+789
+01:07:34,640 --> 01:07:38,570
+if that block starts with the magic number it replaces that with zero
+
+790
+01:07:38,840 --> 01:07:44,330
+and sets a bit corresponding to that block in that transaction descriptor block,
+
+791
+01:07:44,390 --> 01:07:51,500
+then that bit means this particular data block started with the magic number and we replace it with zero.
+
+792
+01:07:52,130 --> 01:07:56,150
+And then if the recovery software ever needs to replay that block,
+
+793
+01:07:56,180 --> 01:08:00,590
+so let's say transaction eight had one of these blocks that originally started with the magic number,
+
+794
+01:08:00,590 --> 01:08:02,930
+it's going to set the bit this magic flag,
+
+795
+01:08:03,600 --> 01:08:07,770
+corresponding that block and the descriptor block and replace magic number was zero,
+
+796
+01:08:07,950 --> 01:08:09,990
+if recovery has to replay this block,
+
+797
+01:08:09,990 --> 01:08:13,710
+it'll see that flag and before replaying this block to its home location
+
+798
+01:08:13,770 --> 01:08:16,320
+will replace the zero with the magic number.
+
+799
+01:08:17,350 --> 01:08:24,880
+And therefore, no block other than a descriptor or commit block can possibly start with a magic number,
+
+800
+01:08:25,380 --> 01:08:26,850
+in this logging system.
+
+801
+01:08:26,850 --> 01:08:28,350
+So we never have this ambiguity,
+
+802
+01:08:28,620 --> 01:08:32,100
+if the block after a commit block, starts with a magic number,
+
+803
+01:08:32,100 --> 01:08:35,040
+then it must be a descriptor block.
+
+804
+01:08:39,320 --> 01:08:41,300
+Okay, alright,
+
+805
+01:08:41,300 --> 01:08:42,980
+so recovery, we were doing recovery,
+
+806
+01:08:42,980 --> 01:08:46,640
+it starts at the block,
+
+807
+01:08:46,640 --> 01:08:51,500
+that the super block says is the beginning of the oldest transaction scans forward,
+
+808
+01:08:51,680 --> 01:08:55,730
+and it'll scan forward until you, you know it,
+
+809
+01:08:56,460 --> 01:08:59,280
+look at the descriptor or is their corresponding commit block
+
+810
+01:08:59,400 --> 01:09:05,730
+and it'll stop as soon as it sees oh the block following a commit block wasn't a descriptor block at all,
+
+811
+01:09:06,360 --> 01:09:11,340
+or yeah the block following a commit block is a descriptor block,
+
+812
+01:09:11,340 --> 01:09:16,620
+but the what should have been the corresponding commit block,
+
+813
+01:09:16,620 --> 01:09:19,710
+is not in fact a valid commit block, doesn't have the magic number,
+
+814
+01:09:19,740 --> 01:09:24,990
+so at that point it will stop, recovery software with clear the log to have ended,
+
+815
+01:09:25,770 --> 01:09:30,570
+at the point where the last valid commit block.
+
+816
+01:09:30,980 --> 01:09:34,040
+And we'll ignore there may be a partial transaction after this,
+
+817
+01:09:34,070 --> 01:09:35,780
+that started to come it didn't finish,
+
+818
+01:09:36,530 --> 01:09:39,380
+but the recovery suffer ignores that partial transaction,
+
+819
+01:09:39,380 --> 01:09:41,180
+because it doesn't have all the writes,
+
+820
+01:09:41,330 --> 01:09:43,130
+so it can't restore it atomically,
+
+821
+01:09:43,730 --> 01:09:47,600
+and then the recovery software will go through go back to the beginning of the log
+
+822
+01:09:47,660 --> 01:09:52,160
+and replay each block, rewrite each block to its home location,
+
+823
+01:09:52,550 --> 01:09:57,730
+all through the log, to the last, up to the last valid commit block.
+
+824
+01:10:00,550 --> 01:10:04,600
+And then it can restart the rest of the operating system,
+
+825
+01:10:04,630 --> 01:10:08,560
+start the rest of the operating system and ordinary programs can run,
+
+826
+01:10:09,250 --> 01:10:12,670
+before recovery finishes, you can't you can't run any programs,
+
+827
+01:10:12,670 --> 01:10:16,980
+because the file system isn't valid.
+
+828
+01:10:19,780 --> 01:10:21,130
+Any questions about recovery.
+
+829
+01:10:22,690 --> 01:10:24,310
+I I have a quick question,
+
+830
+01:10:24,310 --> 01:10:33,640
+I think you mentioned this before, but what parts of this logging transaction scheme is missing, in xv6.
+
+831
+01:10:33,700 --> 01:10:39,820
+The main thing it's missing in xv6 is the ability to have multiple transactions in the log,
+
+832
+01:10:40,330 --> 01:10:44,410
+so xv6 there's only ever at most one transaction in the log
+
+833
+01:10:44,860 --> 01:10:49,360
+and so you you can't you don't get this concurrency in xv6,
+
+834
+01:10:49,360 --> 01:10:55,180
+where while I'm executing system calls from transaction seven,
+
+835
+01:10:55,650 --> 01:10:58,470
+you know that are going to go into transaction seven in parallel,
+
+836
+01:10:58,470 --> 01:11:03,750
+with that ext3 can be committing transactions six to the disk.
+
+837
+01:11:04,830 --> 01:11:13,430
+That's not available of concurrency, is not possible in ext-, in xv6,
+
+838
+01:11:13,640 --> 01:11:17,210
+because the the log holds just one transaction,
+
+839
+01:11:17,240 --> 01:11:19,940
+so we have to completely do all the work for one transaction,
+
+840
+01:11:19,940 --> 01:11:23,630
+before we're allowed to start anything with the next transaction.
+
+841
+01:11:24,690 --> 01:11:29,760
+So it's correct and simple, but you don't get a lot of parallelism out of xv6.
+
+842
+01:11:30,730 --> 01:11:31,600
+Okay, thank you,
+
+843
+01:11:31,630 --> 01:11:35,840
+are you saying that, it can still have multiple transaction blocks,
+
+844
+01:11:35,840 --> 01:11:41,920
+but it just can't execute them asynchronously, would that be correct.
+
+845
+01:11:42,390 --> 01:11:43,950
+xv6?
+
+846
+01:11:43,950 --> 01:11:44,760
+xv6.
+
+847
+01:11:45,000 --> 01:11:50,500
+Yeah it, it only has the, once it decides to,
+
+848
+01:11:52,730 --> 01:11:54,560
+I mean the picture a little bit confused,
+
+849
+01:11:54,560 --> 01:12:00,740
+because xv6 can allow more than one system call into a single transaction,
+
+850
+01:12:00,770 --> 01:12:03,830
+so xv6 does have some of this can concurrency in it,
+
+851
+01:12:04,420 --> 01:12:05,860
+and some of this batching,
+
+852
+01:12:05,950 --> 01:12:09,430
+but once xv6 decides to start committing a transaction,
+
+853
+01:12:10,360 --> 01:12:13,150
+it has to completely finish with that transaction,
+
+854
+01:12:13,270 --> 01:12:18,100
+committed to this, you know write the header block write the blocks to the home locations
+
+855
+01:12:18,340 --> 01:12:21,640
+and then erase the transaction from the log,
+
+856
+01:12:21,670 --> 01:12:25,600
+it has to do all that stuff before it can execute any new system calls.
+
+857
+01:12:26,200 --> 01:12:30,580
+Because there's nowhere you know there's nowhere to put the modifications for the new system calls
+
+858
+01:12:30,580 --> 01:12:33,070
+until the previous transaction is completely finished,
+
+859
+01:12:33,700 --> 01:12:40,120
+so xv6 sort of alternates between it can run a few system calls and then commit the transaction,
+
+860
+01:12:40,520 --> 01:12:41,750
+and then run a few more system calls,
+
+861
+01:12:41,750 --> 01:12:43,580
+with the can't serve overlap those to.
+
+862
+01:12:44,790 --> 01:12:45,000
+Alright.
+
+863
+01:12:45,000 --> 01:12:46,290
+ext3 can.
+
+864
+01:12:47,210 --> 01:12:47,870
+Thank you.
+
+865
+01:12:57,830 --> 01:13:05,600
+Okay, so that was a relatively straightforward part of ext3 design.
+
+866
+01:13:06,520 --> 01:13:10,510
+It turns out there's also a bunch of a tricky details,
+
+867
+01:13:10,540 --> 01:13:12,070
+a few of which I want to talk about.
+
+868
+01:13:12,520 --> 01:13:17,050
+So I mentioned before that you know there's an open transaction,
+
+869
+01:13:17,410 --> 01:13:21,730
+but when ext3 decides that it wants to close the open transaction,
+
+870
+01:13:22,660 --> 01:13:27,430
+it has to wait for all system calls and that transaction to finish before it.
+
+871
+01:13:27,980 --> 01:13:30,800
+Any trans-, any new transactions are allowed to start,
+
+872
+01:13:30,920 --> 01:13:39,070
+so that maybe a picture for that is that, you know we had original old transaction t1,
+
+873
+01:13:39,400 --> 01:13:44,980
+then there were multiple system calls executing in transaction one,
+
+874
+01:13:45,070 --> 01:13:49,420
+if we want to close transaction one, we have to stop accepting new system calls,
+
+875
+01:13:49,420 --> 01:13:52,540
+because we want to wait for the existing ones to finish before we can commit,
+
+876
+01:13:52,870 --> 01:13:56,080
+but until these all these system calls finished,
+
+877
+01:13:56,650 --> 01:13:59,860
+no new system calls are allowed to start in ext3,
+
+878
+01:13:59,980 --> 01:14:02,170
+so if there's some transaction two here,
+
+879
+01:14:02,470 --> 01:14:04,750
+nothing is allowed to happen in transaction two,
+
+880
+01:14:05,250 --> 01:14:10,350
+nothing allows to, system calls are allowed to start until these system calls have finished,
+
+881
+01:14:10,770 --> 01:14:16,080
+and only then can transaction to start accepting system calls.
+
+882
+01:14:16,500 --> 01:14:19,720
+So, there's a period of time here,
+
+883
+01:14:19,900 --> 01:14:25,060
+in which new system calls are all blocked that reduces performance,
+
+884
+01:14:25,060 --> 01:14:28,300
+because it could have been executing system calls but we're not allowed to,
+
+885
+01:14:28,630 --> 01:14:36,850
+then the question is how come ext3 doesn't allow new system calls to start in transaction two,
+
+886
+01:14:37,030 --> 01:14:40,680
+until all system calls in transaction one finished.
+
+887
+01:14:43,330 --> 01:14:45,880
+And you know it's a good question because it limits performance,
+
+888
+01:14:46,210 --> 01:14:51,160
+so let me give you an example if if the ext3 didn't do this,
+
+889
+01:14:51,160 --> 01:14:54,550
+then the following bad situation could arise.
+
+890
+01:14:55,810 --> 01:14:59,290
+So let's suppose transaction one says one system call in it,
+
+891
+01:15:01,040 --> 01:15:05,360
+and it's a create, a system called the create file,
+
+892
+01:15:05,360 --> 01:15:06,950
+maybe a file called x
+
+893
+01:15:07,250 --> 01:15:11,000
+and the idea is that before this create is finished,
+
+894
+01:15:11,060 --> 01:15:16,100
+the file system decides it wants to start a new transaction, open up a new transaction
+
+895
+01:15:16,100 --> 01:15:20,360
+and it's going to accept any system calls after the create in in this new transaction,
+
+896
+01:15:20,480 --> 01:15:25,990
+transaction t2 is going to say t2 starts, before t1 finishes,
+
+897
+01:15:26,140 --> 01:15:29,500
+and we start executing system calls now in transaction two,
+
+898
+01:15:31,450 --> 01:15:34,870
+maybe transaction t2 calls unlink on some other file,
+
+899
+01:15:34,870 --> 01:15:40,050
+well then unlink will free the inode associated with y, right,
+
+900
+01:15:40,050 --> 01:15:45,570
+and so maybe maybe I'm having time go this way in my diagram.
+
+901
+01:15:47,550 --> 01:15:54,510
+Maybe at this point in time transaction two marks the inode does free, marks the inode for y is free,
+
+902
+01:15:54,750 --> 01:15:57,870
+create of course has to allocate an inode for x,
+
+903
+01:15:57,960 --> 01:16:00,390
+maybe it allocates an inode at this point in time.
+
+904
+01:16:01,200 --> 01:16:05,400
+Well, because the create is allocating after the unlinked freed,
+
+905
+01:16:05,460 --> 01:16:07,980
+it might reuse the same inode,
+
+906
+01:16:08,010 --> 01:16:11,790
+so maybe x gets going to get the same inode that y had,
+
+907
+01:16:11,790 --> 01:16:15,160
+say maybe inode 17, right,
+
+908
+01:16:15,220 --> 01:16:19,330
+and then, which is OK, because unlink free [design] inode.
+
+909
+01:16:19,330 --> 01:16:21,540
+So, doesn't look like a problem yet,
+
+910
+01:16:21,810 --> 01:16:24,360
+you know the point is, we're trying to close transaction one,
+
+911
+01:16:24,360 --> 01:16:26,790
+so then when the create finishes, we close transaction one
+
+912
+01:16:26,940 --> 01:16:30,030
+and we're going to write let's say transaction actually commits,
+
+913
+01:16:30,030 --> 01:16:32,040
+we write all of its modifications to disk.
+
+914
+01:16:32,660 --> 01:16:40,040
+Fantastic, however I'm supposing after the unlink takes a while hasn't finished yet,
+
+915
+01:16:40,070 --> 01:16:45,390
+supposing after this commit finishes, there's a crash, right.
+
+916
+01:16:47,790 --> 01:16:52,350
+When the recovery software runs, it's going to see that transaction one committed,
+
+917
+01:16:53,080 --> 01:16:55,540
+and that transaction two didn't,
+
+918
+01:16:55,660 --> 01:16:58,540
+so the recovery software gonna just completely ignore transaction two,
+
+919
+01:16:58,930 --> 01:17:02,800
+so that means the unlink never took place it's writes,
+
+920
+01:17:02,800 --> 01:17:07,990
+the recovery software won't won't perform the unlink writes to the disk,
+
+921
+01:17:08,020 --> 01:17:10,030
+therefore won't free the inode,
+
+922
+01:17:10,630 --> 01:17:17,620
+won't won't delete y, after the crash and recovery while still exist, it will still be using inode 17,
+
+923
+01:17:17,710 --> 01:17:23,830
+however the create transaction did complete and therefore x is going to be using inode 17 as well
+
+924
+01:17:23,830 --> 01:17:29,620
+and so now we mistakenly have two files that happen to be using the same inode.
+
+925
+01:17:30,200 --> 01:17:36,140
+Which means I'll share content or write to one will mysteriously show up in the other file.
+
+926
+01:17:36,870 --> 01:17:39,350
+Which is completely the wrong thing, right.
+
+927
+01:17:39,350 --> 01:17:45,500
+The whole point was we wanted to unlink y and use a freed inode x not inode that was already in use,
+
+928
+01:17:46,010 --> 01:17:48,440
+so something's gone terribly wrong here.
+
+929
+01:17:49,970 --> 01:17:52,790
+And you know the one way of thinking about it
+
+930
+01:17:52,790 --> 01:18:00,540
+is that the unlink in transit in what should have been transaction to wrote a block modified a block
+
+931
+01:18:01,140 --> 01:18:06,300
+and essentially that modified block was used by an earlier transaction,
+
+932
+01:18:06,330 --> 01:18:12,570
+so a later transaction, modified a block and that modified block was seen by an earlier transaction
+
+933
+01:18:12,720 --> 01:18:20,970
+and indeed information base on this modification from transaction two was incorporated into transaction one.
+
+934
+01:18:23,260 --> 01:18:26,350
+But that means that we've lost atomicity here,
+
+935
+01:18:26,350 --> 01:18:29,170
+because the whole goal of this was
+
+936
+01:18:29,170 --> 01:18:32,530
+that all the modifications for the unlink should occur or none of them,
+
+937
+01:18:33,240 --> 01:18:34,500
+not just some of them,
+
+938
+01:18:34,500 --> 01:18:36,510
+but what's essentially happened here is
+
+939
+01:18:36,570 --> 01:18:40,260
+because transaction one committed the free of this inode,
+
+940
+01:18:40,560 --> 01:18:45,300
+it means that some of transaction to modify modifications actually occurred,
+
+941
+01:18:45,570 --> 01:18:54,500
+but others did not, we broke atomicity by including a later transaction's write in an earlier transaction
+
+942
+01:18:55,040 --> 01:19:00,410
+and you can actually imagine multiple different ways of dealing with this right,
+
+943
+01:19:01,700 --> 01:19:07,470
+maybe create could notice that 17 had been freed by a, you know a future transaction
+
+944
+01:19:07,470 --> 01:19:09,000
+and not use that inode,
+
+945
+01:19:09,390 --> 01:19:14,070
+in fact ext3 takes a pretty simple approach to this,
+
+946
+01:19:14,670 --> 01:19:17,340
+it doesn't allow any system call to start
+
+947
+01:19:18,210 --> 01:19:22,380
+until all system calls from the previous transaction have finished,
+
+948
+01:19:22,410 --> 01:19:32,990
+so there's no possibility of a transaction, a system call from transaction when seeing a modify seeing an update from a system called the future transaction.
+
+949
+01:19:33,650 --> 01:19:40,910
+Essentially, all of the unlink is pushed, is blocked not allowed to start until t1 commits.
+
+950
+01:19:42,390 --> 01:19:43,650
+Any questions about this?
+
+951
+01:19:46,660 --> 01:19:55,870
+So I have a question about what exactly happens when you close an open transaction,
+
+952
+01:19:55,960 --> 01:20:02,560
+does it like snapshot, like the current state of like the cache.
+
+953
+01:20:02,590 --> 01:20:04,720
+Yes, that's exactly right,
+
+954
+01:20:04,810 --> 01:20:13,390
+so when we close this transaction at least in principle, the system makes a copy of all the blocks, that were modified by system calls in this transaction,
+
+955
+01:20:14,200 --> 01:20:16,750
+logging system makes a copy of them in the cache,
+
+956
+01:20:17,230 --> 01:20:21,370
+sort of private copy just for this transaction commit them.
+
+957
+01:20:22,170 --> 01:20:26,580
+And then future transactions execute sort of on the real cached blocks,
+
+958
+01:20:26,700 --> 01:20:30,780
+this transaction commits from its private copy of the blocks it modified.
+
+959
+01:20:31,690 --> 01:20:35,410
+And then when it's done committing those it's private copy those blocks to disk,
+
+960
+01:20:35,740 --> 01:20:37,420
+you can throw those copies away.
+
+961
+01:20:43,150 --> 01:20:43,840
+Yes.
+
+962
+01:20:46,610 --> 01:20:47,690
+Okay,.
+
+963
+01:20:48,690 --> 01:20:59,420
+There's it turns out this is one of about half a dozen or a dozen sort of similar little [quirks], that ext3 has to deal with,
+
+964
+01:20:59,420 --> 01:21:07,040
+because in order to support concurrency, there's a whole bunch of kind of similar little ordering [nickels],
+
+965
+01:21:07,040 --> 01:21:11,030
+that have to be the special cases that ext3 has to get right.
+
+966
+01:21:13,370 --> 01:21:15,380
+Which we don't have time to talk about,
+
+967
+01:21:15,440 --> 01:21:20,120
+but the [take home] points that I want people to remember about logging about ext3,
+
+968
+01:21:20,600 --> 01:21:27,860
+first, the general point that, what logs are all about is making multi-step disk updates atomic,
+
+969
+01:21:27,860 --> 01:21:30,080
+all or nothing with respect to crashes,
+
+970
+01:21:30,080 --> 01:21:33,110
+like, yeah that's the main thing to remember about logging,
+
+971
+01:21:34,070 --> 01:21:37,760
+the logging the correctness of logging depends on this write-ahead rule,
+
+972
+01:21:37,850 --> 01:21:45,980
+it's another critical thing to remember you'll hear write-ahead log and write-ahead rule a lot in the kind of crash recovery business.
+
+973
+01:21:46,450 --> 01:21:51,010
+And the write-ahead rule says that you have to commit all changes to the log,
+
+974
+01:21:51,040 --> 01:21:56,830
+before you're allowed to make any of the modifications to the home locations in the file system.
+
+975
+01:21:58,780 --> 01:22:01,330
+And recovery absolutely relies on this rule,
+
+976
+01:22:01,930 --> 01:22:09,130
+a lot of the point at least for file systems, a lot of the point of logging is simply fast recovery,
+
+977
+01:22:09,790 --> 01:22:11,650
+log may have a couple hundred blocks in it,
+
+978
+01:22:11,770 --> 01:22:15,490
+you can replay a couple hundred blocks in way under a second
+
+979
+01:22:15,760 --> 01:22:18,160
+and then boom your file system,
+
+980
+01:22:18,220 --> 01:22:21,220
+even a very large one is now fit for use.
+
+981
+01:22:21,880 --> 01:22:25,060
+Now the final point for a more detailed point about the ext3 is
+
+982
+01:22:25,060 --> 01:22:32,020
+that it uses batching and concurrency to get considerably better performance than xv6 does,
+
+983
+01:22:32,020 --> 01:22:37,330
+although at the case of considerable considerably higher complexity,
+
+984
+01:22:37,830 --> 01:22:40,380
+to support concurrency then xv6 has.
+
+985
+01:22:42,910 --> 01:22:46,450
+And that's all for today, I'm happy to take questions.
+
+986
+01:22:49,560 --> 01:22:53,850
+Um, hi, I had another question is about,
+
+987
+01:22:54,060 --> 01:23:02,220
+so you said that, thinks that there's a file size like a file system thread that does all this stuff,
+
+988
+01:23:02,720 --> 01:23:11,960
+there must be only one of these threads, because otherwise it could it could do basically what it just talked about right.
+
+989
+01:23:15,400 --> 01:23:17,320
+It may indeed be that there's just one,
+
+990
+01:23:17,650 --> 01:23:19,540
+I actually don't know how many there are,
+
+991
+01:23:19,720 --> 01:23:22,750
+one is certainly a particularly attractive number,
+
+992
+01:23:22,780 --> 01:23:27,670
+because you know a lot of the rationale for why the logging is correct
+
+993
+01:23:27,670 --> 01:23:34,040
+is that you know the older transactions or you know, committed before newer transactions,
+
+994
+01:23:34,400 --> 01:23:40,470
+I I don't think it's a logical necessity that there be only one thread,
+
+995
+01:23:40,470 --> 01:23:47,500
+so you could imagine, old transactions committing in an overlapped way,
+
+996
+01:23:48,080 --> 01:23:53,200
+you know essentially using multiple threads one for each transaction.
+
+997
+01:23:54,410 --> 01:23:55,640
+Oh okay I see.
+
+998
+01:23:57,450 --> 01:23:58,350
+Okay I see.
+
+999
+01:23:59,540 --> 01:24:00,410
+I have a question,
+
+1000
+01:24:00,470 --> 01:24:03,260
+in when you're talking about crashes
+
+1001
+01:24:03,260 --> 01:24:09,330
+and you had that diagram of t8 rewriting t5 that was being freed,
+
+1002
+01:24:10,520 --> 01:24:17,480
+so what happens if t8 hasn't actually committed at the point of the crash,
+
+1003
+01:24:17,780 --> 01:24:25,010
+because there could be maybe t5 if it's being freed as something needs to rewrite it,
+
+1004
+01:24:25,340 --> 01:24:28,790
+then there could be a commit block from t5 that exists,
+
+1005
+01:24:30,690 --> 01:24:34,290
+it may be a location where t8 would have predicted it to exist,
+
+1006
+01:24:34,950 --> 01:24:39,660
+and then couldn't that inaccurately represent that t8 was actually had actually been committed.
+
+1007
+01:24:40,050 --> 01:24:43,110
+Okay, so let me try to draw out the scenario,
+
+1008
+01:24:44,370 --> 01:24:51,940
+so we have this ancient transaction t5, right,
+
+1009
+01:24:52,990 --> 01:24:56,230
+and, you know, maybe t3 here,
+
+1010
+01:24:56,230 --> 01:24:59,230
+and then we're you've wrapped around t8.
+
+1011
+01:24:59,860 --> 01:25:07,300
+And you know t8 started somewhere now it's because t5 is free, t8 is starting the [eat] up,
+
+1012
+01:25:10,960 --> 01:25:16,360
+t5 that is the end of t8 is overrun the beginning of t5 is that.
+
+1013
+01:25:17,330 --> 01:25:22,340
+Okay, and the worry is, OK, of course it, t8 did commit, then it'll end up in a commit block,
+
+1014
+01:25:22,340 --> 01:25:24,770
+and it all look pretty reasonable,
+
+1015
+01:25:25,790 --> 01:25:30,110
+if there's a crash in recovery and the scenario worried about t8 did not commit.
+
+1016
+01:25:33,590 --> 01:25:46,780
+Right. Yeah okay, so the [juicy] yeah exactly, so t8, t8 just happens to be going to put its commit block in exactly the same place where t5 puts commit block,
+
+1017
+01:25:46,810 --> 01:25:49,420
+but it didn't quite get the write income, it blocks all good,
+
+1018
+01:25:49,420 --> 01:25:53,050
+except this, we have a totally correct t8,
+
+1019
+01:25:53,050 --> 01:25:54,730
+but its t5's commit block.
+
+1020
+01:25:55,160 --> 01:25:55,880
+Yeah.
+
+1021
+01:25:56,590 --> 01:25:58,960
+You're wondering, gosh looks just like a commit block,
+
+1022
+01:25:59,230 --> 01:26:06,800
+okay, the answer is that the descriptor blocks and commit blocks as well as everything else have the sequence number of the transactions,
+
+1023
+01:26:06,800 --> 01:26:09,650
+so this descriptor block has an 8 in it,
+
+1024
+01:26:10,900 --> 01:26:17,300
+and but t5's commit descriptor, doesn't matter, but t5 commit block has a 5 in it.
+
+1025
+01:26:18,070 --> 01:26:19,450
+Okay, yeah.
+
+1026
+01:26:19,450 --> 01:26:22,510
+And so yeah it's looking eight as well as the magic number.
+
+1027
+01:26:22,660 --> 01:26:23,290
+Good question.
+
+1028
+01:26:25,440 --> 01:26:30,420
+Wait, but in this case, wouldn't you also have the descriptor block of t5,
+
+1029
+01:26:30,420 --> 01:26:33,210
+so you don't really need the numbers.
+
+1030
+01:26:35,290 --> 01:26:37,150
+Well, in this particular case,
+
+1031
+01:26:37,150 --> 01:26:42,250
+so yeah t5 used to have a descriptor block here, with a 5 in it,
+
+1032
+01:26:42,280 --> 01:26:47,830
+however t8 is so large that t8 overwrote, this descriptor block,
+
+1033
+01:26:47,830 --> 01:26:50,320
+with one of its own data blocks.
+
+1034
+01:26:51,140 --> 01:26:56,420
+So that t5 descriptor blocks have gone and been replaced by t8 block.
+
+1035
+01:26:57,180 --> 01:27:01,200
+So yeah used to be evidence for transaction five, but now it's now it's gone.
+
+1036
+01:27:05,100 --> 01:27:09,060
+So do we know the size of transaction eight before we started.
+
+1037
+01:27:14,800 --> 01:27:17,350
+Mhm mm, um.
+
+1038
+01:27:21,800 --> 01:27:23,180
+Sorry, this is a complex question,
+
+1039
+01:27:24,230 --> 01:27:27,960
+the it's probably the case that [he accept],
+
+1040
+01:27:31,160 --> 01:27:35,560
+okay, when t8 was opened as the active transaction,
+
+1041
+01:27:35,560 --> 01:27:37,150
+the system calls were writing into
+
+1042
+01:27:37,180 --> 01:27:41,020
+at that point in time, the system didn't know how big t8 was going to be.
+
+1043
+01:27:41,660 --> 01:27:50,890
+When the system starts committing t8, it does know, it does know, it does know how t8 be t8 is,
+
+1044
+01:27:51,010 --> 01:27:55,060
+the system doesn't start committing t8 until after t8 is closed,
+
+1045
+01:27:55,060 --> 01:27:56,830
+all of its system calls are finished.
+
+1046
+01:27:57,880 --> 01:28:04,690
+And at that point the system knows, I mean it's all the writes that were done, all the writes for t8 have completed, all the system calls are completed,
+
+1047
+01:28:04,690 --> 01:28:06,940
+so the system knows how big it is.
+
+1048
+01:28:08,290 --> 01:28:15,010
+One reason why that must be is that the descriptor block holds the complete list of blocks in that transaction
+
+1049
+01:28:15,100 --> 01:28:16,780
+and so at the time the descriptor block was written,
+
+1050
+01:28:16,780 --> 01:28:22,210
+which is first the logging system knew how many blocks that we're going to be in t8.
+
+1051
+01:28:24,550 --> 01:28:25,270
+Yeah.
+
+1052
+01:28:25,610 --> 01:28:28,130
+Oh okay I see I see, thank you.
+
+1053
+01:28:30,260 --> 01:28:37,280
+Why don't we just kind of like have the commit information into the descriptor block and avoid this kind of problem,
+
+1054
+01:28:37,640 --> 01:28:40,670
+because I know I know it's not great that we have to go back
+
+1055
+01:28:40,670 --> 01:28:44,890
+and like write back to the location, like not in sequence,
+
+1056
+01:28:44,890 --> 01:28:46,390
+but wouldn't that help.
+
+1057
+01:28:46,660 --> 01:28:49,990
+Okay so the proposal is that instead of having a commit block,
+
+1058
+01:28:51,240 --> 01:28:54,360
+we basically have the descriptor block act as a commit block
+
+1059
+01:28:54,720 --> 01:28:57,630
+and xv6 actually is very much like this.
+
+1060
+01:29:00,470 --> 01:29:06,710
+And I, you know you could do it, and and and in fact I think you can do it,
+
+1061
+01:29:06,710 --> 01:29:11,360
+without at least an ext3 without sacrificing efficiency,
+
+1062
+01:29:11,390 --> 01:29:16,340
+however, you have to play the same, you have to structure this in the same way that xv6 does,
+
+1063
+01:29:16,340 --> 01:29:25,930
+namely you, you, you, if there's a you have to be something in the descriptor block that indicates this is a commit transaction
+
+1064
+01:29:26,410 --> 01:29:32,560
+and we're not allowed to set whatever that flag is, until after all of the data blocks have been written,
+
+1065
+01:29:32,770 --> 01:29:36,610
+so the routine would have to be, we don't write the commit block first,
+
+1066
+01:29:36,790 --> 01:29:39,820
+instead we write all the data blocks for transaction eight first,
+
+1067
+01:29:39,970 --> 01:29:44,270
+and then we go back and write the commit block with the block numbers,
+
+1068
+01:29:44,810 --> 01:29:47,360
+with a descriptor block, whatever it is now
+
+1069
+01:29:47,390 --> 01:29:52,490
+and some kind of magic, this is really a committed transaction.
+
+1070
+01:29:52,850 --> 01:29:56,210
+So we can write all the data blocks and then go back and write the commit block,
+
+1071
+01:29:56,360 --> 01:30:00,090
+that descriptor commit block, whatever,
+
+1072
+01:30:00,150 --> 01:30:05,580
+I don't know any, I don't know any reason why this couldn't be made to work.
+
+1073
+01:30:07,670 --> 01:30:15,500
+It I I don't think it, it doesn't, I don't think it really eliminates any of the problems we've discussed,
+
+1074
+01:30:15,500 --> 01:30:17,330
+because we still have this problem,
+
+1075
+01:30:17,870 --> 01:30:21,890
+the original problem was gosh how do we distinguish this commit block,
+
+1076
+01:30:21,890 --> 01:30:26,900
+this stale commit block from transaction 5 from a true commit block for transaction 8,
+
+1077
+01:30:26,930 --> 01:30:28,460
+we're going to have the same problem here,
+
+1078
+01:30:28,790 --> 01:30:31,490
+you know this it could be that what's sitting here,
+
+1079
+01:30:31,820 --> 01:30:35,960
+you know just happens to be the descriptor block from transaction 5.
+
+1080
+01:30:36,500 --> 01:30:40,820
+And so you know maybe we've gone ahead and written all the data blocks for transaction data and then there was a crash,
+
+1081
+01:30:40,940 --> 01:30:44,540
+the recovery software still needs to be able to tell the difference between,
+
+1082
+01:30:45,500 --> 01:30:47,240
+to be able to look at this descriptor block
+
+1083
+01:30:47,240 --> 01:30:50,420
+and say wait a minute, you know there's something wrong here,
+
+1084
+01:30:50,750 --> 01:30:53,840
+even though this looks like a valid descriptor block, it's not really.
+
+1085
+01:30:54,550 --> 01:30:59,950
+And so we still have to have the magic number and the transaction number, the sequence number.
+
+1086
+01:31:01,310 --> 01:31:02,840
+Oh yeah, that makes sense,
+
+1087
+01:31:02,840 --> 01:31:07,730
+yeah I was just thinking like we'd have we kind of have like to commit part in the description block,
+
+1088
+01:31:07,730 --> 01:31:12,080
+but obviously like when we start t8, we write the description block saying it's uncommitted,
+
+1089
+01:31:12,080 --> 01:31:13,250
+then we write the data blocks,
+
+1090
+01:31:13,250 --> 01:31:16,520
+then we say it's a committed [right] block, now.
+
+1091
+01:31:16,730 --> 01:31:21,320
+The thing that could be saved here is the expense of waiting for these writes
+
+1092
+01:31:21,320 --> 01:31:23,780
+and then writing a commit block right,
+
+1093
+01:31:23,780 --> 01:31:27,200
+that wait is quite expensive, we're not allowed to start the write of the commit block
+
+1094
+01:31:27,200 --> 01:31:29,750
+until the data blocks, are on the disk
+
+1095
+01:31:29,960 --> 01:31:38,390
+and I I I don't think we have to have the same wait before we end here, in this sort of new single block scheme,
+
+1096
+01:31:38,570 --> 01:31:43,190
+we have to have the same [] wait, before we're allowed to write this new descriptor block,
+
+1097
+01:31:43,370 --> 01:31:47,240
+so it saves a block, but it doesn't save, I don't think I would save much time.
+
+1098
+01:31:47,840 --> 01:31:54,460
+The trick I, the trick that later versions of the Linux file system play that,
+
+1099
+01:31:54,760 --> 01:31:57,130
+sort of does do what I think you're hoping for.
+
+1100
+01:31:59,000 --> 01:32:07,700
+You know the the, this is looking into the ext4 does the following for better efficiency of writing the commit blocks.
+
+1101
+01:32:09,840 --> 01:32:17,670
+It ext4 will write out the all the data blocks and the commit block at the same time,
+
+1102
+01:32:18,370 --> 01:32:23,730
+that is it doesn't wait for the data block writes to finish before writes the commit block,
+
+1103
+01:32:23,760 --> 01:32:25,290
+so it doesn't have this long pause,
+
+1104
+01:32:25,440 --> 01:32:29,550
+but then there's this terrible issue, what happens if the disk,
+
+1105
+01:32:29,610 --> 01:32:31,710
+the disk is free to do writes out of order,
+
+1106
+01:32:32,070 --> 01:32:35,430
+a what if the disk writes the commit block first,
+
+1107
+01:32:35,430 --> 01:32:38,280
+before it actually performs the writes for the data blocks
+
+1108
+01:32:38,280 --> 01:32:42,900
+and then there's a crash then we have a commit block without having to discover having written the data blocks
+
+1109
+01:32:43,170 --> 01:32:45,330
+and the way ext4 solves that,
+
+1110
+01:32:48,050 --> 01:32:52,740
+is it has a checksum, in the commit block,
+
+1111
+01:32:53,130 --> 01:32:55,470
+over a checksum over all the data blocks.
+
+1112
+01:32:57,300 --> 01:33:00,960
+And so if there's a crash happens after the commit block was written,
+
+1113
+01:33:00,960 --> 01:33:03,720
+before the data blocks were written the checksum won't work out.
+
+1114
+01:33:04,380 --> 01:33:08,400
+The recovery software look at this checksum and then it'll compute the checksum over the data blocks that are,
+
+1115
+01:33:08,980 --> 01:33:12,040
+actually, in the log if they're not the same, it knows that something went wrong.
+
+1116
+01:33:12,630 --> 01:33:19,380
+And so by doing this ext4 basically saves on a mechanical drive saves an entire rotations,
+
+1117
+01:33:21,010 --> 01:33:25,180
+that would happen if it had to wait for the data blocks before it commits.
+
+1118
+01:33:27,820 --> 01:33:28,720
+Okay, thanks.
+
+1119
+01:33:34,800 --> 01:33:36,300
+Oh that's cool.
+
+1120
+01:33:38,980 --> 01:33:40,450
+I love this stuff.
+
+1121
+01:33:41,900 --> 01:33:44,300
+This is very cool,
+
+1122
+01:33:44,450 --> 01:33:49,010
+I wanted to ask also about the data blocks, just the content blocks,
+
+1123
+01:33:49,310 --> 01:33:59,700
+so I think I got confused, but where in the steps that we were talking about, on your one of your previous boards, where would that be done.
+
+1124
+01:34:01,020 --> 01:34:01,860
+Where would which be done.
+
+1125
+01:34:02,340 --> 01:34:07,560
+So like, not the metadata blocks, but the actual.
+
+1126
+01:34:07,560 --> 01:34:14,550
+File content, alright, okay this is, - sort of multiple answers to this,
+
+1127
+01:34:14,790 --> 01:34:26,680
+in ext3 has multiple modes, for what happens to the data blocks,
+
+1128
+01:34:26,680 --> 01:34:31,220
+I think there's three two of which I remember,
+
+1129
+01:34:31,840 --> 01:34:39,820
+there's journal data and order data, in the,
+
+1130
+01:34:40,030 --> 01:34:44,770
+and when you configure an ext3 file system, you tell Linux which you want,
+
+1131
+01:34:47,240 --> 01:34:52,700
+if you um ask for journal data, then file content just goes write into the log,
+
+1132
+01:34:52,700 --> 01:34:59,090
+there's nothing special going on, if you write data to a file and that causes the inode to be updated in the,
+
+1133
+01:34:59,630 --> 01:35:03,320
+log is gonna contain your data and the updated an inode,
+
+1134
+01:35:04,820 --> 01:35:09,770
+you know everything, everything gets modified goes in the log, that's journal data,
+
+1135
+01:35:09,770 --> 01:35:12,290
+but of course it's quite slow or slower than you might hope,
+
+1136
+01:35:12,290 --> 01:35:21,930
+because you know now, if you write a whole bunch of data, it has to be written once to the log and then a second time to the home location,
+
+1137
+01:35:21,930 --> 01:35:26,910
+so the journal data scheme is straightforward but slow.
+
+1138
+01:35:29,320 --> 01:35:34,540
+Then there's this other order data scheme, that people that's actually the most popular mode,
+
+1139
+01:35:35,970 --> 01:35:38,910
+avoid that doesn't write the data to the log,
+
+1140
+01:35:39,440 --> 01:35:44,870
+in the order data scheme only metadata like inodes and directory blocks are written to the log
+
+1141
+01:35:45,050 --> 01:35:50,120
+and file content block is just written directly to the home locations in the file system
+
+1142
+01:35:51,320 --> 01:35:52,640
+and so it's a lot faster,
+
+1143
+01:35:52,640 --> 01:35:55,690
+because you don't have to write the file content twice,
+
+1144
+01:35:56,440 --> 01:35:58,000
+it does lead to more complexity though,
+
+1145
+01:35:58,000 --> 01:36:06,450
+because if you you can't just write the file data anytime you want,
+
+1146
+01:36:06,630 --> 01:36:13,210
+because then there's a risk that, if you don't worry about the order in which you write the inodes,
+
+1147
+01:36:13,210 --> 01:36:21,790
+there's the file data there's the risk that you might do a write that causes a new block to be allocated for file
+
+1148
+01:36:22,030 --> 01:36:26,230
+and have the updated inode be written into the log
+
+1149
+01:36:26,230 --> 01:36:32,500
+and committed and then have a crash happen before you get around to writing the actual file content to the disk,
+
+1150
+01:36:32,710 --> 01:36:39,040
+and then after recovery, what you would see is the inode with the new newly allocated data block,
+
+1151
+01:36:39,340 --> 01:36:45,340
+but the old contents of that data block from whatever file previously used that data block,
+
+1152
+01:36:45,890 --> 01:36:50,450
+and so if you're running a system that has multiple users like Athena system,
+
+1153
+01:36:50,660 --> 01:36:57,740
+then it could be that one user will end up having a file that contains contents from another user's deleted file.
+
+1154
+01:36:58,650 --> 01:37:04,350
+If we're not careful about the order in which we write the data versus the inode.
+
+1155
+01:37:06,550 --> 01:37:17,800
+A ext3 order data mode solves this, by not committing a modified inode until after the file content has been written to disk,
+
+1156
+01:37:18,040 --> 01:37:23,380
+so if your application and you write to a file and that write causes a new block to be allocated,
+
+1157
+01:37:23,800 --> 01:37:28,900
+the file system will write the new file content to the newly allocated block,
+
+1158
+01:37:29,080 --> 01:37:33,340
+and once that write is finished, only then will it commit the transaction.
+
+1159
+01:37:34,860 --> 01:37:38,670
+That causes the inode to be updated to have the new block number
+
+1160
+01:37:38,730 --> 01:37:46,650
+and that means that a crash, if there's a crash is going to happen between when you wrote the data, after you wrote the data and before you wrote the inode,
+
+1161
+01:37:46,710 --> 01:37:53,590
+therefore won't reveal somebody else's old deleted data block to the new user file.
+
+1162
+01:37:56,790 --> 01:37:57,720
+Okay I see.
+
+1163
+01:37:58,630 --> 01:38:02,500
+Okay I see, but I could still have the data but not the inode.
+
+1164
+01:38:03,310 --> 01:38:04,510
+Yeah you might all-.
+
+1165
+01:38:04,510 --> 01:38:09,850
+Yeah, it was a crash after you after you wrote the data block before you wrote the inode,
+
+1166
+01:38:09,850 --> 01:38:13,060
+then you have updated the data block, but it doesn't matter,
+
+1167
+01:38:13,060 --> 01:38:19,520
+because not only did you not write the inode, you also did write the updated block,
+
+1168
+01:38:19,550 --> 01:38:24,170
+free bitmap block blocks will be free and could be allocated for something else,
+
+1169
+01:38:24,200 --> 01:38:25,460
+so would not even lose a block.
+
+1170
+01:38:26,730 --> 01:38:31,620
+Alright, and if it's an old block, then it's still okay, right.
+
+1171
+01:38:32,100 --> 01:38:32,490
+Say it again.
+
+1172
+01:38:32,910 --> 01:38:43,530
+If it was just, it is the same, the same block just write some new data to it, but same block, same size, same same location,
+
+1173
+01:38:44,900 --> 01:38:53,180
+but we already wrote like it's not that we created a new block, but in the old block, we just wrote some extra data,
+
+1174
+01:38:53,180 --> 01:38:56,180
+but it was a little bit, so it didn't need to create anyone.
+
+1175
+01:38:57,220 --> 01:39:05,480
+Yeah, we wrote data we ended up writing to a data to a block, that was not in use by any file, it's not visible.
+
+1176
+01:39:06,020 --> 01:39:09,870
+Right, okay I see, thank you. Goodbye.
+
