@@ -1,0 +1,9152 @@
+1
+00:00:05,440 --> 00:00:07,990
+all right
+
+2
+00:00:08,000 --> 00:00:11,920
+um the sort of underlying topic
+
+3
+00:00:11,920 --> 00:00:15,360
+for today is really getting multi-core
+
+4
+00:00:15,360 --> 00:00:18,240
+getting good multi-core performance
+
+5
+00:00:18,240 --> 00:00:19,760
+getting good performance on multi-core
+
+6
+00:00:19,760 --> 00:00:22,400
+hardware um
+
+7
+00:00:22,400 --> 00:00:25,199
+and that's actually like a very
+
+8
+00:00:25,199 --> 00:00:27,199
+interesting and
+
+9
+00:00:27,199 --> 00:00:30,640
+deep um fascinating topic
+
+10
+00:00:30,640 --> 00:00:32,559
+with many many different interesting
+
+11
+00:00:32,559 --> 00:00:34,559
+aspects
+
+12
+00:00:34,559 --> 00:00:37,520
+um today we're just going to bite off a
+
+13
+00:00:37,520 --> 00:00:39,440
+fairly small piece
+
+14
+00:00:39,440 --> 00:00:43,680
+and that's how to get good performance
+
+15
+00:00:43,680 --> 00:00:47,039
+for shared data in the kernel that's
+
+16
+00:00:47,039 --> 00:00:47,760
+read
+
+17
+00:00:47,760 --> 00:00:50,239
+much more often than it's written and
+
+18
+00:00:50,239 --> 00:00:51,360
+you know it turns out there's many kind
+
+19
+00:00:51,360 --> 00:00:53,920
+of specific cases
+
+20
+00:00:53,920 --> 00:00:56,800
+in which different ideas for getting
+
+21
+00:00:56,800 --> 00:00:58,800
+good multi-core performance are useful
+
+22
+00:00:58,800 --> 00:01:02,709
+and
+
+23
+00:01:02,719 --> 00:01:03,840
+what we're going to look at today is
+
+24
+00:01:03,840 --> 00:01:05,680
+linux's rcu which has been very
+
+25
+00:01:05,680 --> 00:01:06,799
+successful for
+
+26
+00:01:06,799 --> 00:01:08,479
+sort of read heavy data read heavy
+
+27
+00:01:08,479 --> 00:01:10,000
+kernel data
+
+28
+00:01:10,000 --> 00:01:13,040
+um the uh
+
+29
+00:01:13,040 --> 00:01:16,159
+general sort of uh background here is
+
+30
+00:01:16,159 --> 00:01:16,720
+that
+
+31
+00:01:16,720 --> 00:01:19,280
+if you have modern machines with four or
+
+32
+00:01:19,280 --> 00:01:21,280
+eight or 16 or 64
+
+33
+00:01:21,280 --> 00:01:23,600
+or however many uh cores running in
+
+34
+00:01:23,600 --> 00:01:26,640
+parallel and sharing memory
+
+35
+00:01:26,640 --> 00:01:31,360
+the kernel is really a parallel process
+
+36
+00:01:31,360 --> 00:01:34,159
+it's a parallel program and if you're
+
+37
+00:01:34,159 --> 00:01:35,439
+going to get good performance you need
+
+38
+00:01:35,439 --> 00:01:37,040
+to make sure that the kernel can run a
+
+39
+00:01:37,040 --> 00:01:37,920
+lot of its work
+
+40
+00:01:37,920 --> 00:01:39,680
+as much as possible in parallel on
+
+41
+00:01:39,680 --> 00:01:41,600
+different cores in order to get
+
+42
+00:01:41,600 --> 00:01:43,200
+that much more you know if you can run
+
+43
+00:01:43,200 --> 00:01:44,960
+the kernel
+
+44
+00:01:44,960 --> 00:01:47,280
+in parallel on eight cores all of them
+
+45
+00:01:47,280 --> 00:01:48,799
+do useful work you can get
+
+46
+00:01:48,799 --> 00:01:52,000
+eight times the performance um than if
+
+47
+00:01:52,000 --> 00:01:53,680
+the kernel could only run on a single
+
+48
+00:01:53,680 --> 00:01:54,720
+core
+
+49
+00:01:54,720 --> 00:01:57,920
+and at a high level
+
+50
+00:01:57,920 --> 00:02:00,960
+this should clearly be possible
+
+51
+00:02:00,960 --> 00:02:02,479
+if you have lots and lots of processes
+
+52
+00:02:02,479 --> 00:02:04,799
+running on your computer
+
+53
+00:02:04,799 --> 00:02:06,159
+well first of all the processes aren't
+
+54
+00:02:06,159 --> 00:02:09,039
+running and executing in the kernel
+
+55
+00:02:09,039 --> 00:02:10,959
+then we have very little to worry about
+
+56
+00:02:10,959 --> 00:02:12,720
+they're likely to run in parallel
+
+57
+00:02:12,720 --> 00:02:15,520
+without any kernel having to do anything
+
+58
+00:02:15,520 --> 00:02:16,800
+if the process is
+
+59
+00:02:16,800 --> 00:02:18,319
+if you have many applications running
+
+60
+00:02:18,319 --> 00:02:20,560
+and they're all making system calls
+
+61
+00:02:20,560 --> 00:02:23,680
+a lot of the time different system calls
+
+62
+00:02:23,680 --> 00:02:25,200
+made by different processes
+
+63
+00:02:25,200 --> 00:02:26,400
+just seem like they ought to be
+
+64
+00:02:26,400 --> 00:02:27,840
+independent and should be able to
+
+65
+00:02:27,840 --> 00:02:28,879
+proceed
+
+66
+00:02:28,879 --> 00:02:30,800
+in many cases though certainly not all
+
+67
+00:02:30,800 --> 00:02:32,640
+but should be able to proceed completely
+
+68
+00:02:32,640 --> 00:02:34,000
+without interference
+
+69
+00:02:34,000 --> 00:02:37,040
+like if two processes are forking um
+
+70
+00:02:37,040 --> 00:02:39,440
+or two processes are reading different
+
+71
+00:02:39,440 --> 00:02:40,720
+pipes or
+
+72
+00:02:40,720 --> 00:02:42,400
+you know reading or writing different
+
+73
+00:02:42,400 --> 00:02:43,760
+files um
+
+74
+00:02:43,760 --> 00:02:45,760
+there's no obvious reason why these
+
+75
+00:02:45,760 --> 00:02:47,519
+should interfere with each other
+
+76
+00:02:47,519 --> 00:02:49,599
+um you know why they shouldn't be able
+
+77
+00:02:49,599 --> 00:02:51,040
+to execute in parallel at n
+
+78
+00:02:51,040 --> 00:02:53,519
+times the total throughput but the
+
+79
+00:02:53,519 --> 00:02:55,519
+problem is the kernel has a lot of
+
+80
+00:02:55,519 --> 00:02:58,720
+shared resources um
+
+81
+00:02:58,720 --> 00:03:01,440
+in order to you know for other good
+
+82
+00:03:01,440 --> 00:03:02,720
+reasons the kernel shares a lot of
+
+83
+00:03:02,720 --> 00:03:04,159
+resources like memory
+
+84
+00:03:04,159 --> 00:03:07,280
+and cpus and a disk cache and an ino
+
+85
+00:03:07,280 --> 00:03:08,000
+cache
+
+86
+00:03:08,000 --> 00:03:09,519
+and all this other stuff that's actually
+
+87
+00:03:09,519 --> 00:03:11,599
+under the hood shared between different
+
+88
+00:03:11,599 --> 00:03:13,360
+processes
+
+89
+00:03:13,360 --> 00:03:15,360
+and that means that even if two
+
+90
+00:03:15,360 --> 00:03:16,959
+processors are doing
+
+91
+00:03:16,959 --> 00:03:18,640
+system calls two processes that have
+
+92
+00:03:18,640 --> 00:03:19,920
+totally never heard of each other and
+
+93
+00:03:19,920 --> 00:03:21,440
+aren't trying to interact make system
+
+94
+00:03:21,440 --> 00:03:22,000
+calls
+
+95
+00:03:22,000 --> 00:03:23,840
+if those system calls happen to allocate
+
+96
+00:03:23,840 --> 00:03:25,200
+memory or use the
+
+97
+00:03:25,200 --> 00:03:27,920
+disk cache or involve scheduling
+
+98
+00:03:27,920 --> 00:03:28,799
+decisions
+
+99
+00:03:28,799 --> 00:03:33,200
+they may well end up both using
+
+100
+00:03:33,200 --> 00:03:34,560
+data structures in the kernel and
+
+101
+00:03:34,560 --> 00:03:36,400
+therefore we need some story
+
+102
+00:03:36,400 --> 00:03:37,680
+for how they're both supposed to use the
+
+103
+00:03:37,680 --> 00:03:40,239
+same data without
+
+104
+00:03:40,239 --> 00:03:41,840
+getting underfoot without interfering
+
+105
+00:03:41,840 --> 00:03:43,120
+with each other and there's been
+
+106
+00:03:43,120 --> 00:03:45,120
+enormous effort over the years in making
+
+107
+00:03:45,120 --> 00:03:46,080
+kernels
+
+108
+00:03:46,080 --> 00:03:47,760
+and making all these cases and kernels
+
+109
+00:03:47,760 --> 00:03:51,030
+run fast
+
+110
+00:03:51,040 --> 00:03:53,439
+we've seen one of course that's oriented
+
+111
+00:03:53,439 --> 00:03:56,560
+towards correctness namely spin locks
+
+112
+00:03:56,560 --> 00:03:59,680
+spinlocks are straightforward as such
+
+113
+00:03:59,680 --> 00:04:00,000
+things
+
+114
+00:04:00,000 --> 00:04:02,400
+go and easy to reason about but you know
+
+115
+00:04:02,400 --> 00:04:04,239
+what a spin lock does is
+
+116
+00:04:04,239 --> 00:04:06,799
+prevent execution it prevents its job is
+
+117
+00:04:06,799 --> 00:04:07,439
+to prevent
+
+118
+00:04:07,439 --> 00:04:10,319
+parallelism in cases where there might
+
+119
+00:04:10,319 --> 00:04:12,159
+be a problem between two processes
+
+120
+00:04:12,159 --> 00:04:14,560
+so spinlocks are just directly a way to
+
+121
+00:04:14,560 --> 00:04:16,959
+decrease performance that's all they do
+
+122
+00:04:16,959 --> 00:04:19,120
+of course they make it easy to reason
+
+123
+00:04:19,120 --> 00:04:20,400
+about correctness but they
+
+124
+00:04:20,400 --> 00:04:23,759
+absolutely prevent parallel execution
+
+125
+00:04:23,759 --> 00:04:25,680
+and you know that's not always that
+
+126
+00:04:25,680 --> 00:04:28,870
+desirable
+
+127
+00:04:28,880 --> 00:04:32,160
+okay so again we're going to focus
+
+128
+00:04:32,160 --> 00:04:34,800
+on read heavy date on the case in which
+
+129
+00:04:34,800 --> 00:04:36,320
+you have data that's mostly read
+
+130
+00:04:36,320 --> 00:04:38,639
+and relatively rarely lit written and
+
+131
+00:04:38,639 --> 00:04:40,160
+the main example i'm going to use
+
+132
+00:04:40,160 --> 00:04:43,199
+is a linked list a singly linked list um
+
+133
+00:04:43,199 --> 00:04:45,440
+and so you can think of uh just the
+
+134
+00:04:45,440 --> 00:04:46,720
+standard link to style
+
+135
+00:04:46,720 --> 00:04:49,759
+this diagram there's some sort of maybe
+
+136
+00:04:49,759 --> 00:04:52,720
+global variable that's a pointer this
+
+137
+00:04:52,720 --> 00:04:53,040
+head
+
+138
+00:04:53,040 --> 00:04:56,240
+pointer um just a pointer and
+
+139
+00:04:56,240 --> 00:04:59,520
+uh there's a bunch of list elements um
+
+140
+00:04:59,520 --> 00:04:59,840
+and
+
+141
+00:04:59,840 --> 00:05:02,400
+each list element has a some data in it
+
+142
+00:05:02,400 --> 00:05:04,160
+we'll just say it's a string like
+
+143
+00:05:04,160 --> 00:05:07,520
+you know hello is the sort of
+
+144
+00:05:07,520 --> 00:05:10,080
+data in this element and each element
+
+145
+00:05:10,080 --> 00:05:12,240
+also has a next pointer
+
+146
+00:05:12,240 --> 00:05:19,189
+that points the next list element
+
+147
+00:05:19,199 --> 00:05:21,520
+and then finally there's a pointer that
+
+148
+00:05:21,520 --> 00:05:23,199
+points to
+
+149
+00:05:23,199 --> 00:05:26,400
+zero to mark the answer um very
+
+150
+00:05:26,400 --> 00:05:28,400
+straightforward
+
+151
+00:05:28,400 --> 00:05:29,680
+um and again we're going to assume that
+
+152
+00:05:29,680 --> 00:05:31,280
+most uses of this list that we're
+
+153
+00:05:31,280 --> 00:05:33,360
+interested in are just reads
+
+154
+00:05:33,360 --> 00:05:36,000
+you know the the kernel thread or
+
+155
+00:05:36,000 --> 00:05:37,520
+whatever it is that's using this list
+
+156
+00:05:37,520 --> 00:05:38,800
+it's just scanning a list looking for
+
+157
+00:05:38,800 --> 00:05:40,160
+something it's not trying to modify the
+
+158
+00:05:40,160 --> 00:05:41,520
+list
+
+159
+00:05:41,520 --> 00:05:44,080
+and occasional writers though you know
+
+160
+00:05:44,080 --> 00:05:45,199
+if all
+
+161
+00:05:45,199 --> 00:05:47,759
+if there were zero writers ever we
+
+162
+00:05:47,759 --> 00:05:49,039
+wouldn't need to have to worry about
+
+163
+00:05:49,039 --> 00:05:50,720
+this at all because it'd be a
+
+164
+00:05:50,720 --> 00:05:52,880
+completely static list never changes we
+
+165
+00:05:52,880 --> 00:05:54,160
+can read it freely
+
+166
+00:05:54,160 --> 00:05:55,440
+but we're going to imagine that every
+
+167
+00:05:55,440 --> 00:05:56,800
+once in a while somebody comes along and
+
+168
+00:05:56,800 --> 00:05:58,479
+wants to write the list so that may mean
+
+169
+00:05:58,479 --> 00:05:59,280
+that
+
+170
+00:05:59,280 --> 00:06:02,240
+some other thread wants to change the
+
+171
+00:06:02,240 --> 00:06:04,319
+data stored in the list element or maybe
+
+172
+00:06:04,319 --> 00:06:07,280
+delete an element or maybe insert a new
+
+173
+00:06:07,280 --> 00:06:08,960
+element somewhere
+
+174
+00:06:08,960 --> 00:06:11,440
+so even though it's we're aiming at
+
+175
+00:06:11,440 --> 00:06:12,560
+mostly
+
+176
+00:06:12,560 --> 00:06:14,319
+reads we do have to worry about rights
+
+177
+00:06:14,319 --> 00:06:15,919
+we need to make the read safe in the
+
+178
+00:06:15,919 --> 00:06:19,189
+face of rights
+
+179
+00:06:19,199 --> 00:06:21,520
+and of course in xv6 we just have a lock
+
+180
+00:06:21,520 --> 00:06:22,639
+protecting this list
+
+181
+00:06:22,639 --> 00:06:24,479
+and a reader now you know not only would
+
+182
+00:06:24,479 --> 00:06:26,400
+writers in xv6 not only would writers
+
+183
+00:06:26,400 --> 00:06:27,520
+have to acquire the lock
+
+184
+00:06:27,520 --> 00:06:28,960
+but readers would have to acquire the
+
+185
+00:06:28,960 --> 00:06:31,280
+lock too because we've got to rule out
+
+186
+00:06:31,280 --> 00:06:32,720
+the situation in which
+
+187
+00:06:32,720 --> 00:06:34,639
+while we're reading somebody's actually
+
+188
+00:06:34,639 --> 00:06:35,919
+modifying the list because that could
+
+189
+00:06:35,919 --> 00:06:37,600
+cause
+
+190
+00:06:37,600 --> 00:06:41,199
+sort of the reader to see a half updated
+
+191
+00:06:41,199 --> 00:06:43,440
+value or follow an invalid pointer or
+
+192
+00:06:43,440 --> 00:06:44,000
+something
+
+193
+00:06:44,000 --> 00:06:48,560
+so in xv6 we have locks um
+
+194
+00:06:48,560 --> 00:06:50,880
+but uh that has the defect that if the
+
+195
+00:06:50,880 --> 00:06:52,720
+common cases there's no writers
+
+196
+00:06:52,720 --> 00:06:55,440
+it it means that um every time somebody
+
+197
+00:06:55,440 --> 00:06:56,880
+comes along and reads
+
+198
+00:06:56,880 --> 00:07:00,080
+they in xv6 they grab an exclusive
+
+199
+00:07:00,080 --> 00:07:02,960
+like xp6 spin locks are exclusive even
+
+200
+00:07:02,960 --> 00:07:04,479
+if you have just two readers
+
+201
+00:07:04,479 --> 00:07:07,120
+only one of them can proceed at a time
+
+202
+00:07:07,120 --> 00:07:07,520
+so
+
+203
+00:07:07,520 --> 00:07:10,960
+what we'd like um or sort of one way to
+
+204
+00:07:10,960 --> 00:07:12,400
+improve this situation
+
+205
+00:07:12,400 --> 00:07:15,199
+would be to have a new kind of lock that
+
+206
+00:07:15,199 --> 00:07:16,000
+allows
+
+207
+00:07:16,000 --> 00:07:20,000
+multiple readers but only one writer
+
+208
+00:07:20,000 --> 00:07:22,080
+so i'm going to explore those next
+
+209
+00:07:22,080 --> 00:07:23,599
+actually both because they're
+
+210
+00:07:23,599 --> 00:07:25,039
+interesting
+
+211
+00:07:25,039 --> 00:07:28,080
+and because they're they help motivate
+
+212
+00:07:28,080 --> 00:07:30,160
+the need for rcu which we'll talk about
+
+213
+00:07:30,160 --> 00:07:31,919
+in a little while
+
+214
+00:07:31,919 --> 00:07:33,919
+um so there's this notion called read
+
+215
+00:07:33,919 --> 00:07:37,830
+write locks
+
+216
+00:07:37,840 --> 00:07:39,599
+and the interface is a little more
+
+217
+00:07:39,599 --> 00:07:41,280
+complicated than the spin locks we're
+
+218
+00:07:41,280 --> 00:07:42,000
+used to
+
+219
+00:07:42,000 --> 00:07:43,599
+we're going to imagine that there's one
+
+220
+00:07:43,599 --> 00:07:45,599
+set of call that you call if you just
+
+221
+00:07:45,599 --> 00:07:46,800
+want to read something
+
+222
+00:07:46,800 --> 00:07:50,160
+so we're going to imagine an r lock call
+
+223
+00:07:50,160 --> 00:07:53,599
+and you pass it a a lock
+
+224
+00:07:53,599 --> 00:07:57,280
+and then also an r unlock call
+
+225
+00:07:57,280 --> 00:08:00,479
+um and readers call these and then
+
+226
+00:08:00,479 --> 00:08:01,520
+there's a write
+
+227
+00:08:01,520 --> 00:08:04,800
+block call and a write unlock call also
+
+228
+00:08:04,800 --> 00:08:07,919
+and the semantics are
+
+229
+00:08:07,919 --> 00:08:10,960
+that you can either have
+
+230
+00:08:10,960 --> 00:08:14,400
+multiple readers acquire the block for
+
+231
+00:08:14,400 --> 00:08:15,599
+reading
+
+232
+00:08:15,599 --> 00:08:19,039
+so we do then would get parallelism or
+
+233
+00:08:19,039 --> 00:08:22,080
+you can have exactly one writer
+
+234
+00:08:22,080 --> 00:08:24,400
+have acquired the lock but you can never
+
+235
+00:08:24,400 --> 00:08:25,759
+have a mix you can never
+
+236
+00:08:25,759 --> 00:08:28,479
+be in this the locks rule out the possib
+
+237
+00:08:28,479 --> 00:08:28,879
+read
+
+238
+00:08:28,879 --> 00:08:30,400
+read write blocks rule out the
+
+239
+00:08:30,400 --> 00:08:32,240
+possibility of somebody having
+
+240
+00:08:32,240 --> 00:08:34,000
+locked the lock for writing and also
+
+241
+00:08:34,000 --> 00:08:35,599
+reading at the same time you either get
+
+242
+00:08:35,599 --> 00:08:36,560
+one writer
+
+243
+00:08:36,560 --> 00:08:41,039
+or lots of readers but nothing else um
+
+244
+00:08:41,039 --> 00:08:44,720
+so that's the uh question yes
+
+245
+00:08:44,720 --> 00:08:47,839
+uh this may be an implementation detail
+
+246
+00:08:47,839 --> 00:08:50,240
+but what kind of mechanisms does this
+
+247
+00:08:50,240 --> 00:08:51,839
+locking scheme put in place
+
+248
+00:08:51,839 --> 00:08:55,279
+to prevent uh someone writing
+
+249
+00:08:55,279 --> 00:08:57,440
+while they hold a read lock nothing
+
+250
+00:08:57,440 --> 00:08:59,440
+nothing it's just like xp6 locks
+
+251
+00:08:59,440 --> 00:09:01,760
+they're completely we're talking about
+
+252
+00:09:01,760 --> 00:09:04,240
+kernel code written by trusted
+
+253
+00:09:04,240 --> 00:09:06,560
+responsible developers and so just like
+
+254
+00:09:06,560 --> 00:09:08,320
+spinlocks in xv6
+
+255
+00:09:08,320 --> 00:09:09,680
+if the code that's using the lock is
+
+256
+00:09:09,680 --> 00:09:12,480
+incorrect it's incorrect
+
+257
+00:09:12,480 --> 00:09:16,480
+there's no okay and this is the way
+
+258
+00:09:16,480 --> 00:09:19,440
+you know typical kernels are written you
+
+259
+00:09:19,440 --> 00:09:22,080
+just have to assume that
+
+260
+00:09:22,080 --> 00:09:23,200
+people developing the kernel are
+
+261
+00:09:23,200 --> 00:09:26,080
+following their own rules
+
+262
+00:09:26,080 --> 00:09:27,920
+okay okay and again the reason why we
+
+263
+00:09:27,920 --> 00:09:29,440
+care is that
+
+264
+00:09:29,440 --> 00:09:32,240
+if we have a mostly a read mostly data
+
+265
+00:09:32,240 --> 00:09:34,240
+structure we'd love to have
+
+266
+00:09:34,240 --> 00:09:35,760
+multiple readers be able to use it at
+
+267
+00:09:35,760 --> 00:09:37,839
+the same time to get
+
+268
+00:09:37,839 --> 00:09:41,040
+genuine speed up from having
+
+269
+00:09:41,040 --> 00:09:44,070
+multiple cores
+
+270
+00:09:44,080 --> 00:09:47,519
+all right so um if there were no problem
+
+271
+00:09:47,519 --> 00:09:48,880
+here this would just be the answer we
+
+272
+00:09:48,880 --> 00:09:51,920
+wouldn't have need to read today's paper
+
+273
+00:09:51,920 --> 00:09:54,000
+but it turns out that if you dig into
+
+274
+00:09:54,000 --> 00:09:56,640
+the details of what actually happens
+
+275
+00:09:56,640 --> 00:09:59,120
+when you use read write locks especially
+
+276
+00:09:59,120 --> 00:09:59,839
+for
+
+277
+00:09:59,839 --> 00:10:02,399
+data that's actually read a lot there's
+
+278
+00:10:02,399 --> 00:10:03,600
+some problems
+
+279
+00:10:03,600 --> 00:10:06,000
+and in order to see what's going on we
+
+280
+00:10:06,000 --> 00:10:06,720
+actually have to look at the
+
+281
+00:10:06,720 --> 00:10:09,440
+implementation
+
+282
+00:10:09,440 --> 00:10:15,110
+linux indeed has a read write lock
+
+283
+00:10:15,120 --> 00:10:18,560
+implementation in it and this is um
+
+284
+00:10:18,560 --> 00:10:22,240
+a kind of simplified version of the
+
+285
+00:10:22,240 --> 00:10:24,959
+linux code the idea is that we have a
+
+286
+00:10:24,959 --> 00:10:26,000
+struct rw
+
+287
+00:10:26,000 --> 00:10:29,200
+lock which is like struck lock in xv6
+
+288
+00:10:29,200 --> 00:10:32,240
+and it has a count in it
+
+289
+00:10:32,240 --> 00:10:34,320
+if the count is zero that means that the
+
+290
+00:10:34,320 --> 00:10:35,920
+lock is not held by anybody
+
+291
+00:10:35,920 --> 00:10:38,000
+in any form if the count is negative one
+
+292
+00:10:38,000 --> 00:10:41,040
+that means that a writer has it locked
+
+293
+00:10:41,040 --> 00:10:42,480
+and if the count is greater than zero
+
+294
+00:10:42,480 --> 00:10:44,240
+that means that n
+
+295
+00:10:44,240 --> 00:10:46,079
+readers have it locked and we need to
+
+296
+00:10:46,079 --> 00:10:47,440
+keep track of them because
+
+297
+00:10:47,440 --> 00:10:48,959
+we can only let a writer in if the
+
+298
+00:10:48,959 --> 00:10:58,790
+number of readers descends to zero
+
+299
+00:10:58,800 --> 00:11:02,949
+okay so somebody asked about addings
+
+300
+00:11:02,959 --> 00:11:05,519
+no i'm not sure if there's a question in
+
+301
+00:11:05,519 --> 00:11:06,560
+the chat
+
+302
+00:11:06,560 --> 00:11:11,990
+interrupt me if there is um
+
+303
+00:11:12,000 --> 00:11:16,160
+the read lock function
+
+304
+00:11:16,160 --> 00:11:19,839
+um it has to sit in a loop because
+
+305
+00:11:19,839 --> 00:11:21,120
+if there's a writer we have to wait for
+
+306
+00:11:21,120 --> 00:11:25,590
+the writer
+
+307
+00:11:25,600 --> 00:11:31,509
+it looks
+
+308
+00:11:31,519 --> 00:11:35,040
+it grabs a copy of the current end value
+
+309
+00:11:35,040 --> 00:11:36,079
+if it's less than zero that means
+
+310
+00:11:36,079 --> 00:11:37,600
+there's a writer and we just need to
+
+311
+00:11:37,600 --> 00:11:38,720
+continue our loop and we're going to
+
+312
+00:11:38,720 --> 00:11:39,279
+spin
+
+313
+00:11:39,279 --> 00:11:41,600
+waiting for the writer to go away
+
+314
+00:11:41,600 --> 00:11:44,949
+otherwise we want to increment
+
+315
+00:11:44,959 --> 00:11:48,320
+that value but we only want to increment
+
+316
+00:11:48,320 --> 00:11:48,640
+it
+
+317
+00:11:48,640 --> 00:11:50,959
+if it's still greater than or equal to
+
+318
+00:11:50,959 --> 00:11:52,720
+zero so we can't
+
+319
+00:11:52,720 --> 00:11:54,240
+there's many things we can't do we can't
+
+320
+00:11:54,240 --> 00:11:57,279
+for example just add one with standard
+
+321
+00:11:57,279 --> 00:12:00,320
+n equals n plus one because if a writer
+
+322
+00:12:00,320 --> 00:12:01,200
+sneaks in
+
+323
+00:12:01,200 --> 00:12:02,880
+between when we check the value of n and
+
+324
+00:12:02,880 --> 00:12:05,440
+when we actually try to increment it
+
+325
+00:12:05,440 --> 00:12:06,800
+then we may actually go ahead and
+
+326
+00:12:06,800 --> 00:12:08,320
+increment it at the same time that some
+
+327
+00:12:08,320 --> 00:12:10,079
+writer is setting it to minus one
+
+328
+00:12:10,079 --> 00:12:11,839
+which is wrong so we need to increment
+
+329
+00:12:11,839 --> 00:12:14,399
+it only if it hasn't changed value
+
+330
+00:12:14,399 --> 00:12:16,560
+since we checked it and verified that
+
+331
+00:12:16,560 --> 00:12:18,880
+it's greater than or equal to zero
+
+332
+00:12:18,880 --> 00:12:22,079
+and um the way people do that is they
+
+333
+00:12:22,079 --> 00:12:23,279
+take advantage of
+
+334
+00:12:23,279 --> 00:12:24,959
+special atomic or interlocked
+
+335
+00:12:24,959 --> 00:12:26,320
+instructions which you
+
+336
+00:12:26,320 --> 00:12:28,959
+saw before for the um for our
+
+337
+00:12:28,959 --> 00:12:30,000
+implementation of
+
+338
+00:12:30,000 --> 00:12:33,040
+spinlocks and xv6 and the interlocked
+
+339
+00:12:33,040 --> 00:12:34,240
+instruction that
+
+340
+00:12:34,240 --> 00:12:35,680
+one that's particularly convenient to
+
+341
+00:12:35,680 --> 00:12:38,240
+use is something called compare and swap
+
+342
+00:12:38,240 --> 00:12:39,600
+the idea is that compare and swap takes
+
+343
+00:12:39,600 --> 00:12:41,680
+three arguments
+
+344
+00:12:41,680 --> 00:12:43,839
+the address of some location of memory
+
+345
+00:12:43,839 --> 00:12:46,240
+that we want to act on
+
+346
+00:12:46,240 --> 00:12:49,440
+the value that we think it holds and the
+
+347
+00:12:49,440 --> 00:12:52,079
+value that we'd like it to hold and the
+
+348
+00:12:52,079 --> 00:12:53,760
+semantics of compare and swap are that
+
+349
+00:12:53,760 --> 00:12:54,399
+the hardware
+
+350
+00:12:54,399 --> 00:12:57,519
+checks the hardware first sort of
+
+351
+00:12:57,519 --> 00:12:59,600
+you know basically sets an internal lock
+
+352
+00:12:59,600 --> 00:13:00,720
+that makes
+
+353
+00:13:00,720 --> 00:13:02,880
+only one compare and swap execute at a
+
+354
+00:13:02,880 --> 00:13:05,279
+time on a given locate memory location
+
+355
+00:13:05,279 --> 00:13:07,279
+then the hardware checks that the
+
+356
+00:13:07,279 --> 00:13:08,800
+current value of that location
+
+357
+00:13:08,800 --> 00:13:12,800
+is indeed still x and if it's still x
+
+358
+00:13:12,800 --> 00:13:14,880
+it sets it to this third argument which
+
+359
+00:13:14,880 --> 00:13:16,880
+is going to be x plus one
+
+360
+00:13:16,880 --> 00:13:19,040
+and then the instruction yields one
+
+361
+00:13:19,040 --> 00:13:21,360
+that's this value
+
+362
+00:13:21,360 --> 00:13:22,880
+if compare and swap observes that the
+
+363
+00:13:22,880 --> 00:13:24,880
+current value isn't x
+
+364
+00:13:24,880 --> 00:13:26,880
+um then it then it doesn't change the
+
+365
+00:13:26,880 --> 00:13:29,040
+value the memory location and it returns
+
+366
+00:13:29,040 --> 00:13:30,160
+zero
+
+367
+00:13:30,160 --> 00:13:34,240
+so this is basically an atomic if the
+
+368
+00:13:34,240 --> 00:13:37,200
+location is x set it to x plus one
+
+369
+00:13:37,200 --> 00:13:38,399
+and it has to be atomic because there's
+
+370
+00:13:38,399 --> 00:13:40,160
+really two things going on the hardware
+
+371
+00:13:40,160 --> 00:13:40,639
+is
+
+372
+00:13:40,639 --> 00:13:42,720
+checking the current value and setting
+
+373
+00:13:42,720 --> 00:13:45,590
+it to a new value
+
+374
+00:13:45,600 --> 00:13:49,839
+any questions about compare and swap
+
+375
+00:13:49,839 --> 00:13:52,720
+i have a question if there would be a
+
+376
+00:13:52,720 --> 00:13:53,360
+reader
+
+377
+00:13:53,360 --> 00:13:56,800
+and uh our lock needs to
+
+378
+00:13:56,800 --> 00:14:00,320
+continue would w unlock
+
+379
+00:14:00,320 --> 00:14:03,680
+reset the value back to x oh i'm
+
+380
+00:14:03,680 --> 00:14:07,680
+i'm uh well w unlock
+
+381
+00:14:07,680 --> 00:14:10,880
+if there's a writer w unlock which
+
+382
+00:14:10,880 --> 00:14:14,399
+i'm afraid i didn't show sets n to zero
+
+383
+00:14:14,399 --> 00:14:17,760
+because there can only be one writer
+
+384
+00:14:17,760 --> 00:14:20,880
+if there's what read unlock does
+
+385
+00:14:20,880 --> 00:14:24,240
+is use another compare and swap
+
+386
+00:14:24,240 --> 00:14:27,279
+to decrement in
+
+387
+00:14:27,279 --> 00:14:31,839
+okay because what happens if
+
+388
+00:14:31,839 --> 00:14:35,279
+um a writer locks
+
+389
+00:14:35,279 --> 00:14:38,480
+uh the lock between when x
+
+390
+00:14:38,480 --> 00:14:41,839
+is being computed and
+
+391
+00:14:41,839 --> 00:14:45,120
+so right here uh no
+
+392
+00:14:45,120 --> 00:14:50,000
+between the if and x
+
+393
+00:14:50,000 --> 00:14:52,959
+somehow okay okay it's i'm not sure i
+
+394
+00:14:52,959 --> 00:14:54,959
+understand exactly
+
+395
+00:14:54,959 --> 00:14:56,880
+what time you're asking but it's
+
+396
+00:14:56,880 --> 00:14:58,720
+absolutely a good question what happens
+
+397
+00:14:58,720 --> 00:15:02,079
+if w lock is called somewhere during
+
+398
+00:15:02,079 --> 00:15:03,760
+this sequence
+
+399
+00:15:03,760 --> 00:15:06,240
+and for me the most dangerous time for w
+
+400
+00:15:06,240 --> 00:15:07,360
+lock to be called
+
+401
+00:15:07,360 --> 00:15:10,399
+is after this check but before the
+
+402
+00:15:10,399 --> 00:15:12,480
+compare and swap
+
+403
+00:15:12,480 --> 00:15:15,360
+so let's imagine that read lock has
+
+404
+00:15:15,360 --> 00:15:17,519
+gotten as far as seeing that x that
+
+405
+00:15:17,519 --> 00:15:20,959
+x or l alright n is zero
+
+406
+00:15:20,959 --> 00:15:22,560
+okay so maybe we're right here right
+
+407
+00:15:22,560 --> 00:15:24,800
+here
+
+408
+00:15:24,800 --> 00:15:28,710
+and x is equal to zero
+
+409
+00:15:28,720 --> 00:15:32,800
+um and we've already checked it
+
+410
+00:15:32,800 --> 00:15:34,639
+so the check is finished and then right
+
+411
+00:15:34,639 --> 00:15:36,160
+at this time on another core
+
+412
+00:15:36,160 --> 00:15:39,279
+some other thread calls w lock
+
+413
+00:15:39,279 --> 00:15:40,959
+and it actually gets its compare and
+
+414
+00:15:40,959 --> 00:15:43,519
+swap in first
+
+415
+00:15:43,519 --> 00:15:45,199
+so on the other core that's trying to
+
+416
+00:15:45,199 --> 00:15:47,279
+grab the right lock
+
+417
+00:15:47,279 --> 00:15:49,279
+compare and swap is going to see if lron
+
+418
+00:15:49,279 --> 00:15:51,279
+is zero let's assume that n is zero
+
+419
+00:15:51,279 --> 00:15:53,920
+so that this test is true and the
+
+420
+00:15:53,920 --> 00:15:55,440
+compare and swap is
+
+421
+00:15:55,440 --> 00:15:57,440
+on that other core is gonna set n to
+
+422
+00:15:57,440 --> 00:16:00,000
+negative one so now the lock's locked
+
+423
+00:16:00,000 --> 00:16:03,040
+um but we still think that n is zero in
+
+424
+00:16:03,040 --> 00:16:04,399
+this code
+
+425
+00:16:04,399 --> 00:16:06,639
+uh even the lock's locked and now we're
+
+426
+00:16:06,639 --> 00:16:08,480
+gonna execute now back on the reading
+
+427
+00:16:08,480 --> 00:16:09,680
+core
+
+428
+00:16:09,680 --> 00:16:11,519
+we're going to execute compare and swap
+
+429
+00:16:11,519 --> 00:16:13,120
+but we're going to pass 0
+
+430
+00:16:13,120 --> 00:16:14,959
+here right this is the value we actually
+
+431
+00:16:14,959 --> 00:16:16,160
+we're going to pass in the value we
+
+432
+00:16:16,160 --> 00:16:16,639
+actually
+
+433
+00:16:16,639 --> 00:16:19,600
+looked at not the current value of n and
+
+434
+00:16:19,600 --> 00:16:21,279
+when we looked at it it was 0. so we're
+
+435
+00:16:21,279 --> 00:16:21,759
+going to pass
+
+436
+00:16:21,759 --> 00:16:23,759
+zero here and we're telling compare and
+
+437
+00:16:23,759 --> 00:16:25,360
+swap look only
+
+438
+00:16:25,360 --> 00:16:28,480
+add one to only set it to one if its
+
+439
+00:16:28,480 --> 00:16:30,320
+current value is zero
+
+440
+00:16:30,320 --> 00:16:31,839
+but it's not zero at this point it's
+
+441
+00:16:31,839 --> 00:16:33,920
+minus one and so this compare and swap
+
+442
+00:16:33,920 --> 00:16:34,560
+fails
+
+443
+00:16:34,560 --> 00:16:38,480
+does not modify n returns zero
+
+444
+00:16:38,480 --> 00:16:39,759
+and so that means we'll go back to the
+
+445
+00:16:39,759 --> 00:16:41,759
+top of this loop and try again of course
+
+446
+00:16:41,759 --> 00:16:42,399
+now
+
+447
+00:16:42,399 --> 00:16:45,509
+n is minus one
+
+448
+00:16:45,519 --> 00:16:47,279
+um this might be related to the previous
+
+449
+00:16:47,279 --> 00:16:49,120
+question a bit but
+
+450
+00:16:49,120 --> 00:16:52,639
+is it possible for an interrupt to occur
+
+451
+00:16:52,639 --> 00:16:55,600
+uh when that x plus 1 is being computed
+
+452
+00:16:55,600 --> 00:16:56,320
+in the cast
+
+453
+00:16:56,320 --> 00:16:59,360
+parameter or cas parameter you mean
+
+454
+00:16:59,360 --> 00:17:01,680
+before we actually execute cas but while
+
+455
+00:17:01,680 --> 00:17:03,279
+we're computing its arguments
+
+456
+00:17:03,279 --> 00:17:05,600
+right so like you compute or you pass in
+
+457
+00:17:05,600 --> 00:17:06,400
+the x
+
+458
+00:17:06,400 --> 00:17:09,120
+uh argument and that's okay but you
+
+459
+00:17:09,120 --> 00:17:10,959
+before you compute the x plus one or
+
+460
+00:17:10,959 --> 00:17:12,480
+while you're computing x plus one
+
+461
+00:17:12,480 --> 00:17:15,600
+an interrupt occurs um until x plus one
+
+462
+00:17:15,600 --> 00:17:16,160
+is wrong
+
+463
+00:17:16,160 --> 00:17:18,480
+so if an interrupt occurs while we're
+
+464
+00:17:18,480 --> 00:17:19,760
+computing x plus one that means we
+
+465
+00:17:19,760 --> 00:17:20,480
+haven't
+
+466
+00:17:20,480 --> 00:17:22,319
+cas is actually an instruction it's a
+
+467
+00:17:22,319 --> 00:17:24,160
+single machine instruction
+
+468
+00:17:24,160 --> 00:17:25,600
+so if we're computing s plus one that
+
+469
+00:17:25,600 --> 00:17:27,919
+means we haven't called cas yet
+
+470
+00:17:27,919 --> 00:17:30,640
+if the interrupt happens and all kinds
+
+471
+00:17:30,640 --> 00:17:32,799
+of things may happen
+
+472
+00:17:32,799 --> 00:17:34,400
+we're going to get the same if we
+
+473
+00:17:34,400 --> 00:17:37,919
+originally read zero here
+
+474
+00:17:37,919 --> 00:17:40,720
+right then interrupt or no interrupt
+
+475
+00:17:40,720 --> 00:17:41,679
+we're going to pass
+
+476
+00:17:41,679 --> 00:17:44,080
+one as this third argument because the
+
+477
+00:17:44,080 --> 00:17:45,360
+interrupt is not going to reach out and
+
+478
+00:17:45,360 --> 00:17:47,280
+change this is a local this x is a local
+
+479
+00:17:47,280 --> 00:17:48,799
+variable
+
+480
+00:17:48,799 --> 00:17:51,120
+for this code so the interrupt or
+
+481
+00:17:51,120 --> 00:17:52,320
+context which or anything is not going
+
+482
+00:17:52,320 --> 00:17:52,880
+to change
+
+483
+00:17:52,880 --> 00:17:56,240
+x and so that means we're going to pass
+
+484
+00:17:56,240 --> 00:17:59,760
+0 and 1 here and you know
+
+485
+00:17:59,760 --> 00:18:01,600
+if n is still zero then we'll set it to
+
+486
+00:18:01,600 --> 00:18:03,039
+one and that's that's what we want if
+
+487
+00:18:03,039 --> 00:18:04,240
+it's not still zero then
+
+488
+00:18:04,240 --> 00:18:06,720
+compare and swap won't change it right i
+
+489
+00:18:06,720 --> 00:18:07,919
+guess you would have problems if you
+
+490
+00:18:07,919 --> 00:18:11,590
+didn't set that local variable then
+
+491
+00:18:11,600 --> 00:18:14,640
+yeah if you used l arrow m here
+
+492
+00:18:14,640 --> 00:18:16,559
+yeah and l arrow n plus one you would
+
+493
+00:18:16,559 --> 00:18:17,919
+almost certainly be in big trouble
+
+494
+00:18:17,919 --> 00:18:18,880
+because then
+
+495
+00:18:18,880 --> 00:18:21,360
+n could change under foot at any time
+
+496
+00:18:21,360 --> 00:18:22,240
+that's why we
+
+497
+00:18:22,240 --> 00:18:25,200
+actually grab a copy and grab a copy
+
+498
+00:18:25,200 --> 00:18:26,880
+here in order to sort of
+
+499
+00:18:26,880 --> 00:18:32,070
+fix a specific value yeah yes
+
+500
+00:18:32,080 --> 00:18:35,909
+okay
+
+501
+00:18:35,919 --> 00:18:38,559
+um if two readers okay so i cover the
+
+502
+00:18:38,559 --> 00:18:39,039
+case of
+
+503
+00:18:39,039 --> 00:18:42,160
+whatever writer calls at the same
+
+504
+00:18:42,160 --> 00:18:43,840
+w lock is called the same time as our
+
+505
+00:18:43,840 --> 00:18:45,760
+lock
+
+506
+00:18:45,760 --> 00:18:47,200
+it's also interesting to wonder what if
+
+507
+00:18:47,200 --> 00:18:48,799
+our lock is called at the same time
+
+508
+00:18:48,799 --> 00:18:52,240
+um so supposing n starts at a zero we
+
+509
+00:18:52,240 --> 00:18:54,240
+know if two r locks
+
+510
+00:18:54,240 --> 00:18:56,480
+are called at the same time what we want
+
+511
+00:18:56,480 --> 00:18:58,240
+is for n to end up with value
+
+512
+00:18:58,240 --> 00:19:01,440
+two and for both our locks to return
+
+513
+00:19:01,440 --> 00:19:03,440
+that's what we want because we want two
+
+514
+00:19:03,440 --> 00:19:05,039
+readers to be able to execute in
+
+515
+00:19:05,039 --> 00:19:07,679
+parallel to use the data in parallel
+
+516
+00:19:07,679 --> 00:19:11,520
+um okay so
+
+517
+00:19:11,520 --> 00:19:14,240
+they're both going to see zero at this
+
+518
+00:19:14,240 --> 00:19:15,120
+point so
+
+519
+00:19:15,120 --> 00:19:16,320
+at this point both of them are going to
+
+520
+00:19:16,320 --> 00:19:18,320
+have x equal to zero they're both going
+
+521
+00:19:18,320 --> 00:19:18,960
+to call
+
+522
+00:19:18,960 --> 00:19:23,039
+compare and swap with zero and one
+
+523
+00:19:23,039 --> 00:19:27,200
+um only one of those two compare and
+
+524
+00:19:27,200 --> 00:19:28,400
+swaps hopefully
+
+525
+00:19:28,400 --> 00:19:30,160
+exactly one of those two comparison
+
+526
+00:19:30,160 --> 00:19:31,679
+swaps will succeed
+
+527
+00:19:31,679 --> 00:19:34,160
+whichever one you know parent swap it's
+
+528
+00:19:34,160 --> 00:19:36,320
+an atomic instruction
+
+529
+00:19:36,320 --> 00:19:39,120
+there only one of them happens at a time
+
+530
+00:19:39,120 --> 00:19:40,640
+on a given memory location
+
+531
+00:19:40,640 --> 00:19:43,840
+so whichever compare on top is first
+
+532
+00:19:43,840 --> 00:19:44,960
+we'll see
+
+533
+00:19:44,960 --> 00:19:46,960
+uh that at n is equal to zero and we'll
+
+534
+00:19:46,960 --> 00:19:48,240
+set it to one
+
+535
+00:19:48,240 --> 00:19:50,880
+the other course simultaneous call to r
+
+536
+00:19:50,880 --> 00:19:51,360
+lock
+
+537
+00:19:51,360 --> 00:19:54,400
+its compare swap will then execute
+
+538
+00:19:54,400 --> 00:19:58,240
+and it'll still pass zero and one here
+
+539
+00:19:58,240 --> 00:20:00,559
+but n will now be equal to one and so
+
+540
+00:20:00,559 --> 00:20:02,799
+the compare and top will fail
+
+541
+00:20:02,799 --> 00:20:07,280
+for the second core and return zero
+
+542
+00:20:07,280 --> 00:20:08,640
+the second core will go back to the top
+
+543
+00:20:08,640 --> 00:20:10,400
+of this loop at this point it'll read
+
+544
+00:20:10,400 --> 00:20:11,520
+one
+
+545
+00:20:11,520 --> 00:20:14,720
+um that's not less than zero so
+
+546
+00:20:14,720 --> 00:20:16,080
+we'll go on to the compare and swap and
+
+547
+00:20:16,080 --> 00:20:17,840
+now it'll pass one and two
+
+548
+00:20:17,840 --> 00:20:20,000
+and now the second read lock will
+
+549
+00:20:20,000 --> 00:20:20,960
+succeed
+
+550
+00:20:20,960 --> 00:20:23,600
+both of them will have the log so the
+
+551
+00:20:23,600 --> 00:20:25,039
+first one succeeded in the first stride
+
+552
+00:20:25,039 --> 00:20:26,240
+the second one actually go back
+
+553
+00:20:26,240 --> 00:20:31,350
+to the loop and try again
+
+554
+00:20:31,360 --> 00:20:35,520
+any questions
+
+555
+00:20:35,520 --> 00:20:38,720
+um oh sorry so it is somehow possible
+
+556
+00:20:38,720 --> 00:20:39,679
+that
+
+557
+00:20:39,679 --> 00:20:43,039
+so a bunch of reads come and
+
+558
+00:20:43,039 --> 00:20:45,280
+they they're they're reading their stuff
+
+559
+00:20:45,280 --> 00:20:46,320
+and then
+
+560
+00:20:46,320 --> 00:20:49,280
+a ride also comes and it also wants to
+
+561
+00:20:49,280 --> 00:20:49,919
+write
+
+562
+00:20:49,919 --> 00:20:51,919
+but then some other reads also come
+
+563
+00:20:51,919 --> 00:20:53,520
+after the right
+
+564
+00:20:53,520 --> 00:20:56,960
+but then somehow the reads like
+
+565
+00:20:56,960 --> 00:21:00,559
+outrun the right and the
+
+566
+00:21:00,559 --> 00:21:04,159
+right still has to wait somehow yes so
+
+567
+00:21:04,159 --> 00:21:07,120
+so with the sequences that a reader
+
+568
+00:21:07,120 --> 00:21:08,559
+managed to acquire the lock
+
+569
+00:21:08,559 --> 00:21:10,240
+one or more readers have the lock so now
+
+570
+00:21:10,240 --> 00:21:12,480
+n you know each of them
+
+571
+00:21:12,480 --> 00:21:14,159
+this is called a compare and swap you
+
+572
+00:21:14,159 --> 00:21:16,000
+know adds one to n for each reader
+
+573
+00:21:16,000 --> 00:21:17,919
+so now n is greater than zero because
+
+574
+00:21:17,919 --> 00:21:20,080
+there's multiple readers
+
+575
+00:21:20,080 --> 00:21:21,679
+if a writer tries to require the lock at
+
+576
+00:21:21,679 --> 00:21:24,080
+this point um
+
+577
+00:21:24,080 --> 00:21:27,120
+the writers compare and swap the compare
+
+578
+00:21:27,120 --> 00:21:28,080
+value is zero
+
+579
+00:21:28,080 --> 00:21:30,320
+so compare and swap will only change n
+
+580
+00:21:30,320 --> 00:21:32,080
+to minus one
+
+581
+00:21:32,080 --> 00:21:34,640
+if its current value is zero but we know
+
+582
+00:21:34,640 --> 00:21:35,760
+the current because there's
+
+583
+00:21:35,760 --> 00:21:38,320
+multiple readers the current value of n
+
+584
+00:21:38,320 --> 00:21:40,080
+is not zero and so the compare and swap
+
+585
+00:21:40,080 --> 00:21:41,360
+will fail
+
+586
+00:21:41,360 --> 00:21:44,480
+and return zero in the writer will
+
+587
+00:21:44,480 --> 00:21:47,200
+sit here in this loop basically waiting
+
+588
+00:21:47,200 --> 00:21:49,840
+until n is equal to 0
+
+589
+00:21:49,840 --> 00:21:52,080
+before its compare and swap will succeed
+
+590
+00:21:52,080 --> 00:21:53,200
+and return and
+
+591
+00:21:53,200 --> 00:21:55,760
+give the lock to the writer so this
+
+592
+00:21:55,760 --> 00:21:56,840
+certainly means the writer can be
+
+593
+00:21:56,840 --> 00:21:58,320
+starved
+
+594
+00:21:58,320 --> 00:22:00,000
+if there's a lot of readers and may
+
+595
+00:22:00,000 --> 00:22:01,840
+never be zero and so the right may never
+
+596
+00:22:01,840 --> 00:22:03,280
+succeed so that's a defect in this
+
+597
+00:22:03,280 --> 00:22:06,390
+locking scheme
+
+598
+00:22:06,400 --> 00:22:09,600
+thank you yeah i also have a question
+
+599
+00:22:09,600 --> 00:22:10,480
+about the
+
+600
+00:22:10,480 --> 00:22:12,720
+the two readers scenario that i just
+
+601
+00:22:12,720 --> 00:22:14,559
+mentioned
+
+602
+00:22:14,559 --> 00:22:17,679
+it appears that in the worst case
+
+603
+00:22:17,679 --> 00:22:20,320
+the reader that arrives second has to go
+
+604
+00:22:20,320 --> 00:22:21,360
+through another
+
+605
+00:22:21,360 --> 00:22:24,400
+iteration of the loop yes sounds
+
+606
+00:22:24,400 --> 00:22:26,799
+somewhat wasteful i wonder if this
+
+607
+00:22:26,799 --> 00:22:28,320
+generalizes to n
+
+608
+00:22:28,320 --> 00:22:30,640
+writers it certainly does they all have
+
+609
+00:22:30,640 --> 00:22:31,440
+to get lost
+
+610
+00:22:31,440 --> 00:22:34,559
+and start again you put your finger on
+
+611
+00:22:34,559 --> 00:22:35,919
+why people
+
+612
+00:22:35,919 --> 00:22:39,440
+don't like this scheme um if
+
+613
+00:22:39,440 --> 00:22:42,159
+there's a lot of simultaneous reader um
+
+614
+00:22:42,159 --> 00:22:43,679
+and so for
+
+615
+00:22:43,679 --> 00:22:47,360
+for the reason you just mentioned um
+
+616
+00:22:47,360 --> 00:22:50,159
+orlock even if there's no writers at all
+
+617
+00:22:50,159 --> 00:22:51,760
+if there's lots of readers or there's
+
+618
+00:22:51,760 --> 00:22:53,520
+readers on many cores
+
+619
+00:22:53,520 --> 00:22:58,080
+our lock can be very very expensive
+
+620
+00:22:58,080 --> 00:23:01,120
+and one thing you need to know about the
+
+621
+00:23:01,120 --> 00:23:03,520
+our lock scheme which i think we've
+
+622
+00:23:03,520 --> 00:23:07,590
+already mentioned in class is that
+
+623
+00:23:07,600 --> 00:23:11,360
+on a multi-core system every core
+
+624
+00:23:11,360 --> 00:23:14,480
+has an associated cache the we'll say
+
+625
+00:23:14,480 --> 00:23:16,480
+it's the l1 cache so each core has a bit
+
+626
+00:23:16,480 --> 00:23:18,720
+of cache memory
+
+627
+00:23:18,720 --> 00:23:19,919
+and whenever it reads or writes
+
+628
+00:23:19,919 --> 00:23:22,789
+something
+
+629
+00:23:22,799 --> 00:23:24,320
+it sits in the cache and so there may be
+
+630
+00:23:24,320 --> 00:23:26,320
+lots and lots of cores and there's some
+
+631
+00:23:26,320 --> 00:23:27,520
+kind of
+
+632
+00:23:27,520 --> 00:23:29,440
+interconnect network that allows the
+
+633
+00:23:29,440 --> 00:23:31,440
+course to talk to each other
+
+634
+00:23:31,440 --> 00:23:34,400
+because of course if lots of course have
+
+635
+00:23:34,400 --> 00:23:35,440
+some data
+
+636
+00:23:35,440 --> 00:23:37,600
+cached and one of the cores writes that
+
+637
+00:23:37,600 --> 00:23:40,000
+data the writing core has to tell the
+
+638
+00:23:40,000 --> 00:23:41,520
+other cores that they're not allowed to
+
+639
+00:23:41,520 --> 00:23:43,440
+cache the data anymore which is called
+
+640
+00:23:43,440 --> 00:23:46,789
+invalidation
+
+641
+00:23:46,799 --> 00:23:51,279
+so what actually happens if you have n
+
+642
+00:23:51,279 --> 00:23:54,320
+readers and people calling rlock at
+
+643
+00:23:54,320 --> 00:23:55,679
+about the same time on n
+
+644
+00:23:55,679 --> 00:24:00,400
+cores they're all going to read
+
+645
+00:24:00,400 --> 00:24:03,760
+n sorry this l arrow n value
+
+646
+00:24:03,760 --> 00:24:06,480
+and load this memory location into their
+
+647
+00:24:06,480 --> 00:24:09,909
+caches
+
+648
+00:24:09,919 --> 00:24:11,279
+they're all going to call compare and
+
+649
+00:24:11,279 --> 00:24:13,909
+swap
+
+650
+00:24:13,919 --> 00:24:15,600
+what the first one to actually call
+
+651
+00:24:15,600 --> 00:24:17,919
+compare and swap is going to modify the
+
+652
+00:24:17,919 --> 00:24:19,760
+data but in order for it to modify the
+
+653
+00:24:19,760 --> 00:24:21,279
+data it has to invalidate all these
+
+654
+00:24:21,279 --> 00:24:22,559
+other copies
+
+655
+00:24:22,559 --> 00:24:24,640
+and so the compare and swap instruction
+
+656
+00:24:24,640 --> 00:24:26,240
+that one has to send out an
+
+657
+00:24:26,240 --> 00:24:27,840
+invalidate message over this little
+
+658
+00:24:27,840 --> 00:24:31,360
+network to each of the other end cores
+
+659
+00:24:31,360 --> 00:24:33,360
+right and then it returns all the other
+
+660
+00:24:33,360 --> 00:24:35,679
+course the n minus one course they have
+
+661
+00:24:35,679 --> 00:24:37,360
+um their compare and swaps now actually
+
+662
+00:24:37,360 --> 00:24:39,360
+have to re-read
+
+663
+00:24:39,360 --> 00:24:41,440
+again requiring traffic over the network
+
+664
+00:24:41,440 --> 00:24:44,149
+re-read
+
+665
+00:24:44,159 --> 00:24:47,279
+this data this memory location compare
+
+666
+00:24:47,279 --> 00:24:48,480
+it with x and they'll have failed
+
+667
+00:24:48,480 --> 00:24:50,720
+because they all call x with zero
+
+668
+00:24:50,720 --> 00:24:52,720
+then the remaining n minus one readers
+
+669
+00:24:52,720 --> 00:24:54,240
+go back to the top of the loop and all
+
+670
+00:24:54,240 --> 00:24:56,720
+n minus one of them again read the data
+
+671
+00:24:56,720 --> 00:24:59,440
+and again one of them writes it
+
+672
+00:24:59,440 --> 00:25:02,000
+right so on each so there's going to be
+
+673
+00:25:02,000 --> 00:25:05,039
+n times through the loop once for each
+
+674
+00:25:05,039 --> 00:25:07,520
+core trying to acquire the lock each of
+
+675
+00:25:07,520 --> 00:25:10,080
+those trips through the loop
+
+676
+00:25:10,080 --> 00:25:13,120
+involves order n messages on the network
+
+677
+00:25:13,120 --> 00:25:14,240
+because at least
+
+678
+00:25:14,240 --> 00:25:17,120
+every copy of the cached lron has to be
+
+679
+00:25:17,120 --> 00:25:20,390
+invalidated
+
+680
+00:25:20,400 --> 00:25:23,840
+and that means that the total cost for n
+
+681
+00:25:23,840 --> 00:25:27,760
+cores to acquire a particular lock
+
+682
+00:25:27,760 --> 00:25:32,310
+even for reading is order n
+
+683
+00:25:32,320 --> 00:25:33,360
+and that means as you increase the
+
+684
+00:25:33,360 --> 00:25:35,520
+number of cores for a popular piece of
+
+685
+00:25:35,520 --> 00:25:36,400
+data
+
+686
+00:25:36,400 --> 00:25:39,760
+the uh cost for everybody to lock it
+
+687
+00:25:39,760 --> 00:25:40,159
+just
+
+688
+00:25:40,159 --> 00:25:46,549
+once goes up sorry it's order n squared
+
+689
+00:25:46,559 --> 00:25:49,840
+the total cost and time
+
+690
+00:25:49,840 --> 00:25:51,760
+or messages sent over this interconnect
+
+691
+00:25:51,760 --> 00:25:54,159
+is n squared
+
+692
+00:25:54,159 --> 00:25:56,799
+and this is a very bad deal right you
+
+693
+00:25:56,799 --> 00:25:58,159
+would hope that if you needed to do
+
+694
+00:25:58,159 --> 00:25:59,520
+something ten times
+
+695
+00:25:59,520 --> 00:26:00,799
+you know ten different cores needed to
+
+696
+00:26:00,799 --> 00:26:02,880
+do something especially
+
+697
+00:26:02,880 --> 00:26:04,480
+you know given that they're just reading
+
+698
+00:26:04,480 --> 00:26:06,159
+the list they're not modifying it
+
+699
+00:26:06,159 --> 00:26:07,520
+you'd hope that they could really run in
+
+700
+00:26:07,520 --> 00:26:09,600
+parallel that is the total wall clock
+
+701
+00:26:09,600 --> 00:26:10,559
+time for
+
+702
+00:26:10,559 --> 00:26:13,679
+16 cores to read something
+
+703
+00:26:13,679 --> 00:26:15,039
+should be the same as the total wall
+
+704
+00:26:15,039 --> 00:26:16,480
+clock time for one chord to read
+
+705
+00:26:16,480 --> 00:26:17,440
+something because that's what
+
+706
+00:26:17,440 --> 00:26:19,600
+that's what getting parallelism means is
+
+707
+00:26:19,600 --> 00:26:23,120
+that you can do things at the same time
+
+708
+00:26:23,120 --> 00:26:25,039
+but here the more cores i try to read
+
+709
+00:26:25,039 --> 00:26:26,400
+this the more expensive
+
+710
+00:26:26,400 --> 00:26:29,600
+the lock acquisition is and so um
+
+711
+00:26:29,600 --> 00:26:32,240
+what's going on is that this style of
+
+712
+00:26:32,240 --> 00:26:33,279
+locks
+
+713
+00:26:33,279 --> 00:26:36,000
+has converted read-only access to data
+
+714
+00:26:36,000 --> 00:26:36,720
+you know the list
+
+715
+00:26:36,720 --> 00:26:38,720
+is probably sitting in the cache already
+
+716
+00:26:38,720 --> 00:26:40,640
+because nobody's modifying the list
+
+717
+00:26:40,640 --> 00:26:43,760
+right so the actual access to the list
+
+718
+00:26:43,760 --> 00:26:46,559
+might only take a few dozen cycles but
+
+719
+00:26:46,559 --> 00:26:48,880
+if the date is popular getting the lock
+
+720
+00:26:48,880 --> 00:26:51,200
+can take hundreds or thousands of cycles
+
+721
+00:26:51,200 --> 00:26:52,000
+because of this n
+
+722
+00:26:52,000 --> 00:26:54,320
+squared effect and the fact that instead
+
+723
+00:26:54,320 --> 00:26:56,159
+of it being cached accesses
+
+724
+00:26:56,159 --> 00:26:58,080
+it's these accesses that have to go over
+
+725
+00:26:58,080 --> 00:26:59,679
+the bus
+
+726
+00:26:59,679 --> 00:27:02,320
+this interconnect in order to invalidate
+
+727
+00:27:02,320 --> 00:27:02,880
+and
+
+728
+00:27:02,880 --> 00:27:06,320
+do these cache coherence operations so
+
+729
+00:27:06,320 --> 00:27:09,840
+this these locks have turned
+
+730
+00:27:09,840 --> 00:27:11,840
+a very cheap read-only access to data
+
+731
+00:27:11,840 --> 00:27:14,000
+into an extremely expensive
+
+732
+00:27:14,000 --> 00:27:18,240
+read-write access to this data
+
+733
+00:27:18,240 --> 00:27:20,320
+and we'll probably completely destroy
+
+734
+00:27:20,320 --> 00:27:21,679
+any possible parallel
+
+735
+00:27:21,679 --> 00:27:24,320
+performance um if what you were doing
+
+736
+00:27:24,320 --> 00:27:25,520
+you know if
+
+737
+00:27:25,520 --> 00:27:27,200
+the actual data was fairly simple to
+
+738
+00:27:27,200 --> 00:27:30,000
+read the lock will dominate and destroy
+
+739
+00:27:30,000 --> 00:27:33,269
+parallel performance
+
+740
+00:27:33,279 --> 00:27:36,240
+so any questions about this performance
+
+741
+00:27:36,240 --> 00:27:43,430
+story
+
+742
+00:27:43,440 --> 00:27:46,159
+in a sense you know the bad performance
+
+743
+00:27:46,159 --> 00:27:47,840
+of read write
+
+744
+00:27:47,840 --> 00:27:51,919
+is the reason for the existence of rcu
+
+745
+00:27:51,919 --> 00:27:55,600
+because if this was efficient
+
+746
+00:27:55,600 --> 00:27:59,039
+then there'll be no need to do better
+
+747
+00:27:59,039 --> 00:28:00,080
+than that
+
+748
+00:28:00,080 --> 00:28:02,640
+right but it's terribly inefficient um
+
+749
+00:28:02,640 --> 00:28:03,200
+and
+
+750
+00:28:03,200 --> 00:28:05,600
+it it's there's two things going on one
+
+751
+00:28:05,600 --> 00:28:07,440
+is the details of this oh there needs to
+
+752
+00:28:07,440 --> 00:28:08,960
+be a total of n squared trips through
+
+753
+00:28:08,960 --> 00:28:09,840
+this loop if
+
+754
+00:28:09,840 --> 00:28:11,760
+we have n cores is sort of one way of
+
+755
+00:28:11,760 --> 00:28:13,279
+looking at it the other way of looking
+
+756
+00:28:13,279 --> 00:28:14,080
+at it is that
+
+757
+00:28:14,080 --> 00:28:16,960
+we're writing you know regardless of the
+
+758
+00:28:16,960 --> 00:28:18,960
+details of what's going on here
+
+759
+00:28:18,960 --> 00:28:20,720
+these locks have turned a read-only
+
+760
+00:28:20,720 --> 00:28:22,480
+access which could be cached and
+
+761
+00:28:22,480 --> 00:28:24,320
+extremely fast
+
+762
+00:28:24,320 --> 00:28:26,720
+into an access that one way or another
+
+763
+00:28:26,720 --> 00:28:27,679
+involves a right
+
+764
+00:28:27,679 --> 00:28:30,080
+one or more rights and rights are just
+
+765
+00:28:30,080 --> 00:28:32,240
+much more expensive than reads
+
+766
+00:28:32,240 --> 00:28:33,679
+if we're writing data that might be
+
+767
+00:28:33,679 --> 00:28:35,520
+shared
+
+768
+00:28:35,520 --> 00:28:39,120
+with other cores because a read
+
+769
+00:28:39,120 --> 00:28:40,640
+for data that's not modified can be
+
+770
+00:28:40,640 --> 00:28:42,399
+satisfied in a couple cycles out of your
+
+771
+00:28:42,399 --> 00:28:43,440
+own cache
+
+772
+00:28:43,440 --> 00:28:46,240
+a write any right to data that may be
+
+773
+00:28:46,240 --> 00:28:47,360
+cached by other cores
+
+774
+00:28:47,360 --> 00:28:49,279
+has to involve communication between
+
+775
+00:28:49,279 --> 00:28:51,760
+cores to invalidate other copies
+
+776
+00:28:51,760 --> 00:28:54,559
+so no matter how you slice it anything
+
+777
+00:28:54,559 --> 00:28:56,320
+that involves a right to share data is a
+
+778
+00:28:56,320 --> 00:28:58,159
+disaster for performance
+
+779
+00:28:58,159 --> 00:29:00,480
+if if you otherwise could have been read
+
+780
+00:29:00,480 --> 00:29:01,440
+only
+
+781
+00:29:01,440 --> 00:29:04,880
+so the details of this loop are sort of
+
+782
+00:29:04,880 --> 00:29:06,480
+less important than the fact that it
+
+783
+00:29:06,480 --> 00:29:10,080
+did a right to share data
+
+784
+00:29:10,080 --> 00:29:12,240
+so what we're looking for is a way to be
+
+785
+00:29:12,240 --> 00:29:14,640
+able to read data
+
+786
+00:29:14,640 --> 00:29:17,679
+without rights right we want to be able
+
+787
+00:29:17,679 --> 00:29:19,360
+to scan that list
+
+788
+00:29:19,360 --> 00:29:22,000
+um without doing any rights whatsoever
+
+789
+00:29:22,000 --> 00:29:22,640
+including
+
+790
+00:29:22,640 --> 00:29:24,640
+any rights that might be required to do
+
+791
+00:29:24,640 --> 00:29:26,080
+some kind of locking thing
+
+792
+00:29:26,080 --> 00:29:27,840
+they were looking for really really
+
+793
+00:29:27,840 --> 00:29:32,230
+read-only access to data
+
+794
+00:29:32,240 --> 00:29:35,590
+okay
+
+795
+00:29:35,600 --> 00:29:39,440
+so one possibility
+
+796
+00:29:39,440 --> 00:29:40,720
+that's not a possibility but it's sort
+
+797
+00:29:40,720 --> 00:29:42,880
+of a thought experiment is we just have
+
+798
+00:29:42,880 --> 00:29:45,039
+the readers not bother locking
+
+799
+00:29:45,039 --> 00:29:46,399
+right you know occasionally you get
+
+800
+00:29:46,399 --> 00:29:47,919
+lucky and it turns out that readers can
+
+801
+00:29:47,919 --> 00:29:49,679
+read stuff
+
+802
+00:29:49,679 --> 00:29:51,279
+and that only writers need to lock so
+
+803
+00:29:51,279 --> 00:29:52,880
+we'll just do a quick experiment to see
+
+804
+00:29:52,880 --> 00:29:54,559
+whether
+
+805
+00:29:54,559 --> 00:29:57,760
+we could have a lock just
+
+806
+00:29:57,760 --> 00:30:00,720
+have readers just read the list without
+
+807
+00:30:00,720 --> 00:30:02,240
+locking it
+
+808
+00:30:02,240 --> 00:30:03,840
+so suppose we have this list and it has
+
+809
+00:30:03,840 --> 00:30:11,990
+some you know strings
+
+810
+00:30:12,000 --> 00:30:16,789
+and uh
+
+811
+00:30:16,799 --> 00:30:18,799
+we're going to read it okay so nothing
+
+812
+00:30:18,799 --> 00:30:20,320
+goes wrong if there's no writer right
+
+813
+00:30:20,320 --> 00:30:21,600
+you just read the list it's not a
+
+814
+00:30:21,600 --> 00:30:23,360
+problem so we got to imagine there's a
+
+815
+00:30:23,360 --> 00:30:24,559
+writer
+
+816
+00:30:24,559 --> 00:30:27,520
+and there's probably three cases if you
+
+817
+00:30:27,520 --> 00:30:28,960
+read a list
+
+818
+00:30:28,960 --> 00:30:33,440
+while some other course modifying it
+
+819
+00:30:33,440 --> 00:30:35,840
+so one case is that the writer is just
+
+820
+00:30:35,840 --> 00:30:38,480
+changing the content
+
+821
+00:30:38,480 --> 00:30:41,200
+that is not adding or deleting anyone is
+
+822
+00:30:41,200 --> 00:30:42,960
+necessarily a writer is just changing
+
+823
+00:30:42,960 --> 00:30:45,279
+the string to be some other string
+
+824
+00:30:45,279 --> 00:30:47,600
+so one is the writer is changing the
+
+825
+00:30:47,600 --> 00:30:48,720
+content
+
+826
+00:30:48,720 --> 00:30:51,039
+two is the writer is inserting a new
+
+827
+00:30:51,039 --> 00:30:53,440
+list element
+
+828
+00:30:53,440 --> 00:30:56,240
+and the third case is if the writer is
+
+829
+00:30:56,240 --> 00:30:56,880
+deleting a
+
+830
+00:30:56,880 --> 00:30:59,600
+list element and i want to examine these
+
+831
+00:30:59,600 --> 00:31:02,630
+because
+
+832
+00:31:02,640 --> 00:31:04,559
+we need a story for each and rcu
+
+833
+00:31:04,559 --> 00:31:07,519
+actually kind of has a story for each so
+
+834
+00:31:07,519 --> 00:31:09,440
+the danger so i'm just talking about
+
+835
+00:31:09,440 --> 00:31:10,880
+what goes wrong if somebody's reading a
+
+836
+00:31:10,880 --> 00:31:12,799
+list while another course writing it
+
+837
+00:31:12,799 --> 00:31:15,440
+if the writer wants to it just changes
+
+838
+00:31:15,440 --> 00:31:16,559
+the string
+
+839
+00:31:16,559 --> 00:31:18,320
+then the danger is that the reader will
+
+840
+00:31:18,320 --> 00:31:20,320
+be actually reading the bytes of this
+
+841
+00:31:20,320 --> 00:31:21,440
+string or whatever
+
+842
+00:31:21,440 --> 00:31:23,600
+else is in the list element while the
+
+843
+00:31:23,600 --> 00:31:24,480
+writer
+
+844
+00:31:24,480 --> 00:31:27,200
+is modifying the same bytes and so if we
+
+845
+00:31:27,200 --> 00:31:28,320
+don't do anything special
+
+846
+00:31:28,320 --> 00:31:30,399
+the reader will see some mixture of the
+
+847
+00:31:30,399 --> 00:31:31,360
+old bytes
+
+848
+00:31:31,360 --> 00:31:34,480
+and the new bytes and that's probably a
+
+849
+00:31:34,480 --> 00:31:36,240
+disaster
+
+850
+00:31:36,240 --> 00:31:38,240
+that's one case we have to worry about
+
+851
+00:31:38,240 --> 00:31:39,840
+another possibility is that the writer
+
+852
+00:31:39,840 --> 00:31:42,000
+is inserting a new element
+
+853
+00:31:42,000 --> 00:31:44,399
+and of course what that means is that
+
+854
+00:31:44,399 --> 00:31:45,519
+you know supposing
+
+855
+00:31:45,519 --> 00:31:47,360
+for the writer wants to insert the new
+
+856
+00:31:47,360 --> 00:31:48,799
+element at the head the writer is going
+
+857
+00:31:48,799 --> 00:31:49,519
+to cook up
+
+858
+00:31:49,519 --> 00:31:50,960
+some new element going to change the
+
+859
+00:31:50,960 --> 00:31:52,960
+head pointer to point to it i'm going to
+
+860
+00:31:52,960 --> 00:31:53,600
+change
+
+861
+00:31:53,600 --> 00:31:56,559
+the uh new element to point at the old
+
+862
+00:31:56,559 --> 00:31:58,000
+first element
+
+863
+00:31:58,000 --> 00:32:01,200
+right and um
+
+864
+00:32:01,200 --> 00:32:04,480
+so the danger here if a reader reads
+
+865
+00:32:04,480 --> 00:32:06,559
+is reading the list while the writer is
+
+866
+00:32:06,559 --> 00:32:07,840
+inserting is that
+
+867
+00:32:07,840 --> 00:32:12,000
+maybe uh you know if we really blow it
+
+868
+00:32:12,000 --> 00:32:15,279
+the uh um
+
+869
+00:32:15,279 --> 00:32:17,919
+the writer may set the head pointer to
+
+870
+00:32:17,919 --> 00:32:19,279
+point to the new element
+
+871
+00:32:19,279 --> 00:32:21,760
+before the new element's initialized
+
+872
+00:32:21,760 --> 00:32:23,519
+that is while it maybe contains garbage
+
+873
+00:32:23,519 --> 00:32:24,480
+for the string
+
+874
+00:32:24,480 --> 00:32:27,840
+or some illegal pointer as the next
+
+875
+00:32:27,840 --> 00:32:29,840
+element
+
+876
+00:32:29,840 --> 00:32:31,360
+so that's the thing that could go wrong
+
+877
+00:32:31,360 --> 00:32:33,840
+if a writer's inserting
+
+878
+00:32:33,840 --> 00:32:36,950
+so let's
+
+879
+00:32:36,960 --> 00:32:40,840
+um and if the writer is deleting
+
+880
+00:32:40,840 --> 00:32:43,440
+then you know what it means to delete an
+
+881
+00:32:43,440 --> 00:32:44,480
+element is first
+
+882
+00:32:44,480 --> 00:32:46,159
+to change let's say we're deleting the
+
+883
+00:32:46,159 --> 00:32:47,760
+first element we change the head pointer
+
+884
+00:32:47,760 --> 00:32:49,519
+to point to the second element
+
+885
+00:32:49,519 --> 00:32:51,519
+and then call free on the first element
+
+886
+00:32:51,519 --> 00:32:54,559
+to return this to the free list
+
+887
+00:32:54,559 --> 00:32:57,039
+and the danger here you know if the
+
+888
+00:32:57,039 --> 00:32:59,039
+reader sees the new head pointer
+
+889
+00:32:59,039 --> 00:33:00,480
+that's fine they're just going to go on
+
+890
+00:33:00,480 --> 00:33:02,159
+to the second elements
+
+891
+00:33:02,159 --> 00:33:04,880
+first if the reader actually was looking
+
+892
+00:33:04,880 --> 00:33:06,080
+at the first element
+
+893
+00:33:06,080 --> 00:33:08,320
+and then the writer freed it then the
+
+894
+00:33:08,320 --> 00:33:09,760
+problem we have is now the reader is
+
+895
+00:33:09,760 --> 00:33:10,720
+looking at element
+
+896
+00:33:10,720 --> 00:33:12,960
+that's on the free list and could be
+
+897
+00:33:12,960 --> 00:33:14,559
+allocated for some other use and
+
+898
+00:33:14,559 --> 00:33:15,279
+overwritten
+
+899
+00:33:15,279 --> 00:33:17,279
+for some completely other use while the
+
+900
+00:33:17,279 --> 00:33:19,279
+reader's still looking at this element
+
+901
+00:33:19,279 --> 00:33:20,640
+so from the reader point of view now all
+
+902
+00:33:20,640 --> 00:33:21,760
+of a sudden the elements filled with
+
+903
+00:33:21,760 --> 00:33:22,799
+garbage
+
+904
+00:33:22,799 --> 00:33:25,200
+and said it was expecting so that's the
+
+905
+00:33:25,200 --> 00:33:27,600
+third case we have to uh
+
+906
+00:33:27,600 --> 00:33:29,519
+if we want to have lock we want to have
+
+907
+00:33:29,519 --> 00:33:31,919
+absolutely no blocks for beaters
+
+908
+00:33:31,919 --> 00:33:33,279
+we have to worry about these three
+
+909
+00:33:33,279 --> 00:33:35,840
+situations
+
+910
+00:33:35,840 --> 00:33:37,840
+and i'm not talking about writer versus
+
+911
+00:33:37,840 --> 00:33:39,760
+writer problems here because i'm
+
+912
+00:33:39,760 --> 00:33:42,399
+just assuming for this entire lecture
+
+913
+00:33:42,399 --> 00:33:44,399
+that writers still use locks
+
+914
+00:33:44,399 --> 00:33:46,559
+there's still some ordinary like xv6
+
+915
+00:33:46,559 --> 00:33:48,000
+style spin lock here
+
+916
+00:33:48,000 --> 00:33:50,480
+and writers acquire this lock before
+
+917
+00:33:50,480 --> 00:33:51,440
+doing anything
+
+918
+00:33:51,440 --> 00:33:53,360
+but readers don't require any luck
+
+919
+00:33:53,360 --> 00:33:55,919
+whatsoever
+
+920
+00:33:55,919 --> 00:34:01,909
+questions about these dangers
+
+921
+00:34:01,919 --> 00:34:06,159
+okay the point is we we can't just
+
+922
+00:34:06,159 --> 00:34:06,640
+simply
+
+923
+00:34:06,640 --> 00:34:09,440
+have readers read within locks but it
+
+924
+00:34:09,440 --> 00:34:11,839
+turns out we can
+
+925
+00:34:11,839 --> 00:34:13,919
+fix these specific problems and that
+
+926
+00:34:13,919 --> 00:34:16,320
+takes us to
+
+927
+00:34:16,320 --> 00:34:20,399
+rcu and rc has a couple of ideas in it
+
+928
+00:34:20,399 --> 00:34:21,280
+that uh
+
+929
+00:34:21,280 --> 00:34:24,879
+or rcu is by the way it's as much a kind
+
+930
+00:34:24,879 --> 00:34:25,200
+of
+
+931
+00:34:25,200 --> 00:34:28,159
+approach to concurrency um concurrency
+
+932
+00:34:28,159 --> 00:34:29,520
+control as it is a
+
+933
+00:34:29,520 --> 00:34:31,919
+particular algorithm right it's a way of
+
+934
+00:34:31,919 --> 00:34:32,960
+structuring
+
+935
+00:34:32,960 --> 00:34:35,440
+it's an approach to structuring readers
+
+936
+00:34:35,440 --> 00:34:37,200
+and writers so that
+
+937
+00:34:37,200 --> 00:34:39,679
+they can get along with the readers not
+
+938
+00:34:39,679 --> 00:34:43,829
+having to take logs
+
+939
+00:34:43,839 --> 00:34:45,599
+the general game with recopy update is
+
+940
+00:34:45,599 --> 00:34:46,720
+we're going to fix those three
+
+941
+00:34:46,720 --> 00:34:48,480
+situations in which readers might get
+
+942
+00:34:48,480 --> 00:34:49,359
+into trouble
+
+943
+00:34:49,359 --> 00:34:51,760
+if there's concurrent writers and we're
+
+944
+00:34:51,760 --> 00:34:52,800
+going to do it
+
+945
+00:34:52,800 --> 00:34:54,320
+by making the writers a little bit more
+
+946
+00:34:54,320 --> 00:34:56,399
+complicated
+
+947
+00:34:56,399 --> 00:34:57,440
+so the writer is going to end up
+
+948
+00:34:57,440 --> 00:35:00,240
+somewhat slower they still need to lock
+
+949
+00:35:00,240 --> 00:35:02,240
+plus follow some extra rules
+
+950
+00:35:02,240 --> 00:35:03,839
+but the reward will be the readers will
+
+951
+00:35:03,839 --> 00:35:05,599
+be dramatically faster
+
+952
+00:35:05,599 --> 00:35:07,200
+because they can operate without locks
+
+953
+00:35:07,200 --> 00:35:11,750
+and without ever writing memory
+
+954
+00:35:11,760 --> 00:35:15,200
+okay so the first big idea
+
+955
+00:35:15,200 --> 00:35:21,190
+in rcu
+
+956
+00:35:21,200 --> 00:35:24,640
+is that in that first
+
+957
+00:35:24,640 --> 00:35:26,400
+trouble situation we talked about before
+
+958
+00:35:26,400 --> 00:35:28,320
+where the writer is updating a list
+
+959
+00:35:28,320 --> 00:35:28,960
+element
+
+960
+00:35:28,960 --> 00:35:32,240
+the content of a list element
+
+961
+00:35:32,240 --> 00:35:33,920
+we're going to actually outlaw that
+
+962
+00:35:33,920 --> 00:35:35,440
+we're going to say writers are not
+
+963
+00:35:35,440 --> 00:35:36,160
+allowed
+
+964
+00:35:36,160 --> 00:35:39,359
+to modify the contents of
+
+965
+00:35:39,359 --> 00:35:44,160
+list elements instead if we have a
+
+966
+00:35:44,160 --> 00:35:45,760
+linked list like this with a couple of
+
+967
+00:35:45,760 --> 00:35:52,069
+elements
+
+968
+00:35:52,079 --> 00:35:54,400
+if a writer wanted to update the content
+
+969
+00:35:54,400 --> 00:35:57,280
+of element 2
+
+970
+00:35:57,280 --> 00:35:59,119
+instead of changing it in place which
+
+971
+00:35:59,119 --> 00:36:00,640
+wouldn't do it would actually
+
+972
+00:36:00,640 --> 00:36:03,040
+cook up it would call the allocator to
+
+973
+00:36:03,040 --> 00:36:04,880
+allocate a new
+
+974
+00:36:04,880 --> 00:36:08,230
+element
+
+975
+00:36:08,240 --> 00:36:10,079
+it would initialize the element
+
+976
+00:36:10,079 --> 00:36:13,599
+completely so whatever new content
+
+977
+00:36:13,599 --> 00:36:16,560
+you know we wanted to put here instead
+
+978
+00:36:16,560 --> 00:36:17,920
+of the old content
+
+979
+00:36:17,920 --> 00:36:22,400
+the writer would set the next pointer
+
+980
+00:36:22,400 --> 00:36:24,000
+on this new element so that this new
+
+981
+00:36:24,000 --> 00:36:26,160
+element is now completely correct
+
+982
+00:36:26,160 --> 00:36:27,119
+looking
+
+983
+00:36:27,119 --> 00:36:30,640
+and then in a single write to e1's next
+
+984
+00:36:30,640 --> 00:36:31,440
+pointer
+
+985
+00:36:31,440 --> 00:36:34,000
+the writer would switch e1 from pointing
+
+986
+00:36:34,000 --> 00:36:34,640
+to the
+
+987
+00:36:34,640 --> 00:36:38,240
+from pointing to the old version of e2
+
+988
+00:36:38,240 --> 00:36:40,880
+to pointing to the new version of e2 so
+
+989
+00:36:40,880 --> 00:36:42,320
+the game is instead of updating
+
+990
+00:36:42,320 --> 00:36:43,599
+things in place we're going to replace
+
+991
+00:36:43,599 --> 00:36:46,640
+them with new versions
+
+992
+00:36:46,640 --> 00:36:50,320
+of the same data and so um
+
+993
+00:36:50,320 --> 00:36:52,720
+so now a reader you know reader's gotten
+
+994
+00:36:52,720 --> 00:36:54,640
+as far as e1 and it's just looking at
+
+995
+00:36:54,640 --> 00:36:56,079
+e1's next pointer
+
+996
+00:36:56,079 --> 00:36:57,440
+the reader is going to either see the
+
+997
+00:36:57,440 --> 00:36:59,359
+old next pointer which points to e2 and
+
+998
+00:36:59,359 --> 00:37:00,400
+that's fine because
+
+999
+00:37:00,400 --> 00:37:02,720
+nobody was changing e2 or the reader is
+
+1000
+00:37:02,720 --> 00:37:04,560
+going to see the new
+
+1001
+00:37:04,560 --> 00:37:09,680
+next pointer and look at the new
+
+1002
+00:37:09,680 --> 00:37:13,359
+list element and either way since the
+
+1003
+00:37:13,359 --> 00:37:16,400
+writer initially initialized this
+
+1004
+00:37:16,400 --> 00:37:18,560
+list element before setting anyone's
+
+1005
+00:37:18,560 --> 00:37:20,000
+next point or either way the reader is
+
+1006
+00:37:20,000 --> 00:37:20,800
+going to see
+
+1007
+00:37:20,800 --> 00:37:22,640
+like a correct next pointer that points
+
+1008
+00:37:22,640 --> 00:37:28,069
+to e3
+
+1009
+00:37:28,079 --> 00:37:29,520
+so the point is the reader will never
+
+1010
+00:37:29,520 --> 00:37:31,520
+see a string that's in the process of
+
+1011
+00:37:31,520 --> 00:37:32,079
+being
+
+1012
+00:37:32,079 --> 00:37:34,839
+a content that's in the process of being
+
+1013
+00:37:34,839 --> 00:37:37,119
+modified
+
+1014
+00:37:37,119 --> 00:37:45,829
+any questions about this particular idea
+
+1015
+00:37:45,839 --> 00:37:49,430
+what about saying sorry
+
+1016
+00:37:49,440 --> 00:37:53,040
+okay i can go ahead um will the
+
+1017
+00:37:53,040 --> 00:37:56,480
+link between e2 and e3 be deleted or
+
+1018
+00:37:56,480 --> 00:37:57,440
+will it be left
+
+1019
+00:37:57,440 --> 00:38:00,480
+there in case that or either um somehow
+
+1020
+00:38:00,480 --> 00:38:01,440
+reached e2
+
+1021
+00:38:01,440 --> 00:38:04,960
+now we're just gonna leave it so well
+
+1022
+00:38:04,960 --> 00:38:06,800
+i'll come to this this is a excellent
+
+1023
+00:38:06,800 --> 00:38:08,800
+question um
+
+1024
+00:38:08,800 --> 00:38:10,880
+and it's actually the main piece of
+
+1025
+00:38:10,880 --> 00:38:12,960
+complexity in rcu
+
+1026
+00:38:12,960 --> 00:38:14,480
+but for now we're just going to imagine
+
+1027
+00:38:14,480 --> 00:38:19,280
+that e2 is left alone for the moment
+
+1028
+00:38:19,280 --> 00:38:21,599
+the link from e to e to e3 we don't need
+
+1029
+00:38:21,599 --> 00:38:23,040
+to worry about it anyway right because
+
+1030
+00:38:23,040 --> 00:38:24,160
+that's a part of e2
+
+1031
+00:38:24,160 --> 00:38:26,720
+and like in normal implementations we
+
+1032
+00:38:26,720 --> 00:38:28,079
+just free that anyway
+
+1033
+00:38:28,079 --> 00:38:30,640
+like with no rcu involved we don't ever
+
+1034
+00:38:30,640 --> 00:38:32,000
+need to worry about that link
+
+1035
+00:38:32,000 --> 00:38:34,480
+right well the danger is that's that
+
+1036
+00:38:34,480 --> 00:38:36,560
+just before we changed
+
+1037
+00:38:36,560 --> 00:38:38,880
+this next pointer that some reader had
+
+1038
+00:38:38,880 --> 00:38:41,599
+followed the next pointer to e2
+
+1039
+00:38:41,599 --> 00:38:42,880
+right so overall what we're worried
+
+1040
+00:38:42,880 --> 00:38:44,320
+about here is that oh some some reader
+
+1041
+00:38:44,320 --> 00:38:45,520
+on some chords actually right now
+
+1042
+00:38:45,520 --> 00:38:46,960
+reading e2
+
+1043
+00:38:46,960 --> 00:38:50,240
+so we'd better not free it right away
+
+1044
+00:38:50,240 --> 00:38:50,800
+right
+
+1045
+00:38:50,800 --> 00:38:52,480
+right so that's what i think that's all
+
+1046
+00:38:52,480 --> 00:38:54,000
+we're saying is you better not free e2
+
+1047
+00:38:54,000 --> 00:38:55,040
+right away
+
+1048
+00:38:55,040 --> 00:39:00,400
+just leave it alone um
+
+1049
+00:39:00,400 --> 00:39:03,839
+as a piece of jargon um
+
+1050
+00:39:03,839 --> 00:39:07,359
+the right the swap of e1's
+
+1051
+00:39:07,359 --> 00:39:09,760
+next pointer from the old e2 to the new
+
+1052
+00:39:09,760 --> 00:39:10,640
+e2
+
+1053
+00:39:10,640 --> 00:39:13,520
+um i in my head i call this a committing
+
+1054
+00:39:13,520 --> 00:39:14,480
+right
+
+1055
+00:39:14,480 --> 00:39:17,760
+there's a then part of the reason why
+
+1056
+00:39:17,760 --> 00:39:19,280
+this works is that with a single
+
+1057
+00:39:19,280 --> 00:39:20,400
+committing right which is
+
+1058
+00:39:20,400 --> 00:39:22,720
+atomic like rights to pointers on the
+
+1059
+00:39:22,720 --> 00:39:24,240
+machines we use are
+
+1060
+00:39:24,240 --> 00:39:26,240
+atomic in the sense that either the
+
+1061
+00:39:26,240 --> 00:39:27,680
+right to the point or happened or didn't
+
+1062
+00:39:27,680 --> 00:39:28,240
+happen
+
+1063
+00:39:28,240 --> 00:39:30,079
+from the perspective of readers because
+
+1064
+00:39:30,079 --> 00:39:31,839
+they're atomic basically with that one
+
+1065
+00:39:31,839 --> 00:39:33,440
+instruction
+
+1066
+00:39:33,440 --> 00:39:36,480
+with the one atomic store we can it's an
+
+1067
+00:39:36,480 --> 00:39:39,200
+ordinary store but
+
+1068
+00:39:39,200 --> 00:39:42,160
+it's indivisible we switch e1 from
+
+1069
+00:39:42,160 --> 00:39:43,920
+pointing to the old
+
+1070
+00:39:43,920 --> 00:39:45,119
+the next pointer from pointing to the
+
+1071
+00:39:45,119 --> 00:39:46,960
+old one to the new one and that right is
+
+1072
+00:39:46,960 --> 00:39:49,440
+what sort of commits us to
+
+1073
+00:39:49,440 --> 00:39:55,750
+now using the second version
+
+1074
+00:39:55,760 --> 00:39:58,880
+this is a very basic technique a a very
+
+1075
+00:39:58,880 --> 00:40:00,880
+important technique for rcu
+
+1076
+00:40:00,880 --> 00:40:04,400
+and what it means is that rcu
+
+1077
+00:40:04,400 --> 00:40:07,119
+is really mostly applicable to data
+
+1078
+00:40:07,119 --> 00:40:09,440
+structures for which you can have
+
+1079
+00:40:09,440 --> 00:40:12,400
+single committing rights so that means
+
+1080
+00:40:12,400 --> 00:40:13,599
+there's some data structures which are
+
+1081
+00:40:13,599 --> 00:40:15,200
+quite awkward in this scheme like a
+
+1082
+00:40:15,200 --> 00:40:18,079
+doubly linked list
+
+1083
+00:40:18,079 --> 00:40:20,720
+where every element is pointed to from
+
+1084
+00:40:20,720 --> 00:40:22,560
+two different pointers
+
+1085
+00:40:22,560 --> 00:40:25,440
+now we can't get rid of a list element
+
+1086
+00:40:25,440 --> 00:40:26,880
+with a single committing write
+
+1087
+00:40:26,880 --> 00:40:28,720
+because there's two pointers to it we
+
+1088
+00:40:28,720 --> 00:40:30,400
+can't on most machines you can't
+
+1089
+00:40:30,400 --> 00:40:31,760
+atomically change
+
+1090
+00:40:31,760 --> 00:40:33,440
+two different memory locations at the
+
+1091
+00:40:33,440 --> 00:40:35,200
+same time
+
+1092
+00:40:35,200 --> 00:40:36,960
+so doubly linked lists are not so good
+
+1093
+00:40:36,960 --> 00:40:38,560
+for rcu
+
+1094
+00:40:38,560 --> 00:40:40,800
+a data structure that is good is a tree
+
+1095
+00:40:40,800 --> 00:40:43,280
+and if you have a
+
+1096
+00:40:43,280 --> 00:40:49,349
+tree of
+
+1097
+00:40:49,359 --> 00:40:52,000
+a tree of nodes like this then we can do
+
+1098
+00:40:52,000 --> 00:40:54,160
+you know suppose we want to change
+
+1099
+00:40:54,160 --> 00:40:56,880
+we want to modify this value down here
+
+1100
+00:40:56,880 --> 00:41:00,950
+what we can do
+
+1101
+00:41:00,960 --> 00:41:03,200
+there's some head to the tree what we
+
+1102
+00:41:03,200 --> 00:41:05,440
+can do is cook up
+
+1103
+00:41:05,440 --> 00:41:08,880
+a new a new version of this part of the
+
+1104
+00:41:08,880 --> 00:41:10,960
+tree here
+
+1105
+00:41:10,960 --> 00:41:12,720
+and with the single committing right to
+
+1106
+00:41:12,720 --> 00:41:14,240
+the head pointer
+
+1107
+00:41:14,240 --> 00:41:15,920
+switch to the new version of the tree
+
+1108
+00:41:15,920 --> 00:41:18,000
+and so the new version of the tree
+
+1109
+00:41:18,000 --> 00:41:20,240
+which will you know the writer will
+
+1110
+00:41:20,240 --> 00:41:21,440
+allocate
+
+1111
+00:41:21,440 --> 00:41:24,800
+what um sort of create
+
+1112
+00:41:24,800 --> 00:41:28,079
+um uh can actually
+
+1113
+00:41:28,079 --> 00:41:30,240
+share for convenience can share
+
+1114
+00:41:30,240 --> 00:41:32,000
+structure the unmodified part with the
+
+1115
+00:41:32,000 --> 00:41:32,800
+old tree
+
+1116
+00:41:32,800 --> 00:41:34,480
+and then with a single committing right
+
+1117
+00:41:34,480 --> 00:41:36,079
+we're going to change the head pointer
+
+1118
+00:41:36,079 --> 00:41:36,640
+to
+
+1119
+00:41:36,640 --> 00:41:38,000
+the tree head pointer to point to the
+
+1120
+00:41:38,000 --> 00:41:42,309
+new version
+
+1121
+00:41:42,319 --> 00:41:43,760
+but for other data structures that don't
+
+1122
+00:41:43,760 --> 00:41:45,839
+look like lister trees it's not so easy
+
+1123
+00:41:45,839 --> 00:41:51,670
+to use rcu
+
+1124
+00:41:51,680 --> 00:41:55,680
+okay so that's the first idea
+
+1125
+00:41:55,680 --> 00:42:03,910
+any last questions
+
+1126
+00:42:03,920 --> 00:42:14,470
+the second idea
+
+1127
+00:42:14,480 --> 00:42:16,960
+one of the problems with uh one of the
+
+1128
+00:42:16,960 --> 00:42:18,480
+potential problems
+
+1129
+00:42:18,480 --> 00:42:22,150
+with uh
+
+1130
+00:42:22,160 --> 00:42:25,520
+um the scheme i just
+
+1131
+00:42:25,520 --> 00:42:29,440
+described and we're gonna cook up a new
+
+1132
+00:42:29,440 --> 00:42:31,359
+e2
+
+1133
+00:42:31,359 --> 00:42:33,760
+prime and what i said was oh well we'll
+
+1134
+00:42:33,760 --> 00:42:36,160
+initialize the content for e2 prime and
+
+1135
+00:42:36,160 --> 00:42:36,720
+we'll
+
+1136
+00:42:36,720 --> 00:42:39,280
+you know set its next pointer correctly
+
+1137
+00:42:39,280 --> 00:42:39,760
+and
+
+1138
+00:42:39,760 --> 00:42:43,760
+after that we'll set e1's next pointer
+
+1139
+00:42:43,760 --> 00:42:46,400
+to point to e2
+
+1140
+00:42:46,400 --> 00:42:49,280
+as you may recall from discussions of
+
+1141
+00:42:49,280 --> 00:42:50,319
+xv6
+
+1142
+00:42:50,319 --> 00:42:52,160
+by default there's no after that on
+
+1143
+00:42:52,160 --> 00:42:54,160
+these machines
+
+1144
+00:42:54,160 --> 00:42:56,560
+the compiler and the hardware all
+
+1145
+00:42:56,560 --> 00:42:58,560
+basically all compilers and
+
+1146
+00:42:58,560 --> 00:43:01,760
+many microprocessors reorder memory
+
+1147
+00:43:01,760 --> 00:43:03,280
+operations
+
+1148
+00:43:03,280 --> 00:43:06,640
+so if you simply you know say
+
+1149
+00:43:06,640 --> 00:43:11,839
+we allocate a new element
+
+1150
+00:43:11,839 --> 00:43:14,000
+we just wrote this c code you know e
+
+1151
+00:43:14,000 --> 00:43:16,480
+arrow next
+
+1152
+00:43:16,480 --> 00:43:19,599
+equals you know e3
+
+1153
+00:43:19,599 --> 00:43:25,190
+and then e1 arrow next
+
+1154
+00:43:25,200 --> 00:43:28,240
+equals e this is not going to work well
+
+1155
+00:43:28,240 --> 00:43:29,680
+this is not going to work reliably it's
+
+1156
+00:43:29,680 --> 00:43:32,240
+going to work fine when you test it
+
+1157
+00:43:32,240 --> 00:43:34,000
+but it won't work in real life all the
+
+1158
+00:43:34,000 --> 00:43:36,000
+time occasionally it'll go wrong and
+
+1159
+00:43:36,000 --> 00:43:39,359
+the reason is that the compiler
+
+1160
+00:43:39,359 --> 00:43:42,000
+may end up reordering these rights or
+
+1161
+00:43:42,000 --> 00:43:43,599
+the machine may end up reordering these
+
+1162
+00:43:43,599 --> 00:43:44,319
+rights or
+
+1163
+00:43:44,319 --> 00:43:46,160
+the reading code which reads these
+
+1164
+00:43:46,160 --> 00:43:47,359
+various things
+
+1165
+00:43:47,359 --> 00:43:49,200
+the compiler or the machine the
+
+1166
+00:43:49,200 --> 00:43:50,720
+microprocessor may end up
+
+1167
+00:43:50,720 --> 00:43:53,520
+reordering the reader's reads and of
+
+1168
+00:43:53,520 --> 00:43:54,880
+course
+
+1169
+00:43:54,880 --> 00:43:58,160
+if we set e1 arrow next to point to e2
+
+1170
+00:43:58,160 --> 00:43:59,599
+before
+
+1171
+00:43:59,599 --> 00:44:02,079
+we initialize the content of e2 so that
+
+1172
+00:44:02,079 --> 00:44:02,720
+it's
+
+1173
+00:44:02,720 --> 00:44:05,680
+string that holds or his next pointer
+
+1174
+00:44:05,680 --> 00:44:07,119
+point off into space
+
+1175
+00:44:07,119 --> 00:44:08,400
+then some reader's going to see this
+
+1176
+00:44:08,400 --> 00:44:10,079
+point or follow it read garbage and
+
+1177
+00:44:10,079 --> 00:44:11,920
+crash
+
+1178
+00:44:11,920 --> 00:44:14,400
+so the second idea is that both readers
+
+1179
+00:44:14,400 --> 00:44:17,280
+and writers have to use memory barriers
+
+1180
+00:44:17,280 --> 00:44:19,280
+now even though we're not locking or
+
+1181
+00:44:19,280 --> 00:44:22,870
+really because we're not locking
+
+1182
+00:44:22,880 --> 00:44:25,040
+the writers and the readers have to use
+
+1183
+00:44:25,040 --> 00:44:26,400
+a barrier and
+
+1184
+00:44:26,400 --> 00:44:28,160
+for writers the place the barrier has to
+
+1185
+00:44:28,160 --> 00:44:30,720
+go is before the committing right
+
+1186
+00:44:30,720 --> 00:44:36,079
+so we need a barrier here
+
+1187
+00:44:36,079 --> 00:44:39,040
+that tells the hardware and the compiler
+
+1188
+00:44:39,040 --> 00:44:39,680
+look
+
+1189
+00:44:39,680 --> 00:44:42,400
+all the writes before this barrier
+
+1190
+00:44:42,400 --> 00:44:42,880
+please
+
+1191
+00:44:42,880 --> 00:44:45,280
+finish them before doing any writes
+
+1192
+00:44:45,280 --> 00:44:46,560
+after the barrier
+
+1193
+00:44:46,560 --> 00:44:49,119
+so that e2 is fully initialized before
+
+1194
+00:44:49,119 --> 00:44:50,960
+we set e1 to point to it
+
+1195
+00:44:50,960 --> 00:44:54,950
+and on the read side
+
+1196
+00:44:54,960 --> 00:44:59,119
+the reader needs to load e1 arrow next
+
+1197
+00:44:59,119 --> 00:45:01,520
+into some you know temporary location or
+
+1198
+00:45:01,520 --> 00:45:02,319
+register
+
+1199
+00:45:02,319 --> 00:45:06,960
+so we'll just say register one equals
+
+1200
+00:45:06,960 --> 00:45:11,829
+e1 arrow next
+
+1201
+00:45:11,839 --> 00:45:16,390
+then the reader needs a barrier
+
+1202
+00:45:16,400 --> 00:45:18,319
+and then the reader is going to look at
+
+1203
+00:45:18,319 --> 00:45:20,480
+r1
+
+1204
+00:45:20,480 --> 00:45:24,640
+arrow it's content and r1 arrow next
+
+1205
+00:45:24,640 --> 00:45:26,560
+and what this barrier on the reader says
+
+1206
+00:45:26,560 --> 00:45:28,240
+is
+
+1207
+00:45:28,240 --> 00:45:31,599
+don't issue any of these loads
+
+1208
+00:45:31,599 --> 00:45:34,480
+until after we've completed this load so
+
+1209
+00:45:34,480 --> 00:45:37,280
+the reader is going to
+
+1210
+00:45:37,280 --> 00:45:39,680
+look at e1r next and either get the old
+
+1211
+00:45:39,680 --> 00:45:42,640
+e2 or the new e2
+
+1212
+00:45:42,640 --> 00:45:45,280
+and then the barrier says that only then
+
+1213
+00:45:45,280 --> 00:45:46,000
+are we going to start
+
+1214
+00:45:46,000 --> 00:45:51,349
+looking at only after we've grabbed this
+
+1215
+00:45:51,359 --> 00:45:53,680
+all these reads have to execute after
+
+1216
+00:45:53,680 --> 00:45:56,160
+this read
+
+1217
+00:45:56,160 --> 00:45:57,520
+and since the writer guaranteed to
+
+1218
+00:45:57,520 --> 00:45:59,440
+initialize the content
+
+1219
+00:45:59,440 --> 00:46:02,480
+before committing the pointer to eat the
+
+1220
+00:46:02,480 --> 00:46:03,839
+new e2
+
+1221
+00:46:03,839 --> 00:46:06,240
+that means these reads if this pointer
+
+1222
+00:46:06,240 --> 00:46:08,160
+points to the new et2 that means these
+
+1223
+00:46:08,160 --> 00:46:09,440
+reads are guaranteed to see the
+
+1224
+00:46:09,440 --> 00:46:14,880
+initialized content
+
+1225
+00:46:14,880 --> 00:46:19,040
+okay um so we saw a little bit of this
+
+1226
+00:46:19,040 --> 00:46:22,720
+how can you i'm sorry yeah i was just
+
+1227
+00:46:22,720 --> 00:46:25,440
+i was confused about a reader so how can
+
+1228
+00:46:25,440 --> 00:46:26,000
+you
+
+1229
+00:46:26,000 --> 00:46:29,280
+read one around
+
+1230
+00:46:29,280 --> 00:46:34,160
+like anything before you read our one
+
+1231
+00:46:34,160 --> 00:46:37,599
+i guess that's how how how are they
+
+1232
+00:46:37,599 --> 00:46:40,880
+so yeah i guess like
+
+1233
+00:46:40,880 --> 00:46:43,839
+if even if it reordered that how would
+
+1234
+00:46:43,839 --> 00:46:45,599
+how'd it be able to read
+
+1235
+00:46:45,599 --> 00:46:49,200
+r1x before it read he won
+
+1236
+00:46:49,200 --> 00:46:54,309
+next uh
+
+1237
+00:46:54,319 --> 00:46:59,589
+you uh i think you've stumped me um
+
+1238
+00:46:59,599 --> 00:47:01,119
+yeah i mean what you're pointing out is
+
+1239
+00:47:01,119 --> 00:47:02,079
+that before you even know what the
+
+1240
+00:47:02,079 --> 00:47:03,440
+pointer is
+
+1241
+00:47:03,440 --> 00:47:05,200
+uh you can't possibly actually issue the
+
+1242
+00:47:05,200 --> 00:47:06,640
+reads the
+
+1243
+00:47:06,640 --> 00:47:11,119
+um a a possibility
+
+1244
+00:47:11,119 --> 00:47:13,280
+is that whatever this pointer points to
+
+1245
+00:47:13,280 --> 00:47:16,000
+maybe is already cached on this core
+
+1246
+00:47:16,000 --> 00:47:17,599
+due to some maybe you know this memory
+
+1247
+00:47:17,599 --> 00:47:19,520
+was had been you know
+
+1248
+00:47:19,520 --> 00:47:20,880
+a minute ago used for something else
+
+1249
+00:47:20,880 --> 00:47:22,720
+something totally else and
+
+1250
+00:47:22,720 --> 00:47:25,040
+we have an old version of this cached on
+
+1251
+00:47:25,040 --> 00:47:26,240
+our core
+
+1252
+00:47:26,240 --> 00:47:29,760
+um at the address at this address but
+
+1253
+00:47:29,760 --> 00:47:32,960
+for some previous use of the memory if
+
+1254
+00:47:32,960 --> 00:47:36,160
+this read was to use the old cached
+
+1255
+00:47:36,160 --> 00:47:37,520
+value
+
+1256
+00:47:37,520 --> 00:47:39,440
+i'm not sure this can happen i'm just
+
+1257
+00:47:39,440 --> 00:47:41,119
+making this up for you but if this read
+
+1258
+00:47:41,119 --> 00:47:42,640
+could use the old cache value then we'd
+
+1259
+00:47:42,640 --> 00:47:45,750
+be in big trouble
+
+1260
+00:47:45,760 --> 00:47:47,280
+and i don't know if the machine would
+
+1261
+00:47:47,280 --> 00:47:50,839
+actually do that or whether
+
+1262
+00:47:50,839 --> 00:47:52,640
+um
+
+1263
+00:47:52,640 --> 00:47:56,319
+um another possibility is that the
+
+1264
+00:47:56,319 --> 00:48:02,470
+compiler you know
+
+1265
+00:48:02,480 --> 00:48:04,720
+the real answers i don't know i should
+
+1266
+00:48:04,720 --> 00:48:06,160
+go off and think about uh what a
+
+1267
+00:48:06,160 --> 00:48:08,240
+specific example would be
+
+1268
+00:48:08,240 --> 00:48:10,880
+okay okay i see the cash version makes
+
+1269
+00:48:10,880 --> 00:48:11,440
+sense
+
+1270
+00:48:11,440 --> 00:48:13,280
+yes yeah i'm not actually completely
+
+1271
+00:48:13,280 --> 00:48:14,960
+sure it could could happen
+
+1272
+00:48:14,960 --> 00:48:18,870
+in real life um
+
+1273
+00:48:18,880 --> 00:48:22,870
+that's a good question
+
+1274
+00:48:22,880 --> 00:48:26,559
+okay um so that's the second idea
+
+1275
+00:48:26,559 --> 00:48:28,079
+the third problem we have which is
+
+1276
+00:48:28,079 --> 00:48:29,760
+something somebody raised before
+
+1277
+00:48:29,760 --> 00:48:34,640
+is that the writer is going to swap the
+
+1278
+00:48:34,640 --> 00:48:36,559
+e1 pointer to point to the new e2 but
+
+1279
+00:48:36,559 --> 00:48:38,160
+there could be readers
+
+1280
+00:48:38,160 --> 00:48:40,319
+um you know who started looking at who
+
+1281
+00:48:40,319 --> 00:48:41,520
+followed this point or just before we
+
+1282
+00:48:41,520 --> 00:48:42,800
+change the writer change it
+
+1283
+00:48:42,800 --> 00:48:45,839
+who are still looking at e2
+
+1284
+00:48:45,839 --> 00:48:47,359
+we need to free this list element
+
+1285
+00:48:47,359 --> 00:48:49,359
+someday
+
+1286
+00:48:49,359 --> 00:48:50,800
+but we better not free it while some
+
+1287
+00:48:50,800 --> 00:48:52,240
+reader's still using it so we need to
+
+1288
+00:48:52,240 --> 00:48:53,920
+somehow wait until the last reader has
+
+1289
+00:48:53,920 --> 00:48:58,390
+finished using e2 before we can free it
+
+1290
+00:48:58,400 --> 00:49:00,079
+now that's the sort of third and final
+
+1291
+00:49:00,079 --> 00:49:01,760
+main problem that
+
+1292
+00:49:01,760 --> 00:49:04,160
+rcu solves is how long should the writer
+
+1293
+00:49:04,160 --> 00:49:05,680
+wait before it
+
+1294
+00:49:05,680 --> 00:49:08,790
+frees e2
+
+1295
+00:49:08,800 --> 00:49:10,319
+there's you could imagine a number of
+
+1296
+00:49:10,319 --> 00:49:12,079
+ways of doing this
+
+1297
+00:49:12,079 --> 00:49:13,440
+for example we could put a little
+
+1298
+00:49:13,440 --> 00:49:15,280
+reference count in every list element
+
+1299
+00:49:15,280 --> 00:49:16,880
+and have readers increment it and
+
+1300
+00:49:16,880 --> 00:49:18,319
+operators wait
+
+1301
+00:49:18,319 --> 00:49:19,520
+readers increment it when they start
+
+1302
+00:49:19,520 --> 00:49:21,680
+using a list element decrement
+
+1303
+00:49:21,680 --> 00:49:23,040
+it when they're done using the list
+
+1304
+00:49:23,040 --> 00:49:25,440
+element and have the writer wait for the
+
+1305
+00:49:25,440 --> 00:49:27,040
+reference count on this element to go to
+
+1306
+00:49:27,040 --> 00:49:29,359
+zero we would regret that instantly
+
+1307
+00:49:29,359 --> 00:49:30,160
+because
+
+1308
+00:49:30,160 --> 00:49:33,040
+the whole point of rcu is to allow
+
+1309
+00:49:33,040 --> 00:49:33,760
+reading
+
+1310
+00:49:33,760 --> 00:49:36,400
+without writing um because we know that
+
+1311
+00:49:36,400 --> 00:49:36,960
+if
+
+1312
+00:49:36,960 --> 00:49:40,160
+lots of readers are uh changing this
+
+1313
+00:49:40,160 --> 00:49:41,359
+reference account it's gonna be terribly
+
+1314
+00:49:41,359 --> 00:49:42,400
+expensive
+
+1315
+00:49:42,400 --> 00:49:44,319
+to do the rights involved in maintaining
+
+1316
+00:49:44,319 --> 00:49:45,839
+a reference count so we absolutely don't
+
+1317
+00:49:45,839 --> 00:49:47,440
+want reference counts
+
+1318
+00:49:47,440 --> 00:49:48,880
+another possibility would be use a
+
+1319
+00:49:48,880 --> 00:49:52,309
+garbage collected language
+
+1320
+00:49:52,319 --> 00:49:54,319
+and in a garbage collected language you
+
+1321
+00:49:54,319 --> 00:49:56,000
+don't ever free anything explicitly
+
+1322
+00:49:56,000 --> 00:49:56,480
+instead
+
+1323
+00:49:56,480 --> 00:49:57,920
+the garbage collector does the
+
+1324
+00:49:57,920 --> 00:49:59,599
+bookkeeping required
+
+1325
+00:49:59,599 --> 00:50:02,480
+to decide if any thread for example or
+
+1326
+00:50:02,480 --> 00:50:03,760
+any data structure
+
+1327
+00:50:03,760 --> 00:50:05,920
+has a still has a reference to this
+
+1328
+00:50:05,920 --> 00:50:07,680
+element and the garbage collector once
+
+1329
+00:50:07,680 --> 00:50:08,800
+it proves
+
+1330
+00:50:08,800 --> 00:50:10,880
+this element can't possibly be ever used
+
+1331
+00:50:10,880 --> 00:50:12,720
+again only then will the garbage
+
+1332
+00:50:12,720 --> 00:50:13,920
+collector free this
+
+1333
+00:50:13,920 --> 00:50:17,200
+so that's another quite possibly
+
+1334
+00:50:17,200 --> 00:50:20,160
+reasonable scheme for deciding when to
+
+1335
+00:50:20,160 --> 00:50:21,920
+free this list element
+
+1336
+00:50:21,920 --> 00:50:24,720
+you know linux which uses rcu is not
+
+1337
+00:50:24,720 --> 00:50:26,319
+written in a garbage collected language
+
+1338
+00:50:26,319 --> 00:50:27,599
+so
+
+1339
+00:50:27,599 --> 00:50:29,200
+and we're not even sure the garbage
+
+1340
+00:50:29,200 --> 00:50:30,960
+collection would be would improve
+
+1341
+00:50:30,960 --> 00:50:34,240
+performance um so we can't use a
+
+1342
+00:50:34,240 --> 00:50:35,680
+standard garbage collector here and
+
+1343
+00:50:35,680 --> 00:50:38,309
+instead
+
+1344
+00:50:38,319 --> 00:50:41,839
+rcu uses another uh
+
+1345
+00:50:41,839 --> 00:50:43,760
+sort of a trick that works well in the
+
+1346
+00:50:43,760 --> 00:50:44,960
+kernel for
+
+1347
+00:50:44,960 --> 00:50:52,870
+delaying freeze
+
+1348
+00:50:52,880 --> 00:50:56,630
+and so that
+
+1349
+00:50:56,640 --> 00:50:58,880
+idea is that the readers and writers
+
+1350
+00:50:58,880 --> 00:51:00,240
+have to
+
+1351
+00:51:00,240 --> 00:51:02,400
+each follow a rule that will allow
+
+1352
+00:51:02,400 --> 00:51:03,839
+writers to delay
+
+1353
+00:51:03,839 --> 00:51:08,960
+the free readers are not allowed to hold
+
+1354
+00:51:08,960 --> 00:51:11,680
+a pointer to rcu protected data across a
+
+1355
+00:51:11,680 --> 00:51:12,559
+context switch
+
+1356
+00:51:12,559 --> 00:51:14,640
+so a reader is not allowed to hold a
+
+1357
+00:51:14,640 --> 00:51:16,960
+pointer
+
+1358
+00:51:16,960 --> 00:51:20,079
+to one of those list elements across a
+
+1359
+00:51:20,079 --> 00:51:21,440
+context switch
+
+1360
+00:51:21,440 --> 00:51:26,390
+so the readers
+
+1361
+00:51:26,400 --> 00:51:31,030
+they cannot yield the cpu
+
+1362
+00:51:31,040 --> 00:51:37,599
+in a rcu critical section
+
+1363
+00:51:37,599 --> 00:51:40,640
+and then what the writers do is
+
+1364
+00:51:40,640 --> 00:51:46,870
+they delay the free
+
+1365
+00:51:46,880 --> 00:51:50,960
+until every core
+
+1366
+00:51:50,960 --> 00:52:00,549
+has context switches at least once
+
+1367
+00:52:00,559 --> 00:52:02,160
+so this is easy enough like this is
+
+1368
+00:52:02,160 --> 00:52:04,079
+actually also a rule for spin locks in a
+
+1369
+00:52:04,079 --> 00:52:05,440
+spin lock critical section you can't
+
+1370
+00:52:05,440 --> 00:52:07,760
+yield the cpu
+
+1371
+00:52:07,760 --> 00:52:09,200
+but nevertheless though you you have to
+
+1372
+00:52:09,200 --> 00:52:11,359
+be a bit careful
+
+1373
+00:52:11,359 --> 00:52:14,480
+this is a little more involved but it's
+
+1374
+00:52:14,480 --> 00:52:15,520
+relatively
+
+1375
+00:52:15,520 --> 00:52:17,599
+clear when each each core knows its
+
+1376
+00:52:17,599 --> 00:52:19,040
+context switching
+
+1377
+00:52:19,040 --> 00:52:20,720
+and so this is a pretty well defined
+
+1378
+00:52:20,720 --> 00:52:25,030
+point for the writer to have to wait for
+
+1379
+00:52:25,040 --> 00:52:26,880
+and just require some implementation
+
+1380
+00:52:26,880 --> 00:52:28,400
+this also requires this may be a
+
+1381
+00:52:28,400 --> 00:52:30,160
+significant delay it may be a
+
+1382
+00:52:30,160 --> 00:52:31,760
+millisecond or a significant fraction of
+
+1383
+00:52:31,760 --> 00:52:33,119
+a millisecond that the writer has to
+
+1384
+00:52:33,119 --> 00:52:33,920
+wait
+
+1385
+00:52:33,920 --> 00:52:35,440
+before it's allowed to free that list
+
+1386
+00:52:35,440 --> 00:52:37,520
+element to be sure that no reader could
+
+1387
+00:52:37,520 --> 00:52:41,270
+possibly still be using it
+
+1388
+00:52:41,280 --> 00:52:44,309
+people have come up with a
+
+1389
+00:52:44,319 --> 00:52:46,559
+bunch of techniques for actually
+
+1390
+00:52:46,559 --> 00:52:48,960
+implementing this weight
+
+1391
+00:52:48,960 --> 00:52:50,559
+the most the straightforward one the
+
+1392
+00:52:50,559 --> 00:52:52,559
+paper talks about is that the writing
+
+1393
+00:52:52,559 --> 00:52:53,440
+thread
+
+1394
+00:52:53,440 --> 00:52:56,559
+simply arranges with the scheduler to
+
+1395
+00:52:56,559 --> 00:52:57,839
+have the writing thread
+
+1396
+00:52:57,839 --> 00:53:00,720
+be executed briefly on every one of the
+
+1397
+00:53:00,720 --> 00:53:02,240
+cores in the system
+
+1398
+00:53:02,240 --> 00:53:05,359
+and what that means is that that
+
+1399
+00:53:05,359 --> 00:53:06,960
+every one of the cores must have done a
+
+1400
+00:53:06,960 --> 00:53:10,240
+context switch during this process
+
+1401
+00:53:10,240 --> 00:53:11,680
+and since readers can't hold stuff
+
+1402
+00:53:11,680 --> 00:53:13,200
+across context switches that means that
+
+1403
+00:53:13,200 --> 00:53:20,630
+the writer has now waited long enough
+
+1404
+00:53:20,640 --> 00:53:23,040
+and so the way the actual writer code
+
+1405
+00:53:23,040 --> 00:53:24,640
+looks like is
+
+1406
+00:53:24,640 --> 00:53:25,839
+the writing code does whatever
+
+1407
+00:53:25,839 --> 00:53:27,280
+modifications it's going to do to the
+
+1408
+00:53:27,280 --> 00:53:30,640
+data and then it calls this
+
+1409
+00:53:30,640 --> 00:53:35,510
+synchronize rcu call
+
+1410
+00:53:35,520 --> 00:53:41,349
+which actually implements two
+
+1411
+00:53:41,359 --> 00:53:44,559
+um and then the writer uh
+
+1412
+00:53:44,559 --> 00:53:47,599
+frees whatever the old element was and
+
+1413
+00:53:47,599 --> 00:53:48,480
+so that means that
+
+1414
+00:53:48,480 --> 00:53:49,680
+you know the writer is doing whatever
+
+1415
+00:53:49,680 --> 00:53:51,520
+it's doing you know at this point let's
+
+1416
+00:53:51,520 --> 00:53:52,800
+say it's doing the
+
+1417
+00:53:52,800 --> 00:54:00,390
+you know e1 arrow next
+
+1418
+00:54:00,400 --> 00:54:04,549
+is equal to the new list element
+
+1419
+00:54:04,559 --> 00:54:11,200
+and so you know uh
+
+1420
+00:54:11,200 --> 00:54:13,280
+this synchronized rcu causes a force as
+
+1421
+00:54:13,280 --> 00:54:15,599
+a context switch on
+
+1422
+00:54:15,599 --> 00:54:18,319
+every core um so any core that could
+
+1423
+00:54:18,319 --> 00:54:19,040
+have
+
+1424
+00:54:19,040 --> 00:54:20,640
+read you know any core that could have
+
+1425
+00:54:20,640 --> 00:54:22,480
+read the old
+
+1426
+00:54:22,480 --> 00:54:28,069
+value must have read it at this point
+
+1427
+00:54:28,079 --> 00:54:29,440
+i must have read it at this point in
+
+1428
+00:54:29,440 --> 00:54:31,359
+time if after that point of time we've
+
+1429
+00:54:31,359 --> 00:54:32,960
+done a context switch on every chord
+
+1430
+00:54:32,960 --> 00:54:34,880
+that means that no core that read the
+
+1431
+00:54:34,880 --> 00:54:36,160
+old value
+
+1432
+00:54:36,160 --> 00:54:38,880
+could still have a pointer to that value
+
+1433
+00:54:38,880 --> 00:54:40,480
+at this point in time
+
+1434
+00:54:40,480 --> 00:54:42,240
+due to rule one and that means that
+
+1435
+00:54:42,240 --> 00:54:47,349
+we're allowed to free the old value
+
+1436
+00:54:47,359 --> 00:54:55,670
+any questions
+
+1437
+00:54:55,680 --> 00:54:57,680
+you may object that this synchronized
+
+1438
+00:54:57,680 --> 00:54:59,040
+rcu will take a
+
+1439
+00:54:59,040 --> 00:55:01,520
+significant perhaps fraction of a
+
+1440
+00:55:01,520 --> 00:55:03,440
+millisecond that's quite true
+
+1441
+00:55:03,440 --> 00:55:07,599
+um it that uh so that's too bad
+
+1442
+00:55:07,599 --> 00:55:10,480
+um one of the justifications is that
+
+1443
+00:55:10,480 --> 00:55:11,119
+writing
+
+1444
+00:55:11,119 --> 00:55:12,720
+you know for rcu protected data writing
+
+1445
+00:55:12,720 --> 00:55:14,640
+is going to be relatively rare so the
+
+1446
+00:55:14,640 --> 00:55:16,000
+fact that the rights take longer
+
+1447
+00:55:16,000 --> 00:55:19,359
+may not will probably not affect overall
+
+1448
+00:55:19,359 --> 00:55:21,200
+performance very much
+
+1449
+00:55:21,200 --> 00:55:22,960
+for the situations in which the writer
+
+1450
+00:55:22,960 --> 00:55:24,400
+really doesn't want to wait there's
+
+1451
+00:55:24,400 --> 00:55:26,799
+another call
+
+1452
+00:55:26,799 --> 00:55:30,480
+that that defers even the weight
+
+1453
+00:55:30,480 --> 00:55:35,040
+called call rcu
+
+1454
+00:55:35,040 --> 00:55:38,559
+and the idea is you pass it the um
+
+1455
+00:55:38,559 --> 00:55:41,280
+in the usual use case you pass it a
+
+1456
+00:55:41,280 --> 00:55:43,440
+pointer to the object you want to free
+
+1457
+00:55:43,440 --> 00:55:46,160
+and then a callback function that just
+
+1458
+00:55:46,160 --> 00:55:48,319
+calls free
+
+1459
+00:55:48,319 --> 00:55:50,640
+on this pointer and the rcu system
+
+1460
+00:55:50,640 --> 00:55:52,319
+basically stashes away
+
+1461
+00:55:52,319 --> 00:55:55,359
+the call rcu stashes away
+
+1462
+00:55:55,359 --> 00:55:57,440
+these two values on a list and then
+
+1463
+00:55:57,440 --> 00:55:59,440
+immediately returns
+
+1464
+00:55:59,440 --> 00:56:02,640
+and then does some bookkeeping typically
+
+1465
+00:56:02,640 --> 00:56:04,319
+involving basically
+
+1466
+00:56:04,319 --> 00:56:07,040
+looking at the counts of how many
+
+1467
+00:56:07,040 --> 00:56:08,640
+context switches have occurred on each
+
+1468
+00:56:08,640 --> 00:56:10,160
+core
+
+1469
+00:56:10,160 --> 00:56:12,559
+the system sort of in the background
+
+1470
+00:56:12,559 --> 00:56:14,480
+after caller c returns
+
+1471
+00:56:14,480 --> 00:56:16,799
+does some bookkeeping to wait until all
+
+1472
+00:56:16,799 --> 00:56:18,799
+cores a context switch and then calls
+
+1473
+00:56:18,799 --> 00:56:20,319
+this callback function
+
+1474
+00:56:20,319 --> 00:56:22,319
+with this argument and so this is a way
+
+1475
+00:56:22,319 --> 00:56:23,760
+of avoiding the wait
+
+1476
+00:56:23,760 --> 00:56:28,839
+because this call returns instantly
+
+1477
+00:56:28,839 --> 00:56:31,760
+um on the other hand you're discouraged
+
+1478
+00:56:31,760 --> 00:56:33,280
+from using it because
+
+1479
+00:56:33,280 --> 00:56:37,280
+um now this list that um
+
+1480
+00:56:37,280 --> 00:56:39,760
+if people if the colonel calls call rcu
+
+1481
+00:56:39,760 --> 00:56:40,720
+a lot
+
+1482
+00:56:40,720 --> 00:56:44,319
+then the list that holds these uh values
+
+1483
+00:56:44,319 --> 00:56:45,760
+and get very long
+
+1484
+00:56:45,760 --> 00:56:48,319
+and it means that there may be a lot of
+
+1485
+00:56:48,319 --> 00:56:50,079
+memory that's not being freed
+
+1486
+00:56:50,079 --> 00:56:52,960
+all the data all the uh this lit this
+
+1487
+00:56:52,960 --> 00:56:54,079
+list goes very long
+
+1488
+00:56:54,079 --> 00:56:58,240
+each list element of a is a has a
+
+1489
+00:56:58,240 --> 00:56:59,839
+pointer in it that should be freed a
+
+1490
+00:56:59,839 --> 00:57:01,119
+pointer to an object that should be
+
+1491
+00:57:01,119 --> 00:57:02,000
+freed
+
+1492
+00:57:02,000 --> 00:57:03,760
+and so under extreme circumstances you
+
+1493
+00:57:03,760 --> 00:57:05,760
+can run a system if you're not careful
+
+1494
+00:57:05,760 --> 00:57:08,480
+a lot of calls to rcu call rcu can run a
+
+1495
+00:57:08,480 --> 00:57:09,599
+system out of memory because all the
+
+1496
+00:57:09,599 --> 00:57:11,280
+memory ends up on this list of
+
+1497
+00:57:11,280 --> 00:57:14,470
+deferred freeze
+
+1498
+00:57:14,480 --> 00:57:16,319
+so people don't like to use this if they
+
+1499
+00:57:16,319 --> 00:57:21,510
+don't have to
+
+1500
+00:57:21,520 --> 00:57:28,150
+okay to uh
+
+1501
+00:57:28,160 --> 00:57:32,630
+please ask questions if uh
+
+1502
+00:57:32,640 --> 00:57:35,680
+if you have questions so this doesn't um
+
+1503
+00:57:35,680 --> 00:57:38,799
+this prevents us free that's prevents us
+
+1504
+00:57:38,799 --> 00:57:40,240
+from freeing something that
+
+1505
+00:57:40,240 --> 00:57:42,319
+somebody's still using but it doesn't
+
+1506
+00:57:42,319 --> 00:57:43,680
+prevent us
+
+1507
+00:57:43,680 --> 00:57:46,880
+from modif like having the reader see
+
+1508
+00:57:46,880 --> 00:57:49,200
+a half-baked version of something
+
+1509
+00:57:49,200 --> 00:57:51,280
+because it's being modified right
+
+1510
+00:57:51,280 --> 00:57:54,880
+idea one prevented that yeah
+
+1511
+00:57:54,880 --> 00:57:57,760
+okay so the the the idea behind idea one
+
+1512
+00:57:57,760 --> 00:57:58,480
+is that
+
+1513
+00:57:58,480 --> 00:58:00,160
+instead of updating a list element in
+
+1514
+00:58:00,160 --> 00:58:02,160
+place which would absolutely
+
+1515
+00:58:02,160 --> 00:58:04,160
+cause the problem you mentioned when
+
+1516
+00:58:04,160 --> 00:58:05,760
+writers are not allowed
+
+1517
+00:58:05,760 --> 00:58:08,400
+to update rcu protected data in place
+
+1518
+00:58:08,400 --> 00:58:09,280
+instead they
+
+1519
+00:58:09,280 --> 00:58:12,319
+cook up a new data element
+
+1520
+00:58:12,319 --> 00:58:13,839
+and sort of swap it into the data
+
+1521
+00:58:13,839 --> 00:58:16,960
+structure with a single committing right
+
+1522
+00:58:16,960 --> 00:58:19,280
+oh oh and the swapping will be atomic so
+
+1523
+00:58:19,280 --> 00:58:21,280
+there's no problem over like
+
+1524
+00:58:21,280 --> 00:58:22,880
+because that's a single pointer right
+
+1525
+00:58:22,880 --> 00:58:24,880
+which is atomic whereas overwriting a
+
+1526
+00:58:24,880 --> 00:58:25,760
+string is
+
+1527
+00:58:25,760 --> 00:58:30,950
+completely not atomic that makes sense
+
+1528
+00:58:30,960 --> 00:58:34,319
+other questions um does
+
+1529
+00:58:34,319 --> 00:58:37,680
+condition one in um
+
+1530
+00:58:37,680 --> 00:58:39,520
+idea three mean we need to be careful
+
+1531
+00:58:39,520 --> 00:58:41,440
+about how much work we put
+
+1532
+00:58:41,440 --> 00:58:43,599
+inside those protected sections since it
+
+1533
+00:58:43,599 --> 00:58:44,960
+kind of hogs the
+
+1534
+00:58:44,960 --> 00:58:48,160
+the core for that entire section
+
+1535
+00:58:48,160 --> 00:58:52,480
+yes yes so so this is uh that's right so
+
+1536
+00:58:52,480 --> 00:58:54,559
+um readers in the sort of rcu critical
+
+1537
+00:58:54,559 --> 00:58:55,920
+section while they're looking at the
+
+1538
+00:58:55,920 --> 00:58:58,240
+protected data they can't context switch
+
+1539
+00:58:58,240 --> 00:59:01,990
+and so you're um
+
+1540
+00:59:02,000 --> 00:59:03,359
+you know you want to keep those critical
+
+1541
+00:59:03,359 --> 00:59:06,880
+sections short now
+
+1542
+00:59:06,880 --> 00:59:09,680
+and then that's a consideration um the
+
+1543
+00:59:09,680 --> 00:59:11,680
+the way it plays out though
+
+1544
+00:59:11,680 --> 00:59:14,240
+is that the way rcu's been deployed is
+
+1545
+00:59:14,240 --> 00:59:15,760
+typically that there'll be some piece of
+
+1546
+00:59:15,760 --> 00:59:16,799
+code in linux
+
+1547
+00:59:16,799 --> 00:59:18,640
+that was protected with ordinary locks
+
+1548
+00:59:18,640 --> 00:59:20,319
+or read write logs
+
+1549
+00:59:20,319 --> 00:59:22,880
+and somebody you know for some workloads
+
+1550
+00:59:22,880 --> 00:59:23,680
+um
+
+1551
+00:59:23,680 --> 00:59:26,720
+we'll see oh that lock is a terrible
+
+1552
+00:59:26,720 --> 00:59:28,480
+performance problem and they're gonna
+
+1553
+00:59:28,480 --> 00:59:31,359
+replace the locking critical section
+
+1554
+00:59:31,359 --> 00:59:34,480
+with an rcu critical section although
+
+1555
+00:59:34,480 --> 00:59:36,799
+sometimes it's more involved than that
+
+1556
+00:59:36,799 --> 00:59:38,640
+and since locking critical sections were
+
+1557
+00:59:38,640 --> 00:59:40,720
+already it was extremely important to
+
+1558
+00:59:40,720 --> 00:59:41,680
+make them short
+
+1559
+00:59:41,680 --> 00:59:43,440
+because while you hold a lock there may
+
+1560
+00:59:43,440 --> 00:59:44,880
+be lots of other cores waiting for that
+
+1561
+00:59:44,880 --> 00:59:46,240
+lock so there's a lot of pressure to
+
+1562
+00:59:46,240 --> 00:59:46,880
+keep
+
+1563
+00:59:46,880 --> 00:59:49,599
+ordinary lock critical sections short
+
+1564
+00:59:49,599 --> 00:59:52,000
+because rcu critical sections are often
+
+1565
+00:59:52,000 --> 00:59:54,880
+sort of revised lock critical things
+
+1566
+00:59:54,880 --> 00:59:56,559
+that used to be locked critical sections
+
+1567
+00:59:56,559 --> 01:00:00,160
+they tend to be short also and
+
+1568
+01:00:00,160 --> 01:00:03,599
+you know that means that you know not
+
+1569
+01:00:03,599 --> 01:00:04,640
+always but
+
+1570
+01:00:04,640 --> 01:00:08,880
+usually um there's not a
+
+1571
+01:00:08,880 --> 01:00:10,799
+not a direct worry about keeping the rcu
+
+1572
+01:00:10,799 --> 01:00:12,960
+critical section short
+
+1573
+01:00:12,960 --> 01:00:15,680
+um although it is a constraint the the
+
+1574
+01:00:15,680 --> 01:00:16,720
+real constraint actually is you're not
+
+1575
+01:00:16,720 --> 01:00:18,720
+allowed to hold pointers over con
+
+1576
+01:00:18,720 --> 01:00:21,040
+pointers to rcu data over context
+
+1577
+01:00:21,040 --> 01:00:22,240
+switches
+
+1578
+01:00:22,240 --> 01:00:24,960
+um and that's actually that mean you
+
+1579
+01:00:24,960 --> 01:00:26,720
+can't for example read the disk and
+
+1580
+01:00:26,720 --> 01:00:28,960
+wait for the disk weed to complete while
+
+1581
+01:00:28,960 --> 01:00:30,559
+while holding on a pointer
+
+1582
+01:00:30,559 --> 01:00:34,480
+onto a pointer to rcu protected data
+
+1583
+01:00:34,480 --> 01:00:36,880
+so it's not quite so much the or the
+
+1584
+01:00:36,880 --> 01:00:38,319
+thing that usually comes up is not the
+
+1585
+01:00:38,319 --> 01:00:39,839
+length of the critical section so much
+
+1586
+01:00:39,839 --> 01:00:40,480
+as
+
+1587
+01:00:40,480 --> 01:00:48,789
+the prohibition against yielding cpu
+
+1588
+01:00:48,799 --> 01:00:53,349
+okay
+
+1589
+01:00:53,359 --> 01:00:56,319
+let's see so just to kind of firm up but
+
+1590
+01:00:56,319 --> 01:00:57,040
+i
+
+1591
+01:00:57,040 --> 01:00:59,599
+all the stuff i just talked about here's
+
+1592
+01:00:59,599 --> 01:01:01,280
+a
+
+1593
+01:01:01,280 --> 01:01:03,599
+kind of what you would see in a simple
+
+1594
+01:01:03,599 --> 01:01:05,280
+use of
+
+1595
+01:01:05,280 --> 01:01:08,160
+rcu so this is code you might see for
+
+1596
+01:01:08,160 --> 01:01:11,520
+reading a list
+
+1597
+01:01:11,520 --> 01:01:13,040
+an rcu protected list and this is the
+
+1598
+01:01:13,040 --> 01:01:14,720
+code you might see it on the right side
+
+1599
+01:01:14,720 --> 01:01:15,040
+if
+
+1600
+01:01:15,040 --> 01:01:17,760
+for code that just wants to the
+
+1601
+01:01:17,760 --> 01:01:19,680
+particular case of replacing the first
+
+1602
+01:01:19,680 --> 01:01:22,400
+list element so in the read side there
+
+1603
+01:01:22,400 --> 01:01:24,240
+is actually this um
+
+1604
+01:01:24,240 --> 01:01:27,599
+these read lock and read unlock calls
+
+1605
+01:01:27,599 --> 01:01:30,720
+those do almost nothing almost nothing
+
+1606
+01:01:30,720 --> 01:01:34,240
+um the only the only little thing they
+
+1607
+01:01:34,240 --> 01:01:34,559
+do
+
+1608
+01:01:34,559 --> 01:01:37,760
+is set a flag that says or rcu relock
+
+1609
+01:01:37,760 --> 01:01:40,079
+sets a flag that says if a timer
+
+1610
+01:01:40,079 --> 01:01:41,119
+interrupt happens
+
+1611
+01:01:41,119 --> 01:01:43,040
+please don't context switch because i'm
+
+1612
+01:01:43,040 --> 01:01:44,640
+in the middle of a
+
+1613
+01:01:44,640 --> 01:01:46,480
+rcu critical section so that's all it
+
+1614
+01:01:46,480 --> 01:01:48,240
+really does is set a flag that
+
+1615
+01:01:48,240 --> 01:01:50,240
+prohibits timer interrupt context
+
+1616
+01:01:50,240 --> 01:01:51,680
+switches the interrupt may still happen
+
+1617
+01:01:51,680 --> 01:01:53,359
+but it won't context switch
+
+1618
+01:01:53,359 --> 01:01:56,079
+and then read unlock unsets that flag
+
+1619
+01:01:56,079 --> 01:01:56,880
+really it's a
+
+1620
+01:01:56,880 --> 01:01:59,760
+you know counter of nested rcu critical
+
+1621
+01:01:59,760 --> 01:02:00,400
+sections
+
+1622
+01:02:00,400 --> 01:02:01,760
+so these two functions are extremely
+
+1623
+01:02:01,760 --> 01:02:04,640
+fast and do almost nothing
+
+1624
+01:02:04,640 --> 01:02:06,480
+and then this loop would sort of scan
+
+1625
+01:02:06,480 --> 01:02:09,039
+down the uh
+
+1626
+01:02:09,039 --> 01:02:13,119
+um our list this is the call
+
+1627
+01:02:13,119 --> 01:02:16,079
+that um inserts the memory barrier so
+
+1628
+01:02:16,079 --> 01:02:17,839
+what rc
+
+1629
+01:02:17,839 --> 01:02:20,000
+this really boils down to just a couple
+
+1630
+01:02:20,000 --> 01:02:21,039
+of instructions
+
+1631
+01:02:21,039 --> 01:02:24,630
+it just reads
+
+1632
+01:02:24,640 --> 01:02:26,480
+it grabs a copy of this pointer from
+
+1633
+01:02:26,480 --> 01:02:29,200
+memory issues a memory barrier
+
+1634
+01:02:29,200 --> 01:02:37,109
+and then returns that pointer
+
+1635
+01:02:37,119 --> 01:02:39,280
+and then we can look at the content and
+
+1636
+01:02:39,280 --> 01:02:41,760
+go on to the next list element
+
+1637
+01:02:41,760 --> 01:02:45,359
+so the readers quite simple
+
+1638
+01:02:45,359 --> 01:02:47,119
+the writer's a little more involved
+
+1639
+01:02:47,119 --> 01:02:49,680
+writers still
+
+1640
+01:02:49,680 --> 01:02:51,520
+you know the rcu doesn't help writers
+
+1641
+01:02:51,520 --> 01:02:52,960
+avoid interfering with each other so
+
+1642
+01:02:52,960 --> 01:02:54,640
+writers still have to have some way of
+
+1643
+01:02:54,640 --> 01:02:56,480
+making sure only one writer modifies the
+
+1644
+01:02:56,480 --> 01:02:58,559
+list at a time in this case
+
+1645
+01:02:58,559 --> 01:03:01,039
+i'm just imagining we're going to use
+
+1646
+01:03:01,039 --> 01:03:02,640
+ordinary spin locks so the writer
+
+1647
+01:03:02,640 --> 01:03:04,559
+requires the lock
+
+1648
+01:03:04,559 --> 01:03:06,240
+if we're replacing the first list
+
+1649
+01:03:06,240 --> 01:03:07,599
+element
+
+1650
+01:03:07,599 --> 01:03:10,319
+we need to save a copy at the beginning
+
+1651
+01:03:10,319 --> 01:03:11,039
+because we're going to need to
+
+1652
+01:03:11,039 --> 01:03:12,240
+eventually free it
+
+1653
+01:03:12,240 --> 01:03:13,760
+so we save this copy of the oldest
+
+1654
+01:03:13,760 --> 01:03:15,760
+element and now where this code plays
+
+1655
+01:03:15,760 --> 01:03:17,520
+that trick i talked again about
+
+1656
+01:03:17,520 --> 01:03:19,280
+allocating a complete new list element
+
+1657
+01:03:19,280 --> 01:03:21,359
+to hold the sort of updated
+
+1658
+01:03:21,359 --> 01:03:24,079
+uh content so we're going to allocate a
+
+1659
+01:03:24,079 --> 01:03:25,599
+new list element we're going to
+
+1660
+01:03:25,599 --> 01:03:27,520
+set its content we're going to set the
+
+1661
+01:03:27,520 --> 01:03:29,920
+next pointer
+
+1662
+01:03:29,920 --> 01:03:32,000
+to the next pointer in the old first
+
+1663
+01:03:32,000 --> 01:03:34,319
+list element because we're replacing it
+
+1664
+01:03:34,319 --> 01:03:38,000
+and then this rcu assign pointer
+
+1665
+01:03:38,000 --> 01:03:40,640
+issues a memory barrier so that all
+
+1666
+01:03:40,640 --> 01:03:41,359
+these
+
+1667
+01:03:41,359 --> 01:03:44,400
+these writes happened
+
+1668
+01:03:44,400 --> 01:03:47,359
+and then sets the pointer pointed to by
+
+1669
+01:03:47,359 --> 01:03:48,880
+this first argument to be equal to that
+
+1670
+01:03:48,880 --> 01:03:49,680
+so basically
+
+1671
+01:03:49,680 --> 01:03:51,680
+this just issues a memory barrier and
+
+1672
+01:03:51,680 --> 01:03:53,119
+then sets head equal to
+
+1673
+01:03:53,119 --> 01:03:56,240
+e and now we can release the lock
+
+1674
+01:03:56,240 --> 01:03:58,319
+we still have a pointer to the old first
+
+1675
+01:03:58,319 --> 01:03:59,760
+list element
+
+1676
+01:03:59,760 --> 01:04:01,359
+called synchronize rcu to make sure
+
+1677
+01:04:01,359 --> 01:04:04,160
+every um
+
+1678
+01:04:04,160 --> 01:04:07,359
+cpu that could have grabbed a uh
+
+1679
+01:04:07,359 --> 01:04:09,280
+pointer to the old list element before
+
+1680
+01:04:09,280 --> 01:04:11,039
+we did the committing right
+
+1681
+01:04:11,039 --> 01:04:13,520
+has yielded the cpu and therefore given
+
+1682
+01:04:13,520 --> 01:04:14,480
+up its
+
+1683
+01:04:14,480 --> 01:04:16,720
+pointered rc protected data and now we
+
+1684
+01:04:16,720 --> 01:04:18,799
+can free the old
+
+1685
+01:04:18,799 --> 01:04:23,349
+list element
+
+1686
+01:04:23,359 --> 01:04:35,670
+any questions
+
+1687
+01:04:35,680 --> 01:04:39,750
+all right um
+
+1688
+01:04:39,760 --> 01:04:43,029
+uh
+
+1689
+01:04:43,039 --> 01:04:46,319
+there are rcu
+
+1690
+01:04:46,319 --> 01:04:48,480
+one thing to note about this is that
+
+1691
+01:04:48,480 --> 01:04:50,240
+while in the reader while we're allowed
+
+1692
+01:04:50,240 --> 01:04:50,559
+to
+
+1693
+01:04:50,559 --> 01:04:52,400
+look at this list element inside the
+
+1694
+01:04:52,400 --> 01:04:53,680
+loop here
+
+1695
+01:04:53,680 --> 01:04:55,599
+one thing we're not allowed to do is
+
+1696
+01:04:55,599 --> 01:04:57,359
+return the list element
+
+1697
+01:04:57,359 --> 01:05:00,480
+so for example we using rcu we couldn't
+
+1698
+01:05:00,480 --> 01:05:03,680
+write a lookup a list lookup function
+
+1699
+01:05:03,680 --> 01:05:07,359
+that returned either the list element
+
+1700
+01:05:07,359 --> 01:05:10,559
+or a pointer into
+
+1701
+01:05:10,559 --> 01:05:12,559
+data held in the list element like a
+
+1702
+01:05:12,559 --> 01:05:14,000
+string that was embedded in the list
+
+1703
+01:05:14,000 --> 01:05:18,390
+element
+
+1704
+01:05:18,400 --> 01:05:20,319
+because then we'd be in then we would no
+
+1705
+01:05:20,319 --> 01:05:22,079
+longer be in control you know
+
+1706
+01:05:22,079 --> 01:05:23,920
+it has to be the case that we don't look
+
+1707
+01:05:23,920 --> 01:05:26,799
+at rc protected data outside
+
+1708
+01:05:26,799 --> 01:05:29,280
+um this rcu critical section or we don't
+
+1709
+01:05:29,280 --> 01:05:30,480
+do a context which if
+
+1710
+01:05:30,480 --> 01:05:31,920
+we just write a generic function that
+
+1711
+01:05:31,920 --> 01:05:33,839
+returns a list element then for all we
+
+1712
+01:05:33,839 --> 01:05:35,599
+know the caller
+
+1713
+01:05:35,599 --> 01:05:36,799
+you know maybe we can persuade the
+
+1714
+01:05:36,799 --> 01:05:39,920
+caller to follow some rules too but um
+
+1715
+01:05:39,920 --> 01:05:42,799
+for all we know uh the caller may
+
+1716
+01:05:42,799 --> 01:05:43,920
+context switch
+
+1717
+01:05:43,920 --> 01:05:47,760
+or um or we'd run into trouble i that we
+
+1718
+01:05:47,760 --> 01:05:50,079
+call rc read unlock before returning the
+
+1719
+01:05:50,079 --> 01:05:51,359
+list element
+
+1720
+01:05:51,359 --> 01:05:52,960
+which is illegal because now a timer
+
+1721
+01:05:52,960 --> 01:05:54,720
+interrupt could force a switch
+
+1722
+01:05:54,720 --> 01:05:57,359
+or we don't call rcub.unlock so the use
+
+1723
+01:05:57,359 --> 01:06:00,789
+of rcu sort of
+
+1724
+01:06:00,799 --> 01:06:02,319
+does put some additional constraints on
+
+1725
+01:06:02,319 --> 01:06:03,839
+readers that
+
+1726
+01:06:03,839 --> 01:06:06,880
+wouldn't have existed before a question
+
+1727
+01:06:06,880 --> 01:06:07,839
+about that
+
+1728
+01:06:07,839 --> 01:06:10,559
+yes so are you saying in particular that
+
+1729
+01:06:10,559 --> 01:06:11,839
+if we had
+
+1730
+01:06:11,839 --> 01:06:15,119
+some form of uh like read element
+
+1731
+01:06:15,119 --> 01:06:18,400
+at index i method
+
+1732
+01:06:18,400 --> 01:06:20,799
+that there is no way to structure this
+
+1733
+01:06:20,799 --> 01:06:22,960
+so that it could return the value
+
+1734
+01:06:22,960 --> 01:06:25,359
+held by the node at element i it could
+
+1735
+01:06:25,359 --> 01:06:27,839
+return a copy
+
+1736
+01:06:27,839 --> 01:06:30,079
+so what would work you know if erox is a
+
+1737
+01:06:30,079 --> 01:06:31,680
+string we could return a copy of this
+
+1738
+01:06:31,680 --> 01:06:32,000
+string
+
+1739
+01:06:32,000 --> 01:06:34,880
+and that's fine what would be a
+
+1740
+01:06:34,880 --> 01:06:36,960
+violation of the rcu rules is if we
+
+1741
+01:06:36,960 --> 01:06:37,680
+returned a
+
+1742
+01:06:37,680 --> 01:06:40,319
+pointer to this very string sitting
+
+1743
+01:06:40,319 --> 01:06:40,880
+inside
+
+1744
+01:06:40,880 --> 01:06:44,799
+you know a point
+
+1745
+01:06:44,799 --> 01:06:46,160
+it would be a mistake to return a
+
+1746
+01:06:46,160 --> 01:06:50,710
+pointer into somewhere into e
+
+1747
+01:06:50,720 --> 01:06:52,480
+like if the string is stored inside the
+
+1748
+01:06:52,480 --> 01:06:54,000
+list element we better not return this
+
+1749
+01:06:54,000 --> 01:06:56,799
+pointer to that string
+
+1750
+01:06:56,799 --> 01:07:00,160
+because then the uh
+
+1751
+01:07:00,160 --> 01:07:04,000
+then we'll be we have to not context
+
+1752
+01:07:04,000 --> 01:07:05,920
+switch while we're holding a pointer
+
+1753
+01:07:05,920 --> 01:07:08,960
+into rcu protected data and the you know
+
+1754
+01:07:08,960 --> 01:07:10,799
+the convention is
+
+1755
+01:07:10,799 --> 01:07:12,240
+you know you just use that data within
+
+1756
+01:07:12,240 --> 01:07:14,240
+this critical section
+
+1757
+01:07:14,240 --> 01:07:15,440
+and so it would almost certainly be
+
+1758
+01:07:15,440 --> 01:07:17,200
+breaking the convention or this setup
+
+1759
+01:07:17,200 --> 01:07:18,720
+would have to be much more complicated
+
+1760
+01:07:18,720 --> 01:07:21,280
+if we ended up returning pointers into
+
+1761
+01:07:21,280 --> 01:07:24,079
+the protected data
+
+1762
+01:07:24,079 --> 01:07:29,200
+thank you um
+
+1763
+01:07:29,200 --> 01:07:32,000
+the so i just want to sort of return
+
+1764
+01:07:32,000 --> 01:07:33,839
+briefly to the performance story
+
+1765
+01:07:33,839 --> 01:07:37,039
+um it's
+
+1766
+01:07:37,039 --> 01:07:40,319
+um it's hard to characterize sort of
+
+1767
+01:07:40,319 --> 01:07:42,240
+what the performance is i mean in a
+
+1768
+01:07:42,240 --> 01:07:45,200
+sense uh
+
+1769
+01:07:45,200 --> 01:07:46,960
+the let's see the the overall
+
+1770
+01:07:46,960 --> 01:07:49,440
+performance story is that if you use rcu
+
+1771
+01:07:49,440 --> 01:07:50,799
+reads are extremely fast they just
+
+1772
+01:07:50,799 --> 01:07:52,799
+proceed at you know whatever
+
+1773
+01:07:52,799 --> 01:07:55,599
+they have sort of no overhead above the
+
+1774
+01:07:55,599 --> 01:07:57,440
+ordinary overhead of looking at that
+
+1775
+01:07:57,440 --> 01:07:59,359
+data so if your list is
+
+1776
+01:07:59,359 --> 01:08:01,680
+a billion elements long yeah reading the
+
+1777
+01:08:01,680 --> 01:08:03,920
+list will take a long time but it's not
+
+1778
+01:08:03,920 --> 01:08:05,280
+because of synchronization it's just
+
+1779
+01:08:05,280 --> 01:08:07,760
+because you're doing a lot of work
+
+1780
+01:08:07,760 --> 01:08:10,960
+for readers so you can almost
+
+1781
+01:08:10,960 --> 01:08:14,160
+view rcu as having zero overhead for
+
+1782
+01:08:14,160 --> 01:08:14,799
+readers
+
+1783
+01:08:14,799 --> 01:08:17,829
+and the
+
+1784
+01:08:17,839 --> 01:08:21,120
+exceptions are minor rcu beadlock
+
+1785
+01:08:21,120 --> 01:08:22,640
+you know just a tiny amount of work to
+
+1786
+01:08:22,640 --> 01:08:25,279
+set this flag saying no contact switches
+
+1787
+01:08:25,279 --> 01:08:27,520
+and rcu dereference issues a memory
+
+1788
+01:08:27,520 --> 01:08:30,309
+barrier which
+
+1789
+01:08:30,319 --> 01:08:32,880
+actually might slow you down by dozens a
+
+1790
+01:08:32,880 --> 01:08:35,910
+few dozen cycles
+
+1791
+01:08:35,920 --> 01:08:39,199
+but it much cheaper than uh
+
+1792
+01:08:39,199 --> 01:08:42,640
+a lot the performance story for writers
+
+1793
+01:08:42,640 --> 01:08:43,839
+is much sadder
+
+1794
+01:08:43,839 --> 01:08:45,279
+you had to do all the stuff you always
+
+1795
+01:08:45,279 --> 01:08:47,199
+had to do using locks in fact you have
+
+1796
+01:08:47,199 --> 01:08:49,040
+to acquire and release locks
+
+1797
+01:08:49,040 --> 01:08:51,920
+in the writer and you have this
+
+1798
+01:08:51,920 --> 01:08:53,440
+potentially extremely expensive call
+
+1799
+01:08:53,440 --> 01:08:54,159
+this or
+
+1800
+01:08:54,159 --> 01:08:55,839
+time consuming called the synchronized
+
+1801
+01:08:55,839 --> 01:08:57,839
+rcu in fact you can give a you know
+
+1802
+01:08:57,839 --> 01:08:59,839
+internally synchronized rcu
+
+1803
+01:08:59,839 --> 01:09:01,759
+gives up the cpu so you don't doesn't
+
+1804
+01:09:01,759 --> 01:09:03,759
+spin necessarily
+
+1805
+01:09:03,759 --> 01:09:07,440
+um but it may require a lot of elapsed
+
+1806
+01:09:07,440 --> 01:09:09,679
+time waiting for every other core to
+
+1807
+01:09:09,679 --> 01:09:12,470
+context switch
+
+1808
+01:09:12,480 --> 01:09:15,440
+so depending on the mix of reason rights
+
+1809
+01:09:15,440 --> 01:09:16,480
+um
+
+1810
+01:09:16,480 --> 01:09:19,120
+and how much work was being done inside
+
+1811
+01:09:19,120 --> 01:09:20,960
+the read critical section
+
+1812
+01:09:20,960 --> 01:09:23,679
+the uh performance increase varies
+
+1813
+01:09:23,679 --> 01:09:25,679
+tremendously from
+
+1814
+01:09:25,679 --> 01:09:28,560
+um much much faster if these critical
+
+1815
+01:09:28,560 --> 01:09:29,759
+sections were short
+
+1816
+01:09:29,759 --> 01:09:32,319
+and there's few rights to perhaps even
+
+1817
+01:09:32,319 --> 01:09:34,159
+slower
+
+1818
+01:09:34,159 --> 01:09:37,430
+if rights are very common
+
+1819
+01:09:37,440 --> 01:09:40,319
+and so when people apply rcu to kernel
+
+1820
+01:09:40,319 --> 01:09:42,080
+stuff they actually
+
+1821
+01:09:42,080 --> 01:09:44,239
+you absolutely have to do performance
+
+1822
+01:09:44,239 --> 01:09:46,159
+tests against a bunch of workloads in
+
+1823
+01:09:46,159 --> 01:09:47,839
+order to figure out whether
+
+1824
+01:09:47,839 --> 01:09:50,719
+using rcu is a win for you because it's
+
+1825
+01:09:50,719 --> 01:09:55,430
+so dependent on the workload
+
+1826
+01:09:55,440 --> 01:10:00,870
+i have a maybe a tangential question but
+
+1827
+01:10:00,880 --> 01:10:02,560
+we've seen that i guess when there's
+
+1828
+01:10:02,560 --> 01:10:04,719
+multiple cores being used there's
+
+1829
+01:10:04,719 --> 01:10:08,000
+some added complexity to our usual
+
+1830
+01:10:08,000 --> 01:10:09,199
+implementations
+
+1831
+01:10:09,199 --> 01:10:11,520
+and it's often the like these atomic
+
+1832
+01:10:11,520 --> 01:10:12,960
+instructions
+
+1833
+01:10:12,960 --> 01:10:15,520
+kind of come to the rescue and that's
+
+1834
+01:10:15,520 --> 01:10:16,640
+assuming there's one
+
+1835
+01:10:16,640 --> 01:10:20,400
+shared memory system but i wonder like
+
+1836
+01:10:20,400 --> 01:10:22,560
+what happens if a machine is trying to
+
+1837
+01:10:22,560 --> 01:10:23,520
+maintain like
+
+1838
+01:10:23,520 --> 01:10:27,120
+multiple ram systems how does it
+
+1839
+01:10:27,120 --> 01:10:30,880
+unify those
+
+1840
+01:10:30,880 --> 01:10:34,640
+um the ordinary
+
+1841
+01:10:34,640 --> 01:10:40,870
+um well
+
+1842
+01:10:40,880 --> 01:10:43,679
+at a uh at the level we're talking about
+
+1843
+01:10:43,679 --> 01:10:47,270
+the machine has one ram system
+
+1844
+01:10:47,280 --> 01:10:51,199
+okay the you know the um
+
+1845
+01:10:51,199 --> 01:10:54,000
+yeah it's um for all those sort of
+
+1846
+01:10:54,000 --> 01:10:55,280
+ordinary computers you would buy that
+
+1847
+01:10:55,280 --> 01:10:56,159
+have multiple
+
+1848
+01:10:56,159 --> 01:10:59,360
+cores you can pretty much program them
+
+1849
+01:10:59,360 --> 01:11:01,120
+as if they were just one ram system
+
+1850
+01:11:01,120 --> 01:11:03,120
+shared among all the cores that's the
+
+1851
+01:11:03,120 --> 01:11:04,239
+logical model the
+
+1852
+01:11:04,239 --> 01:11:06,400
+hardware provides you at a physical
+
+1853
+01:11:06,400 --> 01:11:08,080
+level it's not like that
+
+1854
+01:11:08,080 --> 01:11:10,880
+often there's plenty of machines out
+
+1855
+01:11:10,880 --> 01:11:12,000
+there that have
+
+1856
+01:11:12,000 --> 01:11:15,440
+this physical arrangement we have a cpu
+
+1857
+01:11:15,440 --> 01:11:16,480
+chip
+
+1858
+01:11:16,480 --> 01:11:19,760
+so here's one cpu chip maybe with
+
+1859
+01:11:19,760 --> 01:11:23,199
+lots of cores on it right and
+
+1860
+01:11:23,199 --> 01:11:24,719
+you know you can get cpu chips with i
+
+1861
+01:11:24,719 --> 01:11:26,239
+don't know how many cores these days 32
+
+1862
+01:11:26,239 --> 01:11:27,600
+cores say let's say you want to build a
+
+1863
+01:11:27,600 --> 01:11:30,080
+64 core machine you can only buy 32
+
+1864
+01:11:30,080 --> 01:11:33,280
+core chips well you can make a board
+
+1865
+01:11:33,280 --> 01:11:35,120
+i think it has two sockets for chips on
+
+1866
+01:11:35,120 --> 01:11:38,470
+it so now we have two chips
+
+1867
+01:11:38,480 --> 01:11:40,560
+the fastest way to get app memory is to
+
+1868
+01:11:40,560 --> 01:11:42,480
+have the memory more or less as directly
+
+1869
+01:11:42,480 --> 01:11:45,040
+attached to the cpu chip as possible
+
+1870
+01:11:45,040 --> 01:11:46,960
+so what you would do is you'd have like
+
+1871
+01:11:46,960 --> 01:11:48,480
+a very fat
+
+1872
+01:11:48,480 --> 01:11:51,360
+set of wires here to right next to the
+
+1873
+01:11:51,360 --> 01:11:52,480
+chip
+
+1874
+01:11:52,480 --> 01:11:56,159
+um a bunch of ram so it has direct
+
+1875
+01:11:56,159 --> 01:11:57,440
+access and of course this chip's going
+
+1876
+01:11:57,440 --> 01:11:58,400
+to want its own ram
+
+1877
+01:11:58,400 --> 01:12:01,600
+also all right so this is i'm just
+
+1878
+01:12:01,600 --> 01:12:02,640
+drawing a picture of what you would see
+
+1879
+01:12:02,640 --> 01:12:03,920
+if you opened up a
+
+1880
+01:12:03,920 --> 01:12:10,550
+pc with two processor chips in it ram
+
+1881
+01:12:10,560 --> 01:12:11,920
+but now we're faced with a problem what
+
+1882
+01:12:11,920 --> 01:12:14,400
+happens if a software over on this chip
+
+1883
+01:12:14,400 --> 01:12:16,000
+uses a memory location it's actually
+
+1884
+01:12:16,000 --> 01:12:17,840
+stored in this ram
+
+1885
+01:12:17,840 --> 01:12:21,440
+so in fact there's also a interconnect
+
+1886
+01:12:21,440 --> 01:12:24,239
+between these two chips generally an
+
+1887
+01:12:24,239 --> 01:12:26,800
+extremely fast interconnect like
+
+1888
+01:12:26,800 --> 01:12:29,760
+gigabytes per second and the chips are
+
+1889
+01:12:29,760 --> 01:12:30,960
+smart enough to know that certain
+
+1890
+01:12:30,960 --> 01:12:32,560
+physical memory locations are in this
+
+1891
+01:12:32,560 --> 01:12:33,600
+bank of ram
+
+1892
+01:12:33,600 --> 01:12:35,360
+and other physical locations physical
+
+1893
+01:12:35,360 --> 01:12:37,040
+memory addresses are in this bank of ram
+
+1894
+01:12:37,040 --> 01:12:39,600
+and if software here
+
+1895
+01:12:39,600 --> 01:12:41,360
+uses a physical address is over in this
+
+1896
+01:12:41,360 --> 01:12:43,280
+one the chip is clever enough to send a
+
+1897
+01:12:43,280 --> 01:12:43,840
+message
+
+1898
+01:12:43,840 --> 01:12:45,679
+it's basically a little network send a
+
+1899
+01:12:45,679 --> 01:12:47,120
+message over to this chip telling it
+
+1900
+01:12:47,120 --> 01:12:48,800
+look i need to read some ram please do
+
+1901
+01:12:48,800 --> 01:12:49,360
+it and
+
+1902
+01:12:49,360 --> 01:12:50,960
+i'll go read its ram and send the result
+
+1903
+01:12:50,960 --> 01:12:53,199
+back you know you can buy four chip
+
+1904
+01:12:53,199 --> 01:12:55,440
+arrangements with the same thing with a
+
+1905
+01:12:55,440 --> 01:12:57,600
+complex interconnect like this so
+
+1906
+01:12:57,600 --> 01:12:59,199
+there's a huge amount of
+
+1907
+01:12:59,199 --> 01:13:02,320
+engineering going on in order to map the
+
+1908
+01:13:02,320 --> 01:13:04,640
+straightforward shared ram model
+
+1909
+01:13:04,640 --> 01:13:06,080
+onto what's sort of feasible to build
+
+1910
+01:13:06,080 --> 01:13:08,320
+with high performance
+
+1911
+01:13:08,320 --> 01:13:10,719
+in real life and fit in two or three
+
+1912
+01:13:10,719 --> 01:13:14,790
+dimensions
+
+1913
+01:13:14,800 --> 01:13:17,120
+that answer your question yeah that
+
+1914
+01:13:17,120 --> 01:13:21,830
+provides a lot of context thank you
+
+1915
+01:13:21,840 --> 01:13:30,830
+okay
+
+1916
+01:13:30,840 --> 01:13:32,880
+um
+
+1917
+01:13:32,880 --> 01:13:39,910
+any questions on the actual technique um
+
+1918
+01:13:39,920 --> 01:13:43,520
+all right so um as i'm sure you've
+
+1919
+01:13:43,520 --> 01:13:44,640
+gotten the sense our
+
+1920
+01:13:44,640 --> 01:13:47,440
+of rcu is not universally applicable
+
+1921
+01:13:47,440 --> 01:13:48,960
+there's not you can't just
+
+1922
+01:13:48,960 --> 01:13:50,480
+take every situation in which using
+
+1923
+01:13:50,480 --> 01:13:52,000
+spinlocks and getting bad
+
+1924
+01:13:52,000 --> 01:13:53,760
+parallel performance and convert it to
+
+1925
+01:13:53,760 --> 01:13:55,760
+rcu and get better performance
+
+1926
+01:13:55,760 --> 01:13:57,760
+because it the main reason is it
+
+1927
+01:13:57,760 --> 01:13:59,280
+completely doesn't help rights
+
+1928
+01:13:59,280 --> 01:14:02,320
+makes them slower now really only helps
+
+1929
+01:14:02,320 --> 01:14:03,440
+performance if you
+
+1930
+01:14:03,440 --> 01:14:05,199
+if the reads outnumber the rights
+
+1931
+01:14:05,199 --> 01:14:07,990
+considerably
+
+1932
+01:14:08,000 --> 01:14:09,920
+it has this restriction that you can't
+
+1933
+01:14:09,920 --> 01:14:12,640
+hold pointers to protect the data across
+
+1934
+01:14:12,640 --> 01:14:14,719
+sleep which just makes some kind of code
+
+1935
+01:14:14,719 --> 01:14:15,760
+quite awkward
+
+1936
+01:14:15,760 --> 01:14:17,760
+if you actually need to sleep you may
+
+1937
+01:14:17,760 --> 01:14:19,199
+then need to re-look up
+
+1938
+01:14:19,199 --> 01:14:22,000
+whatever it is you know to do another
+
+1939
+01:14:22,000 --> 01:14:23,760
+rcu critical section after the sleep
+
+1940
+01:14:23,760 --> 01:14:24,640
+completes
+
+1941
+01:14:24,640 --> 01:14:28,080
+in order to look again for the um
+
+1942
+01:14:28,080 --> 01:14:29,520
+for the data that you originally were
+
+1943
+01:14:29,520 --> 01:14:31,920
+looking at assuming it still even exists
+
+1944
+01:14:31,920 --> 01:14:33,120
+so it just makes code a bit more
+
+1945
+01:14:33,120 --> 01:14:36,080
+complicated um
+
+1946
+01:14:36,080 --> 01:14:38,320
+the data structures the the most
+
+1947
+01:14:38,320 --> 01:14:39,840
+straightforward way to apply it is the
+
+1948
+01:14:39,840 --> 01:14:41,520
+data structures that
+
+1949
+01:14:41,520 --> 01:14:43,840
+have a structure that's amenable to
+
+1950
+01:14:43,840 --> 01:14:46,159
+single committing rates for updates
+
+1951
+01:14:46,159 --> 01:14:47,920
+so you can't modify things in place so
+
+1952
+01:14:47,920 --> 01:14:51,520
+you have to replace stuff
+
+1953
+01:14:51,520 --> 01:14:54,400
+and so you you know lists and trees but
+
+1954
+01:14:54,400 --> 01:14:56,239
+not more complex data structures
+
+1955
+01:14:56,239 --> 01:14:59,760
+the paper mentions some more complicated
+
+1956
+01:14:59,760 --> 01:15:01,520
+ways like sequence locks
+
+1957
+01:15:01,520 --> 01:15:04,719
+to be able to um update stuff in place
+
+1958
+01:15:04,719 --> 01:15:06,960
+you know despite readers that aren't
+
+1959
+01:15:06,960 --> 01:15:08,400
+using locks but they're good to
+
+1960
+01:15:08,400 --> 01:15:10,800
+more complicated and the situations
+
+1961
+01:15:10,800 --> 01:15:12,320
+under which they
+
+1962
+01:15:12,320 --> 01:15:13,840
+actually improve performance are more
+
+1963
+01:15:13,840 --> 01:15:16,790
+restricted
+
+1964
+01:15:16,800 --> 01:15:20,239
+another subtle problem is that readers
+
+1965
+01:15:20,239 --> 01:15:22,880
+can see stale data
+
+1966
+01:15:22,880 --> 01:15:26,320
+uh without any obvious bound on how long
+
+1967
+01:15:26,320 --> 01:15:28,239
+they can see the stale data for because
+
+1968
+01:15:28,239 --> 01:15:30,080
+if some reader
+
+1969
+01:15:30,080 --> 01:15:32,239
+gets a pointer to an rcu protected
+
+1970
+01:15:32,239 --> 01:15:33,600
+object
+
+1971
+01:15:33,600 --> 01:15:37,760
+just before a writer replaces it
+
+1972
+01:15:37,760 --> 01:15:39,760
+the reader may still hold on to that
+
+1973
+01:15:39,760 --> 01:15:42,000
+data for quite a long time at least on
+
+1974
+01:15:42,000 --> 01:15:43,760
+the scale of
+
+1975
+01:15:43,760 --> 01:15:46,960
+modern computer instructions
+
+1976
+01:15:46,960 --> 01:15:49,199
+and a lot of the time this turns out not
+
+1977
+01:15:49,199 --> 01:15:51,120
+to matter much
+
+1978
+01:15:51,120 --> 01:15:53,040
+but the paper mentions some situations
+
+1979
+01:15:53,040 --> 01:15:55,280
+which i actually don't really understand
+
+1980
+01:15:55,280 --> 01:15:59,360
+in which people expect
+
+1981
+01:15:59,360 --> 01:16:01,920
+rights to actually take effect after the
+
+1982
+01:16:01,920 --> 01:16:03,280
+write completes
+
+1983
+01:16:03,280 --> 01:16:05,440
+and therefore in which readers seeing
+
+1984
+01:16:05,440 --> 01:16:15,750
+stale data is a bit of a surprise
+
+1985
+01:16:15,760 --> 01:16:18,800
+you may also as a separate topic wonder
+
+1986
+01:16:18,800 --> 01:16:20,880
+what happens if you have right heavy
+
+1987
+01:16:20,880 --> 01:16:22,560
+data like rc is all about read heavy
+
+1988
+01:16:22,560 --> 01:16:24,560
+data but that's just one of many
+
+1989
+01:16:24,560 --> 01:16:26,800
+situations you might care about for
+
+1990
+01:16:26,800 --> 01:16:27,679
+getting parallel
+
+1991
+01:16:27,679 --> 01:16:30,560
+performance you also care about right
+
+1992
+01:16:30,560 --> 01:16:31,840
+heavy data
+
+1993
+01:16:31,840 --> 01:16:35,199
+actually in the extremes in some extreme
+
+1994
+01:16:35,199 --> 01:16:37,120
+cases of rate iv data you can do quite
+
+1995
+01:16:37,120 --> 01:16:38,880
+well there's no
+
+1996
+01:16:38,880 --> 01:16:40,719
+technique i know of for write-heavy data
+
+1997
+01:16:40,719 --> 01:16:42,080
+that's quite as
+
+1998
+01:16:42,080 --> 01:16:45,360
+universally applicable as rcu um
+
+1999
+01:16:45,360 --> 01:16:47,600
+but there are still ideas for for coping
+
+2000
+01:16:47,600 --> 01:16:48,400
+with
+
+2001
+01:16:48,400 --> 01:16:50,080
+data that's mostly written so the most
+
+2002
+01:16:50,080 --> 01:16:52,080
+powerful idea is to restructure your
+
+2003
+01:16:52,080 --> 01:16:53,199
+data
+
+2004
+01:16:53,199 --> 01:16:55,040
+restructure the data structure so it's
+
+2005
+01:16:55,040 --> 01:16:57,199
+not shared and sometimes you can do that
+
+2006
+01:16:57,199 --> 01:16:58,880
+sometimes the sharing is just completely
+
+2007
+01:16:58,880 --> 01:17:00,400
+gratuitous
+
+2008
+01:17:00,400 --> 01:17:01,840
+and you can get rid of it once you
+
+2009
+01:17:01,840 --> 01:17:03,920
+realize it's a problem
+
+2010
+01:17:03,920 --> 01:17:06,159
+but it's also often the case that there
+
+2011
+01:17:06,159 --> 01:17:08,480
+that while you do sometimes need to have
+
+2012
+01:17:08,480 --> 01:17:11,679
+shared data that the common case doesn't
+
+2013
+01:17:11,679 --> 01:17:12,239
+require
+
+2014
+01:17:12,239 --> 01:17:14,880
+different cores to write the same data
+
+2015
+01:17:14,880 --> 01:17:16,880
+even though they need to write
+
+2016
+01:17:16,880 --> 01:17:18,480
+some of the data a lot and so you've
+
+2017
+01:17:18,480 --> 01:17:20,320
+actually seen that in the labs
+
+2018
+01:17:20,320 --> 01:17:23,590
+in the locking lab
+
+2019
+01:17:23,600 --> 01:17:26,320
+in the k alloc part of the lab you
+
+2020
+01:17:26,320 --> 01:17:28,159
+restructured the free list so that each
+
+2021
+01:17:28,159 --> 01:17:30,080
+core has a dedicated free list
+
+2022
+01:17:30,080 --> 01:17:31,920
+thus converting a right heavy data
+
+2023
+01:17:31,920 --> 01:17:33,840
+structure the free list
+
+2024
+01:17:33,840 --> 01:17:37,280
+into one that was sort of semi-private
+
+2025
+01:17:37,280 --> 01:17:37,600
+per
+
+2026
+01:17:37,600 --> 01:17:39,600
+core so most of the times cores just
+
+2027
+01:17:39,600 --> 01:17:41,120
+have to
+
+2028
+01:17:41,120 --> 01:17:42,719
+don't conflict with other cores because
+
+2029
+01:17:42,719 --> 01:17:44,480
+they have their own private free list
+
+2030
+01:17:44,480 --> 01:17:45,760
+and the only time you have to look at
+
+2031
+01:17:45,760 --> 01:17:47,040
+other free lists is
+
+2032
+01:17:47,040 --> 01:17:48,960
+if your free list runs out so there's
+
+2033
+01:17:48,960 --> 01:17:50,800
+actually many examples of this
+
+2034
+01:17:50,800 --> 01:17:54,320
+way of dealing with right heavy data
+
+2035
+01:17:54,320 --> 01:17:56,480
+in the kernel i'm thinking of the
+
+2036
+01:17:56,480 --> 01:17:58,239
+allocator analytics is like this
+
+2037
+01:17:58,239 --> 01:18:02,239
+linux is scheduling lists um
+
+2038
+01:18:02,239 --> 01:18:04,000
+there's a sort of separate set of
+
+2039
+01:18:04,000 --> 01:18:06,159
+threads for each core that the scheduler
+
+2040
+01:18:06,159 --> 01:18:07,520
+looks at most of the time
+
+2041
+01:18:07,520 --> 01:18:10,000
+and cores only have to look at each
+
+2042
+01:18:10,000 --> 01:18:11,679
+other's
+
+2043
+01:18:11,679 --> 01:18:13,280
+scheduling lists if they run out of work
+
+2044
+01:18:13,280 --> 01:18:15,280
+to do another example
+
+2045
+01:18:15,280 --> 01:18:17,199
+statistics counters if you're counting
+
+2046
+01:18:17,199 --> 01:18:18,480
+something
+
+2047
+01:18:18,480 --> 01:18:20,880
+and the counts go change a lot but
+
+2048
+01:18:20,880 --> 01:18:22,400
+they're rarely read
+
+2049
+01:18:22,400 --> 01:18:24,719
+that is the counts are truly dominated
+
+2050
+01:18:24,719 --> 01:18:27,040
+by rights and not reads
+
+2051
+01:18:27,040 --> 01:18:28,719
+you can restructure your counter so that
+
+2052
+01:18:28,719 --> 01:18:30,719
+each core
+
+2053
+01:18:30,719 --> 01:18:34,560
+has a separate counter
+
+2054
+01:18:34,560 --> 01:18:36,159
+and so beast core just modifies its own
+
+2055
+01:18:36,159 --> 01:18:37,760
+counter when it needs to
+
+2056
+01:18:37,760 --> 01:18:40,000
+change the count and if you want to read
+
+2057
+01:18:40,000 --> 01:18:41,280
+something then
+
+2058
+01:18:41,280 --> 01:18:43,440
+you have to go out and lock and read all
+
+2059
+01:18:43,440 --> 01:18:45,440
+the per core counters
+
+2060
+01:18:45,440 --> 01:18:47,040
+so that's a technique to make rights
+
+2061
+01:18:47,040 --> 01:18:49,040
+very fast because the writers just
+
+2062
+01:18:49,040 --> 01:18:51,760
+modify the local per core counter
+
+2063
+01:18:51,760 --> 01:18:54,000
+but the reads are now very slow and
+
+2064
+01:18:54,000 --> 01:18:55,040
+again you know but if
+
+2065
+01:18:55,040 --> 01:18:57,120
+if your counters are right heavy that's
+
+2066
+01:18:57,120 --> 01:18:58,239
+just the counters
+
+2067
+01:18:58,239 --> 01:19:01,120
+often are um that could be a big win
+
+2068
+01:19:01,120 --> 01:19:03,760
+shifting the work now to the reeds
+
+2069
+01:19:03,760 --> 01:19:06,080
+um so the point is there are techniques
+
+2070
+01:19:06,080 --> 01:19:07,040
+even though we didn't talk about that
+
+2071
+01:19:07,040 --> 01:19:08,480
+much there are also
+
+2072
+01:19:08,480 --> 01:19:11,360
+sometimes techniques that help for write
+
+2073
+01:19:11,360 --> 01:19:15,110
+intensive workloads
+
+2074
+01:19:15,120 --> 01:19:18,640
+um to wrap up the rcu the
+
+2075
+01:19:18,640 --> 01:19:20,320
+stuff we read about in the paper is
+
+2076
+01:19:20,320 --> 01:19:23,280
+actually a giant success story for linux
+
+2077
+01:19:23,280 --> 01:19:26,239
+it's used all over linux to get at all
+
+2078
+01:19:26,239 --> 01:19:27,760
+kinds of different data because it just
+
+2079
+01:19:27,760 --> 01:19:31,520
+turns out that read and read mostly data
+
+2080
+01:19:31,520 --> 01:19:33,440
+read intensive data is extremely common
+
+2081
+01:19:33,440 --> 01:19:34,800
+like
+
+2082
+01:19:34,800 --> 01:19:36,480
+cached file blocks for example they're
+
+2083
+01:19:36,480 --> 01:19:38,480
+mostly red
+
+2084
+01:19:38,480 --> 01:19:40,719
+so a technique that speeds up only reads
+
+2085
+01:19:40,719 --> 01:19:42,080
+is
+
+2086
+01:19:42,080 --> 01:19:45,679
+really very widely applicable
+
+2087
+01:19:45,679 --> 01:19:47,920
+and artsy uses particularly magic
+
+2088
+01:19:47,920 --> 01:19:50,000
+there's lots of other
+
+2089
+01:19:50,000 --> 01:19:52,560
+interesting currency techniques uh
+
+2090
+01:19:52,560 --> 01:19:55,120
+synchronization techniques rcu is magic
+
+2091
+01:19:55,120 --> 01:19:57,840
+because it completely eliminates locking
+
+2092
+01:19:57,840 --> 01:19:59,600
+and writing for the readers
+
+2093
+01:19:59,600 --> 01:20:02,239
+so that's just like a big breakthrough
+
+2094
+01:20:02,239 --> 01:20:04,000
+compared to things like rewrite locks
+
+2095
+01:20:04,000 --> 01:20:05,120
+which were
+
+2096
+01:20:05,120 --> 01:20:08,960
+the previous uh state of the art
+
+2097
+01:20:08,960 --> 01:20:10,480
+and the key idea that really makes it
+
+2098
+01:20:10,480 --> 01:20:13,120
+work is the um
+
+2099
+01:20:13,120 --> 01:20:14,880
+sort of garbage collection like
+
+2100
+01:20:14,880 --> 01:20:16,159
+deferring
+
+2101
+01:20:16,159 --> 01:20:18,000
+a freeze for the what they call the
+
+2102
+01:20:18,000 --> 01:20:19,199
+grace period
+
+2103
+01:20:19,199 --> 01:20:21,040
+until all the readers are guaranteed to
+
+2104
+01:20:21,040 --> 01:20:23,120
+be finished using the the data
+
+2105
+01:20:23,120 --> 01:20:25,440
+so you can as well as a synchronization
+
+2106
+01:20:25,440 --> 01:20:27,120
+technique it's actually fair to view it
+
+2107
+01:20:27,120 --> 01:20:27,600
+as a
+
+2108
+01:20:27,600 --> 01:20:30,400
+um very much so as a kind of uh
+
+2109
+01:20:30,400 --> 01:20:35,270
+specialized garbage collection technique
+
+2110
+01:20:35,280 --> 01:20:38,080
+and that is all i have to say so i'm
+
+2111
+01:20:38,080 --> 01:20:43,430
+happy to take questions
+
+2112
+01:20:43,440 --> 01:20:46,320
+oh sorry can you explain the uh the
+
+2113
+01:20:46,320 --> 01:20:47,760
+stale
+
+2114
+01:20:47,760 --> 01:20:51,040
+data for readers so i don't understand
+
+2115
+01:20:51,040 --> 01:20:54,639
+why how that can happen because you
+
+2116
+01:20:54,639 --> 01:20:58,320
+you read in your critical section
+
+2117
+01:20:58,320 --> 01:21:01,440
+and um you just get whatever
+
+2118
+01:21:01,440 --> 01:21:04,400
+data is there at that point and then you
+
+2119
+01:21:04,400 --> 01:21:05,920
+just
+
+2120
+01:21:05,920 --> 01:21:10,000
+um leave yeah it actually usually is not
+
+2121
+01:21:10,000 --> 01:21:10,880
+a problem
+
+2122
+01:21:10,880 --> 01:21:14,000
+um but the reason why it ever
+
+2123
+01:21:14,000 --> 01:21:18,400
+might come up well ordinarily
+
+2124
+01:21:18,400 --> 01:21:21,280
+you know if you have code that says x
+
+2125
+01:21:21,280 --> 01:21:22,960
+equals one
+
+2126
+01:21:22,960 --> 01:21:26,840
+and then you you know print
+
+2127
+01:21:26,840 --> 01:21:31,040
+done gosh it's pretty surprising
+
+2128
+01:21:31,040 --> 01:21:34,320
+if after this point someone reading the
+
+2129
+01:21:34,320 --> 01:21:35,280
+data
+
+2130
+01:21:35,280 --> 01:21:39,440
+sees that value before you set it to one
+
+2131
+01:21:39,440 --> 01:21:42,000
+right that's a maybe a bit of a surprise
+
+2132
+01:21:42,000 --> 01:21:43,120
+right
+
+2133
+01:21:43,120 --> 01:21:45,360
+well there's a sense in which rcu allows
+
+2134
+01:21:45,360 --> 01:21:46,480
+that to happen
+
+2135
+01:21:46,480 --> 01:21:48,719
+right if this is really you know what
+
+2136
+01:21:48,719 --> 01:21:50,000
+we're really talking about
+
+2137
+01:21:50,000 --> 01:21:54,960
+is um you know list
+
+2138
+01:21:54,960 --> 01:21:58,480
+replace whatever you know find the
+
+2139
+01:21:58,480 --> 01:22:00,159
+element that is one in it and change it
+
+2140
+01:22:00,159 --> 01:22:01,040
+to two
+
+2141
+01:22:01,040 --> 01:22:04,800
+with our you know using rcu right
+
+2142
+01:22:04,800 --> 01:22:06,400
+after that finishes and we print oh yeah
+
+2143
+01:22:06,400 --> 01:22:07,840
+we're done
+
+2144
+01:22:07,840 --> 01:22:11,360
+if there's some reader that was looking
+
+2145
+01:22:11,360 --> 01:22:12,080
+at the list
+
+2146
+01:22:12,080 --> 01:22:14,800
+right they may have you know just gotten
+
+2147
+01:22:14,800 --> 01:22:16,800
+to the list element that held one that
+
+2148
+01:22:16,800 --> 01:22:18,480
+we replaced with two and then a good
+
+2149
+01:22:18,480 --> 01:22:19,920
+deal longer you know
+
+2150
+01:22:19,920 --> 01:22:23,360
+and then they do the actual read of
+
+2151
+01:22:23,360 --> 01:22:27,040
+the list element you know they look at
+
+2152
+01:22:27,040 --> 01:22:28,560
+whatever the content is in the list
+
+2153
+01:22:28,560 --> 01:22:30,400
+element after we've done this
+
+2154
+01:22:30,400 --> 01:22:32,000
+you know they're reading the list
+
+2155
+01:22:32,000 --> 01:22:34,320
+element only at this point later in time
+
+2156
+01:22:34,320 --> 01:22:39,600
+and they see the old value
+
+2157
+01:22:39,600 --> 01:22:41,199
+so if you're not prepared for this so
+
+2158
+01:22:41,199 --> 01:22:44,159
+this is like a little bit odd now
+
+2159
+01:22:44,159 --> 01:22:47,360
+um i mean
+
+2160
+01:22:47,360 --> 01:22:49,120
+they may even do a memory barrier right
+
+2161
+01:22:49,120 --> 01:22:50,719
+i mean it's not a memory barrier issue
+
+2162
+01:22:50,719 --> 01:22:53,910
+it's just like
+
+2163
+01:22:53,920 --> 01:22:55,840
+and indeed most of the time it doesn't
+
+2164
+01:22:55,840 --> 01:22:58,159
+matter
+
+2165
+01:22:58,159 --> 01:23:01,440
+i see so this is when this replace
+
+2166
+01:23:01,440 --> 01:23:04,560
+is very close
+
+2167
+01:23:04,560 --> 01:23:07,360
+so like the read somehow like starts
+
+2168
+01:23:07,360 --> 01:23:08,159
+before
+
+2169
+01:23:08,159 --> 01:23:11,199
+their plays but it just
+
+2170
+01:23:11,199 --> 01:23:14,719
+takes a while and yes yeah if the reader
+
+2171
+01:23:14,719 --> 01:23:17,040
+is slower than the writer or something
+
+2172
+01:23:17,040 --> 01:23:20,560
+now you know be
+
+2173
+01:23:20,560 --> 01:23:22,719
+i think this mostly doesn't matter
+
+2174
+01:23:22,719 --> 01:23:23,679
+because
+
+2175
+01:23:23,679 --> 01:23:25,840
+after all the reader and the writer were
+
+2176
+01:23:25,840 --> 01:23:26,880
+acting concurrently
+
+2177
+01:23:26,880 --> 01:23:28,880
+and you know if two things happen
+
+2178
+01:23:28,880 --> 01:23:29,920
+concurrently
+
+2179
+01:23:29,920 --> 01:23:33,199
+usually you you would never have
+
+2180
+01:23:33,199 --> 01:23:34,480
+imagined that you could have been
+
+2181
+01:23:34,480 --> 01:23:38,000
+guaranteed much about the exact order
+
+2182
+01:23:38,000 --> 01:23:39,520
+if the two operations were invoked
+
+2183
+01:23:39,520 --> 01:23:42,000
+concurrently
+
+2184
+01:23:42,000 --> 01:23:45,360
+the the paper claims i mean the paper
+
+2185
+01:23:45,360 --> 01:23:46,639
+has an example in which they said it
+
+2186
+01:23:46,639 --> 01:23:47,520
+matters
+
+2187
+01:23:47,520 --> 01:23:49,600
+it turned out to cause a real problem
+
+2188
+01:23:49,600 --> 01:23:53,590
+although i don't really understand
+
+2189
+01:23:53,600 --> 01:23:57,120
+why that was i see this makes sense
+
+2190
+01:23:57,120 --> 01:23:59,600
+and my other question was it's called
+
+2191
+01:23:59,600 --> 01:24:00,800
+rcu because of
+
+2192
+01:24:00,800 --> 01:24:04,800
+idea one is that right read copy update
+
+2193
+01:24:04,800 --> 01:24:07,679
+yes i believe it's because of idea one
+
+2194
+01:24:07,679 --> 01:24:09,040
+that is that
+
+2195
+01:24:09,040 --> 01:24:12,639
+instead of modifying things in place you
+
+2196
+01:24:12,639 --> 01:24:18,790
+make a copy and you sort of
+
+2197
+01:24:18,800 --> 01:24:21,280
+that's the real thing right this makes
+
+2198
+01:24:21,280 --> 01:24:24,470
+sense thank you so much
+
+2199
+01:24:24,480 --> 01:24:27,760
+yes so at the beginning of lecture or
+
+2200
+01:24:27,760 --> 01:24:29,120
+towards the beginning we talked about
+
+2201
+01:24:29,120 --> 01:24:30,000
+the of and
+
+2202
+01:24:30,000 --> 01:24:32,159
+squared runtime for uh the cache
+
+2203
+01:24:32,159 --> 01:24:33,920
+coherence protocols
+
+2204
+01:24:33,920 --> 01:24:36,880
+um for for updating the read write locks
+
+2205
+01:24:36,880 --> 01:24:37,520
+um
+
+2206
+01:24:37,520 --> 01:24:40,080
+isn't this also a problem with spinlocks
+
+2207
+01:24:40,080 --> 01:24:42,550
+where
+
+2208
+01:24:42,560 --> 01:24:45,840
+yeah okay so so like what's the
+
+2209
+01:24:45,840 --> 01:24:47,920
+reason why we didn't discuss that that
+
+2210
+01:24:47,920 --> 01:24:49,440
+aspect
+
+2211
+01:24:49,440 --> 01:24:52,560
+why we didn't yeah or like is there a
+
+2212
+01:24:52,560 --> 01:24:53,440
+reason that
+
+2213
+01:24:53,440 --> 01:24:55,280
+that still exists or like what do
+
+2214
+01:24:55,280 --> 01:24:56,960
+spinlocks do to address that
+
+2215
+01:24:56,960 --> 01:24:59,760
+nothing oh okay the knocks are hideously
+
+2216
+01:24:59,760 --> 01:25:00,560
+expensive
+
+2217
+01:25:00,560 --> 01:25:02,880
+if they're uh or standard spin locks
+
+2218
+01:25:02,880 --> 01:25:04,480
+like xv6 has are
+
+2219
+01:25:04,480 --> 01:25:07,440
+extremely fast if the lock is not
+
+2220
+01:25:07,440 --> 01:25:09,440
+particularly contended
+
+2221
+01:25:09,440 --> 01:25:12,639
+and terribly slow if lots of cords try
+
+2222
+01:25:12,639 --> 01:25:14,639
+to get this unlock at the same time
+
+2223
+01:25:14,639 --> 01:25:16,320
+gotcha okay yeah this is one of the
+
+2224
+01:25:16,320 --> 01:25:17,440
+things that makes life interesting and
+
+2225
+01:25:17,440 --> 01:25:19,679
+you know there's
+
+2226
+01:25:19,679 --> 01:25:24,960
+i mean there's there's locks that are
+
+2227
+01:25:24,960 --> 01:25:28,800
+have better scaling but worse
+
+2228
+01:25:28,800 --> 01:25:30,639
+um that they have better high load
+
+2229
+01:25:30,639 --> 01:25:32,000
+performance but worse low load
+
+2230
+01:25:32,000 --> 01:25:35,110
+performance
+
+2231
+01:25:35,120 --> 01:25:37,520
+but i'm not aware of a lock that is
+
+2232
+01:25:37,520 --> 01:25:38,239
+anyway
+
+2233
+01:25:38,239 --> 01:25:39,760
+it's hard it's hard to get this stuff
+
+2234
+01:25:39,760 --> 01:25:41,840
+right it's hard to
+
+2235
+01:25:41,840 --> 01:25:50,950
+get good performance in these machines
+
+2236
+01:25:50,960 --> 01:25:54,159
+other questions
+
+2237
+01:25:54,159 --> 01:25:57,679
+uh this might be unrelated but
+
+2238
+01:25:57,679 --> 01:25:59,760
+can there ever be like lockings between
+
+2239
+01:25:59,760 --> 01:26:03,280
+multiple assists different systems
+
+2240
+01:26:03,280 --> 01:26:06,960
+um for like not just contained to one
+
+2241
+01:26:06,960 --> 01:26:08,239
+system maybe like
+
+2242
+01:26:08,239 --> 01:26:11,440
+multiple servers perhaps there are
+
+2243
+01:26:11,440 --> 01:26:14,239
+absolutely distributed systems in which
+
+2244
+01:26:14,239 --> 01:26:17,280
+there's a sort of locking
+
+2245
+01:26:17,280 --> 01:26:20,560
+um in which the sort of universe of lock
+
+2246
+01:26:20,560 --> 01:26:23,440
+spans multiple machines
+
+2247
+01:26:23,440 --> 01:26:25,120
+when places comes up is in distributed
+
+2248
+01:26:25,120 --> 01:26:26,560
+databases where the
+
+2249
+01:26:26,560 --> 01:26:29,040
+data you know you have met you display
+
+2250
+01:26:29,040 --> 01:26:30,480
+your data over multiple servers but if
+
+2251
+01:26:30,480 --> 01:26:32,080
+you want to have a transaction
+
+2252
+01:26:32,080 --> 01:26:34,159
+that you know uses data that's you know
+
+2253
+01:26:34,159 --> 01:26:35,199
+different pieces of the data on
+
+2254
+01:26:35,199 --> 01:26:36,000
+different servers
+
+2255
+01:26:36,000 --> 01:26:38,400
+you're going to need to collect locks
+
+2256
+01:26:38,400 --> 01:26:40,480
+that were uh
+
+2257
+01:26:40,480 --> 01:26:42,320
+you need to basically collect locks from
+
+2258
+01:26:42,320 --> 01:26:43,840
+multiple servers
+
+2259
+01:26:43,840 --> 01:26:47,520
+um another place that comes up
+
+2260
+01:26:47,520 --> 01:26:50,800
+although well there's been a number of
+
+2261
+01:26:50,800 --> 01:26:52,480
+systems that are essentially try
+
+2262
+01:26:52,480 --> 01:26:55,360
+to mimic shared memory across
+
+2263
+01:26:55,360 --> 01:26:57,920
+independent machines
+
+2264
+01:26:57,920 --> 01:26:59,440
+with machines you know if i use some
+
+2265
+01:26:59,440 --> 01:27:01,600
+memory that's in your machine then
+
+2266
+01:27:01,600 --> 01:27:02,880
+you know there's some infrastructure
+
+2267
+01:27:02,880 --> 01:27:04,560
+stuff that causes my machine to talk to
+
+2268
+01:27:04,560 --> 01:27:06,400
+your machine and ask for the memory
+
+2269
+01:27:06,400 --> 01:27:09,600
+and um uh
+
+2270
+01:27:09,600 --> 01:27:12,000
+you know then the game is usually to run
+
+2271
+01:27:12,000 --> 01:27:13,840
+existing parallel programs
+
+2272
+01:27:13,840 --> 01:27:15,840
+on a cluster of workstations instead of
+
+2273
+01:27:15,840 --> 01:27:17,199
+on a
+
+2274
+01:27:17,199 --> 01:27:19,520
+big multi-core machine hoping it's going
+
+2275
+01:27:19,520 --> 01:27:20,560
+to be cheaper
+
+2276
+01:27:20,560 --> 01:27:21,760
+and you know something needs to be done
+
+2277
+01:27:21,760 --> 01:27:23,360
+about spin locks there or whatever
+
+2278
+01:27:23,360 --> 01:27:24,480
+locking you're going to use and so
+
+2279
+01:27:24,480 --> 01:27:26,560
+people have invented various ways to
+
+2280
+01:27:26,560 --> 01:27:28,320
+make the locking work out well in that
+
+2281
+01:27:28,320 --> 01:27:30,870
+case too
+
+2282
+01:27:30,880 --> 01:27:33,360
+using techniques that are not you know
+
+2283
+01:27:33,360 --> 01:27:35,920
+often not quite the same as this
+
+2284
+01:27:35,920 --> 01:27:38,960
+although the pressure to avoid the
+
+2285
+01:27:38,960 --> 01:27:41,280
+the pressure to avoid costs is even
+
+2286
+01:27:41,280 --> 01:27:54,870
+higher in that case
+
+2287
+01:27:54,880 --> 01:28:01,120
+anything else
+
+2288
+01:28:01,120 --> 01:28:08,159
+thank you you're welcome
+
