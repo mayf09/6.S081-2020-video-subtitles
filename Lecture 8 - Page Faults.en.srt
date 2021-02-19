@@ -1,0 +1,5440 @@
+1
+00:00:12,310 --> 00:00:14,230
+Okay, okay, we get a sound check,
+
+2
+00:00:14,260 --> 00:00:15,310
+can everybody hear me?
+
+3
+00:00:18,980 --> 00:00:19,490
+Yep.
+
+4
+00:00:19,880 --> 00:00:23,840
+Okay, whatever, let's going.
+
+5
+00:00:23,840 --> 00:00:26,750
+Good afternoon, or good evening
+
+6
+00:00:26,750 --> 00:00:28,820
+or good morning or good night,
+
+7
+00:00:28,820 --> 00:00:29,570
+wherever you are.
+
+8
+00:00:30,110 --> 00:00:33,950
+Today's lecture, I'm going to be, about page fault.
+
+9
+00:00:34,780 --> 00:00:40,210
+In particular, we're gonna plan is to,
+
+10
+00:00:41,930 --> 00:00:51,930
+cover implement, implemented number of virtual memory features,
+
+11
+00:00:53,660 --> 00:00:55,100
+using page faults.
+
+12
+00:01:03,680 --> 00:01:06,560
+Um, and the features that we're gonna be looking at
+
+13
+00:01:06,560 --> 00:01:11,890
+are lazy allocation, which is the topic of the next lab.
+
+14
+00:01:14,950 --> 00:01:18,160
+Yeah, we're gonna look at demand pa-, copy-and-write fork,
+
+15
+00:01:20,100 --> 00:01:22,080
+demand paging,
+
+16
+00:01:27,340 --> 00:01:29,950
+and memory map files, mmap.
+
+17
+00:01:32,540 --> 00:01:34,370
+And, um.
+
+18
+00:01:35,080 --> 00:01:37,810
+And almost you know in sort of series operating system
+
+19
+00:01:37,810 --> 00:01:40,060
+actually implements all these features,
+
+20
+00:01:40,930 --> 00:01:44,950
+look inside of Linux, you'll see all these features actually are implemented.
+
+21
+00:01:45,160 --> 00:01:48,340
+In xv6, as it stands none of them are implemented.
+
+22
+00:01:49,340 --> 00:01:52,880
+In fact, what page fault does in xv6,
+
+23
+00:01:52,880 --> 00:01:54,830
+if page fault happens in user space,
+
+24
+00:01:54,830 --> 00:01:57,380
+basically kill the process, nothing interesting.
+
+25
+00:01:57,920 --> 00:01:59,270
+Um, and so in this lecture,
+
+26
+00:01:59,270 --> 00:02:00,890
+we're going to explore what interesting things,
+
+27
+00:02:00,890 --> 00:02:02,630
+you could do in the page fault handler
+
+28
+00:02:02,960 --> 00:02:04,940
+to actually implement these features.
+
+29
+00:02:05,270 --> 00:02:08,420
+So this lecture a little bit less walking through code
+
+30
+00:02:08,420 --> 00:02:10,700
+and understanding existing code,
+
+31
+00:02:10,790 --> 00:02:12,290
+a little bit more design level.
+
+32
+00:02:12,410 --> 00:02:15,260
+In the sense, we don't even have code to look at.
+
+33
+00:02:16,130 --> 00:02:18,950
+Um, another thing that's important to mention is lazy allocation,
+
+34
+00:02:18,950 --> 00:02:20,180
+is topic of the next lab,
+
+35
+00:02:20,450 --> 00:02:21,950
+hopefully it will push out today,
+
+36
+00:02:22,100 --> 00:02:27,500
+and copy-on-write fork, it's gonna be a topic of one of the labs
+
+37
+00:02:27,620 --> 00:02:32,030
+and mmap is going to be another topic of one of the subsequent labs.
+
+38
+00:02:32,500 --> 00:02:36,370
+So this is gonna be one of the interesting parts of an operating system,
+
+39
+00:02:36,460 --> 00:02:39,280
+we're gonna be spending quite a bit of time on these labs.
+
+40
+00:02:41,110 --> 00:02:44,680
+Now, you know before diving into details,
+
+41
+00:02:44,680 --> 00:02:50,200
+it is probably helpful to take a little bit of step back
+
+42
+00:02:50,230 --> 00:02:56,320
+and so you can think about virtual memory having two major benefits.
+
+43
+00:03:02,370 --> 00:03:03,930
+One is isolation.
+
+44
+00:03:05,140 --> 00:03:07,330
+So isolation in the sense that,
+
+45
+00:03:07,540 --> 00:03:09,850
+virtual memory allows the operating system
+
+46
+00:03:09,850 --> 00:03:12,100
+to give every application it's own address space,
+
+47
+00:03:12,160 --> 00:03:15,850
+and so it's impossible for, one application to muck
+
+48
+00:03:15,880 --> 00:03:20,650
+or by accidental or maliciously to modify another application address space.
+
+49
+00:03:21,080 --> 00:03:23,900
+It also provides isolation between user and kernel address space
+
+50
+00:03:23,900 --> 00:03:25,550
+as we talk about quite a bit
+
+51
+00:03:25,730 --> 00:03:27,830
+and as you've seen in the page table lab.
+
+52
+00:03:28,570 --> 00:03:34,480
+But sort of another view or another benefit of virtual memory,
+
+53
+00:03:34,480 --> 00:03:36,850
+you know alluded to a couple times earlier
+
+54
+00:03:37,150 --> 00:03:39,940
+is that it provides a level of indirection.
+
+55
+00:03:47,340 --> 00:03:50,910
+You know, the processor instructions, you can also use virtual addresses,
+
+56
+00:03:51,680 --> 00:03:57,410
+but the kernel gets to sort of define the mapping from virtual addresses to physical addresses.
+
+57
+00:03:58,800 --> 00:04:05,720
+And that allows all kinds of interesting, um, interesting features,
+
+58
+00:04:05,720 --> 00:04:09,140
+like the ones we're gonna be talking about in this lecture .
+
+59
+00:04:10,910 --> 00:04:11,570
+The.
+
+60
+00:04:12,550 --> 00:04:13,180
+Second.
+
+61
+00:04:18,200 --> 00:04:19,400
+And the.
+
+62
+00:04:24,280 --> 00:04:26,890
+Kernel controls this particular mapping
+
+63
+00:04:27,400 --> 00:04:30,400
+from virtual to physical address space
+
+64
+00:04:30,490 --> 00:04:32,380
+and most so far in xv6,
+
+65
+00:04:32,380 --> 00:04:34,090
+that mapping has to be quite boring,
+
+66
+00:04:34,960 --> 00:04:37,270
+in fact the kernel is mostly direct mapping
+
+67
+00:04:37,450 --> 00:04:39,970
+and a couple of interesting things that we do,
+
+68
+00:04:39,970 --> 00:04:41,920
+xv6 does,
+
+69
+00:04:41,950 --> 00:04:45,160
+which is mapping one as we've seen, the trampoline page,
+
+70
+00:04:46,330 --> 00:04:50,650
+allowed kernel map one page into many address spaces,
+
+71
+00:04:50,770 --> 00:04:55,210
+another interesting case that we've seen is the guard page,
+
+72
+00:04:55,750 --> 00:04:57,280
+to protect stack,
+
+73
+00:04:57,370 --> 00:05:02,020
+both in the kernel, in kernel space and user space and kernel space.
+
+74
+00:05:02,940 --> 00:05:05,010
+But if you think about it so far,
+
+75
+00:05:05,040 --> 00:05:07,950
+that mapping has been relatively static,
+
+76
+00:05:07,980 --> 00:05:10,380
+you know we set it up once,
+
+77
+00:05:10,560 --> 00:05:12,930
+you know maybe per user, kernel page table
+
+78
+00:05:12,930 --> 00:05:14,460
+mapping setup once in the beginning
+
+79
+00:05:14,580 --> 00:05:17,310
+and processes once at fork
+
+80
+00:05:17,370 --> 00:05:20,700
+and they're sort of the kernel doesn't really do anything else with this map.
+
+81
+00:05:21,680 --> 00:05:23,840
+And what page fault gives us
+
+82
+00:05:24,020 --> 00:05:27,050
+is actually to make these maps dynamic.
+
+83
+00:05:27,440 --> 00:05:28,820
+So using page faults.
+
+84
+00:05:34,690 --> 00:05:35,950
+Yeah, we can change,
+
+85
+00:05:37,170 --> 00:05:38,640
+where the kernel can change the mapping.
+
+86
+00:05:45,490 --> 00:05:47,050
+So dynamically on the fly,
+
+87
+00:05:47,080 --> 00:05:52,990
+and this turns out to be extremely powerful mechanism,
+
+88
+00:05:52,990 --> 00:05:57,550
+so you can combine page tables and page faults,
+
+89
+00:05:57,820 --> 00:06:02,500
+you, have enormous, kernel has an enormous amount of flexibility.
+
+90
+00:06:03,000 --> 00:06:04,560
+And the flexibility comes down,
+
+91
+00:06:04,560 --> 00:06:07,740
+because you can change the level of direction on the fly.
+
+92
+00:06:09,960 --> 00:06:11,790
+And, so what we're going to be doing,
+
+93
+00:06:11,790 --> 00:06:14,610
+is basically looking at all kinds of usages
+
+94
+00:06:14,730 --> 00:06:20,460
+of this dynamic re-mapping or dynamic changing of the page tables ,
+
+95
+00:06:20,460 --> 00:06:22,530
+that gives you interesting features.
+
+96
+00:06:24,770 --> 00:06:27,050
+So the first thing, we may want to think about,
+
+97
+00:06:27,110 --> 00:06:30,860
+is a little bit, is what information is needed,
+
+98
+00:06:30,890 --> 00:06:33,440
+you know if you're in a page fault happens.
+
+99
+00:06:34,740 --> 00:06:40,630
+And, kernel wants to respond to this page fault,
+
+100
+00:06:40,630 --> 00:06:44,530
+you know what information does it need to actually be able to respond.
+
+101
+00:06:45,270 --> 00:06:48,180
+You know sort of quite gonna obviously,
+
+102
+00:06:48,180 --> 00:06:53,180
+we'd like to have the virtual address of,
+
+103
+00:06:53,690 --> 00:06:56,510
+virtual address faulting,
+
+104
+00:07:00,040 --> 00:07:01,600
+we're gonna cause page fault.
+
+105
+00:07:05,270 --> 00:07:06,980
+Say you want to see this,
+
+106
+00:07:09,080 --> 00:07:11,390
+the faulting virtual address.
+
+107
+00:07:15,440 --> 00:07:18,110
+And you've seen presumably some of these panic
+
+108
+00:07:18,110 --> 00:07:20,600
+calls in [your] page fault lab ,
+
+109
+00:07:20,600 --> 00:07:23,450
+and you know the kernel actually has extra [status] ,
+
+110
+00:07:23,450 --> 00:07:24,470
+in fact that prints them out,
+
+111
+00:07:24,470 --> 00:07:26,030
+when we actually page fault happens
+
+112
+00:07:26,150 --> 00:07:31,790
+and it happens to be sitting in the stval register.
+
+113
+00:07:35,530 --> 00:07:40,600
+So when user application, causes a page fault,
+
+114
+00:07:40,840 --> 00:07:44,590
+the page fault basically invokes the same trap machinery,
+
+115
+00:07:44,710 --> 00:07:46,810
+that Robert discussed in the last lecture,
+
+116
+00:07:47,080 --> 00:07:48,730
+it's almost completely identical,
+
+117
+00:07:48,910 --> 00:07:50,980
+but in the case of a page fault,
+
+118
+00:07:50,980 --> 00:07:56,020
+it also will put the faulting address into that stval register.
+
+119
+00:07:57,370 --> 00:08:00,160
+So that is, one thing that we probably want to know,
+
+120
+00:08:00,160 --> 00:08:03,160
+the second thing that we probably want to know is the type of fault.
+
+121
+00:08:11,580 --> 00:08:13,920
+Because it may be, in terms of ,
+
+122
+00:08:13,920 --> 00:08:16,620
+we may want to do respond different differently
+
+123
+00:08:16,620 --> 00:08:21,120
+in terms of to page fault due to a load instruction
+
+124
+00:08:21,270 --> 00:08:23,820
+or page fault due to a store structure,
+
+125
+00:08:23,850 --> 00:08:26,370
+where page fault due to a jump instruction.
+
+126
+00:08:26,880 --> 00:08:32,970
+And, so in fact if you look at the RISC-V documentation .
+
+127
+00:08:33,930 --> 00:08:37,260
+Here's the RISC-V documentation in here,
+
+128
+00:08:37,320 --> 00:08:38,910
+in the scause,
+
+129
+00:08:38,910 --> 00:08:41,550
+we assure that we was mentioning the trap lecture,
+
+130
+00:08:41,700 --> 00:08:48,160
+there are, a member of causes
+
+131
+00:08:48,160 --> 00:08:49,780
+that actually related to page faults,
+
+132
+00:08:49,990 --> 00:08:54,490
+so yeah but if you look at number thirteen,
+
+133
+00:08:54,490 --> 00:08:55,570
+it's a load page fault,
+
+134
+00:08:55,750 --> 00:08:58,360
+number fifteen is a store page fault,
+
+135
+00:08:58,510 --> 00:09:00,880
+and number twelve is an instruction page fault.
+
+136
+00:09:01,410 --> 00:09:04,500
+So these are, in the scause register,
+
+137
+00:09:04,590 --> 00:09:06,030
+then we get that information.
+
+138
+00:09:08,880 --> 00:09:14,950
+And so there's three different types, you know read write and instruction.
+
+139
+00:09:16,820 --> 00:09:17,960
+And just go back,
+
+140
+00:09:17,990 --> 00:09:21,290
+you know the one scause,
+
+141
+00:09:21,290 --> 00:09:25,040
+you know actually was caused by the [ecall] instruction,
+
+142
+00:09:25,040 --> 00:09:27,650
+to actually the kernel transfer is number eight.
+
+143
+00:09:28,310 --> 00:09:31,370
+Alright, so that's the one that we saw in the trap lecture,
+
+144
+00:09:31,370 --> 00:09:33,560
+that we spend a lot of time thinking about in that trap lecture,
+
+145
+00:09:33,620 --> 00:09:36,500
+but basically all the other page faults or exceptions
+
+146
+00:09:37,460 --> 00:09:43,130
+use the same mechanism to transfer from user space kernel to kernel space
+
+147
+00:09:43,460 --> 00:09:47,270
+and once in kernel space in the case of the page fault,
+
+148
+00:09:47,270 --> 00:09:50,900
+the stval register set has caused registers set.
+
+149
+00:09:52,060 --> 00:09:54,790
+Then the third thing, that we probably want to know
+
+150
+00:09:55,030 --> 00:10:02,730
+is the instruction or address the virtual address of instruction,
+
+151
+00:10:05,500 --> 00:10:07,150
+that cause the page fault.
+
+152
+00:10:14,890 --> 00:10:16,570
+And, you know, anybody remember
+
+153
+00:10:16,570 --> 00:10:21,610
+where you know from the trap lecture where the where the instruction is where the addresses?
+
+154
+00:10:25,220 --> 00:10:25,880
+Anybody.
+
+155
+00:10:26,560 --> 00:10:28,030
+Is it sepc?
+
+156
+00:10:28,600 --> 00:10:29,410
+Yeah exactly.
+
+157
+00:10:29,680 --> 00:10:32,410
+And there's this register, sepc correct,
+
+158
+00:10:32,410 --> 00:10:35,620
+the supervisor exception exception program counter,
+
+159
+00:10:35,740 --> 00:10:38,260
+there is where it is and where is that saved
+
+160
+00:10:40,530 --> 00:10:42,540
+as part of the trap handling code?
+
+161
+00:10:45,000 --> 00:10:45,930
+In the trapframe?
+
+162
+00:10:46,140 --> 00:10:47,670
+Yeah, there's in the trapframe correct,
+
+163
+00:10:47,670 --> 00:10:52,980
+there's trapframe epc, actually has the exception program counter.
+
+164
+00:10:54,150 --> 00:10:57,180
+So we think about the hardware mechanism and what xv6 does,
+
+165
+00:10:57,270 --> 00:11:00,540
+we have three pieces of information are probably extremely valuable to us,
+
+166
+00:11:00,540 --> 00:11:01,860
+when we get actually page fault,
+
+167
+00:11:01,890 --> 00:11:04,740
+namely the address of cause fault,
+
+168
+00:11:04,950 --> 00:11:08,730
+the type of fault and the exception program counter
+
+169
+00:11:08,730 --> 00:11:10,710
+like where did it happen to user space.
+
+170
+00:11:11,200 --> 00:11:13,930
+And the reason we care a lot about the exception program counter is
+
+171
+00:11:13,930 --> 00:11:16,660
+because when we probably want to repair,
+
+172
+00:11:16,690 --> 00:11:19,240
+in the handler going to repair the pagetable
+
+173
+00:11:19,660 --> 00:11:22,090
+and then we're gonna basically restart the same instruction
+
+174
+00:11:22,420 --> 00:11:25,480
+and hopefully the after repairing the page fault
+
+175
+00:11:25,480 --> 00:11:26,950
+or reparing the pagetables
+
+176
+00:11:26,980 --> 00:11:29,170
+that instruction can just run without any trouble.
+
+177
+00:11:29,560 --> 00:11:32,230
+And so it's important that we can be resume the instruction
+
+178
+00:11:32,230 --> 00:11:35,200
+that actually that we cause fault.
+
+179
+00:11:38,370 --> 00:11:39,270
+Is that all makes sense.
+
+180
+00:11:42,960 --> 00:11:46,020
+Okay, so now I'm gonna look at,
+
+181
+00:11:46,140 --> 00:11:50,700
+you know the basic mechanism and information that the RISC-V is actually giving us
+
+182
+00:11:51,000 --> 00:11:52,800
+and I want to look at ,
+
+183
+00:11:54,020 --> 00:11:57,560
+basically go through a list of ,
+
+184
+00:11:58,300 --> 00:12:00,370
+you know features that will help us,
+
+185
+00:12:00,370 --> 00:12:02,770
+you know we understand actually how we can ,
+
+186
+00:12:02,920 --> 00:12:08,130
+use the page fault handler to repair the pagetable
+
+187
+00:12:08,130 --> 00:12:09,600
+and do interesting things.
+
+188
+00:12:09,930 --> 00:12:15,210
+So the first thing I want to look at is allocation .
+
+189
+00:12:17,300 --> 00:12:19,610
+In particular, you know sbrk.
+
+190
+00:12:25,210 --> 00:12:29,020
+So sbrk is the system call, that xv6 provides,
+
+191
+00:12:29,140 --> 00:12:33,880
+that allows an application to basically grow grow its heap
+
+192
+00:12:34,150 --> 00:12:42,790
+when the application starts sbrk, points here, at the bottom of the heap,
+
+193
+00:12:42,790 --> 00:12:44,020
+you know top of the stack,
+
+194
+00:12:44,410 --> 00:12:47,920
+in fact it's the same place where you know p-sz,
+
+195
+00:12:47,920 --> 00:12:49,330
+basically you know points to.
+
+196
+00:12:50,200 --> 00:12:51,550
+And so when sbrk called,
+
+197
+00:12:51,700 --> 00:12:54,610
+for example, sbrk called, it's like one two three four five,
+
+198
+00:12:54,610 --> 00:12:56,950
+you know the number of pages that you know you want to allocate,
+
+199
+00:12:57,250 --> 00:13:02,980
+the sbrk system call basically bumps up you know this boundary,
+
+200
+00:13:06,770 --> 00:13:07,760
+do something there.
+
+201
+00:13:08,350 --> 00:13:13,540
+And that and so what, that means that when the sbrk actually happens,
+
+202
+00:13:13,600 --> 00:13:15,430
+where sbrk system call is called,
+
+203
+00:13:15,460 --> 00:13:17,440
+the kernel allocation physical memory,
+
+204
+00:13:17,680 --> 00:13:22,750
+map it into the address space of the user application,
+
+205
+00:13:23,050 --> 00:13:26,140
+zero [the] memory and then basically return from the system call.
+
+206
+00:13:27,210 --> 00:13:31,950
+And after time and the application can grow,
+
+207
+00:13:31,950 --> 00:13:35,280
+you know that physical memory or memory that it needs
+
+208
+00:13:35,280 --> 00:13:39,450
+or it might want by just calling multiple times to sbrk.
+
+209
+00:13:39,950 --> 00:13:43,670
+The application also decrease or shrink its address space
+
+210
+00:13:43,670 --> 00:13:45,500
+by calling sbrk with a negative number.
+
+211
+00:13:46,830 --> 00:13:50,490
+But I want to focus on the case where we're growing the address space,
+
+212
+00:13:50,730 --> 00:13:53,010
+and in xv6 as it is,
+
+213
+00:13:53,310 --> 00:13:57,060
+the sbrk is eager
+
+214
+00:13:57,900 --> 00:14:00,210
+or does what we're gonna call eager allocation,
+
+215
+00:14:03,650 --> 00:14:09,560
+namely as soon as the sbrk called,
+
+216
+00:14:09,620 --> 00:14:12,800
+the kernel will immediately allocate the physical memory
+
+217
+00:14:12,890 --> 00:14:14,690
+that the application is asking for.
+
+218
+00:14:15,570 --> 00:14:17,190
+And it turns out that in practice,
+
+219
+00:14:17,370 --> 00:14:19,650
+it's actually hard for applications to predict,
+
+220
+00:14:20,180 --> 00:14:21,740
+how much memory they need.
+
+221
+00:14:22,310 --> 00:14:30,030
+So, typically applications tend to over ask.
+
+222
+00:14:36,600 --> 00:14:38,670
+And so they ask a lot more than they really need,
+
+223
+00:14:38,910 --> 00:14:45,720
+and often that means which means that basically you know the address space will grow quite a bit,
+
+224
+00:14:45,840 --> 00:14:48,930
+even with memory does actually never used by the application.
+
+225
+00:14:49,530 --> 00:14:51,120
+You might think that was stupid,
+
+226
+00:14:51,210 --> 00:14:52,380
+how could that happen,
+
+227
+00:14:52,620 --> 00:14:55,710
+well, you know, think about if you write an application program
+
+228
+00:14:55,710 --> 00:14:59,880
+and the typical application program, maybe reach an input
+
+229
+00:14:59,880 --> 00:15:03,780
+or has a matrix that uses for some computation,
+
+230
+00:15:04,140 --> 00:15:08,100
+and often the application writer sort of plans for the worst case,
+
+231
+00:15:08,130 --> 00:15:11,190
+you know allocates memory for the biggest matrix,
+
+232
+00:15:11,190 --> 00:15:13,560
+the application might never ever need.
+
+233
+00:15:13,980 --> 00:15:15,390
+But in the common case,
+
+234
+00:15:15,510 --> 00:15:18,450
+application maybe computes are much smaller input
+
+235
+00:15:18,450 --> 00:15:20,460
+or a much smaller matrix
+
+236
+00:15:20,760 --> 00:15:23,610
+and so it's quite common,
+
+237
+00:15:23,730 --> 00:15:25,260
+in fact for application programmers
+
+238
+00:15:25,260 --> 00:15:27,780
+and probably if you think about your own applications written
+
+239
+00:15:27,840 --> 00:15:31,260
+to actually over ask and actually [own] their use.
+
+240
+00:15:32,100 --> 00:15:34,320
+And we'd like to,
+
+241
+00:15:34,650 --> 00:15:36,180
+principle, not a big problem,
+
+242
+00:15:36,180 --> 00:15:39,510
+but you know using actually virtual memory and page fault handlers,
+
+243
+00:15:39,750 --> 00:15:46,410
+we can actually totally totally responded at, in sort of an intelligent manner .
+
+244
+00:15:46,860 --> 00:15:50,250
+And, by basically doing lazy allocation.
+
+245
+00:15:59,060 --> 00:16:01,550
+And the basic idea is very simple,
+
+246
+00:16:01,700 --> 00:16:08,140
+at sbrk, we're basically gonna do almost nothing,
+
+247
+00:16:08,350 --> 00:16:09,760
+the only thing that we need to know,
+
+248
+00:16:09,760 --> 00:16:12,040
+remember of course that we get grow address space,
+
+249
+00:16:12,040 --> 00:16:20,470
+so the only thing we are going to be doing is actually bumping up you know p->sz, you know, whatever with the number.
+
+250
+00:16:21,690 --> 00:16:24,930
+You know p->sz through one of the new size plus you know n
+
+251
+00:16:24,930 --> 00:16:27,660
+and now we're in this the amount of memory that's allocated.
+
+252
+00:16:28,600 --> 00:16:30,940
+And then you know, that we don't allocate,
+
+253
+00:16:30,940 --> 00:16:32,590
+the kernel doesn't allocate any physical memory
+
+254
+00:16:32,590 --> 00:16:33,580
+at that particular point of time,
+
+255
+00:16:33,580 --> 00:16:35,440
+it doesn't zero, there's absolutely nothing.
+
+256
+00:16:37,570 --> 00:16:40,930
+Then, at some point the application will use or might use that memory, correct,
+
+257
+00:16:40,930 --> 00:16:42,550
+if it is actually one of the pieces of memory
+
+258
+00:16:42,550 --> 00:16:43,630
+that it really needs
+
+259
+00:16:43,870 --> 00:16:46,480
+and that will cause a page fault.
+
+260
+00:16:47,360 --> 00:16:49,860
+Because we didn't map,
+
+261
+00:16:50,530 --> 00:16:52,960
+that memory actually into the page map, yet,
+
+262
+00:16:53,350 --> 00:16:56,800
+and so, if we do reference virtual address,
+
+263
+00:16:56,980 --> 00:17:01,030
+you know above, you know, this p->sz , but below p->sz plus n,
+
+264
+00:17:01,180 --> 00:17:03,610
+what we'd like to be happening is
+
+265
+00:17:03,610 --> 00:17:07,540
+that you know the kernel allocate a page and restarts instruction.
+
+266
+00:17:08,190 --> 00:17:10,440
+So, if we get a page fault
+
+267
+00:17:10,590 --> 00:17:14,520
+and we see that the virtual address is bigger than p->sz,
+
+268
+00:17:14,670 --> 00:17:18,810
+it's below, sorry, these below p->sz.
+
+269
+00:17:21,430 --> 00:17:23,410
+But for p->sz, then we know
+
+270
+00:17:23,410 --> 00:17:26,170
+that this must be virtual address I guess above stack.
+
+271
+00:17:28,770 --> 00:17:30,990
+We know that this is an address
+
+272
+00:17:30,990 --> 00:17:32,310
+that actually comes out of the heap,
+
+273
+00:17:32,430 --> 00:17:37,200
+but for which we, the kernel hasn't allocated any physical memory yet.
+
+274
+00:17:38,050 --> 00:17:41,680
+And so the response to this page fault could be reasonably straightforward,
+
+275
+00:17:41,680 --> 00:17:45,670
+in the page fault handler itself, we can allocate a page,
+
+276
+00:17:46,420 --> 00:17:51,670
+using kalloc, allocate one page, zero to page,
+
+277
+00:17:55,690 --> 00:17:58,310
+map the page into the pagetable,
+
+278
+00:17:58,310 --> 00:17:59,780
+so updating the pagetables.
+
+279
+00:18:03,050 --> 00:18:04,730
+Then basically restart the instruction.
+
+280
+00:18:07,000 --> 00:18:09,190
+So, for example is a load instruction
+
+281
+00:18:09,190 --> 00:18:10,330
+or a store instruction
+
+282
+00:18:10,450 --> 00:18:12,880
+that loads from or to read you know from,
+
+283
+00:18:13,000 --> 00:18:16,240
+not allocated piece of memory,
+
+284
+00:18:16,240 --> 00:18:18,010
+that actually the process has,
+
+285
+00:18:18,280 --> 00:18:21,880
+now after we mapped in this physical page,
+
+286
+00:18:22,000 --> 00:18:24,280
+the restart instruction should just work.
+
+287
+00:18:25,210 --> 00:18:26,230
+I'm here, go ahead.
+
+288
+00:18:28,260 --> 00:18:33,300
+Right, so I was wondering in the case where we're doing eager allocation,
+
+289
+00:18:33,750 --> 00:18:37,560
+and there comes a point where process consumes so much memory,
+
+290
+00:18:37,560 --> 00:18:40,920
+that it actually exhausts the physical memory resource,
+
+291
+00:18:41,910 --> 00:18:43,980
+if we don't do eager allocation,
+
+292
+00:18:43,980 --> 00:18:45,300
+we do lazy instead,
+
+293
+00:18:46,470 --> 00:18:49,950
+at what point would the application know that there is no physical memory.
+
+294
+00:18:50,700 --> 00:18:52,770
+Um, yeah that's a great question,
+
+295
+00:18:52,890 --> 00:18:56,130
+you know, basically you know it almost looks through the application,
+
+296
+00:18:56,130 --> 00:19:00,030
+there's this illusion of unlimited physical amount of memory.
+
+297
+00:19:00,750 --> 00:19:01,980
+You know, at some point of course,
+
+298
+00:19:01,980 --> 00:19:03,990
+you know you might use so much,
+
+299
+00:19:03,990 --> 00:19:07,020
+you know that basically use all physical memory,
+
+300
+00:19:07,020 --> 00:19:09,360
+and so if then it touches one more page,
+
+301
+00:19:09,420 --> 00:19:11,130
+which there's no physical memory present
+
+302
+00:19:11,160 --> 00:19:12,390
+at that particular point in time.
+
+303
+00:19:12,860 --> 00:19:15,230
+Then you know there's a couple of actions that the kernel can take
+
+304
+00:19:15,260 --> 00:19:17,840
+and I'll talk about more sophisticated ones later,
+
+305
+00:19:18,050 --> 00:19:21,230
+what you're gonna be doing in the lazy lab
+
+306
+00:19:21,440 --> 00:19:24,200
+is you know if the memories up
+
+307
+00:19:24,230 --> 00:19:26,180
+and there's no more free memory,
+
+308
+00:19:26,390 --> 00:19:28,780
+you just return an error,
+
+309
+00:19:28,780 --> 00:19:31,210
+actually kill the process in that particular case.
+
+310
+00:19:32,660 --> 00:19:34,700
+And so because you're out of memory,
+
+311
+00:19:34,730 --> 00:19:36,140
+so there's nothing kernel can do
+
+312
+00:19:36,170 --> 00:19:38,960
+and at that point, you know return or kill the process.
+
+313
+00:19:40,970 --> 00:19:42,830
+That's you're going to do in lazy lab,
+
+314
+00:19:42,830 --> 00:19:44,060
+we'll see later in this lecture,
+
+315
+00:19:44,060 --> 00:19:45,650
+you can be more sophisticated than that.
+
+316
+00:19:48,040 --> 00:19:50,530
+And I think this is generally brings up a topic
+
+317
+00:19:50,530 --> 00:19:54,970
+that is we have a collection of processes running on an operating system,
+
+318
+00:19:54,970 --> 00:19:56,530
+there's a limited amount of physical memory,
+
+319
+00:19:56,710 --> 00:20:00,610
+and that limited physical memory must be shared in some way between the applications.
+
+320
+00:20:01,040 --> 00:20:05,150
+And so I'll talk a little bit much more about it in 10,20 minutes.
+
+321
+00:20:07,440 --> 00:20:11,340
+Okay, there's a question check, in the chat.
+
+322
+00:20:11,460 --> 00:20:18,660
+Why is the condition virtual address, virtual address [booms] doesn't start at zero.
+
+323
+00:20:19,150 --> 00:20:24,940
+OK, there's a question about this particular check here .
+
+324
+00:20:26,140 --> 00:20:32,030
+So, remember, we have our stack here.
+
+325
+00:20:32,590 --> 00:20:35,920
+And we have our data here
+
+326
+00:20:35,920 --> 00:20:38,290
+and we have our text in user process
+
+327
+00:20:38,620 --> 00:20:42,520
+and basically we've bumped up p->sz to something bigger.
+
+328
+00:20:45,120 --> 00:20:48,660
+We've [bumped,up] the [growth], we have the allocated memory here yet,
+
+329
+00:20:48,690 --> 00:20:51,150
+so this memory has not been physically allocated yet,
+
+330
+00:20:51,150 --> 00:20:54,900
+so this check this check if the address falls below p->sz
+
+331
+00:20:54,900 --> 00:20:57,750
+and it actually is a valid address in the user address space,
+
+332
+00:20:57,750 --> 00:20:59,580
+if we're above p->sz,
+
+333
+00:20:59,610 --> 00:21:01,350
+presumably that's a programming error,
+
+334
+00:21:01,500 --> 00:21:05,340
+and the program more user applications trying to dereference in memory
+
+335
+00:21:05,340 --> 00:21:06,360
+that actually doesn't have.
+
+336
+00:21:07,390 --> 00:21:08,770
+Hopefully that answered the question.
+
+337
+00:21:11,380 --> 00:21:12,160
+Yeah, thank you.
+
+338
+00:21:12,810 --> 00:21:16,440
+Okay, so to get a little bit of feel,
+
+339
+00:21:16,650 --> 00:21:19,170
+you know what it actually means
+
+340
+00:21:19,200 --> 00:21:21,750
+and this lazy allocation,
+
+341
+00:21:22,020 --> 00:21:24,000
+and that's probably .
+
+342
+00:21:24,630 --> 00:21:27,930
+The only sort of programming or to things
+
+343
+00:21:27,930 --> 00:21:30,990
+that were going to be doing today is ,
+
+344
+00:21:31,020 --> 00:21:33,600
+let's try to sort of sketch out
+
+345
+00:21:33,600 --> 00:21:36,420
+or look actually how we look in the in code.
+
+346
+00:21:38,350 --> 00:21:38,980
+When the [two holes],
+
+347
+00:21:38,980 --> 00:21:41,080
+you see that it will be surprising easy
+
+348
+00:21:41,290 --> 00:21:47,290
+and furthermore it's probably big help for the lazy lab.
+
+349
+00:21:48,150 --> 00:21:51,240
+And so, hopefully that will help you get going pretty straightforwardly.
+
+350
+00:21:52,600 --> 00:21:58,590
+And at large resources to look at a couple page faults.
+
+351
+00:21:59,700 --> 00:21:59,730
+Um.
+
+352
+00:21:59,730 --> 00:22:01,650
+I have a question,
+
+353
+00:22:01,650 --> 00:22:03,000
+actually we got a point,
+
+354
+00:22:03,810 --> 00:22:06,030
+why do we actually need to kill the application,
+
+355
+00:22:06,060 --> 00:22:08,730
+could the operating system just to return like a [negative],
+
+356
+00:22:08,970 --> 00:22:10,950
+out of memory trying to something else.
+
+357
+00:22:11,970 --> 00:22:14,940
+Let's respond to the questions a little bit later ,
+
+358
+00:22:14,940 --> 00:22:17,400
+in the page fault, we're going to just kill the process,
+
+359
+00:22:17,780 --> 00:22:21,320
+but you know we could be more sophisticated, in [] lab.
+
+360
+00:22:21,950 --> 00:22:23,270
+Real kernels are more sophisticated.
+
+361
+00:22:25,060 --> 00:22:27,520
+Okay, although in the end they might still kill,
+
+362
+00:22:27,790 --> 00:22:29,290
+if there's no more memory,
+
+363
+00:22:29,290 --> 00:22:30,730
+what what's there to be gotten,
+
+364
+00:22:30,760 --> 00:22:32,170
+you know there's basically no choice.
+
+365
+00:22:34,140 --> 00:22:37,200
+Okay, so the first thing I'm going to modify,
+
+366
+00:22:37,200 --> 00:22:39,210
+so remember that's sysproc,
+
+367
+00:22:39,210 --> 00:22:41,490
+you know actually grows to address space with the application,
+
+368
+00:22:41,490 --> 00:22:43,080
+allocates memory and all that kind of stuff,
+
+369
+00:22:43,170 --> 00:22:44,310
+we're just not gonna do that.
+
+370
+00:22:45,090 --> 00:22:51,790
+You're just gonna set p->sz, you know to p->sz plus n.
+
+371
+00:22:52,120 --> 00:22:53,860
+So let's assume that we're only growing
+
+372
+00:22:53,860 --> 00:22:55,870
+and not worry about shrinking for now,
+
+373
+00:22:56,290 --> 00:22:57,520
+and that is what we're gonna be doing.
+
+374
+00:22:58,350 --> 00:23:02,580
+So this grows the virtual address space by n ,
+
+375
+00:23:02,580 --> 00:23:04,260
+that's all we're going to be doing.
+
+376
+00:23:05,920 --> 00:23:08,020
+Let's see if I can make no programming mistakes,
+
+377
+00:23:08,050 --> 00:23:11,930
+I did make a programming mistake, I guess.
+
+378
+00:23:13,060 --> 00:23:15,880
+I don't have proc p here, myproc.
+
+379
+00:23:24,000 --> 00:23:25,680
+Yeah, so the program just runs
+
+380
+00:23:25,740 --> 00:23:27,300
+as usual we boot,
+
+381
+00:23:27,450 --> 00:23:29,880
+I think if we do like echo hi,
+
+382
+00:23:30,090 --> 00:23:32,220
+we're gonna get actually a page fault
+
+383
+00:23:32,250 --> 00:23:35,310
+and the reason that we get a page fault is because ,
+
+384
+00:23:35,310 --> 00:23:38,310
+the shell who's gonna fork,
+
+385
+00:23:38,310 --> 00:23:42,090
+you know echo and then the child's gonna exec echo,
+
+386
+00:23:42,270 --> 00:23:44,130
+the shell actually allocate some memory.
+
+387
+00:23:44,630 --> 00:23:46,610
+And so the shell calls sbrk
+
+388
+00:23:46,820 --> 00:23:48,590
+and things are not looking good,
+
+389
+00:23:48,620 --> 00:23:53,000
+but it's sort of interesting to look at, you know, the information here,
+
+390
+00:23:53,270 --> 00:23:56,810
+so here's our, it prints out the scause register,
+
+391
+00:23:57,280 --> 00:24:00,130
+the value scause and it's fifteen.
+
+392
+00:24:00,660 --> 00:24:03,180
+Anybody, remember what fifteen is?
+
+393
+00:24:06,860 --> 00:24:07,580
+You know from that table,
+
+394
+00:24:07,580 --> 00:24:09,260
+did show you a little bit a while ago,
+
+395
+00:24:09,260 --> 00:24:11,660
+actually used to write or store page fault.
+
+396
+00:24:12,420 --> 00:24:16,020
+We show you this process three, that's probably the shell.
+
+397
+00:24:16,520 --> 00:24:19,220
+And we actually see the exception program counter,
+
+398
+00:24:19,220 --> 00:24:20,510
+it's one two a four
+
+399
+00:24:20,660 --> 00:24:22,670
+and we see the address given the virtual address
+
+400
+00:24:22,670 --> 00:24:24,710
+in which we fault, which is 4008.
+
+401
+00:24:25,440 --> 00:24:27,000
+And so let's look at the,
+
+402
+00:24:27,120 --> 00:24:31,420
+you know, we can look at the assembly of the shell,
+
+403
+00:24:31,780 --> 00:24:35,710
+makefile nice of us nice enough for us to actually generate that
+
+404
+00:24:36,250 --> 00:24:38,020
+and we can look at the address,
+
+405
+00:24:38,510 --> 00:24:40,700
+twelve a4.
+
+406
+00:24:41,660 --> 00:24:43,640
+And you know we see indeed,
+
+407
+00:24:43,670 --> 00:24:45,830
+you know, there's a store instruction right,
+
+408
+00:24:45,830 --> 00:24:48,110
+the store instruction and ,
+
+409
+00:24:48,110 --> 00:24:49,880
+it looks like that's where we're faulting.
+
+410
+00:24:50,860 --> 00:24:53,470
+So you scroll back a little bit
+
+411
+00:24:53,470 --> 00:24:56,050
+and look at this assembly here ,
+
+412
+00:24:56,050 --> 00:25:00,700
+you know we see that actually this is in part of the implementation of malloc.
+
+413
+00:25:01,330 --> 00:25:03,730
+So that seems to totally reasonable,
+
+414
+00:25:03,730 --> 00:25:05,230
+here's malloc implementation,
+
+415
+00:25:05,470 --> 00:25:06,700
+not surprising that we,
+
+416
+00:25:06,700 --> 00:25:12,460
+presumably we use sbrk to get some memory for implementing user malloc.
+
+417
+00:25:13,060 --> 00:25:17,710
+In, we're basically initializing a free list of the using the memory,
+
+418
+00:25:17,710 --> 00:25:19,900
+that we've just gotten from the kernel,
+
+419
+00:25:20,140 --> 00:25:22,210
+and this line twelve a4,
+
+420
+00:25:22,450 --> 00:25:27,070
+[] writes, you know, I guess write something in size
+
+421
+00:25:27,340 --> 00:25:29,170
+and ,
+
+422
+00:25:29,200 --> 00:25:32,110
+but we were writing to memory that actually hasn't been allocated.
+
+423
+00:25:33,240 --> 00:25:36,330
+Another reason that we could see that the memory probably not allocated is,
+
+424
+00:25:36,630 --> 00:25:41,580
+the I think shell actually has four pages of text and data
+
+425
+00:25:41,820 --> 00:25:44,910
+and we're basically sitting just above the fourth page
+
+426
+00:25:44,910 --> 00:25:45,660
+in the fifth page,
+
+427
+00:25:45,660 --> 00:25:47,640
+in fact we're sitting eight bytes above it,
+
+428
+00:25:47,970 --> 00:25:49,140
+that sort of makes sense,
+
+429
+00:25:49,440 --> 00:25:52,020
+look at the instruction again,
+
+430
+00:25:52,020 --> 00:25:53,310
+whereas twelve a four.
+
+431
+00:25:53,790 --> 00:26:02,130
+You know see here basically probably a0 holds 4000 and eight is the additional offset,
+
+432
+00:26:02,160 --> 00:26:03,660
+you know that we're actually dereferencing.
+
+433
+00:26:05,020 --> 00:26:06,220
+That's the fault.
+
+434
+00:26:07,050 --> 00:26:08,400
+And now what we like to do,
+
+435
+00:26:08,400 --> 00:26:13,110
+is you know do something slightly more sophisticated.
+
+436
+00:26:13,660 --> 00:26:15,460
+Then, we're gonna be doing
+
+437
+00:26:15,730 --> 00:26:17,440
+and so let's go to proc,
+
+438
+00:26:17,860 --> 00:26:29,680
+trap.c. And look at usertrap,
+
+439
+00:26:29,860 --> 00:26:31,390
+this happens in usertrap,
+
+440
+00:26:34,600 --> 00:26:36,220
+usertrap is the function that we,
+
+441
+00:26:36,220 --> 00:26:38,980
+Robert had discussed a week ago,
+
+442
+00:26:39,250 --> 00:26:42,160
+and it just goes through the different causes
+
+443
+00:26:42,400 --> 00:26:43,780
+and perform some action,
+
+444
+00:26:43,870 --> 00:26:45,190
+so we're a little bit,
+
+445
+00:26:45,190 --> 00:26:47,770
+here's , this line is scause eight
+
+446
+00:26:47,770 --> 00:26:50,620
+and you know that's the point we're going to process system calls.
+
+447
+00:26:51,360 --> 00:26:55,410
+Then there's a line that checks whether there was any a device interrupt
+
+448
+00:26:55,410 --> 00:26:57,420
+and processes inside of device interrupt,
+
+449
+00:26:57,840 --> 00:26:59,460
+and if there's none of those to happen,
+
+450
+00:26:59,460 --> 00:27:01,290
+then basically we get this a trap
+
+451
+00:27:01,590 --> 00:27:02,910
+and the process of being killed.
+
+452
+00:27:03,610 --> 00:27:05,740
+And basically what we need to do is,
+
+453
+00:27:05,740 --> 00:27:07,360
+you need to add some code here,
+
+454
+00:27:07,360 --> 00:27:11,750
+that you know checks for another case, right,
+
+455
+00:27:11,750 --> 00:27:17,350
+basically I guess the case that we want to go [online] is if r_scause.
+
+456
+00:27:18,050 --> 00:27:25,440
+Do you just call it like it's r_scause is fifteen.
+
+457
+00:27:27,550 --> 00:27:28,810
+We want to do something else.
+
+458
+00:27:32,000 --> 00:27:32,840
+Does that make sense.
+
+459
+00:27:34,620 --> 00:27:35,760
+So what do you want to do here.
+
+460
+00:27:42,130 --> 00:27:45,970
+One is sort of the plan for attack for these couple lines of code.
+
+461
+00:27:50,130 --> 00:27:57,090
+We want to check if p->sz is more than the virtual address
+
+462
+00:27:57,570 --> 00:28:02,960
+that in stval, perhaps.
+
+463
+00:28:03,760 --> 00:28:05,620
+Yeah yeah.
+
+464
+00:28:06,480 --> 00:28:14,520
+Oh, and this is the case then do something like uvmalloc, I think.
+
+465
+00:28:15,170 --> 00:28:16,280
+That's one way we could do it,
+
+466
+00:28:16,340 --> 00:28:19,370
+so I'm going to cut some corners just for a demo
+
+467
+00:28:19,370 --> 00:28:21,500
+and presumably in the lab itself,
+
+468
+00:28:21,500 --> 00:28:22,940
+you will need to do a little bit more work,
+
+469
+00:28:23,120 --> 00:28:26,030
+but basically here's the sort,
+
+470
+00:28:26,030 --> 00:28:28,850
+I think frequent code section of code, we need.
+
+471
+00:28:29,670 --> 00:28:31,140
+So let's see.
+
+472
+00:28:32,700 --> 00:28:33,750
+Where I was.
+
+473
+00:28:34,410 --> 00:28:35,340
+Here's usertrap.
+
+474
+00:28:37,990 --> 00:28:40,000
+Yeah, let me just kind of paste into it.
+
+475
+00:28:41,230 --> 00:28:42,130
+And we can look at,
+
+476
+00:28:42,670 --> 00:28:44,950
+you know just a print statement for debugging
+
+477
+00:28:45,010 --> 00:28:47,950
+and basically we're going to do in this handler,
+
+478
+00:28:47,950 --> 00:28:49,480
+I'm gonna allocate a physical page.
+
+479
+00:28:50,190 --> 00:28:53,220
+If there's no physical page, mean we're out of memory,
+
+480
+00:28:53,220 --> 00:28:56,580
+we're gonna kill the process for now,
+
+481
+00:28:56,640 --> 00:28:59,370
+if there's a physical page, we'll zero the page.
+
+482
+00:28:59,850 --> 00:29:03,750
+Now, we just map the page at the appropriate address
+
+483
+00:29:03,780 --> 00:29:06,750
+in the address space with the user
+
+484
+00:29:06,840 --> 00:29:10,920
+in particular map it on the rounded down virtual address,
+
+485
+00:29:11,130 --> 00:29:13,830
+so the faulting address 4008 here,
+
+486
+00:29:14,070 --> 00:29:17,730
+and so that's eight bytes into the fifth page
+
+487
+00:29:17,880 --> 00:29:21,930
+and we want to map that physical page at the bottom of the physical, virtual page,
+
+488
+00:29:21,930 --> 00:29:25,210
+so at 4000, rounded down to 4000 then
+
+489
+00:29:25,210 --> 00:29:27,100
+we map 4000 to this physical page.
+
+490
+00:29:27,950 --> 00:29:30,650
+And then of course we have to set the usual permission bits,
+
+491
+00:29:30,650 --> 00:29:32,450
+you know u bit read and write.
+
+492
+00:29:34,140 --> 00:29:34,860
+Does that make sense.
+
+493
+00:29:38,380 --> 00:29:40,240
+Yeah I guess I can get rid of this line.
+
+494
+00:29:42,540 --> 00:29:44,820
+Um, so let's see, let's try it out.
+
+495
+00:29:49,750 --> 00:29:51,940
+And I guess I made some mistakes.
+
+496
+00:29:54,570 --> 00:29:58,500
+I think that on the else, you don't have an opening bracket at the bottom.
+
+497
+00:29:59,430 --> 00:30:01,110
+Oh yeah.
+
+498
+00:30:01,970 --> 00:30:06,320
+Yeah, so if, I do I do I need one more, oh yeah.
+
+499
+00:30:10,340 --> 00:30:12,320
+Oh, sorry, I mean on the else right here,
+
+500
+00:30:12,320 --> 00:30:14,420
+you don't have an opening bracket right,
+
+501
+00:30:14,900 --> 00:30:20,390
+like when is else printf usertrap unexpected scause.
+
+502
+00:30:24,580 --> 00:30:25,810
+And hopefully [all block].
+
+503
+00:30:27,490 --> 00:30:29,230
+Excellent, so echo hi.
+
+504
+00:30:29,800 --> 00:30:32,440
+Now, of course we're going to be optimistic and hope it works,
+
+505
+00:30:32,470 --> 00:30:33,730
+I'll tell you it won't work,
+
+506
+00:30:34,520 --> 00:30:36,800
+but we did get two page faults right,
+
+507
+00:30:36,800 --> 00:30:38,360
+we gotta page fault 4000 eight,
+
+508
+00:30:38,360 --> 00:30:39,530
+you know [primarily profit in],
+
+509
+00:30:39,530 --> 00:30:40,820
+because we've got another page fault.
+
+510
+00:30:41,380 --> 00:30:43,270
+And so the only problem we've left
+
+511
+00:30:43,300 --> 00:30:47,380
+is there's a uvmunmap complaining that,
+
+512
+00:30:51,360 --> 00:30:52,920
+as complaining that there are some page
+
+513
+00:30:52,920 --> 00:30:56,490
+that we're trying to unmap is actually not mapped.
+
+514
+00:30:57,050 --> 00:30:58,340
+And what could it be.
+
+515
+00:31:02,450 --> 00:31:04,430
+Why would you think even if we get this panic.
+
+516
+00:31:07,200 --> 00:31:15,150
+Anybody? What memories being unmapped here?
+
+517
+00:31:16,190 --> 00:31:17,000
+Most likely.
+
+518
+00:31:21,900 --> 00:31:25,680
+The one that was lazily allocated not actually allocated.
+
+519
+00:31:25,950 --> 00:31:28,800
+Yeah, exactly the memory numbers lazily allocated,
+
+520
+00:31:28,800 --> 00:31:30,870
+but actually it hasn't been used yet, right.
+
+521
+00:31:30,870 --> 00:31:33,510
+And so there is no physical page for that particular lazy memory.
+
+522
+00:31:34,220 --> 00:31:38,700
+And so, in this case when the pte is zero.
+
+523
+00:31:39,220 --> 00:31:40,660
+You know there's no mapping yet,
+
+524
+00:31:40,900 --> 00:31:42,040
+that's not really panic,
+
+525
+00:31:42,070 --> 00:31:45,100
+you know this is actually what we expect you know could happen right.
+
+526
+00:31:45,770 --> 00:31:47,120
+And in fact for the page,
+
+527
+00:31:47,120 --> 00:31:48,410
+you don't have to do anything,
+
+528
+00:31:48,650 --> 00:31:51,290
+you can just continue to go to the next page.
+
+529
+00:31:53,620 --> 00:31:54,400
+Does that make sense.
+
+530
+00:31:56,000 --> 00:31:56,990
+So let's do that.
+
+531
+00:31:58,820 --> 00:32:00,140
+Now those are the echo hi,
+
+532
+00:32:00,350 --> 00:32:02,840
+and we've got two page faults, but hi works,
+
+533
+00:32:02,900 --> 00:32:07,010
+and so we're basically you know have
+
+534
+00:32:07,040 --> 00:32:11,540
+sort of a very basic minimal lazy allocation scheme working.
+
+535
+00:32:14,700 --> 00:32:15,870
+Any questions about this.
+
+536
+00:32:16,820 --> 00:32:18,590
+Sorry, I didn't really follow,
+
+537
+00:32:18,620 --> 00:32:20,030
+why you could just continue,
+
+538
+00:32:20,240 --> 00:32:21,620
+could you explain that again.
+
+539
+00:32:22,010 --> 00:32:27,850
+Yeah, so the the bug indicated that we had
+
+540
+00:32:27,850 --> 00:32:31,060
+were trying to free page that actually is not mapped.
+
+541
+00:32:32,480 --> 00:32:34,280
+And you know how could that happen,
+
+542
+00:32:34,280 --> 00:32:35,780
+well the only reason that could happen is
+
+543
+00:32:35,780 --> 00:32:39,740
+because sbrk moved up p->sz,
+
+544
+00:32:39,980 --> 00:32:43,700
+but never used, the application never used in that memory
+
+545
+00:32:43,730 --> 00:32:45,620
+and so it actually has no mapping yet,
+
+546
+00:32:45,620 --> 00:32:47,090
+because it was actually not allocated.
+
+547
+00:32:47,660 --> 00:32:49,100
+Because we're lazily allocating,
+
+548
+00:32:49,100 --> 00:32:52,580
+we're only allocating physical memory for those pages when we need it,
+
+549
+00:32:52,850 --> 00:32:55,250
+if we didn't need it, then there will be no mapping
+
+550
+00:32:55,250 --> 00:32:56,270
+and so it's totally reasonable
+
+551
+00:32:56,270 --> 00:32:57,890
+that there actually is going to be a case
+
+552
+00:32:58,040 --> 00:33:00,890
+where there's no mapping for a virtual address,
+
+553
+00:33:00,890 --> 00:33:02,690
+because they're actually wasn't allocated yet.
+
+554
+00:33:03,130 --> 00:33:05,710
+And for that case, we just have to do nothing,
+
+555
+00:33:05,830 --> 00:33:08,450
+you know, we can free the page,
+
+556
+00:33:08,450 --> 00:33:09,710
+but there is no free page,
+
+557
+00:33:09,950 --> 00:33:11,480
+and so the best thing is to continue
+
+558
+00:33:11,480 --> 00:33:13,040
+and just go to the next page in the loop.
+
+559
+00:33:14,380 --> 00:33:16,450
+Okay, that makes sense, thank you.
+
+560
+00:33:16,920 --> 00:33:18,330
+Yeah, we [didn't] do continue,
+
+561
+00:33:18,330 --> 00:33:20,850
+but basically you know just kept going,
+
+562
+00:33:20,850 --> 00:33:22,290
+then we would actually create a page
+
+563
+00:33:22,290 --> 00:33:24,720
+that would be you can do free the page,
+
+564
+00:33:25,740 --> 00:33:26,910
+that's why it continues there.
+
+565
+00:33:27,550 --> 00:33:28,210
+Make sense.
+
+566
+00:33:30,770 --> 00:33:32,060
+Um, another question,
+
+567
+00:33:32,600 --> 00:33:39,170
+in uvmunmap, I assumed the panic was that was there was there for a reason,
+
+568
+00:33:39,380 --> 00:33:42,980
+so a more correct a more reasonable implementation is
+
+569
+00:33:42,980 --> 00:33:46,160
+to have two versions and we would use the one that doesn't panic.
+
+570
+00:33:47,090 --> 00:33:50,330
+Yeah, because why was the the panic,
+
+571
+00:33:50,330 --> 00:33:52,100
+while it was basically an invariant
+
+572
+00:33:52,520 --> 00:33:55,790
+that used to be true for unmodified xv6,
+
+573
+00:33:56,270 --> 00:33:58,250
+actually unmodified xv6 should never
+
+574
+00:33:58,250 --> 00:34:00,740
+have a case where those user memory that was not map.
+
+575
+00:34:01,500 --> 00:34:02,820
+And so therefore the panic goes up,
+
+576
+00:34:03,120 --> 00:34:05,490
+we now change the design of xv6,
+
+577
+00:34:05,550 --> 00:34:09,720
+so we have to adjust a and this invariant is no longer true,
+
+578
+00:34:09,930 --> 00:34:11,250
+so we've got to remove the panic
+
+579
+00:34:11,250 --> 00:34:14,340
+and because any invariant is just not true,
+
+580
+00:34:17,040 --> 00:34:19,350
+legitimately not true anymore.
+
+581
+00:34:20,290 --> 00:34:21,730
+I see, thanks.
+
+582
+00:34:23,880 --> 00:34:24,510
+That makes sense.
+
+583
+00:34:26,300 --> 00:34:28,910
+So, so a couple comments,
+
+584
+00:34:28,910 --> 00:34:33,740
+this will hopefully help a lot with next lab,
+
+585
+00:34:33,740 --> 00:34:36,560
+in fact this is one of the three components of the labs,
+
+586
+00:34:36,590 --> 00:34:37,970
+of the next labs,
+
+587
+00:34:37,970 --> 00:34:39,500
+is one of the first things you have to do
+
+588
+00:34:39,830 --> 00:34:42,110
+and hopefully this will save you some time,
+
+589
+00:34:42,410 --> 00:34:47,960
+maybe make up for all the pain that you went through in the page fault lab.
+
+590
+00:34:48,760 --> 00:34:51,190
+But clearly not enough right,
+
+591
+00:34:51,190 --> 00:34:52,720
+yeah, so like what things are,
+
+592
+00:34:52,750 --> 00:34:56,670
+you know, we made these changes, but more things are still probably broken.
+
+593
+00:35:01,090 --> 00:35:02,380
+One already was mentioned,
+
+594
+00:35:02,410 --> 00:35:03,640
+I actually didn't do it to check
+
+595
+00:35:03,640 --> 00:35:08,140
+whether actually the virtual address was below p->sz which we probably should do.
+
+596
+00:35:08,840 --> 00:35:10,250
+Any other things that might be broken?
+
+597
+00:35:17,560 --> 00:35:18,220
+Anybody.
+
+598
+00:35:25,020 --> 00:35:28,290
+Number of bytes to grow the process by sbrk
+
+599
+00:35:28,320 --> 00:35:30,180
+is an int and not an unsigned int,
+
+600
+00:35:30,180 --> 00:35:32,520
+so negative numbers could be used.
+
+601
+00:35:33,560 --> 00:35:34,910
+Yes, and negative numbers can use
+
+602
+00:35:34,910 --> 00:35:36,590
+and that means shrinking the address space,
+
+603
+00:35:36,980 --> 00:35:38,120
+so if we shrink the address space,
+
+604
+00:35:38,120 --> 00:35:39,530
+we also have to be a little careful.
+
+605
+00:35:40,110 --> 00:35:42,270
+So it turns out there's a whole bunch of,
+
+606
+00:35:42,270 --> 00:35:43,050
+as usual,
+
+607
+00:35:43,110 --> 00:35:44,370
+in an operating system
+
+608
+00:35:44,370 --> 00:35:45,750
+and a whole bunch of different cases, right,
+
+609
+00:35:45,750 --> 00:35:49,890
+where which we're going to be looking at this particular pagetable entry
+
+610
+00:35:50,130 --> 00:35:53,730
+and for all those different cases we might actually have to modify xv6 slightly.
+
+611
+00:35:54,290 --> 00:35:56,990
+And that's exactly what basically the lab is about
+
+612
+00:35:56,990 --> 00:36:00,650
+is you know doing good enough job that basically you can pass usertests.
+
+613
+00:36:01,060 --> 00:36:03,640
+Usertests will stress a whole bunch of other cases
+
+614
+00:36:03,640 --> 00:36:05,020
+that you will need to deal with.
+
+615
+00:36:07,550 --> 00:36:08,150
+Okay?
+
+616
+00:36:11,340 --> 00:36:12,450
+Any questions so far?
+
+617
+00:36:18,300 --> 00:36:19,440
+Okay, let me ,
+
+618
+00:36:19,500 --> 00:36:21,300
+in that case I want to talk about a bunch of
+
+619
+00:36:21,300 --> 00:36:26,280
+other usages or cool things you can do
+
+620
+00:36:26,280 --> 00:36:30,060
+once you have page faults and pagetables are updated dynamically.
+
+621
+00:36:30,870 --> 00:36:33,930
+Another one that is almost trivial,
+
+622
+00:36:34,170 --> 00:36:40,710
+but you know commonly used is what's called zero filled.
+
+623
+00:36:42,260 --> 00:36:46,060
+Zero fill on demand.
+
+624
+00:36:51,300 --> 00:36:55,380
+It turns out that in operating systems,
+
+625
+00:36:55,380 --> 00:36:56,880
+you know there are many null pages.
+
+626
+00:36:58,140 --> 00:37:03,310
+And, so, for example if you look at the address space and user space,
+
+627
+00:37:03,490 --> 00:37:07,450
+xv6 doesn't really is not as advanced,
+
+628
+00:37:07,450 --> 00:37:10,450
+but if you look at the layout of a binary,
+
+629
+00:37:10,660 --> 00:37:11,950
+I [need it] out,
+
+630
+00:37:11,950 --> 00:37:13,060
+you know there's some text,
+
+631
+00:37:13,150 --> 00:37:14,740
+there's what's called the data segment
+
+632
+00:37:15,070 --> 00:37:18,370
+and there's typically also what something is called the bss segment.
+
+633
+00:37:20,170 --> 00:37:24,790
+And so when the compiler produces a binary,
+
+634
+00:37:24,790 --> 00:37:26,650
+you know basically fills in these three segments,
+
+635
+00:37:26,830 --> 00:37:28,480
+the text you know the instructions,
+
+636
+00:37:28,480 --> 00:37:30,640
+you know the data is basically global variables,
+
+637
+00:37:30,640 --> 00:37:33,100
+that actually have a value that is not zero.
+
+638
+00:37:33,580 --> 00:37:35,950
+So an initialized data.
+
+639
+00:37:41,860 --> 00:37:44,080
+In BBS, is basically a description,
+
+640
+00:37:44,110 --> 00:37:46,540
+that says well there's a whole bunch of variables
+
+641
+00:37:46,690 --> 00:37:49,960
+and it's basically their sizes and they all should be zero.
+
+642
+00:37:51,010 --> 00:37:54,070
+And the reason that they are basically not listed out,
+
+643
+00:37:54,100 --> 00:37:56,800
+you know or the memory is not right there in the files,
+
+644
+00:37:56,800 --> 00:37:58,360
+because it will save a lot of
+
+645
+00:37:58,360 --> 00:38:00,910
+for example, if you declare big matrix in c,
+
+646
+00:38:01,150 --> 00:38:03,280
+on the top of the file is a global variable
+
+647
+00:38:03,280 --> 00:38:05,620
+and it's automatically attribute zeros,
+
+648
+00:38:05,800 --> 00:38:08,500
+why allocate all the space in the file,
+
+649
+00:38:08,590 --> 00:38:14,080
+just like note that basically you know for this particular variable in the content should be zero.
+
+650
+00:38:15,320 --> 00:38:16,700
+And amazingly on exec,
+
+651
+00:38:16,730 --> 00:38:18,650
+on a normal operating system on exec,
+
+652
+00:38:18,920 --> 00:38:23,320
+we'll look at these three segments,
+
+653
+00:38:23,320 --> 00:38:26,680
+[] usual thing that xv6 does for text and data,
+
+654
+00:38:26,770 --> 00:38:31,840
+but from BSS, it will allocate you know memory to hold the BSS
+
+655
+00:38:31,960 --> 00:38:33,670
+and basically stick zeroes in there.
+
+656
+00:38:34,120 --> 00:38:34,540
+So.
+
+657
+00:38:36,480 --> 00:38:40,140
+Allocated address space takes data in it
+
+658
+00:38:40,140 --> 00:38:42,270
+and then we're basically .
+
+659
+00:38:43,990 --> 00:38:45,040
+The equivalent of the BSS,
+
+660
+00:38:45,040 --> 00:38:47,290
+you know all the global variables that basically zero
+
+661
+00:38:47,290 --> 00:38:48,790
+and maybe many many pages.
+
+662
+00:38:51,540 --> 00:38:53,880
+And all those pages basically have to have the content zero.
+
+663
+00:38:55,570 --> 00:38:57,010
+So that's the virtual address space
+
+664
+00:38:57,010 --> 00:39:01,900
+and so typical trick, you know, to do is to say like wow, I've got so many pages that need to have zero.
+
+665
+00:39:01,930 --> 00:39:04,330
+What I'm gonna do in physical memory.
+
+666
+00:39:05,160 --> 00:39:09,390
+This is the virtual address space and the physical address memory,
+
+667
+00:39:09,660 --> 00:39:13,560
+what I'm gonna do is you're going to allocate one zero page.
+
+668
+00:39:14,410 --> 00:39:15,430
+And fill it with zeros,
+
+669
+00:39:15,610 --> 00:39:19,640
+and basically map all the other pages to that one page.
+
+670
+00:39:24,200 --> 00:39:27,680
+You know saving myself, you know lots you know, lots of physical memory,
+
+671
+00:39:27,680 --> 00:39:28,580
+at least at start up.
+
+672
+00:39:29,520 --> 00:39:33,570
+And of course those mappings has to be limit care, dominate care,
+
+673
+00:39:33,600 --> 00:39:37,020
+we can't [market], you know we cannot allow write to it right,
+
+674
+00:39:37,020 --> 00:39:39,660
+because everybody's relying on the fact that actually stays zero,
+
+675
+00:39:39,690 --> 00:39:41,400
+so we just map it read only.
+
+676
+00:39:43,440 --> 00:39:44,580
+And then, at some point,
+
+677
+00:39:44,700 --> 00:39:47,370
+when an application starts writing to one of
+
+678
+00:39:47,370 --> 00:39:50,310
+you know that basically started as a loader and in store,
+
+679
+00:39:50,310 --> 00:39:53,700
+if one of the pages that actually part of the BSS,
+
+680
+00:39:53,940 --> 00:39:58,650
+so because he wants you to whatever store one or two very confident there,
+
+681
+00:39:58,770 --> 00:40:00,000
+going to get a page fault.
+
+682
+00:40:06,240 --> 00:40:08,070
+And so what should we do on the page fault.
+
+683
+00:40:10,560 --> 00:40:11,610
+In this particular case.
+
+684
+00:40:15,170 --> 00:40:15,770
+Anybody?
+
+685
+00:40:23,850 --> 00:40:24,420
+Go ahead.
+
+686
+00:40:25,310 --> 00:40:27,680
+Anybody, I do what should we do in the page fault here.
+
+687
+00:40:28,430 --> 00:40:34,500
+I think we should make a new page and all write zeroes
+
+688
+00:40:34,500 --> 00:40:36,090
+and rerun that instruction.
+
+689
+00:40:36,450 --> 00:40:39,420
+Yeah exactly, so let's let's assume this were my drawing,
+
+690
+00:40:39,420 --> 00:40:42,810
+that's actually the store instruction happens to one of the top.
+
+691
+00:40:43,460 --> 00:40:46,250
+And what we really want to do basically is allocate a new physical page,
+
+692
+00:40:46,250 --> 00:40:49,640
+a page memory you know kalloc put zeros in there,
+
+693
+00:40:49,640 --> 00:40:51,140
+because you know that's what we're expecting
+
+694
+00:40:51,380 --> 00:40:55,160
+and then we can change the top mapping for the one for this particular.
+
+695
+00:40:55,620 --> 00:40:59,790
+Because this guy [], let me assume that there's this one,
+
+696
+00:40:59,940 --> 00:41:02,790
+we can change this mapping, you know to be read write.
+
+697
+00:41:03,960 --> 00:41:06,910
+And pointed to the new page.
+
+698
+00:41:11,860 --> 00:41:17,050
+And then you basically so copy what update pte,
+
+699
+00:41:19,970 --> 00:41:21,290
+and then restart the instruction.
+
+700
+00:41:28,780 --> 00:41:29,350
+And that's it.
+
+701
+00:41:30,610 --> 00:41:32,830
+Why is this an effective
+
+702
+00:41:32,860 --> 00:41:35,350
+why, why do we think this is actually a good optimization.
+
+703
+00:41:39,570 --> 00:41:41,430
+Why do operating systems do it.
+
+704
+00:41:49,190 --> 00:41:49,880
+Anybody?
+
+705
+00:41:52,420 --> 00:41:53,770
+You don't need it though.
+
+706
+00:41:54,280 --> 00:41:55,840
+Go ahead .
+
+707
+00:41:57,200 --> 00:42:00,560
+You don't need to use as much memory as the user requests,
+
+708
+00:42:00,560 --> 00:42:04,340
+so it's just better to build it when it when you need it.
+
+709
+00:42:04,700 --> 00:42:05,720
+Yeah, makes sense,
+
+710
+00:42:05,720 --> 00:42:07,460
+similar to the lazy allocation,
+
+711
+00:42:07,460 --> 00:42:11,360
+basically if the program say allocated huge,
+
+712
+00:42:11,360 --> 00:42:14,030
+you know or you know for the worst possible input,
+
+713
+00:42:14,490 --> 00:42:16,620
+it's a global array, it all has to be zero,
+
+714
+00:42:16,620 --> 00:42:18,480
+but maybe only fraction is being used.
+
+715
+00:42:20,230 --> 00:42:21,400
+What's the second advantage.
+
+716
+00:42:28,830 --> 00:42:30,960
+Second advantage you have to do less work in exec
+
+717
+00:42:31,320 --> 00:42:33,870
+and so the program may start quicker
+
+718
+00:42:33,870 --> 00:42:36,300
+and get basically better interactive performance,
+
+719
+00:42:36,300 --> 00:42:38,250
+because you don't really have to allocate memory,
+
+720
+00:42:38,250 --> 00:42:39,420
+you don't really have zero memory,
+
+721
+00:42:39,420 --> 00:42:41,220
+you only have to allocate zero one page
+
+722
+00:42:41,460 --> 00:42:44,130
+and the rest like just mapping the pagetables,
+
+723
+00:42:44,130 --> 00:42:45,660
+you just have to write the pte entries.
+
+724
+00:42:47,340 --> 00:42:47,970
+Does that make sense.
+
+725
+00:42:49,400 --> 00:42:56,160
+But our updates or writes, so they will become slower,
+
+726
+00:42:56,160 --> 00:42:58,980
+because every time a page fault will occur and.
+
+727
+00:42:59,400 --> 00:43:01,800
+Yeah so you know there's absolute point,
+
+728
+00:43:02,010 --> 00:43:05,370
+so we basically postponed some of the cost later, right,
+
+729
+00:43:05,860 --> 00:43:08,410
+at the point that we do the page fault,
+
+730
+00:43:08,830 --> 00:43:13,390
+and you know partially relying or hoping that maybe not all the pages are being used.
+
+731
+00:43:13,840 --> 00:43:18,130
+Good like for example if the pages four ninety six four thousand ninety six bytes,
+
+732
+00:43:18,490 --> 00:43:23,590
+you know basically we're gonna take one page fault per 4096 zeros, right.
+
+733
+00:43:24,190 --> 00:43:25,630
+And so do some [] there.
+
+734
+00:43:27,700 --> 00:43:29,200
+But it's a great point,
+
+735
+00:43:29,230 --> 00:43:30,370
+you know certainly we've made page,
+
+736
+00:43:30,370 --> 00:43:32,980
+we have added the cost of the page fault.
+
+737
+00:43:33,530 --> 00:43:34,820
+How much is the cost of the page fault,
+
+738
+00:43:34,820 --> 00:43:36,740
+how should we think about that.
+
+739
+00:43:38,140 --> 00:43:41,770
+These are comparable to store instruction more is much more expensive.
+
+740
+00:43:48,300 --> 00:43:50,250
+More expensive, right.
+
+741
+00:43:50,310 --> 00:43:51,240
+Yeah, why.
+
+742
+00:43:52,720 --> 00:43:57,740
+Store will just like need to record,
+
+743
+00:43:57,770 --> 00:44:01,920
+it will take some time to get through the two RAM,
+
+744
+00:44:01,920 --> 00:44:04,830
+but the fault will have to go to the kernel.
+
+745
+00:44:05,510 --> 00:44:08,720
+Yeah, so, in fact how many store instruction were there,
+
+746
+00:44:08,720 --> 00:44:11,750
+even in the , the trap handling code
+
+747
+00:44:11,750 --> 00:44:13,370
+that Robert showed you last week
+
+748
+00:44:13,550 --> 00:44:17,000
+or actually that you're doing currently in the trap lab.
+
+749
+00:44:19,500 --> 00:44:21,840
+Um, well at least like a hundred.
+
+750
+00:44:21,990 --> 00:44:24,840
+Yeah at least a hundred, correct, used to save store registers.
+
+751
+00:44:25,710 --> 00:44:26,880
+So there's quite a bit
+
+752
+00:44:26,880 --> 00:44:31,320
+and so there's both the overhead of transferring from user space to kernel space as well
+
+753
+00:44:31,320 --> 00:44:33,390
+as all the instructions that are being executed
+
+754
+00:44:33,720 --> 00:44:36,000
+to save and restore state.
+
+755
+00:44:36,660 --> 00:44:38,820
+So page fault is definitely not free,
+
+756
+00:44:39,390 --> 00:44:41,490
+so the question that was asked earlier very good question.
+
+757
+00:44:45,570 --> 00:44:46,200
+Okay.
+
+758
+00:44:47,190 --> 00:44:50,490
+So let's look at some more, optimizations
+
+759
+00:44:51,180 --> 00:44:53,880
+that one can do, these ones are sort of reasonable boring,
+
+760
+00:44:54,270 --> 00:44:56,640
+or maybe reasonable, straightforward ,
+
+761
+00:44:56,640 --> 00:45:00,960
+and we're gonna hopefully get a little bit more couple more exciting ones.
+
+762
+00:45:02,120 --> 00:45:04,580
+See what is next what I wanted to do about it.
+
+763
+00:45:05,160 --> 00:45:06,420
+Next one.
+
+764
+00:45:06,990 --> 00:45:10,890
+It's a very common one, in many operating systems implemented
+
+765
+00:45:10,920 --> 00:45:12,360
+and the fact that will also
+
+766
+00:45:12,360 --> 00:45:14,940
+be one of the topics in the one of the labs.
+
+767
+00:45:16,250 --> 00:45:18,050
+So let's do the next one.
+
+768
+00:45:19,010 --> 00:45:24,480
+And that is copy-on-write fork,
+
+769
+00:45:27,800 --> 00:45:30,770
+or something called COW fork.
+
+770
+00:45:34,960 --> 00:45:40,540
+And you know, observation is pretty straightforward,
+
+771
+00:45:40,540 --> 00:45:43,360
+in fact we made this observation a couple times in lecture.
+
+772
+00:45:44,170 --> 00:45:46,510
+Um, but when .
+
+773
+00:45:48,680 --> 00:45:50,060
+Let's say you know the shell,
+
+774
+00:45:50,090 --> 00:45:52,670
+we're talking [] a second ago,
+
+775
+00:45:52,670 --> 00:45:53,840
+so shell runs,
+
+776
+00:45:54,680 --> 00:45:59,390
+and processes command and it actually does fork to create child.
+
+777
+00:46:00,670 --> 00:46:03,490
+And so the fork you basically keep copy of shell
+
+778
+00:46:03,880 --> 00:46:06,250
+and so we got a parent and we got the child
+
+779
+00:46:06,550 --> 00:46:09,730
+and the child almost one of the first things it does is an exec,
+
+780
+00:46:09,850 --> 00:46:11,650
+maybe execute a couple of instructions
+
+781
+00:46:11,920 --> 00:46:14,590
+and then actually execs, for example to run echo.
+
+782
+00:46:16,800 --> 00:46:20,880
+And as we now know, [ensure] [] last lab,
+
+783
+00:46:21,030 --> 00:46:25,080
+you know the fork creates a complete duplicate of the shell address space,
+
+784
+00:46:25,260 --> 00:46:27,180
+and then exec the first thing that basically does,
+
+785
+00:46:27,180 --> 00:46:32,160
+it throws out away and replaces it with an address space containing echo.
+
+786
+00:46:33,060 --> 00:46:35,760
+And so it seems slightly wasteful right,
+
+787
+00:46:35,760 --> 00:46:40,240
+yeah, so we're let's say we have our parent virtual address space.
+
+788
+00:46:41,290 --> 00:46:43,900
+And then here we have a child.
+
+789
+00:46:46,030 --> 00:46:49,930
+And what we're actually doing in user physical memory.
+
+790
+00:46:52,970 --> 00:46:54,830
+And in the normal case in xv6
+
+791
+00:46:54,830 --> 00:46:58,610
+or in unmodified xv6, you know there's a bunch of like there were four pages,
+
+792
+00:46:58,610 --> 00:47:01,820
+we saw that the shell has one two three four.
+
+793
+00:47:02,340 --> 00:47:07,470
+And, you know when we start, when fork runs,
+
+794
+00:47:07,620 --> 00:47:11,070
+basically you do look at those four pages one two three four
+
+795
+00:47:11,250 --> 00:47:16,200
+and copy all the content you know from those pages the parent into the child.
+
+796
+00:47:17,180 --> 00:47:21,080
+And then as soon as the exec happens,
+
+797
+00:47:21,080 --> 00:47:22,940
+basically we're going to free these pages.
+
+798
+00:47:23,420 --> 00:47:26,930
+And allocate new pages actually have the content of echo in it.
+
+799
+00:47:27,990 --> 00:47:28,650
+So.
+
+800
+00:47:29,990 --> 00:47:34,670
+A good organization one that actually tends to be very effective for this particular sequence
+
+801
+00:47:34,880 --> 00:47:39,560
+is that you know if we if the parent has these four mappings,
+
+802
+00:47:39,560 --> 00:47:41,060
+you know in its address space,
+
+803
+00:47:42,020 --> 00:47:44,480
+going from whatever the zero goes here,
+
+804
+00:47:44,480 --> 00:47:46,550
+the first one goes there and whatever.
+
+805
+00:47:47,980 --> 00:47:50,500
+Instead, when we create the child's address space,
+
+806
+00:47:50,500 --> 00:47:53,200
+instead of creating copying and allocating new physical memory,
+
+807
+00:47:53,230 --> 00:47:57,070
+what we could do is just share the physical pages
+
+808
+00:47:57,070 --> 00:47:59,830
+that parent actually already has allocated.
+
+809
+00:48:00,540 --> 00:48:03,600
+And so we just set the ptes with child
+
+810
+00:48:03,600 --> 00:48:07,140
+through the same pointing to the same physical pages as in the parent.
+
+811
+00:48:08,780 --> 00:48:10,670
+And we're going to be a little careful again, correct,
+
+812
+00:48:10,670 --> 00:48:13,490
+because if the child wants to modify one of these pages,
+
+813
+00:48:13,580 --> 00:48:16,760
+that updates should not be visible to the parent,
+
+814
+00:48:16,760 --> 00:48:19,370
+because we want strong isolation between the parent and child,
+
+815
+00:48:19,370 --> 00:48:21,050
+so we need to be a little more careful,
+
+816
+00:48:21,350 --> 00:48:23,000
+so to be a little more careful about,
+
+817
+00:48:23,000 --> 00:48:23,720
+what we can do is just
+
+818
+00:48:24,230 --> 00:48:28,790
+map those pages both the child and the parent read only.
+
+819
+00:48:32,870 --> 00:48:36,170
+And then of course we're going to get a page fault at some point.
+
+820
+00:48:36,750 --> 00:48:39,060
+Because the parent is going to run where the child is going to run.
+
+821
+00:48:40,130 --> 00:48:45,800
+And, maybe you know the child or parent will do a store instruction
+
+822
+00:48:45,800 --> 00:48:49,520
+to maybe save the data to some global variable somewhere.
+
+823
+00:48:50,020 --> 00:48:52,840
+And at that point you know, that that will cause a page fault,
+
+824
+00:48:52,840 --> 00:48:55,930
+because you were writing to a page that is mapped read only,
+
+825
+00:48:56,110 --> 00:48:57,070
+we get a page fault
+
+826
+00:48:57,160 --> 00:48:58,240
+and so what do we need to do,
+
+827
+00:48:58,240 --> 00:48:59,860
+well, we need to make a copy of the page.
+
+828
+00:49:03,120 --> 00:49:07,860
+So let's assume that's the child that actually does the store instruction,
+
+829
+00:49:07,980 --> 00:49:09,660
+so we allocate a new page.
+
+830
+00:49:11,400 --> 00:49:15,030
+We copy the content of of the page
+
+831
+00:49:15,030 --> 00:49:17,580
+that were faulted on into this new page,
+
+832
+00:49:17,820 --> 00:49:20,550
+we map that page into the child,
+
+833
+00:49:20,550 --> 00:49:22,350
+and this guy we can map read write,
+
+834
+00:49:22,350 --> 00:49:26,400
+because now private page only visible in the child's address space,
+
+835
+00:49:26,700 --> 00:49:29,100
+in fact the page that actually will be fault on,
+
+836
+00:49:29,100 --> 00:49:32,390
+we can also now map page read write into the parent.
+
+837
+00:49:34,060 --> 00:49:39,270
+And so we copy the page, map it and restart instruction.
+
+838
+00:49:44,940 --> 00:49:46,650
+And when restarting starting really means
+
+839
+00:49:46,650 --> 00:49:48,870
+you know doing user at the same way
+
+840
+00:49:48,870 --> 00:49:51,660
+that return to user space,
+
+841
+00:49:51,900 --> 00:49:53,940
+in the last week's lecture.
+
+842
+00:49:56,690 --> 00:49:59,150
+Does this make sense, any questions about this one.
+
+843
+00:49:59,720 --> 00:50:08,120
+I'm sorry, when you say we mapped the parents virtual address to we also read write,
+
+844
+00:50:08,210 --> 00:50:12,080
+how do we find it out, is the same as the child's?
+
+845
+00:50:12,200 --> 00:50:18,350
+Yeah because the address space of the child is a duplicate of the parents address space right,
+
+846
+00:50:18,350 --> 00:50:21,290
+so if we fall to a particular virtual address.
+
+847
+00:50:21,640 --> 00:50:23,260
+Seems the address spaces are equal,
+
+848
+00:50:23,470 --> 00:50:25,660
+you know the same virtual address
+
+849
+00:50:25,660 --> 00:50:28,630
+both the parents address space and in the child's address space.
+
+850
+00:50:31,580 --> 00:50:32,870
+Makes sense, thank you.
+
+851
+00:50:36,490 --> 00:50:37,720
+Another question?
+
+852
+00:50:37,900 --> 00:50:38,350
+Yeah.
+
+853
+00:50:39,130 --> 00:50:43,900
+For, let's say, like some parent [] process,
+
+854
+00:50:43,930 --> 00:50:48,640
+maybe like the first one that launches does it use its pages,
+
+855
+00:50:49,280 --> 00:50:52,220
+god, does it set just read permissions
+
+856
+00:50:52,460 --> 00:50:54,590
+or does it start off with read write,
+
+857
+00:50:55,010 --> 00:50:57,380
+when it forks it modifies.
+
+858
+00:50:58,060 --> 00:50:59,530
+OK, OK, it's up to you,
+
+859
+00:51:00,640 --> 00:51:03,580
+if I knew this is also one lab.
+
+860
+00:51:04,240 --> 00:51:07,540
+You can implement copy-on-write after the lazy lab,
+
+861
+00:51:07,930 --> 00:51:09,490
+you have some freedom
+
+862
+00:51:09,490 --> 00:51:11,950
+and an easy thing to do is just also map read only,
+
+863
+00:51:12,280 --> 00:51:13,510
+you will get a page fault,
+
+864
+00:51:13,840 --> 00:51:17,530
+and then you do whatever you normally also would do in the copy-on-write.
+
+865
+00:51:18,030 --> 00:51:21,030
+So you can use the same mechanism, in both cases.
+
+866
+00:51:22,750 --> 00:51:28,000
+There's no reason to actually specialize for some separate for the first process.
+
+867
+00:51:30,100 --> 00:51:30,520
+Okay.
+
+868
+00:51:31,960 --> 00:51:35,150
+So , I also have a question,
+
+869
+00:51:35,150 --> 00:51:39,170
+given that we like kind of copy whole tables,
+
+870
+00:51:39,230 --> 00:51:42,020
+sorry, whole pages around pretty often,
+
+871
+00:51:42,770 --> 00:51:44,840
+does any how,
+
+872
+00:51:44,840 --> 00:51:48,920
+like memory hardware, implement like a specific instruction,
+
+873
+00:51:48,920 --> 00:51:52,220
+because basically memory hardware will usually just have
+
+874
+00:51:52,220 --> 00:51:57,590
+like some data lines to say read me or stored just memory,
+
+875
+00:51:57,650 --> 00:52:01,220
+but we have like [oh] copy page a to page b.
+
+876
+00:52:02,510 --> 00:52:08,090
+Yeah, x86 example has hardware instructions for copying range of memory.
+
+877
+00:52:08,560 --> 00:52:11,470
+Um, you know RISC-V doesn't .
+
+878
+00:52:12,180 --> 00:52:14,520
+Um, yeah, but of course you know in,
+
+879
+00:52:14,520 --> 00:52:17,280
+in a very high performance implementation,
+
+880
+00:52:17,550 --> 00:52:21,030
+[] writes will be pipe lined,
+
+881
+00:52:21,390 --> 00:52:24,810
+in hopefully run at the speed of the memory bandwidth.
+
+882
+00:52:28,150 --> 00:52:30,940
+Note that actually, in principle,
+
+883
+00:52:30,940 --> 00:52:33,010
+we might be lucky and we're saving, correct,
+
+884
+00:52:33,010 --> 00:52:35,050
+on loads and stores or copies,
+
+885
+00:52:35,290 --> 00:52:36,700
+because in this particular picture,
+
+886
+00:52:36,790 --> 00:52:38,080
+I made only one copy
+
+887
+00:52:38,140 --> 00:52:42,130
+and in the unmodified case, we would have copied all four pages.
+
+888
+00:52:43,120 --> 00:52:45,610
+And so, hopefully this is strictly better,
+
+889
+00:52:45,640 --> 00:52:48,760
+both in terms of memory consumption and in terms of performance,
+
+890
+00:52:48,910 --> 00:52:50,020
+you know fork will just be faster.
+
+891
+00:52:54,090 --> 00:52:55,290
+I have a quick question,
+
+892
+00:52:55,470 --> 00:52:59,370
+when when the page fault occurs
+
+893
+00:52:59,370 --> 00:53:02,040
+and we see that it was essentially
+
+894
+00:53:02,160 --> 00:53:04,620
+like we were trying to write to a read only address,
+
+895
+00:53:04,830 --> 00:53:06,750
+how does the kernel tell,
+
+896
+00:53:06,780 --> 00:53:10,380
+like this is a situation where it's copy-on-write fork
+
+897
+00:53:10,440 --> 00:53:14,520
+versus just a situation where the memory it was trying to write was was marked as read only
+
+898
+00:53:14,520 --> 00:53:17,820
+for some legitimate reason other than copy-on-write fork
+
+899
+00:53:17,820 --> 00:53:21,900
+is just kind of an invariance that if a its user memory,
+
+900
+00:53:21,900 --> 00:53:23,490
+then it will be mapped read write,
+
+901
+00:53:23,490 --> 00:53:25,380
+unless it was a result of copy-on fork.
+
+902
+00:53:25,880 --> 00:53:30,710
+Yeah yeah, so it is an invariant that needs to be maintained in the kernel
+
+903
+00:53:30,710 --> 00:53:34,160
+and the kernel must recognize in some way that this is a copy-on-write page,
+
+904
+00:53:34,160 --> 00:53:34,730
+if you will.
+
+905
+00:53:35,340 --> 00:53:37,500
+And so I'm very glad you asked the question,
+
+906
+00:53:37,500 --> 00:53:40,680
+because it turns out you know the RISC-V hardware,
+
+907
+00:53:40,680 --> 00:53:43,290
+almost all pagetable hardware actually has support for this.
+
+908
+00:53:43,870 --> 00:53:46,180
+And we didn't mention it earlier,
+
+909
+00:53:46,180 --> 00:53:53,080
+but here's our usual you know, whatever two level, or multilevel pagetable use pte.
+
+910
+00:53:56,040 --> 00:53:57,810
+And you're looking at pte,
+
+911
+00:53:57,810 --> 00:54:01,170
+you know I talked about the bits you know one zero through seven,
+
+912
+00:54:01,200 --> 00:54:04,110
+but not about these two bits, RSW.
+
+913
+00:54:06,190 --> 00:54:09,640
+And, they are reserved for supervisor software.
+
+914
+00:54:10,200 --> 00:54:13,170
+So the supervisor software, this is the kernel,
+
+915
+00:54:13,440 --> 00:54:17,010
+you can use these bits at its own free will.
+
+916
+00:54:17,550 --> 00:54:19,230
+And so one thing one could do
+
+917
+00:54:19,230 --> 00:54:22,800
+is like say decide that being a basically means this is a copy-on-write page
+
+918
+00:54:22,830 --> 00:54:23,970
+or copy-on-write fault.
+
+919
+00:54:24,610 --> 00:54:30,610
+And so when the kernel programs, these page tables for copy-on-write,
+
+920
+00:54:30,610 --> 00:54:32,650
+you can just put on the ptes,
+
+921
+00:54:32,650 --> 00:54:34,180
+you know for these particular pages.
+
+922
+00:54:34,640 --> 00:54:39,170
+Um the bits, you know set to be a copy-on-write,
+
+923
+00:54:39,200 --> 00:54:41,030
+so that when the page fault happens
+
+924
+00:54:41,270 --> 00:54:44,090
+and we see that the copy-on-write bit set,
+
+925
+00:54:44,180 --> 00:54:45,890
+then we just go off into this.
+
+926
+00:54:46,780 --> 00:54:48,070
+And otherwise we do something else.
+
+927
+00:54:49,970 --> 00:54:51,560
+For example, maybe the lazy allocation.
+
+928
+00:54:54,310 --> 00:54:54,970
+Does that make sense.
+
+929
+00:54:56,450 --> 00:54:57,230
+Yep, thank you.
+
+930
+00:54:57,980 --> 00:55:00,920
+And in fact in in the lab,
+
+931
+00:55:00,920 --> 00:55:02,270
+one of the things you will be doing
+
+932
+00:55:02,270 --> 00:55:06,020
+is probably use that bit you know set a copy-on-write in the pte.
+
+933
+00:55:07,380 --> 00:55:11,850
+There's one more [wrinkle] that will show up in the copy-on-write lab
+
+934
+00:55:11,850 --> 00:55:15,210
+is that there's some currently in xv6,
+
+935
+00:55:15,210 --> 00:55:20,430
+basically a physical page more or less only belongs to one process.
+
+936
+00:55:20,820 --> 00:55:22,620
+With the exception of the trampoline page,
+
+937
+00:55:23,160 --> 00:55:24,840
+which that trampoline were never free,
+
+938
+00:55:24,840 --> 00:55:27,030
+so that's not really going to a particular big issue.
+
+939
+00:55:27,630 --> 00:55:32,680
+But for these pages you now we have multiple processes
+
+940
+00:55:32,740 --> 00:55:35,680
+or multiple address spaces pointing to the same physical address.
+
+941
+00:55:36,180 --> 00:55:39,730
+And so, for example if the parent exits right away,
+
+942
+00:55:39,730 --> 00:55:41,650
+we're gonna live with care and be careful right,
+
+943
+00:55:41,650 --> 00:55:43,990
+because can we free that page immediately,
+
+944
+00:55:44,560 --> 00:55:45,580
+if the parent exits.
+
+945
+00:55:50,520 --> 00:55:54,810
+Maybe not, because there may be multiple children processes.
+
+946
+00:55:54,810 --> 00:55:57,000
+Yeah, there might be child using that page
+
+947
+00:55:57,000 --> 00:55:59,460
+and so we've kernel would free that page,
+
+948
+00:55:59,580 --> 00:56:02,490
+then, you know we're gonna be in trouble,
+
+949
+00:56:02,520 --> 00:56:05,430
+because basically the if you look at kfree,
+
+950
+00:56:05,430 --> 00:56:08,880
+kfree actually writes all kinds once on a free page
+
+951
+00:56:09,180 --> 00:56:10,860
+and so then the child runs with that page
+
+952
+00:56:10,860 --> 00:56:12,450
+and all kinds of [bizarre] things are gonna happen.
+
+953
+00:56:14,040 --> 00:56:16,080
+So what should you be now for free.
+
+954
+00:56:23,450 --> 00:56:28,370
+Free, if you don't have children, I guess.
+
+955
+00:56:28,400 --> 00:56:32,030
+Yeah, we may be better way of sort of a more general version of that statement
+
+956
+00:56:32,030 --> 00:56:34,070
+is to say well what we really need to do
+
+957
+00:56:34,130 --> 00:56:39,930
+is we need a ref count every physical page.
+
+958
+00:56:41,130 --> 00:56:45,000
+And when we free the page, we decrease the ref down by one
+
+959
+00:56:45,180 --> 00:56:46,680
+and if the ref count reaches zero,
+
+960
+00:56:46,680 --> 00:56:48,270
+then actually we can free the page.
+
+961
+00:56:48,940 --> 00:56:52,180
+And so you will have to introduce some additional data structure
+
+962
+00:56:52,180 --> 00:56:54,280
+or meta information in the copy-on-write,
+
+963
+00:56:54,280 --> 00:56:56,560
+lot actually do that ref counting.
+
+964
+00:56:59,740 --> 00:57:00,820
+Where can we store this,
+
+965
+00:57:00,820 --> 00:57:03,850
+because this if we ever have the ref count every single page,
+
+966
+00:57:03,850 --> 00:57:04,840
+that can be a lot.
+
+967
+00:57:05,320 --> 00:57:07,990
+Yeah well for every physical page of memory,
+
+968
+00:57:07,990 --> 00:57:09,520
+we will have to do a ref count.
+
+969
+00:57:10,760 --> 00:57:12,470
+Yeah you can get away with a little bit less,
+
+970
+00:57:12,470 --> 00:57:14,540
+but then we're in for simplification in lab,
+
+971
+00:57:14,540 --> 00:57:18,350
+we're just for everyone for every 4096 bytes.
+
+972
+00:57:18,820 --> 00:57:20,260
+We need to contain a reference count.
+
+973
+00:57:23,630 --> 00:57:31,460
+Can we write that down in those other two free bits and say that, no more than for.
+
+974
+00:57:31,880 --> 00:57:38,300
+Good yeah, not unreasonable,
+
+975
+00:57:38,300 --> 00:57:41,210
+but you know if you're [fork] it multiple times.
+
+976
+00:57:41,640 --> 00:57:42,990
+That be too bad, right.
+
+977
+00:57:44,320 --> 00:57:47,950
+After three times or four times, you can't do can't do the optimization anymore.
+
+978
+00:57:52,120 --> 00:57:53,890
+Yeah there's some freedom here.
+
+979
+00:57:54,960 --> 00:58:01,050
+Um, also, do you really need to use that bit to specify if it's a copy-on-write,
+
+980
+00:58:01,050 --> 00:58:07,860
+because the kernel could also maintain some information about the processes that.
+
+981
+00:58:08,430 --> 00:58:11,730
+Yeah yeah yeah, you could you could do anything,
+
+982
+00:58:11,730 --> 00:58:14,760
+some other matter information along with the process address base to say,
+
+983
+00:58:14,760 --> 00:58:18,180
+basically well virtual addresses between this and that are text addresses,
+
+984
+00:58:18,480 --> 00:58:19,830
+so we have a page fault there
+
+985
+00:58:19,830 --> 00:58:22,170
+and it must be copy-on-write or something.
+
+986
+00:58:23,090 --> 00:58:24,950
+In fact one of the later labs,
+
+987
+00:58:24,950 --> 00:58:30,140
+you know you'll certainly extend the meta information that xv6 maintains,
+
+988
+00:58:30,640 --> 00:58:31,540
+exactly for that reason.
+
+989
+00:58:34,110 --> 00:58:35,220
+There's a bit of freedom here
+
+990
+00:58:35,310 --> 00:58:37,020
+and when you start implementing these labs.
+
+991
+00:58:41,040 --> 00:58:42,330
+Any further questions about this.
+
+992
+00:59:03,900 --> 00:59:06,570
+Okay, let's go to the next one,
+
+993
+00:59:06,750 --> 00:59:09,420
+there's something called demand paging.
+
+994
+00:59:11,350 --> 00:59:14,590
+Another very popular one in most operating systems implemented.
+
+995
+00:59:17,100 --> 00:59:21,090
+And so the you know it just goes back basically to exec.
+
+996
+00:59:24,220 --> 00:59:30,340
+So currently in unmodified xv6, you know xv6 loads the text segment,
+
+997
+00:59:32,250 --> 00:59:34,860
+and the data segment profile
+
+998
+00:59:34,950 --> 00:59:42,790
+and maps in eagerly in basically nto the pagetable.
+
+999
+00:59:46,960 --> 00:59:49,330
+And basically the same observation that we made
+
+1000
+00:59:49,330 --> 00:59:51,250
+for lazy and zero filled,
+
+1001
+00:59:51,370 --> 00:59:54,430
+is that well what we could do is like why do it eagerly,
+
+1002
+00:59:54,490 --> 00:59:56,380
+why not just wait a little while,
+
+1003
+00:59:56,710 --> 00:59:59,950
+until to see if actually the application really needs,
+
+1004
+00:59:59,950 --> 01:00:01,660
+you know those particular set of instructions,
+
+1005
+01:00:01,660 --> 01:00:03,760
+you know the binary might be very big.
+
+1006
+01:00:04,270 --> 01:00:09,010
+Um, in, instead of actually loading it all in,
+
+1007
+01:00:09,040 --> 01:00:09,730
+you know from disk,
+
+1008
+01:00:09,730 --> 01:00:11,440
+it tends to be expensive operation,
+
+1009
+01:00:11,740 --> 01:00:14,530
+maybe the data segment is much bigger than really needs
+
+1010
+01:00:14,530 --> 01:00:17,350
+than the typical use case requires,
+
+1011
+01:00:17,440 --> 01:00:18,970
+we don't really have to do that.
+
+1012
+01:00:19,700 --> 01:00:21,680
+And so instead of ,
+
+1013
+01:00:21,680 --> 01:00:25,670
+on exec, instead of actually we allocate the virtual address space,
+
+1014
+01:00:25,670 --> 01:00:29,450
+you know allocate the address space for the text and the data,
+
+1015
+01:00:29,450 --> 01:00:31,580
+that's in the file,
+
+1016
+01:00:31,700 --> 01:00:35,420
+but in the ptes were not mapped all,
+
+1017
+01:00:35,690 --> 01:00:39,020
+we're just gonna keep going pte for one of these pages,
+
+1018
+01:00:39,020 --> 01:00:42,020
+we just cannot set valid bit, so valid bit to zero.
+
+1019
+01:00:44,180 --> 01:00:48,020
+And of course you know, when we're gonna get our first page fault.
+
+1020
+01:00:49,840 --> 01:00:51,250
+If we do this in exec
+
+1021
+01:00:51,280 --> 01:00:53,530
+and let's say we modify xv6 to do this.
+
+1022
+01:00:54,350 --> 01:00:56,060
+When will our first page fault happen.
+
+1023
+01:00:59,900 --> 01:01:02,930
+What's the first instruction that is being run for user address
+
+1024
+01:01:05,310 --> 01:01:06,300
+or user program.
+
+1025
+01:01:09,690 --> 01:01:11,130
+Where does the user program start.
+
+1026
+01:01:12,220 --> 01:01:14,560
+Is it loading the initial code,
+
+1027
+01:01:14,860 --> 01:01:15,880
+in uvminit.
+
+1028
+01:01:16,000 --> 01:01:20,410
+Yeah okay, we're just [zero point of],
+
+1029
+01:01:20,410 --> 01:01:24,190
+modifying exec and not called the uvminit, where.
+
+1030
+01:01:28,660 --> 01:01:31,390
+So mostly when we actually if you remember from for [growth]
+
+1031
+01:01:31,390 --> 01:01:32,110
+or something like that,
+
+1032
+01:01:32,110 --> 01:01:35,320
+you know the place where an application starts exactly address zero,
+
+1033
+01:01:35,980 --> 01:01:38,110
+pictures a little bit is leading here,
+
+1034
+01:01:38,110 --> 01:01:42,010
+but here's text, here zero it goes up to some number
+
+1035
+01:01:42,190 --> 01:01:44,470
+and basically the first instruction whatever sits here,
+
+1036
+01:01:44,800 --> 01:01:46,540
+that's the first instruction that we're gonna actually,
+
+1037
+01:01:46,540 --> 01:01:49,930
+that address, that's the first instruction, we're going to get a page fault, right.
+
+1038
+01:01:51,190 --> 01:01:52,990
+Because we have not loaded it.
+
+1039
+01:02:02,940 --> 01:02:04,140
+So what do you want the page fault.
+
+1040
+01:02:07,930 --> 01:02:09,400
+Well we're going to do in the page fault,
+
+1041
+01:02:09,550 --> 01:02:14,950
+it's basically will note that this is one of these on demand pages.
+
+1042
+01:02:15,420 --> 01:02:18,360
+We have to remember somewhere earlier,
+
+1043
+01:02:18,360 --> 01:02:20,490
+that you know this corresponds to some,
+
+1044
+01:02:21,020 --> 01:02:23,690
+that this corresponds to some file.
+
+1045
+01:02:25,920 --> 01:02:29,670
+Imagine what we're gonna do in the page fault handler is read.
+
+1046
+01:02:30,400 --> 01:02:38,970
+You know that block page, [] from file into memory.
+
+1047
+01:02:41,890 --> 01:02:46,840
+Map the memory into the pagetable.
+
+1048
+01:02:49,460 --> 01:02:50,870
+Then restart the instruction.
+
+1049
+01:02:56,720 --> 01:02:59,300
+And, then we're off for running right,
+
+1050
+01:02:59,300 --> 01:03:01,640
+and so we're gonna go in the worst case,
+
+1051
+01:03:01,640 --> 01:03:05,480
+if the user program uses all of its text, uses all of this data,
+
+1052
+01:03:05,600 --> 01:03:07,850
+then we're going to get a page fault for every page,
+
+1053
+01:03:07,850 --> 01:03:11,900
+you know in the, in the program.
+
+1054
+01:03:12,590 --> 01:03:15,050
+But you know we get lucky in the program,
+
+1055
+01:03:15,050 --> 01:03:16,700
+it doesn't use all of its data segment
+
+1056
+01:03:16,700 --> 01:03:18,260
+or doesn't use all of its text segment,
+
+1057
+01:03:18,380 --> 01:03:20,630
+then we might save some memory
+
+1058
+01:03:20,630 --> 01:03:24,970
+and we certainly make exec you know perform, you know, much quicker
+
+1059
+01:03:24,970 --> 01:03:26,620
+and it'll be a little bit more interactive,
+
+1060
+01:03:26,770 --> 01:03:28,480
+assumes the program starts boom it's running,
+
+1061
+01:03:28,930 --> 01:03:31,240
+well we actually have to do any work exactly.
+
+1062
+01:03:33,480 --> 01:03:35,310
+Does that makes this observation makes sense.
+
+1063
+01:03:42,140 --> 01:03:46,220
+Okay so there's a slight extension to demand paging.
+
+1064
+01:03:51,520 --> 01:03:53,470
+So this is the second part of the demand paging.
+
+1065
+01:03:59,150 --> 01:04:00,140
+Right, there's more.
+
+1066
+01:04:01,390 --> 01:04:01,990
+Really.
+
+1067
+01:04:04,960 --> 01:04:06,490
+Part two demand paging,
+
+1068
+01:04:06,730 --> 01:04:09,100
+in principle, there's a little bit of problem here,
+
+1069
+01:04:09,130 --> 01:04:10,630
+that we haven't really discussed,
+
+1070
+01:04:10,990 --> 01:04:12,220
+it might be the case,
+
+1071
+01:04:12,250 --> 01:04:14,290
+may be the file that we're actually reading
+
+1072
+01:04:14,290 --> 01:04:17,620
+or the text and data segments are even bigger than what actually is in physical memory,
+
+1073
+01:04:17,650 --> 01:04:21,820
+or if multiple applications started with demand paging,
+
+1074
+01:04:21,850 --> 01:04:24,820
+maybe there's some of their binary's.
+
+1075
+01:04:24,820 --> 01:04:27,280
+It's basically bigger than there actually is a physical memory.
+
+1076
+01:04:28,700 --> 01:04:31,970
+And so, the typical thing you know what ,
+
+1077
+01:04:32,150 --> 01:04:34,010
+if you go down this demand paging,
+
+1078
+01:04:34,010 --> 01:04:37,820
+[round] is to actually if you run out of memory.
+
+1079
+01:04:38,990 --> 01:04:40,640
+So if kalloc returns zero.
+
+1080
+01:04:41,420 --> 01:04:42,410
+It's out of memory.
+
+1081
+01:04:45,440 --> 01:04:48,310
+So, for example, you know your demand page,
+
+1082
+01:04:48,340 --> 01:04:51,520
+you get a page fault at some page,
+
+1083
+01:04:51,520 --> 01:04:55,780
+that needs to be a paged in from a file system,
+
+1084
+01:04:56,050 --> 01:04:58,120
+but you don't have any more free pages,
+
+1085
+01:04:58,330 --> 01:04:59,170
+you need to do something.
+
+1086
+01:04:59,720 --> 01:05:02,930
+And so the typical this comes back to earlier question of example,
+
+1087
+01:05:02,930 --> 01:05:04,070
+the same is true for lazy
+
+1088
+01:05:04,070 --> 01:05:07,070
+or you know what to do if you run out of memory.
+
+1089
+01:05:07,610 --> 01:05:08,720
+So if you run out of memory,
+
+1090
+01:05:08,720 --> 01:05:14,240
+one option that you really clearly have is to evict a page.
+
+1091
+01:05:19,260 --> 01:05:21,480
+You can example instead of you know you can example
+
+1092
+01:05:21,480 --> 01:05:24,210
+and pick the page and write to the file back.
+
+1093
+01:05:25,020 --> 01:05:28,710
+So for example it's a data page that got modified,
+
+1094
+01:05:28,710 --> 01:05:31,200
+so you can write it back to the file system.
+
+1095
+01:05:32,160 --> 01:05:34,770
+And then once you pick the page
+
+1096
+01:05:34,800 --> 01:05:36,420
+and then you have a new free page
+
+1097
+01:05:36,750 --> 01:05:42,510
+and you can put the use that you use the new just free page.
+
+1098
+01:05:47,020 --> 01:05:50,440
+To satisfy you know the fault that you had
+
+1099
+01:05:50,650 --> 01:05:52,570
+and then visually restarting instruction again.
+
+1100
+01:05:58,810 --> 01:06:00,880
+Again, restarting instruction is a little more complicated,
+
+1101
+01:06:00,880 --> 01:06:04,390
+because the whole machinery to basically do userret
+
+1102
+01:06:04,780 --> 01:06:09,310
+and started and transfer back to user space, etc.
+
+1103
+01:06:11,070 --> 01:06:13,950
+And so this is a typical operating system will do this
+
+1104
+01:06:14,010 --> 01:06:17,760
+and of course the key question is like what page to evict.
+
+1105
+01:06:19,890 --> 01:06:21,180
+Which one to choose.
+
+1106
+01:06:22,340 --> 01:06:25,160
+So what are some candidates you know what do.
+
+1107
+01:06:25,950 --> 01:06:28,860
+What would be a reasonable policy for choosing a page to evict.
+
+1108
+01:06:30,280 --> 01:06:31,630
+Least recently used.
+
+1109
+01:06:31,930 --> 01:06:37,610
+Yeah, so this is the most commonly used strategy, least recently used,
+
+1110
+01:06:43,910 --> 01:06:45,290
+or LRU.
+
+1111
+01:06:47,860 --> 01:06:53,050
+And, that was gonna page was typically is thrown out,
+
+1112
+01:06:53,500 --> 01:06:58,120
+there's a couple sort of twist typically return to some small optimizations that do,
+
+1113
+01:06:58,420 --> 01:07:00,190
+if you have to pick the page
+
+1114
+01:07:00,190 --> 01:07:04,760
+and you have to choice between dirty page and non-dirty page,
+
+1115
+01:07:04,760 --> 01:07:07,100
+so dirty pages page where there was a store too
+
+1116
+01:07:07,520 --> 01:07:11,450
+and non-dirty pages or pages basically has been read, but not written to,
+
+1117
+01:07:11,750 --> 01:07:12,860
+which one would you prefer,
+
+1118
+01:07:13,590 --> 01:07:14,550
+evict first.
+
+1119
+01:07:16,700 --> 01:07:21,290
+Dirty one, because you would have to write the dirty one at some point anyway.
+
+1120
+01:07:21,840 --> 01:07:22,830
+Yeah.
+
+1121
+01:07:23,460 --> 01:07:26,460
+So sorry, say again actually just double-check there.
+
+1122
+01:07:27,130 --> 01:07:32,650
+I said dirty, because dirty pages would need to be written into memory at some point.
+
+1123
+01:07:33,180 --> 01:07:37,740
+Yeah that's true, then maybe now you have to write it twice,
+
+1124
+01:07:37,770 --> 01:07:40,320
+you know once you write it may be modified later again.
+
+1125
+01:07:41,490 --> 01:07:42,750
+And so actually typically.
+
+1126
+01:07:42,870 --> 01:07:45,120
+OK OK's I see.
+
+1127
+01:07:45,120 --> 01:07:46,230
+Exactly the opposite.
+
+1128
+01:07:46,870 --> 01:07:49,510
+They choose a page that actually has not been written
+
+1129
+01:07:49,540 --> 01:07:50,320
+or it's not dirty,
+
+1130
+01:07:50,320 --> 01:07:51,550
+because you don't have to do anything,
+
+1131
+01:07:51,700 --> 01:07:52,780
+you can just reuse it,
+
+1132
+01:07:52,810 --> 01:07:57,880
+you can just take [mark] if it is present in pt- in pagetable one,
+
+1133
+01:07:57,910 --> 01:07:59,350
+you [mark] there is non valid
+
+1134
+01:07:59,800 --> 01:08:01,150
+and then you're done.
+
+1135
+01:08:01,700 --> 01:08:04,550
+And then you can reuse that page in another pagetable.
+
+1136
+01:08:05,340 --> 01:08:07,890
+And so the preference intensity is a take pages
+
+1137
+01:08:07,890 --> 01:08:11,490
+that have been not non-dirty ones first.
+
+1138
+01:08:13,600 --> 01:08:17,900
+Can I just ask for a clarification on the dirty pages.
+
+1139
+01:08:18,400 --> 01:08:18,730
+Yeah.
+
+1140
+01:08:18,730 --> 01:08:23,620
+So, I I know, like in a cache,
+
+1141
+01:08:23,620 --> 01:08:26,590
+when we have memory and then we say okay a line is dirty,
+
+1142
+01:08:26,590 --> 01:08:28,360
+because it hasn't been written to memory,
+
+1143
+01:08:28,540 --> 01:08:32,650
+but what about a page in memory like what does it correspond to like, how is it dirty,
+
+1144
+01:08:32,650 --> 01:08:34,570
+where does it have to be written back to,
+
+1145
+01:08:34,690 --> 01:08:36,250
+it just exists in memory right,
+
+1146
+01:08:36,250 --> 01:08:39,820
+isn't that the whole whole thing like it doesn't exist anywhere else really,
+
+1147
+01:08:40,120 --> 01:08:41,410
+so when can it be dirty.
+
+1148
+01:08:41,890 --> 01:08:44,470
+Yeah okay, so for example if the demand page file page.
+
+1149
+01:08:45,290 --> 01:08:47,000
+Actually we'll talk about in a second,
+
+1150
+01:08:47,000 --> 01:08:49,220
+like in the next ,
+
+1151
+01:08:49,340 --> 01:08:50,930
+maybe a little bit too much,
+
+1152
+01:08:50,960 --> 01:08:53,600
+but if you memory map files,
+
+1153
+01:08:53,630 --> 01:08:58,250
+where you map a file into memory ,
+
+1154
+01:08:58,250 --> 01:08:59,570
+and then do store to it,
+
+1155
+01:08:59,570 --> 01:09:00,890
+then you would dirty that page.
+
+1156
+01:09:01,280 --> 01:09:03,770
+Okay so that only applies when like a page,
+
+1157
+01:09:03,770 --> 01:09:06,020
+actually response not just to some memory,
+
+1158
+01:09:06,020 --> 01:09:08,090
+but also to a file or something else.
+
+1159
+01:09:08,270 --> 01:09:10,360
+Okay, okay, that makes sense.
+
+1160
+01:09:10,570 --> 01:09:10,870
+Yeah.
+
+1161
+01:09:13,020 --> 01:09:14,790
+Okay, so just to ,
+
+1162
+01:09:14,820 --> 01:09:18,280
+you know just to make one more two more points related to this,
+
+1163
+01:09:18,580 --> 01:09:22,510
+if you look at this pte again.
+
+1164
+01:09:23,220 --> 01:09:24,900
+So we saw this RSW bit,
+
+1165
+01:09:25,050 --> 01:09:27,660
+you'll notice there actually is a bit seven,
+
+1166
+01:09:27,660 --> 01:09:28,650
+that is the dirty bit.
+
+1167
+01:09:29,320 --> 01:09:32,470
+So when the paging hardware where the hardware ever writes,
+
+1168
+01:09:32,470 --> 01:09:34,690
+you know to page then watch this after dirty bits,
+
+1169
+01:09:34,840 --> 01:09:36,280
+so the operating system later can see,
+
+1170
+01:09:36,280 --> 01:09:39,940
+, oh, this actually page can easily see this page that's actually written to.
+
+1171
+01:09:41,290 --> 01:09:44,770
+And similarly there is a A bit,
+
+1172
+01:09:46,260 --> 01:09:47,700
+that stands for access.
+
+1173
+01:09:48,760 --> 01:09:50,560
+And so whenever pages either written
+
+1174
+01:09:50,590 --> 01:09:54,520
+or written either read or written the access bit will be set.
+
+1175
+01:09:55,090 --> 01:09:58,540
+And, and why is it useful to know.
+
+1176
+01:10:07,430 --> 01:10:09,080
+In one way, could that help the kernel.
+
+1177
+01:10:09,730 --> 01:10:12,940
+Well, the ones that haven't been accessed,
+
+1178
+01:10:12,940 --> 01:10:15,040
+you can, you can evict right.
+
+1179
+01:10:15,650 --> 01:10:19,580
+Yeah, what are you saying that if you want to implement these recently used,
+
+1180
+01:10:20,280 --> 01:10:25,590
+if , if you find a page that basically hasn't been accessed in some period of time,
+
+1181
+01:10:25,590 --> 01:10:27,390
+you know it actually hasn't been recently used,
+
+1182
+01:10:27,420 --> 01:10:29,190
+so it actually is a candidate for eviction,
+
+1183
+01:10:29,460 --> 01:10:31,800
+while the pages that have the access bit set,
+
+1184
+01:10:31,920 --> 01:10:33,450
+are not really candidates for eviction.
+
+1185
+01:10:34,990 --> 01:10:37,300
+So, A bit typically used
+
+1186
+01:10:37,300 --> 01:10:41,680
+where actually is typically used to implement this LRU strategy.
+
+1187
+01:10:44,540 --> 01:10:50,840
+Okay, but would you have to reset the access bits
+
+1188
+01:10:50,870 --> 01:10:53,540
+to not access every once in a while.
+
+1189
+01:10:53,570 --> 01:10:56,480
+Exactly, that's exactly what the typical operations will do.
+
+1190
+01:10:57,170 --> 01:10:59,510
+And if they don't even maybe for all memory,
+
+1191
+01:10:59,510 --> 01:11:02,480
+they [sweep] from memory [],
+
+1192
+01:11:02,480 --> 01:11:06,020
+famous algorithm, which is called the clock algorithm that is one way of doing it.
+
+1193
+01:11:10,810 --> 01:11:14,200
+Very why would you need to set it, why would you to reset it.
+
+1194
+01:11:14,740 --> 01:11:17,350
+Well, if you want to know when our pages recently used,
+
+1195
+01:11:17,410 --> 01:11:20,380
+you need and you make a periodic decision,
+
+1196
+01:11:20,800 --> 01:11:24,160
+then say maybe every hundred milliseconds or whatever every seconds,
+
+1197
+01:11:24,160 --> 01:11:25,960
+you clear the access bit,
+
+1198
+01:11:26,320 --> 01:11:28,780
+yeah it gets access in the next hundred milliseconds,
+
+1199
+01:11:28,780 --> 01:11:30,760
+you know it was used in the last hundred milliseconds.
+
+1200
+01:11:32,730 --> 01:11:34,650
+And the pages that don't have the access,
+
+1201
+01:11:34,650 --> 01:11:36,840
+they said were not used in last in the milliseconds.
+
+1202
+01:11:39,150 --> 01:11:42,120
+And so then you can keep counters with how intentionally they used
+
+1203
+01:11:42,120 --> 01:11:48,210
+and what is and for really especially the [steppingstone] to sophisticate our implementation.
+
+1204
+01:11:52,840 --> 01:11:53,800
+Okay .
+
+1205
+01:11:55,350 --> 01:11:58,500
+I want to talk about one more used to ,
+
+1206
+01:11:59,310 --> 01:12:04,740
+the last one actually you also will be implementing in one of the labs.
+
+1207
+01:12:05,440 --> 01:12:07,900
+And that is a memory mapped files.
+
+1208
+01:12:21,140 --> 01:12:25,340
+The idea is that you know we're we have our address space,
+
+1209
+01:12:25,760 --> 01:12:28,490
+what we really want to do is basically be able to load
+
+1210
+01:12:28,520 --> 01:12:31,220
+the whole file or parts of the file into the address space,
+
+1211
+01:12:31,370 --> 01:12:35,390
+so that we can just manipulate the content of the file using load store instructions,
+
+1212
+01:12:36,650 --> 01:12:41,840
+instead of read else you can write .
+
+1213
+01:12:42,400 --> 01:12:43,840
+And to be able to support that,
+
+1214
+01:12:43,840 --> 01:12:47,200
+you know a typical operating system where most modern operating systems
+
+1215
+01:12:47,200 --> 01:12:50,470
+called provide a system called mmap,
+
+1216
+01:12:52,120 --> 01:12:54,790
+and basically mmap takes a virtual address
+
+1217
+01:12:54,820 --> 01:13:01,770
+or pick some virtual address length protection flags.
+
+1218
+01:13:02,420 --> 01:13:03,410
+We're going to talk about
+
+1219
+01:13:03,710 --> 01:13:07,520
+and then file descriptor of an open file and an offset.
+
+1220
+01:13:08,960 --> 01:13:11,930
+Maybe with this's like you should map,
+
+1221
+01:13:12,290 --> 01:13:13,610
+you know they follow the descriptor .
+
+1222
+01:13:14,450 --> 01:13:16,460
+If this is addressing a virtual address,
+
+1223
+01:13:16,460 --> 01:13:21,380
+you know follow the descriptor or starting from offset in the file f,
+
+1224
+01:13:21,710 --> 01:13:25,490
+you know map that in at the address at the virtual address va.
+
+1225
+01:13:26,420 --> 01:13:29,720
+And do that we have some protection read, write etc.
+
+1226
+01:13:30,830 --> 01:13:32,150
+So let's say is read write,
+
+1227
+01:13:32,270 --> 01:13:36,590
+then you know the kernel when and so,
+
+1228
+01:13:37,160 --> 01:13:38,960
+the way it currently implements mmap,
+
+1229
+01:13:39,140 --> 01:13:41,210
+is it does eagerly,
+
+1230
+01:13:41,300 --> 01:13:43,730
+which is like most systems don't do it eagerly,
+
+1231
+01:13:43,940 --> 01:13:48,200
+basically copy, read all the bytes starting from offset,
+
+1232
+01:13:48,410 --> 01:13:54,320
+[lane] bytes starting from offset into memory sets up the ptes,
+
+1233
+01:13:54,560 --> 01:13:59,450
+to point to the physical memory for blocks are located
+
+1234
+01:13:59,660 --> 01:14:04,870
+and basically from then on the application user [confusion],
+
+1235
+01:14:04,930 --> 01:14:08,680
+use load and store instructions to actually modify the file
+
+1236
+01:14:08,830 --> 01:14:11,530
+and the maybe when they were all done,
+
+1237
+01:14:11,770 --> 01:14:14,500
+there's typically a corresponding unmap call,
+
+1238
+01:14:14,860 --> 01:14:16,510
+that .
+
+1239
+01:14:17,000 --> 01:14:22,310
+And at [length], then allows the application to say, OK I'm done with this particular file
+
+1240
+01:14:22,370 --> 01:14:23,720
+and at the point of unmap
+
+1241
+01:14:23,900 --> 01:14:26,030
+and we need to write back the dirty blocks.
+
+1242
+01:14:32,190 --> 01:14:34,410
+And we can easily figure out which blocks are dirty,
+
+1243
+01:14:34,620 --> 01:14:37,680
+because they have D bit set into pte.
+
+1244
+01:14:38,660 --> 01:14:43,370
+Now, of course in any memory or sophisticated memory implementation,
+
+1245
+01:14:43,640 --> 01:14:45,500
+this is all done lately,
+
+1246
+01:14:45,500 --> 01:14:47,570
+you know you just don't map the file immediately,
+
+1247
+01:14:47,780 --> 01:14:49,820
+you just keep a record somewhere on the [site],
+
+1248
+01:14:49,820 --> 01:14:54,530
+saying like well you know this PTE really belongs to this particular file descriptor,
+
+1249
+01:14:54,530 --> 01:14:57,140
+so there's some information maintained on the [site]
+
+1250
+01:14:57,140 --> 01:15:00,220
+which is typically called in a structure called the vma
+
+1251
+01:15:00,220 --> 01:15:02,260
+or the virtual memory area.
+
+1252
+01:15:07,810 --> 01:15:10,210
+For example, for this file f would be one vma
+
+1253
+01:15:10,210 --> 01:15:14,320
+and in a vma we record the file descriptor the offset etc,
+
+1254
+01:15:14,560 --> 01:15:21,970
+where the actual content that then we should live and so when we get a page fault for a particular address,
+
+1255
+01:15:21,970 --> 01:15:23,680
+that's in this vma,
+
+1256
+01:15:23,740 --> 01:15:26,500
+then we can go off and the kernel can read it from disk
+
+1257
+01:15:26,560 --> 01:15:28,480
+and bring it into memory.
+
+1258
+01:15:30,340 --> 01:15:32,440
+And in response to an earlier question
+
+1259
+01:15:32,440 --> 01:15:34,480
+is one of the reasons that this dirty bit is important,
+
+1260
+01:15:34,480 --> 01:15:37,510
+because as mmap, you have to write back the dirty blocks.
+
+1261
+01:15:40,930 --> 01:15:41,770
+Does this make sense.
+
+1262
+01:15:43,960 --> 01:15:45,100
+I have a question.
+
+1263
+01:15:46,510 --> 01:15:49,450
+Maybe this is a more general issue,
+
+1264
+01:15:49,450 --> 01:15:55,120
+but could it ever be an issue of say multiple process [] are memory mapping the same file
+
+1265
+01:15:55,120 --> 01:15:58,740
+on secondary storage and then [delay] [synchronization] is.
+
+1266
+01:15:59,130 --> 01:16:00,120
+Good question,
+
+1267
+01:16:00,180 --> 01:16:03,300
+so what is the semantics in Unix in general
+
+1268
+01:16:03,300 --> 01:16:08,070
+like what happens if multiple processes read or write to the same file using read or write system calls.
+
+1269
+01:16:18,930 --> 01:16:20,430
+Did your needs guarantee anything.
+
+1270
+01:16:22,500 --> 01:16:23,700
+It's undefined.
+
+1271
+01:16:24,560 --> 01:16:28,730
+Yeah yeah there's like no the reason write will show up in some order
+
+1272
+01:16:28,820 --> 01:16:30,590
+or the writes will show up in some order,
+
+1273
+01:16:30,620 --> 01:16:34,240
+so if two process you write to the same block off the file,
+
+1274
+01:16:34,330 --> 01:16:36,100
+you know either the first process writes go
+
+1275
+01:16:36,100 --> 01:16:37,450
+or the second process writes go,
+
+1276
+01:16:37,720 --> 01:16:38,380
+one of two.
+
+1277
+01:16:38,940 --> 01:16:40,530
+And so here's basically the same thing,
+
+1278
+01:16:40,530 --> 01:16:42,120
+we don't really have to guarantee anything.
+
+1279
+01:16:42,980 --> 01:16:47,210
+If you want to do a more sophisticated Unix operating system support file [walking].
+
+1280
+01:16:47,760 --> 01:16:51,840
+Where you can lock files and then you can properly synchronize,
+
+1281
+01:16:52,080 --> 01:16:54,120
+by default, there's no synchronization,
+
+1282
+01:16:55,600 --> 01:16:57,100
+or no synchronization at this level.
+
+1283
+01:17:01,880 --> 01:17:02,450
+That makes sense.
+
+1284
+01:17:04,440 --> 01:17:07,470
+I'm sorry, what is length and what is flags.
+
+1285
+01:17:07,830 --> 01:17:13,320
+Of [like] length is the length of the you know the area you want to map the thousand number of bytes.
+
+1286
+01:17:13,890 --> 01:17:19,080
+Flags read write X flags, you know you'll see that when you do a map,
+
+1287
+01:17:19,080 --> 01:17:23,640
+I think this has to do with whether the area is mapped private or shared.
+
+1288
+01:17:24,250 --> 01:17:28,450
+If it's mapped shared and then it can be shared among multiple processes.
+
+1289
+01:17:35,160 --> 01:17:36,450
+Any further questions about this.
+
+1290
+01:17:41,540 --> 01:17:44,570
+If some other process modifies the file in this,
+
+1291
+01:17:44,600 --> 01:17:47,750
+that means that this will not be reflected here, right.
+
+1292
+01:17:48,470 --> 01:17:49,490
+That's correct,
+
+1293
+01:17:50,180 --> 01:17:52,310
+unless I think if mapped shared,
+
+1294
+01:17:52,340 --> 01:17:54,200
+then you're supposed to reflect those changes.
+
+1295
+01:17:55,030 --> 01:17:57,940
+Right, but then they would be using the same file descriptor.
+
+1296
+01:18:01,240 --> 01:18:04,990
+I'm hazy on the exact semantics of mmap,
+
+1297
+01:18:04,990 --> 01:18:07,360
+when things are shared and what exactly happens there.
+
+1298
+01:18:08,220 --> 01:18:10,770
+Okay I guess so I guess in like the idiomatic case,
+
+1299
+01:18:10,770 --> 01:18:14,070
+yeah and shared they would have to reflect it,
+
+1300
+01:18:14,070 --> 01:18:20,250
+but if a process just like actually open the same file name completely set separately,
+
+1301
+01:18:20,250 --> 01:18:23,850
+I think it could be a [nun synced], even if it's shared.
+
+1302
+01:18:31,040 --> 01:18:34,310
+Okay, so , so this is after the file system lab,
+
+1303
+01:18:34,340 --> 01:18:36,890
+you actually, do memory map files.
+
+1304
+01:18:37,420 --> 01:18:40,510
+And that will be our last virtual memory sort of lab,
+
+1305
+01:18:40,540 --> 01:18:45,370
+unless you decide at the end to do more virtual memory features or exercises
+
+1306
+01:18:45,370 --> 01:18:46,240
+or whatever you wanna do,
+
+1307
+01:18:46,660 --> 01:18:50,440
+you know the main [job] is to conclude this lecture .
+
+1308
+01:18:51,100 --> 01:18:53,210
+The, sort of summary.
+
+1309
+01:18:56,000 --> 01:18:59,390
+You know, we've lived in the past, in terms of great detail,
+
+1310
+01:18:59,390 --> 01:19:01,370
+exactly how pagetables work.
+
+1311
+01:19:03,050 --> 01:19:04,070
+We've done a couple labs,
+
+1312
+01:19:04,070 --> 01:19:05,510
+one lab of the pagetables,
+
+1313
+01:19:05,510 --> 01:19:07,880
+we've looked a lot like how traps work.
+
+1314
+01:19:08,470 --> 01:19:10,810
+And page fault,
+
+1315
+01:19:11,170 --> 01:19:13,990
+and it turns out if you combine the two.
+
+1316
+01:19:16,250 --> 01:19:24,620
+Now you're gonna implement very powerful and elegant virtual memory features.
+
+1317
+01:19:25,780 --> 01:19:27,580
+And you know went through a whole list of them,
+
+1318
+01:19:28,030 --> 01:19:31,990
+mostly focusing on the ones, that actually going to be implementing future lab,
+
+1319
+01:19:32,380 --> 01:19:35,530
+but you know this is only a subset for sample,
+
+1320
+01:19:36,020 --> 01:19:39,890
+of the ones that you know some operating systems implement the typical operating system
+
+1321
+01:19:39,890 --> 01:19:41,840
+to implement all the ones that actually discussed today.
+
+1322
+01:19:42,400 --> 01:19:44,170
+So you look at Linux and as all of them.
+
+1323
+01:19:45,800 --> 01:19:47,900
+And many more interesting other tricks,
+
+1324
+01:19:47,960 --> 01:19:49,790
+but this hopefully gives you good sense,
+
+1325
+01:19:49,790 --> 01:19:51,950
+you know sort out the power of virtual memory,
+
+1326
+01:19:52,190 --> 01:19:56,240
+once you dynamically can change the pagetables in the page fault handler.
+
+1327
+01:19:59,010 --> 01:20:01,410
+I think there's exactly at [25],
+
+1328
+01:20:01,410 --> 01:20:03,180
+so maybe that's a good point to stop,
+
+1329
+01:20:03,180 --> 01:20:05,340
+but if you have any questions, feel free to ask them.
+
+1330
+01:20:08,250 --> 01:20:11,040
+If not, you know we should, good luck finishing the trap lab.
+
+1331
+01:20:11,870 --> 01:20:14,420
+I hope it's not as painful as the year.
+
+1332
+01:20:15,510 --> 01:20:17,970
+We're not as hard as the pagetable lab.
+
+1333
+01:20:21,650 --> 01:20:25,940
+Sorry I had another question, when you map in the previous slide,
+
+1334
+01:20:25,970 --> 01:20:30,650
+when you map the whole file or when you put it into memory,
+
+1335
+01:20:30,770 --> 01:20:33,080
+and it turns out to be longer than length.
+
+1336
+01:20:35,820 --> 01:20:37,200
+Then, what happens.
+
+1337
+01:20:37,680 --> 01:20:40,230
+Sorry if the file doesn't fit in the virtual address space.
+
+1338
+01:20:41,040 --> 01:20:47,490
+Oh I guess it was like length is how much of the file, we want.
+
+1339
+01:20:48,390 --> 01:20:54,630
+Yes, so length, just like we want to map like ten bytes out of the file descriptor starting at offset off.
+
+1340
+01:20:55,580 --> 01:20:58,670
+Oh, okay, okay, so if the file is longer than,
+
+1341
+01:20:58,670 --> 01:21:01,640
+we're not gonna put all of it into memory.
+
+1342
+01:21:03,610 --> 01:21:05,320
+Okay I see, thank you.
+
+1343
+01:21:08,500 --> 01:21:13,870
+I got a question, I've got a question on the evicting pages.
+
+1344
+01:21:15,300 --> 01:21:19,140
+So basically we talked about it after the demand paging part two,
+
+1345
+01:21:19,140 --> 01:21:21,000
+but is that a general procedure,
+
+1346
+01:21:21,000 --> 01:21:22,590
+we would use in any of these techniques,
+
+1347
+01:21:22,590 --> 01:21:24,930
+if we discover that we're out of physical boundary.
+
+1348
+01:21:24,960 --> 01:21:27,720
+Yeah that's just the common majorly mechanism,
+
+1349
+01:21:27,720 --> 01:21:30,210
+like, so even in lazy allocation,
+
+1350
+01:21:30,210 --> 01:21:35,910
+we run at the point where there's no memory available anymore to allocate to the page
+
+1351
+01:21:36,150 --> 01:21:38,490
+and you know we support demand paging
+
+1352
+01:21:38,490 --> 01:21:42,180
+or whatever we evict you know some page you typically using LRU.
+
+1353
+01:21:43,440 --> 01:21:43,770
+Okay.
+
+1354
+01:21:43,950 --> 01:21:46,590
+One way to think about is that in steady state,
+
+1355
+01:21:46,590 --> 01:21:51,930
+the operating system basically runs with all memory in use at any time.
+
+1356
+01:21:52,520 --> 01:21:56,180
+And want to use all memory
+
+1357
+01:21:56,690 --> 01:21:58,340
+and so when we start something new,
+
+1358
+01:21:58,370 --> 01:21:59,840
+you know we have to make some room
+
+1359
+01:21:59,900 --> 01:22:01,940
+and LRU is basically a way to do it.
+
+1360
+01:22:03,290 --> 01:22:05,000
+Okay, makes sense, thank you.
+
