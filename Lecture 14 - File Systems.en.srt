@@ -1,0 +1,4456 @@
+1
+00:00:00,000 --> 00:00:05,700
+I started and everybody could see my screen that I shared?
+
+2
+00:00:06,700 --> 00:00:08,830
+And I hope everybody can hear me.
+
+3
+00:00:11,630 --> 00:00:12,230
+Let me.
+
+4
+00:00:12,970 --> 00:00:13,600
+I think we're good.
+
+5
+00:00:13,780 --> 00:00:18,180
+Okay, so I'm going to talk about file system today
+
+6
+00:00:18,210 --> 00:00:23,100
+and going to be actually going to spend three lectures on file systems,
+
+7
+00:00:23,310 --> 00:00:28,200
+two in the context of xv6 and one in the context of Linux.
+
+8
+00:00:28,690 --> 00:00:35,770
+In fact, this is the last topic, that we're covering of xv6,
+
+9
+00:00:35,770 --> 00:00:39,520
+after this week, we're basically done with xv6.
+
+10
+00:00:40,230 --> 00:00:46,470
+So, you know file systems, you all know them, you use them,
+
+11
+00:00:46,560 --> 00:00:54,360
+they're one of the most sort of user facing aspects of an operating system, in addition to the shell.
+
+12
+00:00:54,600 --> 00:00:59,340
+And so, we want to understand now and the set of lectures actually
+
+13
+00:00:59,340 --> 00:01:02,880
+what it really happens under the hoods and how is the file system is implemented
+
+14
+00:01:02,880 --> 00:01:05,940
+and that's sort of exciting, because you know you use them all the time.
+
+15
+00:01:06,520 --> 00:01:11,320
+And maybe here to start off with a question before diving in any of the details,
+
+16
+00:01:11,680 --> 00:01:16,900
+I, in one way you know, since you use file systems are almost daily,
+
+17
+00:01:16,990 --> 00:01:25,570
+in one way is the xv6 file system different than the file system that you're using in the day-to-day work.
+
+18
+00:01:26,460 --> 00:01:27,840
+Maybe I'll collect them to people
+
+19
+00:01:27,840 --> 00:01:30,170
+and see what they think,
+
+20
+00:01:30,170 --> 00:01:33,140
+for example Kendall, Kendall Garner, what.
+
+21
+00:01:34,700 --> 00:01:38,120
+Did you notice anything particular about xv6 that is different or similar.
+
+22
+00:01:45,850 --> 00:01:47,710
+I'm not sure we can hear your, Kendall.
+
+23
+00:01:49,500 --> 00:01:50,670
+Here I am.
+
+24
+00:01:51,320 --> 00:01:51,830
+Yeah.
+
+25
+00:01:51,980 --> 00:01:52,850
+Yeah okay.
+
+26
+00:01:52,880 --> 00:01:53,780
+Yeah.
+
+27
+00:01:53,900 --> 00:01:55,940
+So one of the problems is size
+
+28
+00:01:56,090 --> 00:02:01,790
+or at least the size of the files that xv6 support are much less than a lot of other file systems,
+
+29
+00:02:01,790 --> 00:02:05,060
+also the names for some files are relatively short.
+
+30
+00:02:05,590 --> 00:02:10,720
+And another feature, it's more just to use [] [],
+
+31
+00:02:10,930 --> 00:02:14,020
+it doesn't, I don't think it has a copy-on-write for a file system.
+
+32
+00:02:15,590 --> 00:02:17,930
+Good, in what way is similar.
+
+33
+00:02:20,120 --> 00:02:23,120
+It's similar in the general structure,
+
+34
+00:02:23,150 --> 00:02:26,600
+so the idea of you have file names,
+
+35
+00:02:26,600 --> 00:02:29,090
+you have the inodes, directories, and all that.
+
+36
+00:02:30,360 --> 00:02:32,240
+Yeah, seems good.
+
+37
+00:02:32,330 --> 00:02:36,940
+And how about Adella Yang.
+
+38
+00:02:38,790 --> 00:02:42,900
+How do you compare xv6 file system to the file system you use.
+
+39
+00:02:47,380 --> 00:02:48,190
+Sorry, what is that.
+
+40
+00:02:48,670 --> 00:02:50,290
+The question is like how would you,
+
+41
+00:02:50,320 --> 00:02:55,570
+how would you compare the xv6 file system to the file system, you might be using in daily life
+
+42
+00:02:55,990 --> 00:02:58,600
+or on your laptop whatever computer you're using.
+
+43
+00:03:00,700 --> 00:03:03,250
+Any similarities.
+
+44
+00:03:04,460 --> 00:03:07,250
+Yeah, like the the file system paths,
+
+45
+00:03:07,280 --> 00:03:14,230
+system like paths and file system are like hierarchical.
+
+46
+00:03:16,060 --> 00:03:17,890
+Yep, that's a good point.
+
+47
+00:03:18,220 --> 00:03:22,450
+Okay, so you know, so let me, so dive in a little bit
+
+48
+00:03:22,450 --> 00:03:25,120
+and sort of talk a little bit about properties of file systems,
+
+49
+00:03:25,120 --> 00:03:27,130
+you know sort of stand out,
+
+50
+00:03:27,520 --> 00:03:39,960
+and one I think you know you just mentioned here Adella is user-friendly, user-friendly names,
+
+51
+00:03:40,980 --> 00:03:45,000
+in particular path names, you know hierarchy to, hierarchy to them,
+
+52
+00:03:45,120 --> 00:03:51,390
+to help people to organize their files and directories or folders whatever term you want to use
+
+53
+00:03:51,810 --> 00:04:03,840
+and it makes it easy for you know people to share files you know between users and processes.
+
+54
+00:04:04,830 --> 00:04:09,780
+You can name them with conveniently to remember names.
+
+55
+00:04:10,390 --> 00:04:14,770
+And then probably most importantly prepared at least for all the subsystems,
+
+56
+00:04:14,770 --> 00:04:18,370
+that we've looked so far in xv6 and they provide persistence,
+
+57
+00:04:21,770 --> 00:04:23,450
+or sometimes that's called durability.
+
+58
+00:04:26,440 --> 00:04:29,020
+With that, I mean like if you turn off your computer,
+
+59
+00:04:29,140 --> 00:04:32,590
+you did some work, you turn off your computer and turn off your laptop,
+
+60
+00:04:32,980 --> 00:04:36,970
+and then a couple days later you come back, you turn your computer on,
+
+61
+00:04:37,090 --> 00:04:38,380
+the files are still there.
+
+62
+00:04:39,030 --> 00:04:42,420
+And, if you continue working with them.
+
+63
+00:04:43,200 --> 00:04:48,990
+Which is different from like processes or the thing of the resources that we've seen so far,
+
+64
+00:04:48,990 --> 00:04:52,620
+which basically you know the computer reboots, you know they're gone
+
+65
+00:04:52,620 --> 00:04:53,880
+and you have to start up again,
+
+66
+00:04:53,880 --> 00:04:56,430
+but file systems can provide this persistence.
+
+67
+00:04:57,060 --> 00:05:01,220
+And so they're your, all of you using them,
+
+68
+00:05:01,340 --> 00:05:03,260
+and what we're gonna be doing in the next couple lectures
+
+69
+00:05:03,260 --> 00:05:06,050
+is actually understanding how to actually work internally.
+
+70
+00:05:06,650 --> 00:05:09,260
+And this is interesting for a number of reasons.
+
+71
+00:05:18,080 --> 00:05:23,640
+One you know the abstraction itself, it's just useful.
+
+72
+00:05:27,150 --> 00:05:31,530
+And so it's interesting to understand, under the hood it's actually how do abstraction is actually implemented.
+
+73
+00:05:32,100 --> 00:05:35,640
+It turns out there's a couple key interesting aspects,
+
+74
+00:05:35,670 --> 00:05:38,310
+one is crash safety.
+
+75
+00:05:43,140 --> 00:05:44,700
+You'd like it to be the case that you know
+
+76
+00:05:44,700 --> 00:05:50,640
+if for example during the file system operation, the computer crashes,
+
+77
+00:05:50,820 --> 00:05:54,690
+that after reboot basically file system still intact,
+
+78
+00:05:54,690 --> 00:05:58,380
+you know all the variants of the file systems still hold
+
+79
+00:05:58,560 --> 00:06:00,810
+and that you can actually get access to most of your files,
+
+80
+00:06:01,050 --> 00:06:07,690
+it would be a disaster if the computer crashed in the middle of file system operation, you reboot and there's no file system anymore,
+
+81
+00:06:07,720 --> 00:06:12,580
+or you know the data structure on disk have been garbled and you lost them.
+
+82
+00:06:13,240 --> 00:06:16,990
+And so this actually turns out to be a really important topic,
+
+83
+00:06:17,260 --> 00:06:21,550
+and involved and so we're going to talk about that on Wednesday,
+
+84
+00:06:21,550 --> 00:06:23,740
+this is basically the main topic for Wednesday's lecture.
+
+85
+00:06:26,810 --> 00:06:33,510
+Then there's sort of a general question about how to layout the file system on disk.
+
+86
+00:06:35,000 --> 00:06:38,330
+You know, the files, the files, the directories,
+
+87
+00:06:38,420 --> 00:06:41,240
+they all have to be represented in some way on the disk,
+
+88
+00:06:41,240 --> 00:06:44,030
+because like after if you shut down your computer, come back up,
+
+89
+00:06:44,030 --> 00:06:46,160
+you know all the data still has to be there
+
+90
+00:06:46,160 --> 00:06:48,440
+and so there's basically on this data structures
+
+91
+00:06:48,620 --> 00:06:53,520
+to represent the structure of the file system or the content of the file system.
+
+92
+00:06:54,480 --> 00:07:01,110
+In xv6, of course you know that representation or the data structures used are quite simple,
+
+93
+00:07:01,110 --> 00:07:03,830
+you know just do for pedagogical reasons
+
+94
+00:07:03,830 --> 00:07:07,070
+and real file systems more complex data structures,
+
+95
+00:07:07,070 --> 00:07:09,530
+but you can just think about this as on this data structures.
+
+96
+00:07:10,840 --> 00:07:13,300
+And so we'll see a lot of that in today's lecture.
+
+97
+00:07:13,630 --> 00:07:18,130
+And then finally, what makes it interesting is performance.
+
+98
+00:07:20,360 --> 00:07:28,340
+The devices typically on which you know file systems are stored in our storage devices are typically slow.
+
+99
+00:07:35,930 --> 00:07:38,150
+The meaning example to me to read or write a block,
+
+100
+00:07:38,150 --> 00:07:42,890
+you know on a solid-state disk, SSD disk, that's going the order a millisecond
+
+101
+00:07:43,160 --> 00:07:45,860
+and so in the millisecond, you can do a ton of work.
+
+102
+00:07:46,340 --> 00:07:50,450
+And so it's important that you're trying to avoid going to disk,
+
+103
+00:07:50,840 --> 00:07:52,250
+we'll see that in multiple ways,
+
+104
+00:07:52,250 --> 00:07:57,800
+so we see that potential, all file system will have something of a buffer cache or a block cache.
+
+105
+00:08:01,300 --> 00:08:06,040
+And you also see it invisibly additional forms or more concurrency.
+
+106
+00:08:06,800 --> 00:08:10,910
+For example, if you do a path name lookup,
+
+107
+00:08:11,000 --> 00:08:16,670
+you know, then that typically is involved operation required descending the directory hierarchy,
+
+108
+00:08:16,670 --> 00:08:20,520
+you looking up blocks for a directory,
+
+109
+00:08:20,520 --> 00:08:21,930
+find the file name in the directory,
+
+110
+00:08:21,930 --> 00:08:23,970
+then go through the next directory, etc etc,
+
+111
+00:08:24,300 --> 00:08:28,260
+and you wanted to be the case that if one process is doing path name lookup,
+
+112
+00:08:28,260 --> 00:08:33,960
+another process can run concurrently or in parallel with the first process doing a path name lookup.
+
+113
+00:08:34,860 --> 00:08:37,500
+And so we'll see that sort of concurrency you know shows up
+
+114
+00:08:37,590 --> 00:08:40,770
+again is a big topic in the context of file systems.
+
+115
+00:08:42,840 --> 00:08:46,650
+The other reason why it's interesting is it's going to be the topic of two labs.
+
+116
+00:08:47,580 --> 00:08:52,470
+So we're gonna have next upcoming lab is completely focused on file systems
+
+117
+00:08:52,470 --> 00:08:56,130
+and the lab after that is a combination of virtual memory and file systems
+
+118
+00:08:56,130 --> 00:09:03,030
+and even the lab for today or this week has a component to trying to make the buffer cache more parallel.
+
+119
+00:09:05,180 --> 00:09:06,950
+So that's why it's interesting
+
+120
+00:09:08,360 --> 00:09:14,420
+and you just you should get off the ground to understand what the file system must provide,
+
+121
+00:09:14,510 --> 00:09:20,080
+just let's look again at the basic file system system calls, right,
+
+122
+00:09:20,080 --> 00:09:22,160
+to the.
+
+123
+00:09:26,420 --> 00:09:30,920
+If you example if looking at you know API, these file system calls,
+
+124
+00:09:30,980 --> 00:09:33,350
+then we can through there's a couple of interesting properties,
+
+125
+00:09:33,350 --> 00:09:35,150
+that must be true about the implementation.
+
+126
+00:09:35,870 --> 00:09:39,710
+And so do you know the file system calls,
+
+127
+00:09:42,810 --> 00:09:47,200
+we've seen them early on in, in the semester
+
+128
+00:09:47,290 --> 00:09:51,850
+and you know we've looked at most other Unix system calls how do we implement it,
+
+129
+00:09:51,850 --> 00:09:54,820
+like fork and exec pipes, all that stuff,
+
+130
+00:09:54,910 --> 00:09:59,200
+and basically this set of lectures is really focusing on how to implement the file system calls.
+
+131
+00:10:00,400 --> 00:10:06,670
+So, first of all, let's startup applications with a simple scenario.
+
+132
+00:10:08,640 --> 00:10:12,510
+We have you know say we create a file x/y,
+
+133
+00:10:13,080 --> 00:10:19,740
+or file y in the directory x.
+
+134
+00:10:23,700 --> 00:10:24,960
+Yeah, it probably have to oops.
+
+135
+00:10:27,740 --> 00:10:36,940
+Yeah, in the file x, we have to provide some flags,
+
+136
+00:10:36,940 --> 00:10:39,610
+we don't really care about their flag, so I'm just going to ignore them,
+
+137
+00:10:40,270 --> 00:10:45,370
+so this will create a file returns a file descriptor you know to the caller
+
+138
+00:10:45,580 --> 00:10:50,680
+and the caller, the user application can then actually for example write, you know through that file descriptor,
+
+139
+00:10:50,680 --> 00:10:52,450
+as we've seen many times before,
+
+140
+00:10:52,810 --> 00:10:57,650
+there's a write fd, maybe abc, you know 3 characters.
+
+141
+00:10:58,550 --> 00:11:05,120
+And one things, actually you know already a couple things that we can point out right, from this two calls.
+
+142
+00:11:05,120 --> 00:11:11,280
+Is that first of all, the path names,
+
+143
+00:11:13,910 --> 00:11:17,060
+let's show up in the interface and we're going to have to implement.
+
+144
+00:11:17,710 --> 00:11:21,130
+Names are hum- human readable,
+
+145
+00:11:22,680 --> 00:11:26,190
+they're not numbers, you know they get selected by the user.
+
+146
+00:11:29,280 --> 00:11:32,940
+Another interesting thing here is that in the write system call,
+
+147
+00:11:33,600 --> 00:11:37,850
+there's no offset as an argument, so the offset is implicit.
+
+148
+00:11:39,350 --> 00:11:43,800
+So the file system somewhere must store the offset,
+
+149
+00:11:44,490 --> 00:11:45,960
+if you do a second call to write,
+
+150
+00:11:45,960 --> 00:11:50,130
+write will end up as you know the next set of bytes will written in that location four.
+
+151
+00:11:52,480 --> 00:11:55,690
+You know, so maybe some more interesting calls that we haven't looked at much,
+
+152
+00:11:55,690 --> 00:12:03,430
+but for example, you know the xv6 and all Unix file systems basically support calls to create links,
+
+153
+00:12:04,190 --> 00:12:07,970
+to have multiple names for the same files for the same file,
+
+154
+00:12:08,000 --> 00:12:15,890
+so for example it might call like link that basically creates a second name for the original file,
+
+155
+00:12:15,890 --> 00:12:21,200
+so for example, creates names z for the file y that we earlier created.
+
+156
+00:12:24,040 --> 00:12:35,000
+So multiple names, the file system, probably internally has to keep track
+
+157
+00:12:35,030 --> 00:12:39,260
+you know in some way that multiple names might be pointing to the same file.
+
+158
+00:12:40,030 --> 00:12:47,980
+We might actually remove, or changed name space, while the file is open,
+
+159
+00:12:48,010 --> 00:12:51,150
+so for example, why we could call,
+
+160
+00:12:51,180 --> 00:12:56,340
+user might actually call it a process where the same process might call a link you to remove a particular file.
+
+161
+00:12:56,980 --> 00:13:01,570
+In fact you know we removed the file x/y that we actually open earlier,
+
+162
+00:13:01,570 --> 00:13:03,400
+but we still have a file descriptor open
+
+163
+00:13:03,760 --> 00:13:06,040
+and so in fact you know we can still write to it,
+
+164
+00:13:07,530 --> 00:13:14,860
+so we can still write to fd, you know, for example the character whatever d e and f.
+
+165
+00:13:16,150 --> 00:13:17,590
+And it actually worked out fine.
+
+166
+00:13:18,440 --> 00:13:22,640
+So basically while you know file file was used,
+
+167
+00:13:22,640 --> 00:13:26,300
+the name space that surrounds it could actually be changed.
+
+168
+00:13:27,160 --> 00:13:29,290
+And so it has to be the case,
+
+169
+00:13:29,290 --> 00:13:31,210
+you know if you sort of look at this you know sort of things,
+
+170
+00:13:31,210 --> 00:13:34,570
+that there's a bunch of interesting things going on internally the file system,
+
+171
+00:13:34,840 --> 00:13:38,740
+for example the file system, file descriptor must be associated,
+
+172
+00:13:39,220 --> 00:13:43,990
+we have some you know object that is independent of the name,
+
+173
+00:13:44,350 --> 00:13:47,800
+actually because you know even if the name changes,
+
+174
+00:13:47,800 --> 00:13:53,920
+the file descriptor still point or you know, references the same file object itself.
+
+175
+00:13:54,790 --> 00:13:58,660
+And, so, in fact if you think about this, it has to be the case,
+
+176
+00:13:58,660 --> 00:14:06,490
+that basically there has to be some internal representation of the file inside of the operating system,
+
+177
+00:14:06,490 --> 00:14:08,770
+that's independent of the name itself.
+
+178
+00:14:10,630 --> 00:14:12,490
+And so we're looking at in a second,
+
+179
+00:14:12,490 --> 00:14:14,920
+but there's one other point I wanted to make here
+
+180
+00:14:14,920 --> 00:14:20,140
+is the goal of the file system is to be implemented an API like the ones that we're looking here
+
+181
+00:14:20,140 --> 00:14:22,660
+which is a sort of typical file system API.
+
+182
+00:14:23,140 --> 00:14:26,830
+You know, this is of course not the only way to be able to storage system
+
+183
+00:14:27,070 --> 00:14:29,260
+or going to store the information on this,
+
+184
+00:14:29,260 --> 00:14:31,990
+you know we could imagine completely different APIs.
+
+185
+00:14:32,480 --> 00:14:38,260
+And, for example, you know maybe use a database right,
+
+186
+00:14:38,680 --> 00:14:40,180
+store some data persistently,
+
+187
+00:14:40,210 --> 00:14:45,970
+but access to the data provides very different programming or API user API,
+
+188
+00:14:46,180 --> 00:14:48,160
+than a file system does.
+
+189
+00:14:48,640 --> 00:14:51,430
+And so just important, to keep in mind that you know,
+
+190
+00:14:51,940 --> 00:14:55,660
+you know there's other ways of organizing storage systems
+
+191
+00:14:55,660 --> 00:14:57,970
+and where our focus is going to be on file system,
+
+192
+00:14:57,970 --> 00:15:00,220
+which is typically provided by an operating system.
+
+193
+00:15:00,890 --> 00:15:04,730
+And databases are typically implemented on top of the file system
+
+194
+00:15:04,730 --> 00:15:07,490
+or [in] most of work around the file system,
+
+195
+00:15:07,880 --> 00:15:10,940
+you can't have direct access to the disk.
+
+196
+00:15:12,750 --> 00:15:14,370
+We have two questions in the chat.
+
+197
+00:15:14,580 --> 00:15:15,210
+Yeah.
+
+198
+00:15:16,780 --> 00:15:20,640
+Let me, [just] going to ask any questions.
+
+199
+00:15:22,090 --> 00:15:27,790
+So link increments a reference to the underlying file descriptor and unlink decrement.
+
+200
+00:15:27,790 --> 00:15:31,090
+Yes, that is correct, we'll talk a little bit more about it later.
+
+201
+00:15:31,770 --> 00:15:35,280
+Another question here is about a soft links versus hard links.
+
+202
+00:15:35,310 --> 00:15:39,570
+I'm going to talk much about it today,
+
+203
+00:15:39,570 --> 00:15:43,080
+but you will be implementing soft links
+
+204
+00:15:43,080 --> 00:15:47,760
+in the next in the file system lab that is upcoming.
+
+205
+00:15:48,640 --> 00:15:50,830
+So xv6 by itself implements hard links,
+
+206
+00:15:50,830 --> 00:15:53,080
+and you implement soft links in addition.
+
+207
+00:15:55,040 --> 00:15:57,050
+Any questions, other questions?
+
+208
+00:16:04,490 --> 00:16:09,110
+The link operates on the inode not under file descriptor right.
+
+209
+00:16:09,290 --> 00:16:12,830
+That's correct, link work on the item,
+
+210
+00:16:12,830 --> 00:16:15,230
+so let me since let's go there.
+
+211
+00:16:15,230 --> 00:16:17,590
+So file system structures.
+
+212
+00:16:20,250 --> 00:16:27,110
+So what structure does the file system maintain to implement you know this API just talked about.
+
+213
+00:16:27,320 --> 00:16:30,350
+So first of all the most important property is the inode,
+
+214
+00:16:31,880 --> 00:16:36,380
+and so this is the object that represents a file independent of the name,
+
+215
+00:16:36,530 --> 00:16:41,820
+so file info independent of name.
+
+216
+00:16:45,390 --> 00:16:51,930
+In fact, you know the way you name actually inode this [] inode number just literally an integer.
+
+217
+00:16:52,620 --> 00:16:59,310
+So the file system internally refers to inode by number instead of actually by path names.
+
+218
+00:17:00,500 --> 00:17:02,900
+And we also know this based on this discussion,
+
+219
+00:17:03,020 --> 00:17:06,410
+that you know inode must actually have link count,
+
+220
+00:17:08,600 --> 00:17:14,860
+to keep track of the number of, to keep track of the number of names,
+
+221
+00:17:14,860 --> 00:17:17,080
+that are pointing to that particular inode
+
+222
+00:17:17,140 --> 00:17:21,700
+and the file should only be deleted when the link count actually reaches zero no earlier.
+
+223
+00:17:22,590 --> 00:17:25,200
+It's actually slightly more complicated,
+
+224
+00:17:25,530 --> 00:17:30,010
+there must be also an open fd count,
+
+225
+00:17:30,190 --> 00:17:33,070
+number file descriptors that actually have to file open
+
+226
+00:17:33,430 --> 00:17:36,730
+and file can only be deleted when both of these are zero.
+
+227
+00:17:43,070 --> 00:17:47,780
+And we also know that basically based on you know the write have no offset,
+
+228
+00:17:47,780 --> 00:17:48,740
+nor does read,
+
+229
+00:17:48,740 --> 00:17:54,540
+you know that the file descriptor implicitly must maintain an offset.
+
+230
+00:18:01,950 --> 00:18:02,670
+Okay?
+
+231
+00:18:03,650 --> 00:18:09,080
+And so basically the central really data structure in a file system is a inode
+
+232
+00:18:09,080 --> 00:18:15,750
+and then a file descriptor to actually interact with the processes.
+
+233
+00:18:19,820 --> 00:18:26,210
+So, even though the file systems are very similar terms short of their API,
+
+234
+00:18:26,210 --> 00:18:28,700
+you know they're all implemented differently,
+
+235
+00:18:29,090 --> 00:18:35,630
+but many of them have a sort of similar structure.
+
+236
+00:18:40,050 --> 00:18:42,090
+And because the file systems are quite complex,
+
+237
+00:18:42,090 --> 00:18:47,250
+you know just helps to sort of organize them in a typically organized in a set of layers.
+
+238
+00:18:47,750 --> 00:18:49,520
+And you want me to think about it,
+
+239
+00:18:49,520 --> 00:18:51,980
+this is at the very bottom, there's the disk,
+
+240
+00:18:53,120 --> 00:18:56,150
+some storage device that actually holds you know the data.
+
+241
+00:18:56,870 --> 00:18:59,450
+And actually provides the persistence and durability
+
+242
+00:18:59,750 --> 00:19:04,310
+and typically you know there's something like a buffer cache, a block cache right, above it.
+
+243
+00:19:05,600 --> 00:19:10,040
+So now to avoid going to disk many times,
+
+244
+00:19:10,040 --> 00:19:13,220
+so we're gonna cash basically data inside in memory,
+
+245
+00:19:13,220 --> 00:19:16,360
+so this is going to be basically, you know memory.
+
+246
+00:19:20,560 --> 00:19:23,590
+And this is the device.
+
+247
+00:19:27,980 --> 00:19:31,130
+For persistence, there's something typically offer logging layer,
+
+248
+00:19:31,160 --> 00:19:33,860
+you know many many files that have a form of logging.
+
+249
+00:19:34,540 --> 00:19:37,630
+We're going to talk emotionally about it Wednesday, so I can skip that.
+
+250
+00:19:38,220 --> 00:19:42,300
+Then the top of the logging or [] xv6,
+
+251
+00:19:42,780 --> 00:19:45,060
+there's an icache where inode cache,
+
+252
+00:19:45,270 --> 00:19:47,580
+this is mostly for synchronization,
+
+253
+00:19:47,970 --> 00:19:49,800
+let's also talk about a little bit later,
+
+254
+00:19:54,430 --> 00:19:57,760
+so now you know typically smaller than this block
+
+255
+00:19:57,760 --> 00:20:00,400
+and many inodes are packed into a single disk block
+
+256
+00:20:00,970 --> 00:20:04,630
+provides synchronization to those individual inode,
+
+257
+00:20:04,870 --> 00:20:07,300
+you know xv6 maintains icache,
+
+258
+00:20:08,020 --> 00:20:13,150
+and then typically that you know were inode the implementation itself,
+
+259
+00:20:13,150 --> 00:20:17,670
+you know that sort of ranges for read and writes bytes.
+
+260
+00:20:20,610 --> 00:20:24,690
+And then you know on top of that, we have names,
+
+261
+00:20:26,440 --> 00:20:28,510
+like path names and file descriptor operations.
+
+262
+00:20:29,640 --> 00:20:33,060
+Anyway, every file system be slightly differently organized
+
+263
+00:20:33,090 --> 00:20:34,890
+and layers may be slightly different,
+
+264
+00:20:35,220 --> 00:20:38,550
+maybe layering is not always that strict,
+
+265
+00:20:38,700 --> 00:20:40,830
+even xv6 it's not always super strict,
+
+266
+00:20:41,130 --> 00:20:44,100
+but it is conceptually good way to think about it
+
+267
+00:20:44,100 --> 00:20:48,720
+and almost all file systems have components in their file systems correspond to the different pieces,
+
+268
+00:20:48,720 --> 00:20:53,940
+you know the buffer cache, the logging, to the inodes and to path names.
+
+269
+00:20:54,600 --> 00:20:57,060
+And so we basically work by through a little bit,
+
+270
+00:20:57,090 --> 00:21:00,720
+through these different file system layers.
+
+271
+00:21:01,980 --> 00:21:05,310
+Let me talk a little bit of starting with the bottom layer.
+
+272
+00:21:10,000 --> 00:21:13,520
+Just looking at the chat.
+
+273
+00:21:13,670 --> 00:21:18,440
+So let me start with a talk a little bit about storage itself, storage devices.
+
+274
+00:21:22,030 --> 00:21:25,660
+It turns out there are many many, many different types of storage devices,
+
+275
+00:21:25,840 --> 00:21:32,860
+in the difference between performance you know capacity, degree of durability,
+
+276
+00:21:33,130 --> 00:21:36,580
+but you know two of the common ones you know are
+
+277
+00:21:36,610 --> 00:21:39,880
+you know you're probably all familiar with you know the SSD,
+
+278
+00:21:41,000 --> 00:21:47,780
+and there maybe you know some people may simply mean choosing hard disks or magnetic disks.
+
+279
+00:21:48,540 --> 00:21:52,140
+And you know they provide a ton of storage,
+
+280
+00:21:52,350 --> 00:21:56,070
+in reasonable cost, in different performance,
+
+281
+00:21:56,070 --> 00:22:02,980
+so SSD have typically in the order of hundreds of microseconds, tn the milliseconds access time,
+
+282
+00:22:04,110 --> 00:22:11,740
+well magnetic disks tend to be more in the order of ten milliseconds to individually read or write a block.
+
+283
+00:22:12,940 --> 00:22:16,720
+The terminology is actually slightly confusion here,
+
+284
+00:22:16,720 --> 00:22:21,870
+you know, the terms sector, that are used blocks,
+
+285
+00:22:24,430 --> 00:22:29,680
+and so in sectors typically the historically the smallest unit,
+
+286
+00:22:29,710 --> 00:22:34,810
+that disk drives can can read or write in
+
+287
+00:22:34,870 --> 00:22:38,950
+and so you should be typically five hundred twelve bytes just a common number,
+
+288
+00:22:39,690 --> 00:22:47,130
+the block size is basically where a block is basically an OS or a file system idea or defined by a file system
+
+289
+00:22:47,340 --> 00:22:50,190
+and in xv6 for example it is 1024 bytes,
+
+290
+00:22:50,490 --> 00:22:51,570
+and so it's two sectors,
+
+291
+00:22:51,570 --> 00:22:54,690
+so typically the block sizes one or more sectors.
+
+292
+00:22:55,120 --> 00:22:59,230
+Sometimes people refer to the sectors on disk also as blocks
+
+293
+00:22:59,230 --> 00:23:03,340
+and so you know the terminology is not particularly precise.
+
+294
+00:23:04,590 --> 00:23:08,310
+So these devices you know basically sit you know on some bus,
+
+295
+00:23:09,060 --> 00:23:12,360
+and you know the bus is connected to the CPU right.
+
+296
+00:23:12,950 --> 00:23:15,770
+I mean there might be memory on the side here.
+
+297
+00:23:17,850 --> 00:23:23,160
+Maybe multiple CPUs, in the file system that runs on the CPU,
+
+298
+00:23:23,160 --> 00:23:26,010
+stores its internal data structures in memory
+
+299
+00:23:26,070 --> 00:23:27,990
+and basically reads and writes,
+
+300
+00:23:28,500 --> 00:23:34,320
+yeah to to the SSD or the hard disk
+
+301
+00:23:34,320 --> 00:23:36,120
+to actually write a block or read a block
+
+302
+00:23:36,180 --> 00:23:39,880
+and so to actually interface is quite simple.
+
+303
+00:23:40,740 --> 00:23:44,910
+So it's typically just read you know or write with block number.
+
+304
+00:23:46,020 --> 00:23:48,180
+There's a little bit of oversimplification,
+
+305
+00:23:48,180 --> 00:23:50,130
+but like the core of the interface is roughly that,
+
+306
+00:23:50,790 --> 00:23:56,460
+internally, of course SSDs and hard disk to work completely differently
+
+307
+00:23:56,460 --> 00:23:59,760
+and hardware extracts mostly away
+
+308
+00:23:59,790 --> 00:24:06,660
+and typically they're sort of standard protocols like PCI or PCI extended,
+
+309
+00:24:06,660 --> 00:24:11,610
+that's the processor or the file system user disk drivers
+
+310
+00:24:11,610 --> 00:24:14,630
+used to actually talk to disks
+
+311
+00:24:14,630 --> 00:24:20,600
+and often from the disk driver or you know most disks you know sort of look the same
+
+312
+00:24:20,750 --> 00:24:25,040
+and you can just read and write by providing a block number and some data
+
+313
+00:24:25,400 --> 00:24:30,830
+and then you send it off for a writer to control registers you know the device
+
+314
+00:24:30,830 --> 00:24:32,360
+and the device will do its job.
+
+315
+00:24:33,760 --> 00:24:37,620
+And so this from file system perspective,
+
+316
+00:24:37,830 --> 00:24:43,260
+although you know the the disk have quite storage device have quite different properties,
+
+317
+00:24:43,440 --> 00:24:47,640
+they're actually, [] from the driver's perspective,
+
+318
+00:24:47,670 --> 00:24:50,010
+you know so you can program in roughly the same way.
+
+319
+00:24:53,840 --> 00:24:54,890
+Any questions about that,
+
+320
+00:24:54,920 --> 00:24:56,930
+I'm not gonna talk much about the storage devices,
+
+321
+00:24:56,930 --> 00:25:00,620
+so if you have any questions, this is a good time to ask them.
+
+322
+00:25:11,240 --> 00:25:12,830
+Yes, I have a question,
+
+323
+00:25:12,860 --> 00:25:19,360
+is the interface for calling read or write something
+
+324
+00:25:19,360 --> 00:25:22,090
+that offers synchronous and asynchronous options.
+
+325
+00:25:22,450 --> 00:25:24,370
+Yeah, often this is the case,
+
+326
+00:25:24,370 --> 00:25:27,190
+in fact it's generally like it's almost very similar to
+
+327
+00:25:27,190 --> 00:25:30,280
+actually, basically you can think about the driver for a disk
+
+328
+00:25:30,550 --> 00:25:32,740
+in the same way as the console driver
+
+329
+00:25:33,040 --> 00:25:38,590
+where the CPU or the driver issues a command to the device,
+
+330
+00:25:38,770 --> 00:25:41,050
+basically say start to read or do write
+
+331
+00:25:41,320 --> 00:25:43,210
+and then at some point later when the device is done
+
+332
+00:25:43,210 --> 00:25:46,660
+and will generate an interrupt saying like OK I did to read or I did the write
+
+333
+00:25:46,780 --> 00:25:49,030
+and then you know that indicates the completion.
+
+334
+00:25:50,060 --> 00:25:55,580
+And you know of course, the driver since this device is more complicated than the console,
+
+335
+00:25:55,580 --> 00:25:58,550
+you know it's quite a bit more complicated driver than the console driver
+
+336
+00:25:58,550 --> 00:26:00,830
+that we saw in the previous lecture
+
+337
+00:26:00,890 --> 00:26:05,600
+was basically the same structure, bottom half top half interrupts,
+
+338
+00:26:05,990 --> 00:26:08,270
+and reading or writing to control registers.
+
+339
+00:26:10,850 --> 00:26:11,810
+Okay, thanks.
+
+340
+00:26:16,490 --> 00:26:19,460
+Okay, so, so from the file system perspective,
+
+341
+00:26:19,490 --> 00:26:24,830
+the way to think about the disk is pretty straightforward.
+
+342
+00:26:25,400 --> 00:26:28,730
+Since there's a read or write of block or sectors,
+
+343
+00:26:28,910 --> 00:26:35,840
+but we can just think about the disk basically gigantic you know array of blocks.
+
+344
+00:26:36,340 --> 00:26:40,120
+You know starting at you know whatever zero, you know one,
+
+345
+00:26:40,920 --> 00:26:43,530
+and going up to whatever the size the disk is.
+
+346
+00:26:44,300 --> 00:26:50,720
+And basically the file system's job is to sort of lay out all the data structures
+
+347
+00:26:50,900 --> 00:26:56,600
+on the disk in a way that you can reconstruct the file system after reboot.
+
+348
+00:26:57,740 --> 00:27:00,500
+And so you know there are different ways of going about it,
+
+349
+00:27:00,500 --> 00:27:05,690
+xv6 you'll see uses a very simple layout structure,
+
+350
+00:27:05,750 --> 00:27:17,540
+but, but not completely [user] not pretty typical in or prototypical for how file systems operate.
+
+351
+00:27:18,110 --> 00:27:21,170
+So typically the block zero is generally not used
+
+352
+00:27:21,170 --> 00:27:25,440
+or used actually for the boot sector, to boot the operating system.
+
+353
+00:27:27,470 --> 00:27:30,500
+Block one is often what's called a super block.
+
+354
+00:27:31,350 --> 00:27:34,620
+And the super block basically describes you know the file system,
+
+355
+00:27:35,500 --> 00:27:39,910
+and it may say like oh there's so many blocks on disk and that constitute the file system,
+
+356
+00:27:40,030 --> 00:27:43,120
+and we'll see in a second, xv6 is a little bit more information in it,
+
+357
+00:27:43,120 --> 00:27:44,890
+as in make most out of file system.
+
+358
+00:27:45,410 --> 00:27:52,670
+For example, in xx6 the log starts at you know block two and [runs] into block 32.
+
+359
+00:27:55,110 --> 00:27:56,490
+Yeah, so this is a block,
+
+360
+00:27:57,460 --> 00:27:59,020
+and of course the block could be different size
+
+361
+00:27:59,020 --> 00:28:00,280
+and in fact in the super block,
+
+362
+00:28:00,280 --> 00:28:03,340
+it just says like the log is whatever thirty blocks long.
+
+363
+00:28:04,200 --> 00:28:12,990
+Then, xv6 after that stores from 32 to basically block 45 remember correctly,
+
+364
+00:28:14,050 --> 00:28:19,090
+it's stores inodes as I said before,
+
+365
+00:28:19,120 --> 00:28:25,060
+multiply inodes are packed into a single, this block I think I notice.
+
+366
+00:28:26,470 --> 00:28:28,750
+I believe I don't actually remember at the top of my head,
+
+367
+00:28:28,750 --> 00:28:34,620
+but I think it's either 64 bytes, or 128, I believe 64.
+
+368
+00:28:34,950 --> 00:28:39,390
+And after that you know there's a bitmap block,
+
+369
+00:28:39,420 --> 00:28:42,870
+it turns out in the details way we build the file system.
+
+370
+00:28:43,440 --> 00:28:46,830
+This next bitmap block one block in size.
+
+371
+00:28:48,680 --> 00:28:52,430
+And so these basically keep track of actually the data blocks,
+
+372
+00:28:52,960 --> 00:28:54,460
+whether it's free or not,
+
+373
+00:28:54,820 --> 00:28:59,260
+and after that it's all for basically here to there, it's all data blocks
+
+374
+00:28:59,350 --> 00:29:03,430
+or data blocks that actually stored contents, files or contents of directories.
+
+375
+00:29:05,140 --> 00:29:14,080
+Often all the bitmap blocks and inode blocks and logging block, often sometimes referred to as metadata blocks,
+
+376
+00:29:16,940 --> 00:29:18,620
+they don't actually store actual data,
+
+377
+00:29:18,620 --> 00:29:22,820
+but they help you know they store meta information for the file system to do its job,
+
+378
+00:29:23,350 --> 00:29:25,420
+like bitmaps and inodes.
+
+379
+00:29:28,580 --> 00:29:30,470
+Any questions so far about this?
+
+380
+00:29:33,160 --> 00:29:35,440
+I have a question about the boot block,
+
+381
+00:29:35,440 --> 00:29:40,960
+does it contain the code for the operating system to boot or something else.
+
+382
+00:29:41,500 --> 00:29:47,890
+Yeah, exactly, it typically contains you know one block of code,
+
+383
+00:29:47,920 --> 00:29:50,020
+enough for the operating system to get going
+
+384
+00:29:50,020 --> 00:29:54,040
+and then load maybe more of the operating system actually from the file system itself.
+
+385
+00:29:57,810 --> 00:29:58,470
+Thank you.
+
+386
+00:29:58,740 --> 00:30:03,900
+So does that mean that the code for xv6 is actually stored on the virtual disk,
+
+387
+00:30:03,930 --> 00:30:06,330
+or is it like how does.
+
+388
+00:30:06,330 --> 00:30:09,990
+Xv6, you know the way we do with QEMU, you know we got some [corners],
+
+389
+00:30:10,320 --> 00:30:17,220
+QEMU actually has a flag, you know dash kernel that basically points to the where boots the kernel from
+
+390
+00:30:17,220 --> 00:30:23,220
+and loads, you know that at a particular address into physical memory at 0 eight zero zero zero zero.
+
+391
+00:30:23,760 --> 00:30:25,950
+And so basically when we're using QEMU,
+
+392
+00:30:25,950 --> 00:30:30,120
+the way we use QEMU, we don't really have to worry about boot sectors or anything like that.
+
+393
+00:30:31,420 --> 00:30:36,730
+Okay, so basically like when you run Q- QEMU,
+
+394
+00:30:36,760 --> 00:30:42,130
+you just you just pass in like the the program through the command line,
+
+395
+00:30:42,130 --> 00:30:43,210
+and then it'll just run that,
+
+396
+00:30:43,210 --> 00:30:46,000
+it doesn't need to read it from the virtual disk and everything.
+
+397
+00:30:46,990 --> 00:30:47,680
+That makes sense.
+
+398
+00:30:51,530 --> 00:30:55,240
+Okay, so like in the, so for example,
+
+399
+00:30:55,960 --> 00:30:59,590
+so assuming I know such 64 bytes,
+
+400
+00:30:59,590 --> 00:31:03,580
+you know for example, now if you want to read inode ten,
+
+401
+00:31:08,540 --> 00:31:10,670
+what do you do.
+
+402
+00:31:11,550 --> 00:31:12,930
+How do you read inode ten.
+
+403
+00:31:18,370 --> 00:31:19,180
+Anybody?
+
+404
+00:31:22,530 --> 00:31:24,300
+Which block do inode ten be.
+
+405
+00:31:25,660 --> 00:31:32,230
+You'd need to add, you take the inode number and add the offset into the disk,
+
+406
+00:31:32,230 --> 00:31:33,400
+so ten plus 32.
+
+407
+00:31:33,880 --> 00:31:39,000
+So 32, right, and it literally plus ten or something else.
+
+408
+00:31:47,880 --> 00:31:51,180
+Is it ten divided by the size.
+
+409
+00:31:51,210 --> 00:31:54,240
+Yeah, it's gonna be whatever it's gonna be inode number,
+
+410
+00:31:55,090 --> 00:32:03,190
+inode number multiplied times, we do it in bytes, multiply it by 64,
+
+411
+00:32:03,970 --> 00:32:06,010
+divided by [five twenty four],
+
+412
+00:32:08,540 --> 00:32:11,540
+so inode zero will end up in block 32,
+
+413
+00:32:12,040 --> 00:32:18,410
+inode whatever was five twenty four divided by 64,
+
+414
+00:32:23,640 --> 00:32:26,370
+16? 16 that's about right,
+
+415
+00:32:26,370 --> 00:32:29,610
+so I know seventeen where will where will it end up,
+
+416
+00:32:32,960 --> 00:32:35,360
+should be in, should be ing block 33 right.
+
+417
+00:32:37,710 --> 00:32:38,340
+Does that make sense?
+
+418
+00:32:39,520 --> 00:32:45,760
+So given unknown number, we can always find the bytes on disk where inode actually stored.
+
+419
+00:32:47,370 --> 00:32:48,000
+Okay?
+
+420
+00:32:50,580 --> 00:32:52,860
+Okay, so then let's look at the,
+
+421
+00:32:53,310 --> 00:32:56,910
+what actually is in on disk inode.
+
+422
+00:33:04,850 --> 00:33:06,200
+So as we know it,
+
+423
+00:33:06,200 --> 00:33:11,630
+before you'll see there's basically little data structure, 64 bytes in size,
+
+424
+00:33:13,760 --> 00:33:18,530
+and you know typically has a type, which we'll talk about it later,
+
+425
+00:33:18,530 --> 00:33:22,340
+but for example type file or directory and link.
+
+426
+00:33:23,640 --> 00:33:28,980
+You know the link count to track multiple names or pointing to the same inode,
+
+427
+00:33:29,580 --> 00:33:31,230
+size in bytes.
+
+428
+00:33:32,960 --> 00:33:37,760
+And then xv6 you know there can be slightly different in different files
+
+429
+00:33:37,760 --> 00:33:39,380
+and exactly how the representation is,
+
+430
+00:33:39,710 --> 00:33:43,910
+but in xv6 a little bit more space,
+
+431
+00:33:49,760 --> 00:33:53,330
+in xv6 basically is followed by a number of block numbers,
+
+432
+00:33:54,120 --> 00:33:58,680
+and so after block number zero, block number one,
+
+433
+00:33:59,240 --> 00:34:02,480
+in fact, there were twelve of those guys,
+
+434
+00:34:03,140 --> 00:34:05,270
+these twelve direct block numbers.
+
+435
+00:34:10,510 --> 00:34:15,910
+And those direct node block numbers basically correspond to the first twelve blocks that constitute that file.
+
+436
+00:34:16,440 --> 00:34:18,930
+So, for example if the file was only two bytes long,
+
+437
+00:34:18,990 --> 00:34:22,770
+you know there would be only one a block number zero
+
+438
+00:34:23,100 --> 00:34:28,660
+and block number zero is that, the block number of the disk block that contains
+
+439
+00:34:28,660 --> 00:34:31,150
+you know the first few bytes of that file.
+
+440
+00:34:32,290 --> 00:34:36,040
+And then there's one indirect block number,
+
+441
+00:34:41,570 --> 00:34:45,820
+basically that's a block number, that corresponds to a block,
+
+442
+00:34:46,550 --> 00:34:55,540
+which then itself block is five twenty four bytes which holds 256 block numbers.
+
+443
+00:35:01,800 --> 00:35:05,010
+So if block number zero, for block number eleven,
+
+444
+00:35:06,250 --> 00:35:09,850
+are all direct block numbers
+
+445
+00:35:09,850 --> 00:35:19,120
+and so then block number twelve you know stored in that, in that indirect block,
+
+446
+00:35:19,480 --> 00:35:23,230
+basically pointed to by the indirect block number.
+
+447
+00:35:25,900 --> 00:35:33,580
+And that is basically the layout of the file in xv6.
+
+448
+00:35:35,300 --> 00:35:38,690
+And so what is the maximum file size in xv6 based on this.
+
+449
+00:35:45,880 --> 00:35:46,540
+Anybody?
+
+450
+00:35:54,240 --> 00:35:58,590
+It would be 268 times a thousand twenty four bytes, basically.
+
+451
+00:35:58,950 --> 00:36:07,960
+Yeah we're just two fifty six, plus 12 12 direct times thousand twenty four
+
+452
+00:36:07,990 --> 00:36:10,720
+and then we get the maximum file size in bytes, right.
+
+453
+00:36:12,840 --> 00:36:13,770
+How much is that.
+
+454
+00:36:19,460 --> 00:36:22,340
+Another way of saying it's basically two 268 kilobytes, correct.
+
+455
+00:36:24,470 --> 00:36:26,780
+What can you store 268 kilobytes.
+
+456
+00:36:30,510 --> 00:36:36,110
+Can you store video in it or a song.
+
+457
+00:36:39,050 --> 00:36:40,700
+If it's a short song, yes.
+
+458
+00:36:42,170 --> 00:36:43,460
+Very short song, correct.
+
+459
+00:36:44,060 --> 00:36:46,640
+So these are really small file size,
+
+460
+00:36:47,000 --> 00:36:49,850
+real file systems and much much bigger file size,
+
+461
+00:36:50,120 --> 00:36:52,850
+so what would you do to file system representation
+
+462
+00:36:52,850 --> 00:36:56,360
+to make this to allow the files to be much more files to be much bigger.
+
+463
+00:37:01,560 --> 00:37:04,530
+Could you extend the indirect portions.
+
+464
+00:37:05,400 --> 00:37:08,760
+Yeah like for example you could have another block, seating here below, correct,
+
+465
+00:37:08,760 --> 00:37:10,230
+which is maybe doubling indirect,
+
+466
+00:37:14,170 --> 00:37:19,370
+almost like you know the sort of the page table type data structures that we've seen before, right,
+
+467
+00:37:19,370 --> 00:37:22,970
+then, that double indirect block points to two and fifty-six indirect block numbers,
+
+468
+00:37:22,970 --> 00:37:25,220
+each which point to another block number
+
+469
+00:37:25,610 --> 00:37:28,760
+and so certainly the file size is going to maximize this is much bigger.
+
+470
+00:37:29,440 --> 00:37:33,880
+And basically just turned out to be just a sort of exercise in on those data structures,
+
+471
+00:37:33,880 --> 00:37:36,610
+you could pick a structure like this, like a tree,
+
+472
+00:37:36,610 --> 00:37:41,110
+but there's also possible to like maybe implemented as B-Tree or something other sophisticated.
+
+473
+00:37:41,800 --> 00:37:44,980
+Xv6 something extremely simple,
+
+474
+00:37:44,980 --> 00:37:49,750
+in basically it's modeled after the original version six Unix Unix.
+
+475
+00:37:51,120 --> 00:37:53,880
+But you can make them more sophisticated schemes,
+
+476
+00:37:53,910 --> 00:37:56,790
+in fact in the file system lab,
+
+477
+00:37:56,850 --> 00:38:01,560
+you implement double indirect block numbers to support much bigger files.
+
+478
+00:38:04,260 --> 00:38:05,340
+Any questions about this?
+
+479
+00:38:10,530 --> 00:38:13,620
+Sorry, so is it 256 blocks,
+
+480
+00:38:13,620 --> 00:38:17,250
+because it's a like one block as a whole.
+
+481
+00:38:18,500 --> 00:38:20,480
+Indirect.
+
+482
+00:38:20,600 --> 00:38:23,510
+What this is an indirect block number, so that doesn't count,
+
+483
+00:38:23,510 --> 00:38:30,710
+so there's 256 sitting in this indirect block plus twelve direct block numbers that makes it 268.
+
+484
+00:38:32,620 --> 00:38:36,850
+Oh, sorry my question was why is it 256.
+
+485
+00:38:37,030 --> 00:38:40,690
+Oh, because it's a block number four byte probably.
+
+486
+00:38:43,300 --> 00:38:47,260
+So 1024 divided by four is 256 entries.
+
+487
+00:38:47,920 --> 00:38:50,000
+Okay, thank you.
+
+488
+00:38:50,120 --> 00:38:51,830
+Which is also a little bit ridiculous regular,
+
+489
+00:38:51,830 --> 00:38:54,590
+if block number is only four bytes, how big can this be.
+
+490
+00:39:04,610 --> 00:39:05,240
+Anybody?
+
+491
+00:39:16,280 --> 00:39:18,680
+Two to the power 32 right, right,
+
+492
+00:39:19,490 --> 00:39:20,690
+some things are bigger than that,
+
+493
+00:39:20,900 --> 00:39:28,650
+and so typically you know people use larger sizes for block numbers than 32 bits.
+
+494
+00:39:30,820 --> 00:39:31,420
+Okay?
+
+495
+00:39:32,080 --> 00:39:33,370
+Any questions, further questions.
+
+496
+00:39:36,430 --> 00:39:42,880
+For the max file size, but could you could you help explain that again like.
+
+497
+00:39:43,550 --> 00:39:44,690
+Okay, sure.
+
+498
+00:39:44,930 --> 00:39:48,680
+Could each block in the, could each block in,
+
+499
+00:39:49,670 --> 00:39:55,400
+that's referenced by the indirect block could that also point to more blocks,
+
+500
+00:39:55,610 --> 00:39:56,420
+if that makes sense.
+
+501
+00:39:56,420 --> 00:39:59,840
+In in the default xv6 design, that's not the case,
+
+502
+00:39:59,840 --> 00:40:02,840
+basically a twelve block numbers, twelve direct block numbers
+
+503
+00:40:02,840 --> 00:40:06,140
+and 256 indirect block numbers and nothing more.
+
+504
+00:40:06,840 --> 00:40:12,540
+In in the next lab, you'll be adding a double indirect block to the inode,
+
+505
+00:40:12,900 --> 00:40:17,130
+so you'll take one of these [bnl] 11's and turn that into a double indirect.
+
+506
+00:40:17,660 --> 00:40:21,470
+And that double indirect going to point to this,
+
+507
+00:40:21,470 --> 00:40:25,550
+we have to have 256 indirect block numbers,
+
+508
+00:40:26,880 --> 00:40:30,090
+which itself then point to blocks.
+
+509
+00:40:31,060 --> 00:40:33,520
+Now, the way file can be substantially there.
+
+510
+00:40:36,040 --> 00:40:37,480
+Oh okay, thanks.
+
+511
+00:40:39,300 --> 00:40:43,380
+Okay, so now let's say we want to implement the read system call.
+
+512
+00:40:44,000 --> 00:40:49,250
+And, you know basically we start from a operating system boots
+
+513
+00:40:49,460 --> 00:40:59,680
+wants to read say byte, read by 8000.
+
+514
+00:41:04,320 --> 00:41:07,050
+Yeah, how would you know, which block would you read,
+
+515
+00:41:09,380 --> 00:41:12,830
+which block will contain basically by 8000.
+
+516
+00:41:17,340 --> 00:41:19,380
+How would you compute or how you would look up,
+
+517
+00:41:19,410 --> 00:41:23,400
+giving this data structure, this extremely simple data structure,
+
+518
+00:41:23,400 --> 00:41:28,860
+how would you compute the actually the block number or find the block number that contains by 8000.
+
+519
+00:41:36,070 --> 00:41:37,000
+Anybody?
+
+520
+00:41:38,670 --> 00:41:46,120
+Do you just subtract, like, first of all subtract the number of bytes in the first twelve direct blocks.
+
+521
+00:41:46,300 --> 00:41:46,870
+Hmm.
+
+522
+00:41:47,430 --> 00:41:51,600
+And then see what the offset is in the indirect blocks.
+
+523
+00:41:52,080 --> 00:41:56,640
+Yeah, so okay, so in case of 8000 just what we will do correctly divided by 1024,
+
+524
+00:41:56,640 --> 00:41:57,900
+because that's the block size.
+
+525
+00:42:00,000 --> 00:42:03,240
+And that is seven, right.
+
+526
+00:42:05,250 --> 00:42:12,870
+And so that means that basically the seventh block actually has the second entry in this direct block number,
+
+527
+00:42:13,140 --> 00:42:16,710
+has the block number that contains you know by 8000 correct.
+
+528
+00:42:17,750 --> 00:42:22,100
+So [bn] seven whatever number is there is the block number,
+
+529
+00:42:22,100 --> 00:42:25,790
+that contains this particular file file,
+
+530
+00:42:26,540 --> 00:42:32,900
+by 8000 to actually find out exactly where that byte is inside of that block,
+
+531
+00:42:32,900 --> 00:42:38,220
+you know basically we have to compute 8000 delivery by 1024,
+
+532
+00:42:40,690 --> 00:42:43,840
+which is probably I think it's 832.
+
+533
+00:42:46,460 --> 00:42:49,880
+Okay, so basically to read by 8000,
+
+534
+00:42:49,880 --> 00:42:52,370
+you know the file system looks at the inode,
+
+535
+00:42:53,090 --> 00:42:55,910
+takes the byte number divide 1024,
+
+536
+00:42:55,970 --> 00:43:01,840
+indexes into see see if it falls below twelve then as a direct block number
+
+537
+00:43:02,200 --> 00:43:06,370
+and just picks up the direct block number from the inode
+
+538
+00:43:06,580 --> 00:43:14,680
+read that block and then fishes out you know 8000 byte by computing 8000 divided by found by module 1024 and
+
+539
+00:43:14,680 --> 00:43:16,780
+so it will give us an offset of 832
+
+540
+00:43:16,780 --> 00:43:21,250
+and that's the location for by 8000 that file.
+
+541
+00:43:22,760 --> 00:43:23,480
+Okay?
+
+542
+00:43:24,690 --> 00:43:27,390
+So basically, this is enough information to conclude from,
+
+543
+00:43:27,390 --> 00:43:32,880
+this is like there's enough information here now to actually implement read, write system calls,
+
+544
+00:43:32,880 --> 00:43:40,470
+at least to find out which disk blocks need to be read or written,,
+
+545
+00:43:41,100 --> 00:43:43,500
+in response to read or write system call.
+
+546
+00:43:46,630 --> 00:43:47,170
+Okay.
+
+547
+00:43:51,520 --> 00:43:53,260
+So let me talk a little bit about directories.
+
+548
+00:43:56,100 --> 00:43:58,200
+One of the cool things about you know file systems
+
+549
+00:43:58,200 --> 00:44:01,470
+where you have a hierarchical name space
+
+550
+00:44:01,470 --> 00:44:11,110
+and you can store store a symbolic user friendly names inside of inside of the, inside of the file system.
+
+551
+00:44:11,720 --> 00:44:14,210
+And the interesting aspect actually,
+
+552
+00:44:14,210 --> 00:44:19,070
+one of the cool design features with most Unix file systems actually does,
+
+553
+00:44:19,070 --> 00:44:21,820
+directory is basically the file,
+
+554
+00:44:22,380 --> 00:44:30,180
+except the file with some structure, that the file system understands.
+
+555
+00:44:30,830 --> 00:44:35,300
+In fact, in xv6 you know the structure is extremely simple,
+
+556
+00:44:36,230 --> 00:44:39,920
+every, the directory consists of directory entries.
+
+557
+00:44:40,690 --> 00:44:45,280
+And every entry has a fixed format,
+
+558
+00:44:45,490 --> 00:44:50,880
+namely it contains an inode number in the first two bytes,
+
+559
+00:44:51,860 --> 00:44:58,720
+and it contains a filename in the remaining fourteen bytes
+
+560
+00:44:58,720 --> 00:45:00,520
+and so the total thing is sixteen bytes.
+
+561
+00:45:03,280 --> 00:45:08,140
+And, this is enough information basically for,
+
+562
+00:45:08,170 --> 00:45:11,020
+you know we actually implement path name lookup.
+
+563
+00:45:18,070 --> 00:45:19,720
+So, for example just to make it clear,
+
+564
+00:45:19,720 --> 00:45:25,770
+let's say we want to look up the path name y/x,
+
+565
+00:45:26,470 --> 00:45:27,970
+how we go about doing that.
+
+566
+00:45:29,750 --> 00:45:33,800
+So well, you know this path name explain, indicates
+
+567
+00:45:33,800 --> 00:45:35,840
+that we have to start at the root inode.
+
+568
+00:45:39,990 --> 00:45:43,950
+And it turns out that [through] guy then basically has a fixed a fixed inode number
+
+569
+00:45:43,980 --> 00:45:47,160
+inode number has a [pre agreed] fixed a number
+
+570
+00:45:47,160 --> 00:45:49,260
+and in fact in xv6 that number is one.
+
+571
+00:45:50,520 --> 00:45:52,980
+So how can we find the root inode number.
+
+572
+00:45:56,930 --> 00:45:59,360
+Now we go back to our earlier picture right,
+
+573
+00:45:59,450 --> 00:46:00,680
+yeah it's number one,
+
+574
+00:46:00,710 --> 00:46:03,830
+you know we know that you know inode start at block 32,
+
+575
+00:46:03,830 --> 00:46:05,750
+so it must be thirty block 32
+
+576
+00:46:05,750 --> 00:46:10,670
+and so it's the by 16 to whatever by 64 to 128,
+
+577
+00:46:11,140 --> 00:46:15,200
+in that first block that contains the root inode number
+
+578
+00:46:15,200 --> 00:46:17,810
+and so the file system can just read the root inode number.
+
+579
+00:46:18,760 --> 00:46:19,390
+Okay?
+
+580
+00:46:21,060 --> 00:46:26,460
+And then basically the way path name lookups and works, it just gets the blocks.
+
+581
+00:46:30,890 --> 00:46:35,200
+Therefore, you know the name y,
+
+582
+00:46:37,040 --> 00:46:45,320
+so the file system, basically go through reach the blocks of the inode file inode one,
+
+583
+00:46:45,320 --> 00:46:51,260
+one by one and just looks going forward the date of those blocks a whether the string y appeers.
+
+584
+00:46:51,900 --> 00:46:54,840
+And how can it find all the blocks of the inode one,
+
+585
+00:46:54,840 --> 00:46:58,950
+well, just look at the, reach the [bn] zero the first block,
+
+586
+00:46:59,370 --> 00:47:01,800
+you know sees if x in that,
+
+587
+00:47:01,800 --> 00:47:04,950
+you know if it's not, will read the second block, etc etc,
+
+588
+00:47:04,980 --> 00:47:08,310
+until hopefully at some point either it finds it, or doesn't find it.
+
+589
+00:47:10,140 --> 00:47:13,110
+And if it finds it, let's find file x,
+
+590
+00:47:13,950 --> 00:47:18,390
+in the directory was going to have so inode number say 251.
+
+591
+00:47:19,010 --> 00:47:20,840
+And then we can just proceed from there, right,
+
+592
+00:47:20,840 --> 00:47:22,460
+we can say it's like, well okay, well,
+
+593
+00:47:22,460 --> 00:47:30,250
+now read you know block number, you know read inode 251,
+
+594
+00:47:31,150 --> 00:47:37,180
+and scan its blocks for.
+
+595
+00:47:39,230 --> 00:47:40,940
+Okay I just did my example wrong,
+
+596
+00:47:40,940 --> 00:47:44,680
+this was y, and it's going to block for x.
+
+597
+00:47:47,080 --> 00:47:49,630
+And [] was going to find us, you know, so inode number again,
+
+598
+00:47:49,630 --> 00:47:52,030
+we'll return that as a result of the path name lookup.
+
+599
+00:47:55,540 --> 00:47:56,650
+Any questions about this?
+
+600
+00:48:05,900 --> 00:48:06,560
+Would you say you.
+
+601
+00:48:06,560 --> 00:48:07,310
+So, this.
+
+602
+00:48:07,340 --> 00:48:13,670
+Yeah, so this is the layout of the directory in the disk,
+
+603
+00:48:13,910 --> 00:48:17,360
+but is there some bits somewhere in the metadata blocks
+
+604
+00:48:17,360 --> 00:48:20,810
+that indicates whether the current thing is a directory or a file.
+
+605
+00:48:21,260 --> 00:48:22,970
+Yeah it's actually in inode,
+
+606
+00:48:23,240 --> 00:48:26,920
+so the type of the inode says what's a directory or file,
+
+607
+00:48:26,920 --> 00:48:31,960
+so if you do look up on a and inode that actually happens to be a file,
+
+608
+00:48:31,960 --> 00:48:33,820
+then actually the file system will return an error.
+
+609
+00:48:37,260 --> 00:48:38,850
+I see, thanks.
+
+610
+00:48:40,890 --> 00:48:41,550
+Okay?
+
+611
+00:48:46,080 --> 00:48:51,090
+Now, clearly this structure is not a particular efficient,
+
+612
+00:48:51,090 --> 00:48:54,750
+you know to actually find a directory name, you have to scan,
+
+613
+00:48:54,870 --> 00:49:01,350
+and so a real file system, you probably would use more sophisticated data structures,
+
+614
+00:49:01,780 --> 00:49:06,520
+to actually make this lookups much faster than xv6 does.
+
+615
+00:49:08,970 --> 00:49:12,990
+But, again it's sort of almost you know a more designer question of data structures,
+
+616
+00:49:12,990 --> 00:49:14,940
+then is a question of operating system design.
+
+617
+00:49:17,230 --> 00:49:20,980
+And so you could plug in your favorite data structure
+
+618
+00:49:20,980 --> 00:49:22,930
+and turn it into an this data structure,
+
+619
+00:49:22,930 --> 00:49:24,970
+and then hopefully you're going to get better performance.
+
+620
+00:49:26,450 --> 00:49:29,060
+But for simplicity and ease explanation,
+
+621
+00:49:29,090 --> 00:49:31,280
+you know actually is very simple structure.
+
+622
+00:49:37,530 --> 00:49:38,130
+Okay?
+
+623
+00:49:40,080 --> 00:49:44,220
+Okay, so what I wanna do next is going to get a little bit more concrete feel for this
+
+624
+00:49:44,220 --> 00:49:48,360
+and just to see actually how things work out in practice in xv6
+
+625
+00:49:48,390 --> 00:49:52,290
+and this will be helpful, you know for the next lab.
+
+626
+00:49:52,910 --> 00:49:56,240
+I'm going to look at xv6 for a second,
+
+627
+00:49:56,300 --> 00:50:00,050
+usual screen.
+
+628
+00:50:02,520 --> 00:50:05,990
+So, the first thing I'm gonna boot xv6 again,
+
+629
+00:50:05,990 --> 00:50:09,410
+it's always and I did make clean,
+
+630
+00:50:09,650 --> 00:50:13,700
+and as you probably remember or many of you have run into this,
+
+631
+00:50:13,700 --> 00:50:16,820
+you know you want actually new file system, you have to run make clean,
+
+632
+00:50:16,820 --> 00:50:20,540
+because then a make qemu will build you a new clean file system.
+
+633
+00:50:21,540 --> 00:50:23,310
+So here we go.
+
+634
+00:50:25,640 --> 00:50:29,960
+And we'll see that xv6 has started,
+
+635
+00:50:29,990 --> 00:50:34,250
+but the thing I want to point out first is here,
+
+636
+00:50:34,280 --> 00:50:39,350
+here you'll see there's a call to basically make a file system,
+
+637
+00:50:39,350 --> 00:50:42,860
+so this makes a fresh disk image,
+
+638
+00:50:42,980 --> 00:50:48,320
+in a disk image contains you know a bunch of files, that we specify on the command line
+
+639
+00:50:49,100 --> 00:50:51,620
+and make it fast basically built QEMU file system
+
+640
+00:50:51,620 --> 00:50:54,500
+that contains those files as the contents of the file system.
+
+641
+00:50:55,510 --> 00:51:01,000
+And you can see you know the xv6 which brings out a bit of information about the file system,
+
+642
+00:51:01,210 --> 00:51:03,760
+so it basically says there are 46 mega blocks,
+
+643
+00:51:03,760 --> 00:51:06,040
+you know that includes the boot block, the super block,
+
+644
+00:51:06,040 --> 00:51:08,530
+the 30 log blocks, 39 inode blocks,
+
+645
+00:51:08,620 --> 00:51:13,270
+one bitmap block and then followed by 954 data blocks,
+
+646
+00:51:13,300 --> 00:51:16,510
+so it's a tiny file system in total of only thousand blocks.
+
+647
+00:51:17,020 --> 00:51:21,190
+And one of the things you will do in, the lab to support bigger files,
+
+648
+00:51:21,190 --> 00:51:24,460
+you also will have to use a much bigger file system.
+
+649
+00:51:27,050 --> 00:51:33,610
+Then I modified xv6 slightly to basically write or print something
+
+650
+00:51:33,610 --> 00:51:35,680
+whenever we write to a particular block.
+
+651
+00:51:36,290 --> 00:51:38,870
+So for example, we see a couple file system call,
+
+652
+00:51:38,870 --> 00:51:42,770
+we had xv6 when it starts up does a bunch of file system calls
+
+653
+00:51:42,950 --> 00:51:46,640
+and apparently wrote block [thirty three forty three forty eight or 32].
+
+654
+00:51:47,430 --> 00:51:50,970
+And we're gonna run basically command
+
+655
+00:51:50,970 --> 00:52:00,270
+and we're just gonna see what block numbers are being written by that command or cause of that command
+
+656
+00:52:00,270 --> 00:52:03,960
+and we've been trying to understand where do where do those writes make sense,
+
+657
+00:52:03,960 --> 00:52:10,020
+when we expect to see if they were actually, to see what is happening
+
+658
+00:52:10,020 --> 00:52:11,220
+is what we actually expect.
+
+659
+00:52:12,110 --> 00:52:16,040
+So I'm going to create a file, echo hi.
+
+660
+00:52:17,480 --> 00:52:19,010
+Yeah, I'm gonna create a file x.
+
+661
+00:52:21,310 --> 00:52:33,260
+And let me actually copy that a little bit over, so I can delineate this,
+
+662
+00:52:33,290 --> 00:52:37,490
+I'm going to delineate in a couple places just for help for understanding,
+
+663
+00:52:39,850 --> 00:52:41,710
+probably [right] here,
+
+664
+00:52:44,990 --> 00:52:46,430
+then probably here.
+
+665
+00:52:48,680 --> 00:52:49,430
+Okay.
+
+666
+00:52:50,240 --> 00:52:54,260
+It's basically it turns out there's gonna be a couple phases here,
+
+667
+00:52:54,260 --> 00:52:56,630
+one is the phase to actually create the file.
+
+668
+00:52:59,970 --> 00:53:09,180
+Then, there's write the file namely [write] hi file and then one more write.
+
+669
+00:53:10,260 --> 00:53:15,670
+Alright, actually the new line, into the file.
+
+670
+00:53:18,540 --> 00:53:22,050
+So you look at the echo program that is basically what it does.
+
+671
+00:53:23,560 --> 00:53:24,250
+Pick it up.
+
+672
+00:53:28,460 --> 00:53:29,720
+[Just do it] for completeness,
+
+673
+00:53:30,590 --> 00:53:31,820
+write to echo,
+
+674
+00:53:34,020 --> 00:53:39,660
+look at his arguments, writes arguments to file descriptor one
+
+675
+00:53:39,660 --> 00:53:43,050
+and then at the end of the [] new line.
+
+676
+00:53:43,620 --> 00:53:44,310
+Okay?
+
+677
+00:53:44,890 --> 00:53:49,780
+So, these are basically the sequences of disk writes get involved in each operation.
+
+678
+00:53:50,640 --> 00:53:53,310
+And let's go look at them one by one
+
+679
+00:53:53,310 --> 00:53:54,870
+and start to understand what's going on.
+
+680
+00:53:55,460 --> 00:53:59,240
+I'm going to basically maybe the easiest thing to do
+
+681
+00:53:59,240 --> 00:54:01,280
+actually used to, move this over.
+
+682
+00:54:07,880 --> 00:54:13,490
+Okay so, it's convenient to understand what's going on,
+
+683
+00:54:13,490 --> 00:54:17,060
+instead of looking at the code, we're going to just look at this disk layout
+
+684
+00:54:17,120 --> 00:54:22,340
+and trying to figure out a what might be going on in these particular operations.
+
+685
+00:54:39,280 --> 00:54:39,910
+Okay good.
+
+686
+00:54:42,310 --> 00:54:46,270
+So what do we think, this write is.
+
+687
+00:54:53,210 --> 00:54:55,070
+Any idea what this might actually be.
+
+688
+00:54:56,230 --> 00:54:59,470
+We're creating a file, so what do we expect file system to do.
+
+689
+00:55:00,340 --> 00:55:02,440
+It writes the inodes entry.
+
+690
+00:55:03,200 --> 00:55:05,330
+Yeah, so first thing I was just two,
+
+691
+00:55:05,330 --> 00:55:09,380
+so okay so it's 33, so what do we know about block 33.
+
+692
+00:55:10,210 --> 00:55:11,560
+If we look at the disk layout picture.
+
+693
+00:55:14,130 --> 00:55:16,500
+It contains a free inode.
+
+694
+00:55:17,020 --> 00:55:21,640
+Yeah, you know it contains we know that inode one lives in 32, correct,,
+
+695
+00:55:21,640 --> 00:55:29,230
+and so we're whatever apparently inode that's being allocated is probably and inode that lives in block 33.
+
+696
+00:55:29,870 --> 00:55:32,720
+Presumably the first write might just be marking
+
+697
+00:55:32,720 --> 00:55:35,030
+you know that this inode actually is now going to be used
+
+698
+00:55:35,090 --> 00:55:38,660
+and so I think the way xv6 does this it uses the type field,
+
+699
+00:55:39,180 --> 00:55:43,320
+in the inode to actually indicate where inode free, file or directory,
+
+700
+00:55:43,350 --> 00:55:47,190
+so it basically changes from free to file
+
+701
+00:55:47,190 --> 00:55:51,660
+and write to the disk to market as in use.
+
+702
+00:55:52,960 --> 00:55:56,290
+What do we think next write 33 is.
+
+703
+00:56:02,320 --> 00:56:06,810
+Actually, populating the inode entry would like info.
+
+704
+00:56:07,110 --> 00:56:10,020
+Yeah, exactly yeah, indeed populating an inode info,
+
+705
+00:56:10,080 --> 00:56:16,620
+you know inode probably with entries like setting the link count one and things like that, right.
+
+706
+00:56:18,210 --> 00:56:24,170
+In, what is 46, what do we expect 46 to be in 32,
+
+707
+00:56:24,200 --> 00:56:24,980
+maybe that's there.
+
+708
+00:56:30,300 --> 00:56:36,090
+Is 46, the first data, no actually bitmap bitmap.
+
+709
+00:56:36,640 --> 00:56:40,180
+No, just it's a data block and you're right it's the first data block.
+
+710
+00:56:41,260 --> 00:56:42,940
+So whose data block do you think is this.
+
+711
+00:56:45,640 --> 00:56:50,860
+See root directory entry.
+
+712
+00:56:51,440 --> 00:56:59,860
+Yeah correct, this is this is probably used to block, first lock, of the root directory,
+
+713
+00:57:01,040 --> 00:57:03,550
+you know inode one, right.
+
+714
+00:57:04,420 --> 00:57:07,720
+And why were we expecting to actually that to be written,
+
+715
+00:57:09,180 --> 00:57:09,600
+what has.
+
+716
+00:57:09,600 --> 00:57:20,020
+Because because we're, we're creating like x in, we're adding a new file x to the current directory,
+
+717
+00:57:20,020 --> 00:57:21,850
+so adding it to the file hierarchy.
+
+718
+00:57:21,940 --> 00:57:24,700
+Yeah, exactly, so we have we've done this
+
+719
+00:57:24,700 --> 00:57:30,100
+and we just added an entry to the root directory,
+
+720
+00:57:30,100 --> 00:57:33,310
+namely entry x with whatever inode we allocated,
+
+721
+00:57:33,400 --> 00:57:36,040
+you know the step, two steps before.
+
+722
+00:57:37,250 --> 00:57:37,970
+Does that make sense?
+
+723
+00:57:40,030 --> 00:57:41,830
+So what do we think is write 32 is.
+
+724
+00:57:47,190 --> 00:57:51,000
+To block 32, well, the thing to do is go back and look at the disk layout picture.
+
+725
+00:57:51,630 --> 00:57:53,010
+And one is block 32.
+
+726
+00:57:55,490 --> 00:57:56,960
+I know the one probably.
+
+727
+00:57:57,790 --> 00:58:00,490
+Yeah, well it will include inode one,
+
+728
+00:58:00,550 --> 00:58:02,260
+includes all the other inodes correct,
+
+729
+00:58:02,260 --> 00:58:03,790
+because nine is smaller than a block,
+
+730
+00:58:03,790 --> 00:58:05,650
+but it will include inode one.
+
+731
+00:58:06,210 --> 00:58:07,530
+Why do you think it's going to be written
+
+732
+00:58:07,680 --> 00:58:09,870
+what what might have changed in the inode
+
+733
+00:58:09,870 --> 00:58:12,210
+that requires that the inode actually written to disk.
+
+734
+00:58:13,390 --> 00:58:14,230
+Size.
+
+735
+00:58:14,410 --> 00:58:16,030
+Yeah, the size change exactly,
+
+736
+00:58:16,030 --> 00:58:21,370
+size change because we grew the directory correct by sixteen bytes directly store entry x.
+
+737
+00:58:24,220 --> 00:58:27,760
+Then there's one more a write to 34
+
+738
+00:58:28,030 --> 00:58:31,120
+and I'll leave that hanging for a second,
+
+739
+00:58:31,180 --> 00:58:36,470
+basically we're updating inode for x one more time,
+
+740
+00:58:36,500 --> 00:58:39,800
+even through nothing actually what's written yet.
+
+741
+00:58:41,540 --> 00:58:42,290
+Okay?
+
+742
+00:58:44,380 --> 00:58:45,490
+So that's the first phase,
+
+743
+00:58:45,520 --> 00:58:47,890
+so let's now look at the second,
+
+744
+00:58:48,310 --> 00:58:49,900
+you know so there's creation,
+
+745
+00:58:49,900 --> 00:58:51,760
+now let's look at the second phase
+
+746
+00:58:51,760 --> 00:58:55,030
+or the first write you know write hi to file x.
+
+747
+00:58:57,470 --> 00:58:59,810
+Well, what do we think 45.
+
+748
+00:59:01,910 --> 00:59:05,360
+Yeah yeah it's the bitmap,
+
+749
+00:59:05,360 --> 00:59:10,840
+so remember what happened to here is does that file system scan the bitmap block
+
+750
+00:59:11,260 --> 00:59:13,570
+to find a block that was not used,
+
+751
+00:59:13,690 --> 00:59:19,360
+so find it zero and then set that bit, you know to one
+
+752
+00:59:19,360 --> 00:59:22,210
+to indicate that that particular block now is in use.
+
+753
+00:59:22,890 --> 00:59:28,230
+And so it wrote you know 45 to to disk [] updated the bigmap block.
+
+754
+00:59:30,180 --> 00:59:33,480
+What block do you think the bitmap allocator picked.
+
+755
+00:59:36,690 --> 00:59:38,070
+[595]?
+
+756
+00:59:38,130 --> 00:59:42,660
+Yeah, most likely, correct, because right after it we see your write to five ninety five,
+
+757
+00:59:43,280 --> 00:59:47,240
+and presumably the block that was allocated to the file x.
+
+758
+00:59:47,720 --> 00:59:49,280
+And so basically in the inode correct,
+
+759
+00:59:49,310 --> 00:59:53,510
+file x now in [bn] zero will have the number five ninety five.
+
+760
+00:59:54,640 --> 00:59:58,660
+And, and basically what will be the first byte,
+
+761
+00:59:58,990 --> 01:00:04,120
+what's the value of the first byte of block five ninety five, After this write.
+
+762
+01:00:05,560 --> 01:00:06,790
+H.
+
+763
+01:00:06,820 --> 01:00:07,630
+H, yeah.
+
+764
+01:00:07,900 --> 01:00:12,310
+What do we think the second write is, this one.
+
+765
+01:00:14,030 --> 01:00:14,720
+i.
+
+766
+01:00:15,200 --> 01:00:21,110
+Yes, i right, there's every echoed you know there's a character by character.
+
+767
+01:00:21,940 --> 01:00:24,160
+Okay, what do we think this write 33 is.
+
+768
+01:00:28,500 --> 01:00:29,730
+Updating the size again.
+
+769
+01:00:30,180 --> 01:00:31,890
+Yeah, again the size of the inode,
+
+770
+01:00:31,890 --> 01:00:33,720
+that's because now it has two bytes in it.
+
+771
+01:00:34,760 --> 01:00:35,540
+Does it make sense?
+
+772
+01:00:37,740 --> 01:00:43,590
+Question, five ninety five seems very high up in the disk,
+
+773
+01:00:43,860 --> 01:00:46,770
+that because there's other stuff that's currently living there
+
+774
+01:00:46,770 --> 01:00:49,950
+like the kernel boot code and other things that have already been start.
+
+775
+01:00:50,010 --> 01:00:52,890
+Well, yeah we can go back to the this screen,
+
+776
+01:00:52,890 --> 01:00:54,930
+we can look at what make fs did, right,
+
+777
+01:00:54,930 --> 01:00:57,600
+so make fs stored a whole bunch of files there,
+
+778
+01:00:58,410 --> 01:01:01,050
+in the files that before we actually created file x.
+
+779
+01:01:01,800 --> 01:01:04,170
+And in fact we've created all these guys.
+
+780
+01:01:05,540 --> 01:01:09,470
+And so it was only a good chunk of the disk is already filled by the files,
+
+781
+01:01:09,470 --> 01:01:15,350
+the for blocks a good number of blocks already used basically by the set of files.
+
+782
+01:01:18,660 --> 01:01:19,320
+Got it.
+
+783
+01:01:20,800 --> 01:01:26,140
+Would it write down that block five ninety five is related to,
+
+784
+01:01:26,680 --> 01:01:32,500
+that to that I know during the last, like during the write three to that.
+
+785
+01:01:32,530 --> 01:01:34,480
+Yeah, exactly correct,
+
+786
+01:01:34,480 --> 01:01:37,630
+so there's write through three probably a bunch of things happened correct,
+
+787
+01:01:37,630 --> 01:01:38,830
+the size got updated.
+
+788
+01:01:40,640 --> 01:01:45,010
+And you know bn zero and bn one, we're updated,
+
+789
+01:01:45,040 --> 01:01:48,700
+we're certainly bn zero is updated correct, to contain five ninety five
+
+790
+01:01:48,700 --> 01:01:54,040
+and both pieces of information are updated inode then written to the disk by this write.
+
+791
+01:01:59,340 --> 01:01:59,970
+That makes sense?
+
+792
+01:02:01,580 --> 01:02:03,200
+Yeah yeah, thank you.
+
+793
+01:02:04,430 --> 01:02:08,570
+Good, so that's you know sort of the essence of disk layout
+
+794
+01:02:08,960 --> 01:02:15,440
+and hopefully you have a pretty good understanding of what goes on to make this work
+
+795
+01:02:15,440 --> 01:02:19,190
+and so it's going to look a little bit more in detail now at the code,
+
+796
+01:02:19,310 --> 01:02:26,120
+to see actually things little, one more level of detail.
+
+797
+01:02:26,830 --> 01:02:30,560
+Okay, so the first thing since reallocated inode,
+
+798
+01:02:30,560 --> 01:02:36,500
+let's first look at actually how, how that happened,
+
+799
+01:02:36,500 --> 01:02:40,370
+so in sysfile, let's see [].
+
+800
+01:02:43,940 --> 01:02:47,780
+So here're all the calls related to file system calls,
+
+801
+01:02:47,780 --> 01:02:50,300
+so the first thing that actually happens when it was just open,
+
+802
+01:02:50,300 --> 01:02:51,800
+because we're going to create a file.
+
+803
+01:02:52,440 --> 01:03:00,860
+Since open will call create, here's create.
+
+804
+01:03:01,520 --> 01:03:08,390
+Create will look at this later, resolves the path name to basically the last directory,
+
+805
+01:03:08,920 --> 01:03:13,450
+walks the directory and then does look up and really care about that
+
+806
+01:03:13,930 --> 01:03:15,850
+just to see if the file already exists,
+
+807
+01:03:15,850 --> 01:03:18,280
+and if the file exists, you know maybe you're turn an error.
+
+808
+01:03:19,830 --> 01:03:22,080
+And then it calls inode allocate
+
+809
+01:03:22,110 --> 01:03:29,280
+and so this is the call that is going to allocate this inode for the file x.
+
+810
+01:03:29,850 --> 01:03:32,940
+So let's look out it's gonna be fs.c.
+
+811
+01:03:37,840 --> 01:03:39,580
+And here is ialloc,
+
+812
+01:03:39,610 --> 01:03:42,940
+like most xv6 code, you know it's just very simple,
+
+813
+01:03:42,940 --> 01:03:44,260
+but not particularly efficient.
+
+814
+01:03:44,880 --> 01:03:50,490
+And so what it does, basically it goes for all the inode numbers possible,
+
+815
+01:03:51,090 --> 01:03:53,640
+from one to whatever the maximum number of inode
+
+816
+01:03:53,640 --> 01:03:56,880
+that as a possible on this particular file system,
+
+817
+01:03:57,120 --> 01:04:01,860
+and then reach block, for that inode number,
+
+818
+01:04:01,860 --> 01:04:06,270
+so, for example starts with one, reach, you know the block contains an inode number one
+
+819
+01:04:06,660 --> 01:04:13,480
+and and, then sees if that inode number is free
+
+820
+01:04:13,480 --> 01:04:15,670
+and if it's not, if it is free,
+
+821
+01:04:15,970 --> 01:04:19,630
+then it says it to file,
+
+822
+01:04:19,630 --> 01:04:24,010
+and that way marks it as allocated and writes it to disk,
+
+823
+01:04:24,040 --> 01:04:28,930
+and this log_write, you actually print statements I had, I put actually log_write,
+
+824
+01:04:29,230 --> 01:04:35,660
+so that log_write was the first write that we've seen,
+
+825
+01:04:35,990 --> 01:04:40,880
+in that sequence of writes that we did what file system do.
+
+826
+01:04:40,910 --> 01:04:41,750
+Does this make sense?
+
+827
+01:04:47,880 --> 01:04:52,110
+So interesting, so it's basically sort of the sequence of events
+
+828
+01:04:52,110 --> 01:04:55,170
+that get you to the first write to the disk,
+
+829
+01:04:55,590 --> 01:05:05,160
+interesting question of course, what happens if multiple processes are calling create at the same time,
+
+830
+01:05:05,190 --> 01:05:09,390
+multi core machine that can be running in parallel,
+
+831
+01:05:09,420 --> 01:05:13,350
+you know coming down and all get to ialloc roughly at the same time,
+
+832
+01:05:13,680 --> 01:05:16,290
+and then all they're gonna call they're gonna call bread,
+
+833
+01:05:16,860 --> 01:05:22,830
+so there has some story or how is these writes don't interfere with each other.
+
+834
+01:05:23,700 --> 01:05:25,620
+Yeah it's really worthwhile looking into,
+
+835
+01:05:26,070 --> 01:05:33,420
+because in some sense, you know this is actually the part of the last part of this lab that you're currently doing,
+
+836
+01:05:33,420 --> 01:05:35,040
+so it gets into the buffer cache.
+
+837
+01:05:37,940 --> 01:05:40,010
+So let's look at bread,
+
+838
+01:05:40,580 --> 01:05:43,970
+so on bread more the first thing it does actually it's called bget
+
+839
+01:05:44,000 --> 01:05:48,200
+and so basically bget a slot in the buffer cache.
+
+840
+01:05:48,660 --> 01:05:51,990
+Let's look at the bget for a little while,
+
+841
+01:05:51,990 --> 01:05:53,520
+because there's a reasonable tricky code.
+
+842
+01:05:55,700 --> 01:06:01,040
+And, so what's going on in the first couple lines here.
+
+843
+01:06:03,810 --> 01:06:06,720
+I imagine some of you already looked at this code quite a bit of detail
+
+844
+01:06:06,720 --> 01:06:09,500
+as part of this lab, the [locking] block.
+
+845
+01:06:10,170 --> 01:06:11,400
+So what's going on here.
+
+846
+01:06:18,480 --> 01:06:23,310
+It blocks the linked list and check if any of the,
+
+847
+01:06:23,460 --> 01:06:28,470
+things in the cache are maching with what we're looking for.
+
+848
+01:06:28,980 --> 01:06:31,770
+Yeah, so basically this is the cache,
+
+849
+01:06:31,770 --> 01:06:37,410
+in action we're looking for whatever the block number, block number 33
+
+850
+01:06:37,740 --> 01:06:41,790
+and we're basically seeing if the cache already has block number 33.
+
+851
+01:06:43,040 --> 01:06:48,470
+And and if that is the case, it bumps the ref count up
+
+852
+01:06:48,590 --> 01:06:52,130
+and and then release the bcache lock,
+
+853
+01:06:52,160 --> 01:06:54,380
+because we're done looking into cache itself,
+
+854
+01:06:54,680 --> 01:06:59,390
+we know it's there we know that there's a buff- buffer for that particular block, there,
+
+855
+01:06:59,630 --> 01:07:04,820
+and, and then the next step that actually happens is sort of interesting.
+
+856
+01:07:06,490 --> 01:07:12,850
+Next step, the block cache basically tries to get a lock on the buffer.
+
+857
+01:07:13,660 --> 01:07:19,750
+So, so what happens if like multiple processes at the same time called bget,
+
+858
+01:07:19,780 --> 01:07:23,500
+well one of them is going to get the bcache lock, right.
+
+859
+01:07:24,350 --> 01:07:26,750
+It's going to scan the buffer cache,
+
+860
+01:07:26,780 --> 01:07:29,840
+and so nobody can actually modify the buffer cache in this particular point.
+
+861
+01:07:30,420 --> 01:07:35,130
+Find if the block number is there and if the block number is there,
+
+862
+01:07:35,130 --> 01:07:36,540
+it bumps the ref count,
+
+863
+01:07:36,600 --> 01:07:42,100
+indicating that basically it has a reference, you know to this, this particular lock
+
+864
+01:07:42,100 --> 01:07:44,530
+and then releases the bcache lock.
+
+865
+01:07:44,800 --> 01:07:47,290
+So if there were a second process waiting,
+
+866
+01:07:47,960 --> 01:07:54,260
+all to also scan the this cache, it might not actually require to lock right away, right,
+
+867
+01:07:54,650 --> 01:07:59,630
+in fact it might be a second process of scanning for one also want to scan for this block 33.
+
+868
+01:08:00,140 --> 01:08:06,140
+And it will also get you know basically a reference to be bump the reference count,
+
+869
+01:08:06,410 --> 01:08:09,110
+to two or three whatever it is
+
+870
+01:08:09,320 --> 01:08:12,350
+and then you know both of them will try to call acquire sleep,
+
+871
+01:08:13,200 --> 01:08:15,210
+on that particular buffer buffer 33.
+
+872
+01:08:16,120 --> 01:08:19,030
+And acquire sleep, it's just basically another type of lock,
+
+873
+01:08:19,210 --> 01:08:23,290
+we call them sleep locks and we'll talk about in a second,
+
+874
+01:08:23,500 --> 01:08:28,570
+but basically you know this acquires the lock on the buffer,
+
+875
+01:08:28,750 --> 01:08:33,340
+so one of the two processes will get the, the lock of buffer 33.
+
+876
+01:08:33,900 --> 01:08:39,870
+And will proceed and that will be returned and go from [going through motions],
+
+877
+01:08:40,140 --> 01:08:44,220
+you know like scanning that block 33 to see if there is inode that actually is free.
+
+878
+01:08:45,580 --> 01:08:49,360
+And the other process will just be sitting in the acquiresleep here,
+
+879
+01:08:49,360 --> 01:08:53,890
+you know waiting until the first process is done with all its operations.
+
+880
+01:08:58,380 --> 01:08:59,400
+Any questions about this?
+
+881
+01:09:01,970 --> 01:09:03,740
+I have a question,
+
+882
+01:09:05,440 --> 01:09:10,390
+while the ref count of a block is not zero,
+
+883
+01:09:10,390 --> 01:09:13,870
+can anything important about that block change,
+
+884
+01:09:13,900 --> 01:09:21,550
+because something can happen between the release of the bcache and acquiring the lock of the block.
+
+885
+01:09:22,600 --> 01:09:27,010
+Yeah actually the the protocol, okay, so there's a couple points I want to make here,
+
+886
+01:09:27,010 --> 01:09:33,550
+the protocol basically, xv6 follows is that for any modification to the bcache itself,
+
+887
+01:09:33,610 --> 01:09:35,050
+you need to hold the bcache lock.
+
+888
+01:09:36,180 --> 01:09:38,700
+For any modification to this block 33,
+
+889
+01:09:38,730 --> 01:09:41,070
+you need to hold the sleep lock block 33.
+
+890
+01:09:41,790 --> 01:09:43,800
+And so at any particular point in time,
+
+891
+01:09:44,100 --> 01:09:52,080
+so after the release b ref count is a larger than zero
+
+892
+01:09:52,410 --> 01:09:55,770
+and there will be no modification to the buffer cache,
+
+893
+01:09:56,010 --> 01:09:59,990
+buffer cache will only evict or things that actually have the ref count zero,
+
+894
+01:09:59,990 --> 01:10:03,290
+never that has a ref count of something bigger than zero.
+
+895
+01:10:04,120 --> 01:10:09,250
+And so we know for sure that this block basically this buffer won't be touched in the bcache itself,
+
+896
+01:10:09,550 --> 01:10:11,350
+you know other processes might be looking up,
+
+897
+01:10:11,350 --> 01:10:14,770
+might be looking up the entry in the bcache,
+
+898
+01:10:15,010 --> 01:10:20,220
+but it won't be removed from the bcache, right.
+
+899
+01:10:21,160 --> 01:10:21,490
+Yeah make sense.
+
+900
+01:10:21,490 --> 01:10:26,770
+And this lock that second lock at this sleep lock is really what protects the content of the buffer,
+
+901
+01:10:27,440 --> 01:10:31,850
+ensuring that only one process actually will be reading or writing the buffer
+
+902
+01:10:32,150 --> 01:10:33,410
+at any particular point of time.
+
+903
+01:10:36,060 --> 01:10:38,100
+And it's important, correct,
+
+904
+01:10:38,550 --> 01:10:43,940
+that [can it say], would be bad if like say wouldn't be bad
+
+905
+01:10:43,940 --> 01:10:49,870
+if block 33 ended up in the cache twice in different slots.
+
+906
+01:10:53,100 --> 01:10:55,830
+Yeah, because then he could have the correct information, right.
+
+907
+01:10:56,720 --> 01:10:57,500
+Yeah correctly,
+
+908
+01:10:57,500 --> 01:11:02,330
+for example let's say process one writes inode nineteen
+
+909
+01:11:02,330 --> 01:11:04,520
+and the other process writes inode twenty, correct,
+
+910
+01:11:04,520 --> 01:11:08,600
+and so if they both get a handle on the buffer for that represents,
+
+911
+01:11:08,600 --> 01:11:13,310
+you know the the block 33 one might update inode eighteen,
+
+912
+01:11:13,310 --> 01:11:14,840
+the other in nineteen,
+
+913
+01:11:14,840 --> 01:11:17,600
+the first one maybe arrange, its eighteen back to the disk,
+
+914
+01:11:17,630 --> 01:11:21,740
+then the guy that does modified nineteen write nineteen back,
+
+915
+01:11:21,860 --> 01:11:24,560
+will overwrite changes at eighteen made, right,
+
+916
+01:11:24,650 --> 01:11:26,120
+that were made for inode eighteen.
+
+917
+01:11:26,690 --> 01:11:27,620
+And so that's terrible,
+
+918
+01:11:28,070 --> 01:11:34,910
+so it has to be the case that the block number only appears in the buffer cache only exactly once.
+
+919
+01:11:38,380 --> 01:11:39,670
+And there's an invariant correct,
+
+920
+01:11:39,670 --> 01:11:45,670
+you know you sort of have to maintain while you're doing this a block cache lab,
+
+921
+01:11:45,700 --> 01:11:48,850
+locking lab in this week's lab.
+
+922
+01:11:50,140 --> 01:11:51,670
+Does that make sense, that variant.
+
+923
+01:11:54,220 --> 01:11:56,650
+Yeah, I guess tangential question to this,
+
+924
+01:11:57,010 --> 01:12:00,370
+there might be some blocks that have multiple references to them
+
+925
+01:12:00,970 --> 01:12:06,130
+and then maybe one of the processes that has is touching this block
+
+926
+01:12:06,430 --> 01:12:09,970
+flushes the cache by forcing a write to the disk,
+
+927
+01:12:09,970 --> 01:12:13,510
+what happens to what everyone else sees.
+
+928
+01:12:14,070 --> 01:12:20,440
+Well as I did, if the write, okay so the first process is done at some point,
+
+929
+01:12:20,440 --> 01:12:24,220
+we'll call release [] whatever it's called,
+
+930
+01:12:24,220 --> 01:12:32,020
+so basically you can think about at the end when the first process done with it's reading and writing to that block 33,
+
+931
+01:12:32,290 --> 01:12:34,150
+I call brelse release with a buffer.
+
+932
+01:12:34,540 --> 01:12:37,870
+And that will actually decrease the reference count.
+
+933
+01:12:38,460 --> 01:12:42,000
+Well release sleep lock, and that means that if anybody was waiting,
+
+934
+01:12:42,000 --> 01:12:44,490
+any other processes was waiting for that particular buffer
+
+935
+01:12:44,730 --> 01:12:48,150
+and will now be able to get the sleep lock on the buffer
+
+936
+01:12:48,390 --> 01:12:55,050
+and go read it will observe the preview than you make changes, right.
+
+937
+01:12:55,050 --> 01:13:00,660
+So if two processes were returning to the update inode eighteen and 1919 that all both live in block 43,
+
+938
+01:13:00,930 --> 01:13:02,580
+then if the first process is done,
+
+939
+01:13:02,670 --> 01:13:04,560
+it changes eighteen are visible
+
+940
+01:13:04,920 --> 01:13:11,340
+and so the next and so the next guy will actually allocate [] inode 19,
+
+941
+01:13:11,370 --> 01:13:13,680
+because actually eighteen is marked as a file now.
+
+942
+01:13:14,820 --> 01:13:17,370
+Anybody afterwards will observe the changes.
+
+943
+01:13:20,400 --> 01:13:20,940
+Makes sense?
+
+944
+01:13:23,220 --> 01:13:24,600
+Yes, thanks.
+
+945
+01:13:25,550 --> 01:13:27,350
+And this is exactly what we hoped would be the case,
+
+946
+01:13:28,400 --> 01:13:31,340
+if one process creates an inode or creates a file,
+
+947
+01:13:31,340 --> 01:13:35,240
+then the process, later process does read, you should observe that file.
+
+948
+01:13:37,650 --> 01:13:42,370
+Okay, then, because one more smaller detail,
+
+949
+01:13:42,400 --> 01:13:44,170
+as you can see here in the code,
+
+950
+01:13:44,170 --> 01:13:48,330
+in the process actually takes a sleeplock on the buffer
+
+951
+01:13:48,540 --> 01:13:53,940
+and so the sleep lock is slightly different than a regular or a spin lock,
+
+952
+01:13:54,150 --> 01:13:56,100
+let's look at sleep lock for a second.
+
+953
+01:13:57,050 --> 01:13:58,820
+And you see what it is.
+
+954
+01:13:59,350 --> 01:14:00,970
+So we need to acquire sleeplock.
+
+955
+01:14:02,040 --> 01:14:04,320
+Yeah, and when it does,
+
+956
+01:14:04,350 --> 01:14:10,740
+it requires you know some field basically requires a spin lock, that is associated with sleep lock,
+
+957
+01:14:11,160 --> 01:14:15,520
+if the lock is actually held, okay, the spin lock is held,
+
+958
+01:14:15,520 --> 01:14:19,450
+then, if the lock is actually held,
+
+959
+01:14:19,450 --> 01:14:25,320
+so okay, let me first see h file, the h file contains a locked field,
+
+960
+01:14:25,900 --> 01:14:31,250
+and, and that's it.
+
+961
+01:14:33,800 --> 01:14:35,030
+And so basically.
+
+962
+01:14:38,110 --> 01:14:40,120
+That was the spin lock.
+
+963
+01:14:40,150 --> 01:14:41,440
+Yeah, we're spin lock.
+
+964
+01:14:46,000 --> 01:14:51,490
+Oh, yeah there's a spin lock.
+
+965
+01:14:55,280 --> 01:15:04,860
+Good good. Sorry, um, and then if the lock is actually held,
+
+966
+01:15:05,010 --> 01:15:06,960
+sleep lock is held it actually goes to sleep.
+
+967
+01:15:08,160 --> 01:15:09,540
+So it deschedules itself.
+
+968
+01:15:10,140 --> 01:15:16,980
+And why, why do you think for these buffers are we using sleep locks instead of spin locks,
+
+969
+01:15:17,820 --> 01:15:20,790
+because indirectly we're using spin locks to implement sleep locks,
+
+970
+01:15:21,060 --> 01:15:22,890
+but why not just use regular.
+
+971
+01:15:26,760 --> 01:15:29,190
+Because disk operations take a long time.
+
+972
+01:15:29,740 --> 01:15:32,110
+Yeah, there's multiple reasons,
+
+973
+01:15:32,110 --> 01:15:37,480
+there's all kinds of rules correct restrictions on a on a spin locks,
+
+974
+01:15:37,570 --> 01:15:39,700
+what is one of the restrictions on spin locks.
+
+975
+01:15:43,990 --> 01:15:44,530
+Well, what do.
+
+976
+01:15:44,530 --> 01:15:46,000
+Interrupts have to be off.
+
+977
+01:15:46,330 --> 01:15:47,920
+Yeah, they turn interrupts off, right.
+
+978
+01:15:48,830 --> 01:15:54,200
+And so we were we started this operation while holding a buffer,
+
+979
+01:15:54,500 --> 01:15:56,330
+while holding a spin lock on the buffer
+
+980
+01:15:56,330 --> 01:15:58,310
+and then we would never hear from the disk.
+
+981
+01:15:58,700 --> 01:16:00,170
+Well, maybe another core here,
+
+982
+01:16:00,170 --> 01:16:03,290
+but if we had only one core and we would never hear from it, right.
+
+983
+01:16:05,320 --> 01:16:07,360
+And for more, for the same reasons,
+
+984
+01:16:07,360 --> 01:16:10,300
+you know you're not allowed to go to sleep, while holding a spin lock.
+
+985
+01:16:10,930 --> 01:16:15,490
+And so therefore we have these sleep locks that are sort of long-term locks,
+
+986
+01:16:15,490 --> 01:16:19,810
+if you will for for that particular use case.
+
+987
+01:16:20,310 --> 01:16:25,950
+So that we can hold locks one of the advantages of sleep locks
+
+988
+01:16:25,950 --> 01:16:27,570
+that we can hold them across interrupts,
+
+989
+01:16:27,840 --> 01:16:30,960
+hold because disk operations, we can hold them for long periods of time.
+
+990
+01:16:32,010 --> 01:16:34,890
+And we're not if we're waiting on that lock,
+
+991
+01:16:34,890 --> 01:16:39,090
+we also not keeping the CPU busy or spending on the CPU,
+
+992
+01:16:39,150 --> 01:16:42,090
+we're basically releasing the CPU by calling sleep.
+
+993
+01:16:43,530 --> 01:16:44,190
+Does that make sense?
+
+994
+01:16:49,580 --> 01:16:50,570
+Any questions about this?
+
+995
+01:16:56,490 --> 01:17:00,840
+Okay, let's look at one more thing,
+
+996
+01:17:00,840 --> 01:17:07,360
+which is brelse.
+
+997
+01:17:08,190 --> 01:17:12,750
+So we looked already a little bit, you basically would brelse does releases the sleep lock,
+
+998
+01:17:12,780 --> 01:17:15,570
+then acquires the bcache lock, decrement reference count
+
+999
+01:17:15,570 --> 01:17:18,990
+to indicate that one process is not interested anymore, in this particular buffer.
+
+1000
+01:17:19,590 --> 01:17:22,170
+And then, if a if the ref count is zero,
+
+1001
+01:17:22,440 --> 01:17:29,690
+the, it manipulates the list of buffers a little bit,
+
+1002
+01:17:29,690 --> 01:17:30,740
+what does it do here.
+
+1003
+01:17:38,220 --> 01:17:47,350
+It inserts the b into the position after b head, inside of the []list.
+
+1004
+01:17:47,470 --> 01:17:50,050
+Yeah, where does it basically go, what does that mean.
+
+1005
+01:17:52,340 --> 01:17:55,460
+So let's go back up correctly, let's look at.
+
+1006
+01:17:56,640 --> 01:18:00,080
+It was most recently used.
+
+1007
+01:18:00,140 --> 01:18:04,640
+Yeah, basically moves into the position of the most recently used buffer, right.
+
+1008
+01:18:05,340 --> 01:18:12,150
+And this is important, because when, when we cannot find the block in the block cache.
+
+1009
+01:18:12,770 --> 01:18:16,490
+Then we need to fix something to make space, right.
+
+1010
+01:18:17,280 --> 01:18:19,920
+And so we're going to go through the block as we go
+
+1011
+01:18:19,920 --> 01:18:23,100
+and we basically start from most recently used one.
+
+1012
+01:18:24,800 --> 01:18:26,120
+And think that one first.
+
+1013
+01:18:27,540 --> 01:18:32,460
+And so we just used the buffer as very unlikely, that it actually evicted.
+
+1014
+01:18:33,540 --> 01:18:35,100
+Why is that a good policy.
+
+1015
+01:18:41,610 --> 01:18:44,760
+Generally systems obey a temporal locality.
+
+1016
+01:18:45,180 --> 01:18:48,570
+Yeah right, so if the block is recently used,
+
+1017
+01:18:48,570 --> 01:18:51,780
+it's probably a good indicator that it might actually be used again quickly.
+
+1018
+01:18:52,390 --> 01:18:54,640
+And so it's a good idea not to evict it.
+
+1019
+01:18:55,320 --> 01:19:00,960
+You wanna and it's generally sort of if you even you have locality cache locality
+
+1020
+01:19:00,960 --> 01:19:05,070
+and the block that is you know least recently used
+
+1021
+01:19:05,070 --> 01:19:08,670
+probably the block that is also most likely to be used in the future
+
+1022
+01:19:08,820 --> 01:19:10,560
+and so that's a good one to evict.
+
+1023
+01:19:12,220 --> 01:19:12,910
+Does that make sense?
+
+1024
+01:19:18,160 --> 01:19:19,720
+Okay.
+
+1025
+01:19:21,920 --> 01:19:25,280
+So, let me go back to my slides here,
+
+1026
+01:19:25,280 --> 01:19:34,750
+so, so there's a little bit of a slight excursion in the bcache code,
+
+1027
+01:19:35,770 --> 01:19:37,450
+or the block cache.
+
+1028
+01:19:40,200 --> 01:19:42,720
+There's a couple interesting things at the point at to correct,
+
+1029
+01:19:42,720 --> 01:19:48,310
+you know there's this invariant that there's only one copy of a block in memory.
+
+1030
+01:19:50,840 --> 01:19:54,260
+And as an important variant that must be maintained by block cache,
+
+1031
+01:19:54,260 --> 01:19:58,940
+it has these sleep locks, are different types of locks than the ones that we've seen before,
+
+1032
+01:19:59,510 --> 01:20:03,320
+that can span IO operations that implements you know LRU,
+
+1033
+01:20:03,350 --> 01:20:05,630
+least recently catching replacement policy,
+
+1034
+01:20:05,840 --> 01:20:08,780
+need to have these two levels of locking,
+
+1035
+01:20:09,540 --> 01:20:16,560
+to, in its implementation, one level to basically protect the bcache internal data structures,
+
+1036
+01:20:16,860 --> 01:20:21,720
+and then one level of locking through sleep locks to actually lock individual buffers.
+
+1037
+01:20:26,570 --> 01:20:27,410
+Does that make sense?
+
+1038
+01:20:29,230 --> 01:20:30,370
+Okay,.
+
+1039
+01:20:32,200 --> 01:20:35,590
+I'm going to run out of time, so let me stop here,
+
+1040
+01:20:35,890 --> 01:20:38,980
+you know quickly summarized what we've seen so far
+
+1041
+01:20:38,980 --> 01:20:42,970
+and we're going Wednesday and we're going to focus really on crash safety,
+
+1042
+01:20:43,210 --> 01:20:46,570
+so basically you know file system is on this data structure.
+
+1043
+01:20:47,410 --> 01:20:52,240
+Basically, most of the lecture today, we're focusing on the layout of the on this data structure
+
+1044
+01:20:52,270 --> 01:20:56,710
+of the xv6 you know this data structure on disk
+
+1045
+01:20:56,710 --> 01:20:59,710
+and you know we saw xv6 has a very simple one.
+
+1046
+01:21:04,480 --> 01:21:07,600
+But you can imagine like you know implementing more complicated one
+
+1047
+01:21:07,930 --> 01:21:10,840
+and the other thing that we spend much time looking at is this block cache,
+
+1048
+01:21:10,840 --> 01:21:12,520
+which is crucial for performance,
+
+1049
+01:21:12,760 --> 01:21:16,150
+because reading and writing typically to disk is actually expensive,
+
+1050
+01:21:16,180 --> 01:21:19,330
+you know we're there for hundreds of microseconds to milliseconds
+
+1051
+01:21:19,540 --> 01:21:25,450
+and the block cache basically ensures that, you know if a block was recently read from the disk,
+
+1052
+01:21:25,450 --> 01:21:27,580
+we're actually not reading it again from the disk.
+
+1053
+01:21:28,620 --> 01:21:32,460
+Okay, and then Wednesday, I'm going to talk about crash safety,
+
+1054
+01:21:33,890 --> 01:21:38,720
+which is a fascinating other aspect of file system design,
+
+1055
+01:21:38,720 --> 01:21:41,120
+in fact we'll spend two lectures on crash safety.
+
+1056
+01:21:41,660 --> 01:21:44,480
+We'll see a logging design on Wednesday that's slow
+
+1057
+01:21:44,480 --> 01:21:48,350
+and then next week we'll look at how Linux ext3 does logging
+
+1058
+01:21:48,470 --> 01:21:50,330
+which is a much more faster scheme.
+
+1059
+01:21:51,620 --> 01:21:56,360
+If you have any other questions feel [] to hang around and I'm happy to answer them,
+
+1060
+01:21:56,360 --> 01:21:59,080
+otherwise you know, see you Wednesday.
+
+1061
+01:22:02,160 --> 01:22:03,000
+Alright, thank you.
+
+1062
+01:22:04,370 --> 01:22:07,640
+I have a question about brelse.
+
+1063
+01:22:08,330 --> 01:22:08,810
+Yes.
+
+1064
+01:22:09,640 --> 01:22:15,460
+So it seems like it releases the blocks lock
+
+1065
+01:22:15,520 --> 01:22:19,600
+and after that it modifies the ref count.
+
+1066
+01:22:19,720 --> 01:22:20,320
+Um.
+
+1067
+01:22:21,180 --> 01:22:22,650
+Why is that OK.
+
+1068
+01:22:22,890 --> 01:22:23,940
+Yeah, good question.
+
+1069
+01:22:25,580 --> 01:22:29,510
+So what do we, know you know, so let's say we do release the sleep lock,
+
+1070
+01:22:29,570 --> 01:22:34,490
+so if some other guy or some other process actually was waiting,
+
+1071
+01:22:34,490 --> 01:22:36,260
+or what doing acquire sleep lock,
+
+1072
+01:22:36,290 --> 01:22:38,180
+what does that mean about the ref count.
+
+1073
+01:22:41,300 --> 01:22:43,640
+That it was zero.
+
+1074
+01:22:45,230 --> 01:22:50,330
+No correct, so if n processes are waiting for a buffer.
+
+1075
+01:22:50,480 --> 01:22:52,850
+Oh okay, [check out].
+
+1076
+01:22:54,390 --> 01:22:56,670
+There was a at least one.
+
+1077
+01:22:57,290 --> 01:22:58,580
+Yeah, more than one, correct,
+
+1078
+01:22:58,580 --> 01:23:00,860
+if ten process you're waiting in, the reference can be ten.
+
+1079
+01:23:01,640 --> 01:23:02,810
+Yeah, okay.
+
+1080
+01:23:03,380 --> 01:23:07,460
+And so, is this only this only line of code
+
+1081
+01:23:07,460 --> 01:23:10,760
+what it does is basically it updates the ref count for just one guy
+
+1082
+01:23:10,790 --> 01:23:12,860
+which is one process that actually did the release
+
+1083
+01:23:12,860 --> 01:23:15,620
+and it reduces the ref ref count to by one.
+
+1084
+01:23:16,490 --> 01:23:21,380
+And if other people were waiting and never ref count was definitely not zero will do,
+
+1085
+01:23:21,380 --> 01:23:22,970
+it will never execute this code.
+
+1086
+01:23:25,640 --> 01:23:26,150
+OK?
+
+1087
+01:23:26,180 --> 01:23:29,810
+OK, OK I see, I I think I see okay.
+
+1088
+01:23:30,380 --> 01:23:39,500
+A rather question was why is why is two bits to by enough for inode number.
+
+1089
+01:23:39,590 --> 01:23:43,310
+It's not, it's ridiculously small, correct,
+
+1090
+01:23:43,520 --> 01:23:45,470
+because how many inodes can you have.
+
+1091
+01:23:46,800 --> 01:23:49,020
+Two to the power of eight.
+
+1092
+01:23:49,520 --> 01:23:53,330
+Yeah, yeah yeah yeah, whatever two byte.
+
+1093
+01:23:53,570 --> 01:23:54,860
+Sixteen bit.
+
+1094
+01:23:55,640 --> 01:23:58,640
+Sixteen thirteen, thirty two thousand inodes.
+
+1095
+01:23:59,540 --> 01:24:03,200
+That's a lot inode for nineteen sixties or the sixties and seventies,
+
+1096
+01:24:03,230 --> 01:24:05,360
+but certainly would not be sufficient for today.
+
+1097
+01:24:06,700 --> 01:24:11,110
+And so, today's file systems use a bigger number or more bits.
+
+1098
+01:24:12,140 --> 01:24:12,860
+Okay.
+
+1099
+01:24:13,380 --> 01:24:20,240
+I see I guess my question was in the architecture that we have for xv6,
+
+1100
+01:24:20,930 --> 01:24:27,080
+the those two sixteen bit for inodes like where where else do they,
+
+1101
+01:24:27,320 --> 01:24:30,680
+where else can we see this number show up.
+
+1102
+01:24:31,490 --> 01:24:37,820
+Well the the one that is two bytes is really on disk than it is two bytes.
+
+1103
+01:24:38,420 --> 01:24:46,040
+Any number in when it's compiled when it's sitting in a register or sit in memory.
+
+1104
+01:24:46,580 --> 01:24:49,130
+The disk inode is,
+
+1105
+01:24:49,160 --> 01:24:55,510
+look at it, let's see,
+
+1106
+01:24:56,170 --> 01:24:59,590
+so this disk inode as we said before actually the,
+
+1107
+01:25:03,900 --> 01:25:06,840
+use a directory entry where we say is inside [short]
+
+1108
+01:25:06,870 --> 01:25:08,880
+and others there's two byte sixteen bits,
+
+1109
+01:25:09,520 --> 01:25:12,790
+the in-memory representation of an inode.
+
+1110
+01:25:13,540 --> 01:25:21,400
+You know, okay, that's in, you're doing in-memory representation of an inode,
+
+1111
+01:25:21,940 --> 01:25:26,840
+that actually number is integer
+
+1112
+01:25:26,840 --> 01:25:29,750
+and you know the way we compile C code
+
+1113
+01:25:29,750 --> 01:25:31,760
+and integer happens to be four bytes.
+
+1114
+01:25:34,480 --> 01:25:38,050
+Okay, okay I see, thank you, thank you so much.
+
