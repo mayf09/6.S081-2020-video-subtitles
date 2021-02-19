@@ -1,0 +1,5535 @@
+1
+00:00:10,990 --> 00:00:11,950
+Alright.
+
+
+2
+00:00:13,470 --> 00:00:15,270
+Good morning or good afternoon everyone,
+
+
+3
+00:00:15,420 --> 00:00:19,230
+I'm like to get started, can people hear me.
+
+
+4
+00:00:20,000 --> 00:00:20,660
+Yep.
+
+
+5
+00:00:20,980 --> 00:00:21,400
+Thank you,
+
+
+6
+00:00:21,850 --> 00:00:24,700
+alright today, what I'd like to do is
+
+
+7
+00:00:24,940 --> 00:00:28,240
+give you a chance to ask questions about xv6
+
+
+8
+00:00:28,240 --> 00:00:29,710
+and about the recent labs,
+
+
+9
+00:00:29,980 --> 00:00:33,850
+in order to give us something to talk about,
+
+
+10
+00:00:33,970 --> 00:00:41,090
+I'm going to do as much as I can of the copy-on-write fork lab here,
+
+
+11
+00:00:41,120 --> 00:00:44,030
+just to give us something to chew on
+
+
+12
+00:00:44,330 --> 00:00:47,450
+and you should feel free to ask any questions you like,
+
+
+13
+00:00:47,630 --> 00:00:51,770
+you can ask about why my solution is different from your solution
+
+
+14
+00:00:51,770 --> 00:00:54,620
+or why xv6 works the way it does
+
+
+15
+00:00:54,620 --> 00:01:00,660
+or why the bugs that we encounter show up in the way they do.
+
+
+16
+00:01:02,040 --> 00:01:03,390
+So just to remind you,
+
+
+17
+00:01:03,390 --> 00:01:07,050
+although I'm sure this is I'm sure I don't need to remind you,
+
+
+18
+00:01:07,170 --> 00:01:08,850
+the point of copy-on-write fork is
+
+
+19
+00:01:08,850 --> 00:01:14,400
+to avoid copying costs for pages and fork that are never modified,
+
+
+20
+00:01:15,000 --> 00:01:17,820
+I put in a few lines of code
+
+
+21
+00:01:17,820 --> 00:01:21,120
+to measure the reduction in the number of bytes
+
+
+22
+00:01:21,120 --> 00:01:27,030
+that mem copy had to copy during usertests for my copy-on-write solution
+
+
+23
+00:01:27,030 --> 00:01:31,820
+and found that actually reduce the amount of copying by 90%.
+
+
+24
+00:01:32,630 --> 00:01:36,200
+And this is for usertests which is kind of a weird program but nevertheless,
+
+
+25
+00:01:36,410 --> 00:01:41,570
+and I think a lot of it is reductions in's copy of the instruction pages,
+
+
+26
+00:01:41,570 --> 00:01:44,810
+because the instruction pages for are never modified,
+
+
+27
+00:01:45,680 --> 00:01:48,290
+so there's never any point in having copies of them
+
+
+28
+00:01:48,500 --> 00:01:50,570
+and I think that's where a lot of the [win] was from.
+
+
+29
+00:01:51,040 --> 00:01:53,770
+And copy-on-write fork also reduces RAM use,
+
+
+30
+00:01:54,010 --> 00:01:56,860
+the sort of maximum amount of RAM you ever need to use
+
+
+31
+00:01:56,980 --> 00:01:59,500
+and it reduces the amount of time you spend in fork,
+
+
+32
+00:02:01,040 --> 00:02:02,780
+and so fork returns more quickly,
+
+
+33
+00:02:02,780 --> 00:02:05,840
+you know on the other hand, of course the total cost may be larger,
+
+
+34
+00:02:05,870 --> 00:02:10,250
+because if programs end up modifying all the copy-on-write pages,
+
+
+35
+00:02:10,520 --> 00:02:14,210
+you end up having to do all the copies plus take all the page faults,
+
+
+36
+00:02:15,320 --> 00:02:17,450
+which can be a little bit expensive,
+
+
+37
+00:02:17,450 --> 00:02:22,860
+but nevertheless people found that in general it's a net benefit.
+
+
+38
+00:02:23,770 --> 00:02:26,020
+And as you know the main challenges are,
+
+
+39
+00:02:26,410 --> 00:02:30,100
+one challenge is how to avoid freeing memory
+
+
+40
+00:02:30,130 --> 00:02:32,500
+and now we're sharing pages among processes,
+
+
+41
+00:02:32,590 --> 00:02:37,570
+have not de-allocate them, have not free them, until the last process is finished using them,
+
+
+42
+00:02:37,720 --> 00:02:42,010
+so anymore, bookkeeping and the other interesting challenges
+
+
+43
+00:02:42,010 --> 00:02:47,210
+that there's a in copyout in particular the xv6,
+
+
+44
+00:02:47,240 --> 00:02:51,680
+modifies user memory without actually going to the MMU paging hardware.
+
+
+45
+00:02:53,410 --> 00:02:55,750
+And we have to mimic page faults here.
+
+
+46
+00:02:57,090 --> 00:02:59,340
+I'm gonna go to the lab,
+
+
+47
+00:02:59,370 --> 00:03:02,670
+starting at the beginning the copy-on-write lab ,
+
+
+48
+00:03:02,820 --> 00:03:03,960
+before I start I just wanna,
+
+
+49
+00:03:04,500 --> 00:03:09,630
+just mentioned the strategy that I think of myself as following when I do labs
+
+
+50
+00:03:09,660 --> 00:03:12,030
+and I do a lot of labs from one year to the next,
+
+
+51
+00:03:12,030 --> 00:03:15,000
+I don't remember the details of how to do the labs.
+
+
+52
+00:03:16,890 --> 00:03:18,750
+And in addition labs change.
+
+
+53
+00:03:19,180 --> 00:03:21,250
+Alright, so, when I'm doing the labs,
+
+
+54
+00:03:21,250 --> 00:03:22,570
+I always take small steps,
+
+
+55
+00:03:22,570 --> 00:03:27,100
+I may find you know some sort of next subset of the problem to solve,
+
+
+56
+00:03:27,250 --> 00:03:29,230
+maybe five or ten lines of code,
+
+
+57
+00:03:29,260 --> 00:03:32,590
+I programmed up and run it and try to get to working,
+
+
+58
+00:03:33,310 --> 00:03:36,910
+before I go on to the next, proceeding to the next step
+
+
+59
+00:03:36,970 --> 00:03:42,370
+and this is you know as opposed to for example thinking through and writing a complete solution,
+
+
+60
+00:03:42,850 --> 00:03:46,360
+before starting to test and debug,
+
+
+61
+00:03:46,360 --> 00:03:49,760
+it always test and debug a little bit at a time,
+
+
+62
+00:03:50,060 --> 00:03:52,190
+a lot of the reason for that is that ,
+
+
+63
+00:03:52,220 --> 00:03:57,110
+even though you may , you may have sort of thought through a lot of things,
+
+
+64
+00:03:57,110 --> 00:03:58,130
+a lot of the challenges,
+
+
+65
+00:03:58,130 --> 00:03:59,480
+and a lot of the design,
+
+
+66
+00:03:59,510 --> 00:04:01,580
+for what you're going to have to do to solve the lab,
+
+
+67
+00:04:01,670 --> 00:04:04,250
+I find at least there's often surprises.
+
+
+68
+00:04:04,620 --> 00:04:08,370
+And so if I implement everything first,
+
+
+69
+00:04:08,400 --> 00:04:10,980
+I may find then that I've wasted a lot of time,
+
+
+70
+00:04:10,980 --> 00:04:13,380
+because I didn't fully understand the problem,
+
+
+71
+00:04:13,380 --> 00:04:16,290
+until I actually got into debugging it.
+
+
+72
+00:04:17,360 --> 00:04:20,930
+And the way I choose the next step at each point is
+
+
+73
+00:04:20,930 --> 00:04:24,680
+usually driven by whatever panic or crash a test failure,
+
+
+74
+00:04:24,680 --> 00:04:28,760
+I see next sort of tells me what I need to fix next.
+
+
+75
+00:04:29,350 --> 00:04:31,330
+Well I'm doing this lab,
+
+
+76
+00:04:31,390 --> 00:04:32,650
+I'll make a few mistakes,
+
+
+77
+00:04:32,650 --> 00:04:35,050
+that I actually made the last time I did the lab,
+
+
+78
+00:04:35,110 --> 00:04:39,430
+so that we can do a have a little practice debugging together.
+
+
+79
+00:04:41,360 --> 00:04:45,740
+Again, feel free to break in at any time and ask questions about anything.
+
+
+80
+00:04:47,040 --> 00:04:52,310
+I'm starting here with fresh copy of the copy-on-write lab,
+
+
+81
+00:04:53,100 --> 00:04:55,350
+source the same as all of you did.
+
+
+82
+00:04:55,920 --> 00:04:57,600
+So, I'll just fire this up.
+
+
+83
+00:04:58,830 --> 00:05:04,660
+And, run the copy-on-write tests
+
+
+84
+00:05:04,660 --> 00:05:06,460
+and you know maybe I'll get lucky
+
+
+85
+00:05:06,460 --> 00:05:08,590
+and all the tests will pass and don't have to do anything,
+
+
+86
+00:05:10,510 --> 00:05:11,890
+Too bad on the test failed,
+
+
+87
+00:05:11,920 --> 00:05:14,320
+okay, so not too surprising .
+
+
+88
+00:05:16,680 --> 00:05:21,420
+And you know a good step at this point is to go have a look at the tests
+
+
+89
+00:05:21,450 --> 00:05:23,250
+and figure out what it's trying to do,
+
+
+90
+00:05:23,700 --> 00:05:29,130
+and the sad truth is some of the tests are complicated and hard to understand
+
+
+91
+00:05:29,130 --> 00:05:32,130
+and don't necessarily test anything specific,
+
+
+92
+00:05:32,130 --> 00:05:35,560
+they just sort of try different things, see if something will break,
+
+
+93
+00:05:35,620 --> 00:05:40,570
+but luckily with this simple test, it's pretty clear what its doing.
+
+
+94
+00:05:40,930 --> 00:05:42,130
+A question.
+
+
+95
+00:05:42,250 --> 00:05:43,180
+Yeah.
+
+
+96
+00:05:43,210 --> 00:05:45,340
+You need to show your screen, we cannot see anything.
+
+
+97
+00:05:45,490 --> 00:05:46,840
+Oh gosh.
+
+
+98
+00:05:47,450 --> 00:05:49,970
+I'm sorry about that,
+
+
+99
+00:05:50,240 --> 00:05:52,850
+thank you for thank you for letting me know.
+
+
+100
+00:05:55,280 --> 00:05:56,240
+How is that better.
+
+
+101
+00:05:57,820 --> 00:06:00,100
+Yes. Brilliant, alright.
+
+
+102
+00:06:00,970 --> 00:06:03,370
+Okay, well, that's bug number one.
+
+
+103
+00:06:06,030 --> 00:06:08,550
+Okay, so I'll just,
+
+
+104
+00:06:08,580 --> 00:06:11,730
+here I am, in my copy-on-write test,
+
+
+105
+00:06:11,850 --> 00:06:16,240
+I ran copy-on-write test, and it fails.
+
+
+106
+00:06:18,690 --> 00:06:23,910
+Look at the test, this simpletest on the screen right is actually failed,
+
+
+107
+00:06:24,150 --> 00:06:28,320
+and this test we're lucky enough it actually tells us what it's doing
+
+
+108
+00:06:28,680 --> 00:06:35,370
+and allocates what it knows to be more than half the available memory in xv6 and then forks
+
+
+109
+00:06:36,570 --> 00:06:40,860
+and of course, the reason this fails is that fork makes a copy,
+
+
+110
+00:06:41,040 --> 00:06:45,030
+then ordinary xv6 actually literally makes a copy
+
+
+111
+00:06:45,030 --> 00:06:48,660
+and so if we have to copy more than half of memory,
+
+
+112
+00:06:48,660 --> 00:06:49,950
+there's just not enough space for that.
+
+
+113
+00:06:50,910 --> 00:06:54,610
+Okay, so, of course, this is what copy-on-write all about,
+
+
+114
+00:06:55,000 --> 00:07:01,330
+and we know that the basic game is that instead of copying the process's memory,
+
+
+115
+00:07:01,360 --> 00:07:05,380
+we want to just copy its page table and not the memory,
+
+
+116
+00:07:05,740 --> 00:07:10,600
+the child just has a [carbon] copy of the parent's page table instead of memory,
+
+
+117
+00:07:11,240 --> 00:07:13,490
+referring to all the same physical pages.
+
+
+118
+00:07:14,390 --> 00:07:25,290
+The place where, fork does it's copying is in vm.c and uvmcopy.
+
+
+119
+00:07:27,820 --> 00:07:30,580
+And so we can just modify this code,
+
+
+120
+00:07:33,320 --> 00:07:36,170
+to instead of allocating a page memory,
+
+
+121
+00:07:36,870 --> 00:07:40,180
+here, and copying onto it,
+
+
+122
+00:07:40,300 --> 00:07:43,270
+we're going to eliminate those three lines.
+
+
+123
+00:07:43,940 --> 00:07:45,410
+And instead,
+
+
+124
+00:07:48,880 --> 00:07:50,740
+I just copied page table entries,
+
+
+125
+00:07:50,920 --> 00:07:53,440
+so um,
+
+
+126
+00:07:55,740 --> 00:07:59,160
+actually just gonna hack, this, um,
+
+
+127
+00:08:01,060 --> 00:08:10,310
+copy of mappages,
+
+
+128
+00:08:10,460 --> 00:08:12,110
+since we didn't actually allocate memory here,
+
+
+129
+00:08:12,110 --> 00:08:13,340
+going to get rid of this free,
+
+
+130
+00:08:13,520 --> 00:08:22,780
+I'm going to fix this mappages, to instead of mapping mem at address i,
+
+
+131
+00:08:23,260 --> 00:08:28,570
+I'm going to map the pa, which is the physical address, we pulled out of the parents' page table.
+
+
+132
+00:08:29,710 --> 00:08:30,640
+So is that clear?
+
+
+133
+00:08:31,650 --> 00:08:33,600
+And so this will just have the effect of
+
+
+134
+00:08:33,990 --> 00:08:37,680
+mapping all of the parents pages into the child's address space.
+
+
+135
+00:08:39,280 --> 00:08:41,470
+Isn't pa already uint64?
+
+
+136
+00:08:44,940 --> 00:08:45,570
+Probably.
+
+
+137
+00:08:45,960 --> 00:08:49,470
+Or is it is it bad, if you were to cast its already that type?
+
+
+138
+00:08:49,470 --> 00:08:53,910
+The cast does absolutely nothing other than [shut] the compiler up,
+
+
+139
+00:08:54,540 --> 00:08:56,910
+since it's already, since addresses or 64 bits
+
+
+140
+00:08:56,910 --> 00:08:58,710
+and you want sixty four, sixty four bit,
+
+
+141
+00:08:58,860 --> 00:09:00,750
+that cast doesn't change the bits.
+
+
+142
+00:09:01,440 --> 00:09:05,430
+It just makes the type checker less upset,
+
+
+143
+00:09:05,580 --> 00:09:08,400
+but [] you actually don't know whether any of these types are.
+
+
+144
+00:09:10,160 --> 00:09:12,200
+However, one thing is we don't need this mem variable.
+
+
+145
+00:09:15,550 --> 00:09:18,670
+Okay, so you write about pa,
+
+
+146
+00:09:21,250 --> 00:09:22,600
+gosh, I wonder if we're done now.
+
+
+147
+00:09:22,930 --> 00:09:25,660
+Let's run the cowtest and see what happens,
+
+
+148
+00:09:25,750 --> 00:09:27,490
+definitely not done.
+
+
+149
+00:09:28,330 --> 00:09:35,600
+Okay, so, we got here is, this user trap, with scause of two.
+
+
+150
+00:09:36,740 --> 00:09:38,720
+Anybody remember what scause two is?
+
+
+151
+00:09:41,410 --> 00:09:42,400
+I'll just tell you.
+
+
+152
+00:09:42,430 --> 00:09:44,110
+Structure failure.
+
+
+153
+00:09:44,140 --> 00:09:45,550
+It's an illegal instruction,
+
+
+154
+00:09:45,550 --> 00:09:49,300
+so why would we getting an illegal instruction now.
+
+
+155
+00:09:51,320 --> 00:09:52,700
+Is this what we expected.
+
+
+156
+00:09:58,070 --> 00:10:04,220
+Did we overwrite them like portion where we have instructions.
+
+
+157
+00:10:05,310 --> 00:10:09,960
+Yes, something is damaging the instructions of the user program.
+
+
+158
+00:10:12,440 --> 00:10:15,800
+And of course the fault, we're not surprised we get a fault here.
+
+
+159
+00:10:17,180 --> 00:10:20,030
+But we're hoping for write, for stored faults
+
+
+160
+00:10:20,390 --> 00:10:23,480
+to drive the copying process and copy-on-write.
+
+
+161
+00:10:24,760 --> 00:10:26,320
+We're not getting the store fault.
+
+
+162
+00:10:31,980 --> 00:10:40,970
+Any other hypotheses for this? It's not really fair, because like this, my bug not your bug, but nevertheless.
+
+
+163
+00:10:43,540 --> 00:10:45,190
+Does it have to do the flags.
+
+
+164
+00:10:46,270 --> 00:10:48,190
+Yes, it does.
+
+
+165
+00:10:53,520 --> 00:10:55,950
+Okay, so I'll just leave that to the side,
+
+
+166
+00:10:55,950 --> 00:10:57,960
+they'll actually come up again ,
+
+
+167
+00:10:57,990 --> 00:11:02,430
+another question is we're hoping for store page faults,
+
+
+168
+00:11:02,850 --> 00:11:06,030
+which will drive the copying process.
+
+
+169
+00:11:07,090 --> 00:11:09,010
+Why didn't we get a store page fault.
+
+
+170
+00:11:21,210 --> 00:11:22,590
+Alright, um.
+
+
+171
+00:11:23,750 --> 00:11:26,120
+Why would we get a store page fault.
+
+
+172
+00:11:27,400 --> 00:11:32,030
+Under what circumstances does the RISC-V generate store page fault.
+
+
+173
+00:11:34,770 --> 00:11:37,470
+We would get if the write flag is not set,
+
+
+174
+00:11:37,590 --> 00:11:40,770
+but now we can just write to everything normally.
+
+
+175
+00:11:41,010 --> 00:11:42,510
+Yeah, left the write flag set,
+
+
+176
+00:11:42,510 --> 00:11:47,040
+alright, so that's bug one which I did actually make last time I did this lab,
+
+
+177
+00:11:47,040 --> 00:11:49,500
+so I've left the write flag set in the parent,
+
+
+178
+00:11:49,500 --> 00:11:51,930
+I've done I haven't done anything to the write flags,
+
+
+179
+00:11:51,960 --> 00:11:54,960
+this flags variable here is ,
+
+
+180
+00:11:55,750 --> 00:11:58,000
+it's just the way we pulled out of the parents' page table,
+
+
+181
+00:11:58,000 --> 00:11:59,740
+it's all its pages are writable
+
+
+182
+00:12:00,010 --> 00:12:02,680
+and so that means that it's going to be writable on the child too,
+
+
+183
+00:12:02,680 --> 00:12:03,820
+we won't get store page faults,
+
+
+184
+00:12:03,820 --> 00:12:08,710
+so just sharing a page read, write, which is not what we wanted,
+
+
+185
+00:12:08,860 --> 00:12:10,780
+so how am I going to turn off the,
+
+
+186
+00:12:10,810 --> 00:12:13,360
+how am I gonna write protect these pages.
+
+
+187
+00:12:20,930 --> 00:12:24,360
+Any proposals, what should I type.
+
+
+188
+00:12:27,730 --> 00:12:28,810
+How about.
+
+
+189
+00:12:29,360 --> 00:12:41,120
+You can do flags and equals the wave sign underscore w,
+
+
+190
+00:12:41,390 --> 00:12:44,150
+yeah yeah we're gonna need a tilde there,
+
+
+191
+00:12:44,150 --> 00:12:45,500
+I call that wave sign tilde,
+
+
+192
+00:12:45,500 --> 00:12:47,630
+the we need to the waves,
+
+
+193
+00:12:47,630 --> 00:12:50,450
+the it's clear we need to clear this bit on the flags
+
+
+194
+00:12:50,450 --> 00:12:52,010
+were going to leave all the other flags set.
+
+
+195
+00:12:52,430 --> 00:12:56,030
+Okay so that's gonna with this clear the flag and the parent of the child.
+
+
+196
+00:13:01,870 --> 00:13:02,440
+Child?
+
+
+197
+00:13:02,590 --> 00:13:03,640
+Just child.
+
+
+198
+00:13:04,040 --> 00:13:07,520
+So how do I clear do I also need to clear the flag in the parent.
+
+
+199
+00:13:10,390 --> 00:13:15,790
+Yes, because we want the child to be independent for the parents,
+
+
+200
+00:13:15,790 --> 00:13:20,650
+if we write something we don't want the child to also get them modification from their parents.
+
+
+201
+00:13:20,890 --> 00:13:23,860
+That's absolutely right, we need to write protect the page at the parent as well,
+
+
+202
+00:13:23,860 --> 00:13:27,310
+because we don't want the child to see the parents modifications,
+
+
+203
+00:13:27,310 --> 00:13:30,710
+were trying to mimic, having completely separate copies.
+
+
+204
+00:13:30,890 --> 00:13:35,420
+So what can I do to clear the flag in the parents' page table.
+
+
+205
+00:13:43,790 --> 00:13:49,160
+You can do something like star pte and equals not pte, right.
+
+
+206
+00:13:49,720 --> 00:13:54,460
+Yeah, so I have the parents p-, a pointer to the parents' page table entry right here in pte
+
+
+207
+00:13:54,970 --> 00:13:58,780
+and so I can clear the PTE flag here too,
+
+
+208
+00:13:58,810 --> 00:13:59,950
+so that's pretty convenient.
+
+
+209
+00:14:02,160 --> 00:14:07,900
+And my belief is that enough to make both copies of the page,
+
+
+210
+00:14:07,900 --> 00:14:12,380
+are both mappings of the page read only.
+
+
+211
+00:14:13,000 --> 00:14:18,220
+So hopefully now we'll start getting write faults.
+
+
+212
+00:14:19,330 --> 00:14:28,000
+Is it possible to do to clear the PTE_W bit before you say flags equals pte flags of pte,
+
+
+213
+00:14:28,600 --> 00:14:32,110
+and that way like the original flag is just the correct thing.
+
+
+214
+00:14:32,320 --> 00:14:34,810
+Oh I see you put away up here.
+
+
+215
+00:14:35,020 --> 00:14:35,470
+Yeah.
+
+
+216
+00:14:35,710 --> 00:14:37,210
+Yeah, I'll get that shot,
+
+
+217
+00:14:46,080 --> 00:14:48,420
+seems to work, that makes sense.
+
+
+218
+00:14:50,860 --> 00:14:52,750
+Okay, so now I get my write fault.
+
+
+219
+00:14:55,230 --> 00:14:56,340
+Which is what we're hoping for
+
+
+220
+00:14:56,370 --> 00:15:00,300
+and hopefully what this write fault means is that one of the other processes tried to modify the page
+
+
+221
+00:15:00,300 --> 00:15:03,450
+and the RISC-V generated a page fault from that.
+
+
+222
+00:15:04,080 --> 00:15:12,860
+And, we're gonna want to [react] to that by making a copy of the page
+
+
+223
+00:15:13,190 --> 00:15:14,300
+and mapping it read write.
+
+
+224
+00:15:14,630 --> 00:15:19,760
+Before we do that just to make sure that what we're seeing,
+
+
+225
+00:15:19,760 --> 00:15:23,900
+you know this, this, this f here, this scause,
+
+
+226
+00:15:24,260 --> 00:15:28,970
+that is sort of making me imagine that we're seeing what we want to see namely a store fault,
+
+
+227
+00:15:28,970 --> 00:15:31,580
+let's actually go look and see where that happened.
+
+
+228
+00:15:33,170 --> 00:15:35,120
+We know it's process id three,
+
+
+229
+00:15:35,150 --> 00:15:36,920
+process id one is init,
+
+
+230
+00:15:36,920 --> 00:15:39,890
+process id two is the shell
+
+
+231
+00:15:40,220 --> 00:15:43,190
+and so maybe process id three is going to be cowtest.
+
+
+232
+00:15:43,680 --> 00:15:54,290
+We can look in, we can look in cowtest.asm.
+
+
+233
+00:15:54,910 --> 00:15:59,530
+And look for 9da and see if it makes sense,
+
+
+234
+00:15:59,530 --> 00:16:05,630
+as a instruction that could generate a store page fault.
+
+
+235
+00:16:08,880 --> 00:16:10,380
+Oops, don't look so good.
+
+
+236
+00:16:14,480 --> 00:16:16,490
+I can't remember what auipc does,
+
+
+237
+00:16:16,490 --> 00:16:18,830
+but I don't believe it performs a store.
+
+
+238
+00:16:20,120 --> 00:16:21,710
+Any guesses what's going on?
+
+
+239
+00:16:29,000 --> 00:16:32,540
+It'd be nice, if the page fault who are seeing actually made sense.
+
+
+240
+00:16:36,580 --> 00:16:44,650
+I'll tell you, it turns out this page fault occurred in the shell after the shell fork,
+
+
+241
+00:16:44,650 --> 00:16:47,620
+but before it exec cowtest
+
+
+242
+00:16:47,770 --> 00:16:50,200
+and so we're really looking at the wrong asm file,
+
+
+243
+00:16:50,700 --> 00:16:53,370
+turns out the right asm file is shell.asm file,
+
+
+244
+00:16:53,370 --> 00:16:55,530
+we'll look for 9da there.
+
+
+245
+00:16:56,880 --> 00:17:00,960
+Yes, and in the shell 9da, is a store instruction
+
+
+246
+00:17:01,260 --> 00:17:04,500
+and it's at the beginning of this parsecmd function,
+
+
+247
+00:17:04,500 --> 00:17:07,950
+that actually parses the cowtest command that we typed
+
+
+248
+00:17:07,950 --> 00:17:10,770
+and figures out what to do with it, namely called exec,
+
+
+249
+00:17:11,430 --> 00:17:13,320
+as doing a store into the stack,
+
+
+250
+00:17:13,470 --> 00:17:19,380
+it's the preamble that stores the callee saved registers.
+
+
+251
+00:17:20,920 --> 00:17:23,860
+And not surprisingly that this should be the first page fault we get,
+
+
+252
+00:17:23,860 --> 00:17:25,510
+because it's on the stack,
+
+
+253
+00:17:25,540 --> 00:17:27,970
+you know the very first thing those functions do after fork
+
+
+254
+00:17:27,970 --> 00:17:30,280
+returns is they modify their variables in the stack
+
+
+255
+00:17:30,280 --> 00:17:34,510
+and boom, unsurprisingly that causes a store page fault.
+
+
+256
+00:17:35,440 --> 00:17:38,040
+Any questions about why we're faulting.
+
+
+257
+00:17:41,600 --> 00:17:42,680
+I have a quick question,
+
+
+258
+00:17:42,680 --> 00:17:46,670
+how did you figure out it was in the shell rather than in cowtest?
+
+
+259
+00:17:47,300 --> 00:17:52,520
+Because I looked at 9da in cowtest and that is not a store instruction.
+
+
+260
+00:17:53,800 --> 00:17:58,000
+I thought gosh what could possibly be going on.
+
+
+261
+00:17:59,430 --> 00:18:00,570
+Now, look at process id.
+
+
+262
+00:18:00,570 --> 00:18:03,270
+Three, so is pid three to shell or is it.
+
+
+263
+00:18:03,270 --> 00:18:07,110
+Pid three is, p two is the shell that printed that prompt,
+
+
+264
+00:18:07,440 --> 00:18:10,590
+pid three is the next process that's created
+
+
+265
+00:18:10,860 --> 00:18:15,820
+and so initially the shell forks to make pid three.
+
+
+266
+00:18:16,380 --> 00:18:19,050
+But after the fork, it's still running the shell,
+
+
+267
+00:18:19,230 --> 00:18:23,610
+it's a child of the shell running a copy of the shell,
+
+
+268
+00:18:23,820 --> 00:18:26,790
+it's going to call exec to run cowtest,
+
+
+269
+00:18:26,790 --> 00:18:27,960
+but it hasn't done it yet,
+
+
+270
+00:18:28,980 --> 00:18:32,340
+it hasn't been able to get that far without taking a store page fault,
+
+
+271
+00:18:35,320 --> 00:18:37,090
+when it writes to stack.
+
+
+272
+00:18:38,900 --> 00:18:45,380
+So, can you clarify, does that mean that there's an error with the shell related process id two,
+
+
+273
+00:18:45,380 --> 00:18:50,600
+because it doesn't have the proper data in order for the child to have the right data
+
+
+274
+00:18:50,600 --> 00:18:53,810
+or is it a error with process id three.
+
+
+275
+00:18:55,190 --> 00:19:03,320
+It's a page fault, that occurs in process id three. Right, but the bug that we're seeing right here like.
+
+
+276
+00:19:05,380 --> 00:19:09,160
+This is implementing copy-on-write fork
+
+
+277
+00:19:09,640 --> 00:19:20,440
+and what we just did in vm.c was write protect every single page in the parent and the child, right.
+
+
+278
+00:19:20,820 --> 00:19:22,020
+That's what this line is doing,
+
+
+279
+00:19:22,320 --> 00:19:27,090
+so the next time either the parent or the child has a store from user code,
+
+
+280
+00:19:27,710 --> 00:19:30,140
+it's going to be a store into a write protected page,
+
+
+281
+00:19:30,170 --> 00:19:31,670
+because every page is write protected,
+
+
+282
+00:19:31,760 --> 00:19:33,650
+and so it will cause a page fault.
+
+
+283
+00:19:34,330 --> 00:19:36,760
+Oh, so this is the proper page fault that we want.
+
+
+284
+00:19:36,790 --> 00:19:40,960
+This, right and I was just all I was doing was checking that,
+
+
+285
+00:19:42,430 --> 00:19:45,430
+that what's going on is exactly what we think is going on,
+
+
+286
+00:19:45,700 --> 00:19:47,230
+as opposed to some other bug.
+
+
+287
+00:19:48,640 --> 00:19:49,960
+Okay alright.
+
+
+288
+00:19:49,960 --> 00:19:51,820
+So we took a page fault here in this store
+
+
+289
+00:19:51,820 --> 00:19:54,670
+which is presumably the first store the shell does after the fork.
+
+
+290
+00:19:57,090 --> 00:19:59,220
+Okay, so now we have to handle these ,
+
+
+291
+00:20:00,020 --> 00:20:04,030
+now you want to do something useful in this page fault.
+
+
+292
+00:20:04,090 --> 00:20:12,530
+So, where's the page fault handlers in trap.c and user fault.
+
+
+293
+00:20:16,020 --> 00:20:20,340
+I think it pretty much doesn't matter where we insert code to .
+
+
+294
+00:20:20,960 --> 00:20:25,400
+I mean, there's all these different cases here that uservec,
+
+
+295
+00:20:25,460 --> 00:20:27,770
+this uservec or usertrap,
+
+
+296
+00:20:27,770 --> 00:20:31,370
+the usertrap is dealing with just going to throw in another else,
+
+
+297
+00:20:31,700 --> 00:20:36,890
+we only interested in write faults, we're happy to read these shared pages,
+
+
+298
+00:20:36,890 --> 00:20:40,630
+because all that is there, it's just write to on catch,
+
+
+299
+00:20:40,630 --> 00:20:41,050
+so.
+
+
+300
+00:20:47,620 --> 00:20:52,980
+Now, it turns out as, I'm sure you know, that we're going to need to use the code,
+
+
+301
+00:20:52,980 --> 00:20:54,840
+I'm about to write from two different places.
+
+
+302
+00:20:54,870 --> 00:20:59,840
+I'm going to just wrap it up in the code,
+
+
+303
+00:20:59,840 --> 00:21:04,880
+that makes the copy of this page in a function, I'm gonna call cowfault.
+
+
+304
+00:21:05,930 --> 00:21:08,090
+It needs to know the current page table
+
+
+305
+00:21:08,540 --> 00:21:13,280
+and it needs to know the virtual address that we faulted on stval.
+
+
+306
+00:21:13,960 --> 00:21:17,590
+Sometimes it can fail because say it runs out of memory,
+
+
+307
+00:21:18,520 --> 00:21:21,970
+maybe chaos [chaotic] will fail, so we need to prepare for return value
+
+
+308
+00:21:22,270 --> 00:21:24,610
+and pretty much no matter what the failure is,
+
+
+309
+00:21:25,190 --> 00:21:28,770
+we're gonna kill this process, right,
+
+
+310
+00:21:28,830 --> 00:21:32,940
+if we didn't kill it, we'll have cowfault return minus one, if there's a failure,
+
+
+311
+00:21:33,240 --> 00:21:35,220
+returns zero if there's no failure,
+
+
+312
+00:21:35,730 --> 00:21:40,680
+there's no failure then we're going to rely on cowfault having made this virtual address writable,
+
+
+313
+00:21:40,800 --> 00:21:44,970
+so that when usertrap returns, the process can actually continue successfully.
+
+
+314
+00:21:47,510 --> 00:21:56,240
+What's that you put, like is there a reason why you put this line above the else if which dev- devintr.
+
+
+315
+00:21:59,520 --> 00:22:01,260
+I don't think so ,
+
+
+316
+00:22:01,410 --> 00:22:04,740
+whether it's correct depends on what devintr does,
+
+
+317
+00:22:04,740 --> 00:22:12,720
+just take a look, the risk is that devintr might, see a device interrupt for some reason,
+
+
+318
+00:22:12,750 --> 00:22:14,130
+even though we are on a page fault,
+
+
+319
+00:22:14,700 --> 00:22:17,760
+so we just gotta check that devintr .
+
+
+320
+00:22:18,340 --> 00:22:25,080
+Looks at scause, and scause f, it's going to return zero.
+
+
+321
+00:22:25,760 --> 00:22:30,200
+So, just want to make sure that if.
+
+
+322
+00:22:32,400 --> 00:22:38,920
+Yeah, if devintr returns zero then, it's gonna go on to our code, that's fine.
+
+
+323
+00:22:40,220 --> 00:22:40,790
+Okay.
+
+
+324
+00:22:41,430 --> 00:22:42,630
+Okay, now we only need to write.
+
+
+325
+00:22:44,210 --> 00:22:46,550
+Actually this one thing I want to observe here
+
+
+326
+00:22:46,700 --> 00:22:49,920
+and that's that if there's a failure, we kill the process.
+
+
+327
+00:22:50,610 --> 00:22:52,840
+So, this is unfortunate,
+
+
+328
+00:22:52,990 --> 00:22:54,640
+it would be fantastic,
+
+
+329
+00:22:54,670 --> 00:23:00,190
+if instead you know most of the time processes allocate memory or whatever by calling system calls,
+
+
+330
+00:23:00,190 --> 00:23:03,670
+the system calls can return some error value negative one or something,
+
+
+331
+00:23:03,670 --> 00:23:06,730
+if there's a failure and the process can then do something appropriate,
+
+
+332
+00:23:08,020 --> 00:23:10,120
+if it knows how in order to deal with that failure,
+
+
+333
+00:23:10,360 --> 00:23:12,400
+here though because there's no system call,
+
+
+334
+00:23:12,430 --> 00:23:16,720
+there's not any obvious way to tell the process that something went wrong,
+
+
+335
+00:23:17,980 --> 00:23:20,020
+which is [irritating],
+
+
+336
+00:23:20,590 --> 00:23:22,270
+you can imagine solutions to this,
+
+
+337
+00:23:22,270 --> 00:23:25,360
+for example in some more sophisticated operating system,
+
+
+338
+00:23:26,200 --> 00:23:31,720
+we could have something like the alarm user fault handler that you implemented,
+
+
+339
+00:23:31,720 --> 00:23:35,470
+that we could call up into to say look you know we can't continue your process,
+
+
+340
+00:23:35,470 --> 00:23:37,880
+because we can't fix this page fault,
+
+
+341
+00:23:37,940 --> 00:23:39,770
+but we want to tell you something went wrong.
+
+
+342
+00:23:41,660 --> 00:23:43,400
+But we're not gonna do that now,
+
+
+343
+00:23:44,490 --> 00:23:46,230
+it's much simpler to just kill the process.
+
+
+344
+00:23:46,770 --> 00:23:49,260
+Okay, so we have to implement page,
+
+
+345
+00:23:49,260 --> 00:23:57,210
+this cowfault program takes a, on a page table
+
+
+346
+00:23:57,210 --> 00:24:01,980
+to current this page table, this argument, the virtual address that the fault occurred on.
+
+
+347
+00:24:05,780 --> 00:24:08,330
+Okay, so the first question we always have to worry about,
+
+
+348
+00:24:08,330 --> 00:24:12,140
+when dealing with virtual addresses that the user program produced,
+
+
+349
+00:24:12,170 --> 00:24:17,030
+like this one is what if it's a completely crazy address,
+
+
+350
+00:24:17,150 --> 00:24:19,610
+like way up above the top of the processor,
+
+
+351
+00:24:19,610 --> 00:24:24,830
+what if it's an address like in the trapframe or in the trampoline page,
+
+
+352
+00:24:24,830 --> 00:24:28,310
+in the page, the stack guard page.
+
+
+353
+00:24:33,300 --> 00:24:35,190
+So can anybody sort of outline a strategy
+
+
+354
+00:24:35,190 --> 00:24:43,720
+for defending ourselves against the user process intentionally faulting on crazy addresses.
+
+
+355
+00:24:50,100 --> 00:24:57,810
+Isn't there like a max virtual address. Yes, yes there is and that will actually come up,
+
+
+356
+00:24:58,170 --> 00:25:06,520
+but the top of the user address spaces below MAXVA,
+
+
+357
+00:25:08,010 --> 00:25:14,600
+and the like the stack guard page, which we shouldn't be allowing,
+
+
+358
+00:25:14,600 --> 00:25:17,120
+you certainly shouldn't be treating as a copy-on-write thing.
+
+
+359
+00:25:17,660 --> 00:25:24,310
+Alright, I will, I'll show a solution here.
+
+
+360
+00:25:24,860 --> 00:25:26,660
+We're just gonna call walk for now.
+
+
+361
+00:25:29,910 --> 00:25:34,500
+And one thing that can go wrong is walk doesn't find a page table entry,
+
+
+362
+00:25:34,890 --> 00:25:39,690
+so for most illegal pages that a process might refer to,
+
+
+363
+00:25:39,870 --> 00:25:43,820
+theres no pte, and there's only a few exceptions to that,
+
+
+364
+00:25:43,850 --> 00:25:52,760
+so if we detect the illegal, if we detect detect the pte not found return value from walk and return minus one ,
+
+
+365
+00:25:53,370 --> 00:25:55,020
+we've handled almost every case,
+
+
+366
+00:25:55,380 --> 00:25:59,820
+the only cases, I'm aware of where walk would return a page table entry,
+
+
+367
+00:25:59,820 --> 00:26:01,830
+but we don't want to allow writes to it
+
+
+368
+00:26:02,040 --> 00:26:07,230
+are for the trampoline trapframe and stack guard pages,
+
+
+369
+00:26:07,780 --> 00:26:10,210
+and those all have PTE_U clear.
+
+
+370
+00:26:11,700 --> 00:26:15,780
+So the way I'm going to detect crazy addresses illegal addresses is
+
+
+371
+00:26:15,780 --> 00:26:21,050
+by checking that PTE_U is set,
+
+
+372
+00:26:22,700 --> 00:26:26,630
+and also, just checks look at PTE_V.
+
+
+373
+00:26:29,500 --> 00:26:30,820
+And if either of those is clear,
+
+
+374
+00:26:30,820 --> 00:26:36,160
+then we know this is like, not an okay address.
+
+
+375
+00:26:37,540 --> 00:26:40,300
+And just return minus one, so killed process,
+
+
+376
+00:26:40,990 --> 00:26:51,580
+so I believe taking care of all the, illegal addresses,
+
+
+377
+00:26:51,580 --> 00:26:54,370
+the user process could use, try to use.
+
+
+378
+00:26:55,800 --> 00:26:57,510
+Alright, how can we find out,
+
+
+379
+00:26:57,510 --> 00:27:01,950
+we want to do a copy, now we want to make this process copy of the page,
+
+
+380
+00:27:02,430 --> 00:27:04,410
+how do we find the page to copy from.
+
+
+381
+00:27:05,270 --> 00:27:06,620
+A I have a question here.
+
+
+382
+00:27:06,770 --> 00:27:07,310
+Please.
+
+
+383
+00:27:07,780 --> 00:27:14,890
+Wouldn't the strategy of using the PTE_U to judge if the pages,
+
+
+384
+00:27:15,550 --> 00:27:19,660
+if they're if it's a legit page for copy-on-write,
+
+
+385
+00:27:19,810 --> 00:27:23,980
+wouldn't this strategy not be very good for the long-term process,
+
+
+386
+00:27:23,980 --> 00:27:29,290
+maybe you add some other part to the address space,
+
+
+387
+00:27:29,290 --> 00:27:32,460
+which is which is supposed to be a writable,
+
+
+388
+00:27:32,550 --> 00:27:35,130
+which are only supposed to be readable,
+
+
+389
+00:27:35,220 --> 00:27:37,470
+but that doesn't get taken care of here,
+
+
+390
+00:27:37,710 --> 00:27:39,540
+as in you'll have to come back here again.
+
+
+391
+00:27:40,050 --> 00:27:41,370
+You're absolutely right,
+
+
+392
+00:27:41,400 --> 00:27:48,530
+if we are to add any other interesting paging feature like maybe lazy page allocation,
+
+
+393
+00:27:48,530 --> 00:27:51,500
+for example we have to revisit these decisions
+
+
+394
+00:27:51,500 --> 00:27:53,630
+and come up with some other strategy for deciding
+
+
+395
+00:27:53,840 --> 00:27:55,670
+is this a copy-on-write page,
+
+
+396
+00:27:55,670 --> 00:27:58,010
+is this a lazy allocation page,
+
+
+397
+00:27:58,010 --> 00:28:02,450
+is this a paged out to disk pages, to say memory map file.
+
+
+398
+00:28:02,840 --> 00:28:05,780
+And we need more sophisticated,
+
+
+399
+00:28:06,470 --> 00:28:06,950
+yeah we're.
+
+
+400
+00:28:07,460 --> 00:28:13,120
+In the end I think, and most serious operating systems actually keep their own data structure,
+
+
+401
+00:28:13,820 --> 00:28:16,220
+nothing to do with, you not a page table,
+
+
+402
+00:28:16,220 --> 00:28:17,750
+but sort of mimicking a page table,
+
+
+403
+00:28:17,810 --> 00:28:22,670
+that describes the processes address space and sort of describes what each page means
+
+
+404
+00:28:22,670 --> 00:28:23,750
+and what its state is
+
+
+405
+00:28:23,780 --> 00:28:25,220
+and we have to consult that table.
+
+
+406
+00:28:27,230 --> 00:28:30,530
+But for this lab since we don't have those other features
+
+
+407
+00:28:30,530 --> 00:28:33,020
+and we're not sure what they would be ,
+
+
+408
+00:28:33,800 --> 00:28:35,330
+I'm just gonna do something straightforward
+
+
+409
+00:28:35,360 --> 00:28:37,040
+and indeed we would have to come back and fix it,
+
+
+410
+00:28:37,190 --> 00:28:40,040
+if we made xv6 more sophisticated.
+
+
+411
+00:28:41,740 --> 00:28:47,800
+And wouldn't that panic if va is more than MAXVA, because of the walk.
+
+
+412
+00:28:51,630 --> 00:28:54,150
+[] me you would.
+
+
+413
+00:28:58,630 --> 00:29:01,240
+Now, look at that, yeah, maybe it's the process.
+
+
+414
+00:29:03,310 --> 00:29:04,750
+Yeah, I think you're right.
+
+
+415
+00:29:05,660 --> 00:29:06,470
+That's too bad.
+
+
+416
+00:29:06,710 --> 00:29:09,720
+Okay, so we're certainly, you're right,
+
+
+417
+00:29:09,720 --> 00:29:11,730
+alright, well I was wrong about this.
+
+
+418
+00:29:12,680 --> 00:29:16,880
+Wait, can you just return a negative one if you just check the MAXVA.
+
+
+419
+00:29:16,910 --> 00:29:24,950
+I think the observation is that if the user tries to intentionally program tries to write to very large address.
+
+
+420
+00:29:25,500 --> 00:29:29,310
+Of course, you can't expect to survive that ,
+
+
+421
+00:29:30,660 --> 00:29:34,830
+but what we would do here is called walk with a very large address
+
+
+422
+00:29:35,070 --> 00:29:40,830
+and looking at here, the implementation of walk in the, and it's going to panic.
+
+
+423
+00:29:42,120 --> 00:29:45,210
+Then we can just use the same approaches walk address,
+
+
+424
+00:29:45,210 --> 00:29:46,590
+does I had this same bug,
+
+
+425
+00:29:47,180 --> 00:29:50,030
+you can just return minus one like other people are saying,
+
+
+426
+00:29:50,060 --> 00:29:53,450
+if va is greater than MAXVA before walk.
+
+
+427
+00:29:55,300 --> 00:29:58,300
+What I'm upset about is that the tests don't seem to test this.
+
+
+428
+00:29:59,720 --> 00:30:01,730
+Because I didn't put this in my solution.
+
+
+429
+00:30:03,050 --> 00:30:03,860
+Okay.
+
+
+430
+00:30:08,350 --> 00:30:08,890
+Okay.
+
+
+431
+00:30:10,200 --> 00:30:12,720
+Okay, so how do we find that we need,
+
+
+432
+00:30:12,720 --> 00:30:14,520
+we want to copy the page,
+
+
+433
+00:30:14,790 --> 00:30:16,920
+how do I get a pointer to the page
+
+
+434
+00:30:16,920 --> 00:30:19,870
+to the pointer to something I can copy.
+
+
+435
+00:30:22,720 --> 00:30:24,040
+The PTE2PA.
+
+
+436
+00:30:24,310 --> 00:30:27,780
+Yeah, so, it's just in the pte,
+
+
+437
+00:30:33,790 --> 00:30:36,100
+where am I gonna copy to.
+
+
+438
+00:30:41,040 --> 00:30:42,240
+What should I copy to.
+
+
+439
+00:30:44,140 --> 00:30:45,640
+A nearly allocated page.
+
+
+440
+00:30:46,000 --> 00:30:48,790
+Yeah, so I just called kalloc,
+
+
+441
+00:30:50,190 --> 00:30:56,010
+of course kalloc is likely to fail, so I'm gonna catch that,
+
+
+442
+00:30:57,520 --> 00:30:59,260
+we're actually gonna see this.
+
+
+443
+00:31:01,770 --> 00:31:03,900
+So I'm gonna put a print statement, so we know.
+
+
+444
+00:31:05,670 --> 00:31:06,150
+Okay, we.
+
+
+445
+00:31:06,150 --> 00:31:09,060
+Is that pa two, that equal.
+
+
+446
+00:31:10,390 --> 00:31:15,680
+Hey, I actually made this error and I wanted to reproduce it,
+
+
+447
+00:31:15,680 --> 00:31:17,000
+so that we would have to track it down,
+
+
+448
+00:31:17,000 --> 00:31:20,150
+but you're too clever for me .
+
+
+449
+00:31:21,320 --> 00:31:27,520
+I want to copy to, pa two from pa one.
+
+
+450
+00:31:31,330 --> 00:31:34,480
+Okay, so how can I, what do I need to do
+
+
+451
+00:31:34,480 --> 00:31:41,400
+in order to map this page, this new page pa two into the address space.
+
+
+452
+00:31:46,340 --> 00:31:47,390
+What should I type.
+
+
+453
+00:31:48,610 --> 00:31:50,350
+There's like two broad ways,
+
+
+454
+00:31:50,350 --> 00:31:54,700
+there's either an mapping and then mapping with the built-in that exist,
+
+
+455
+00:31:55,180 --> 00:31:58,030
+or you could manipulate the bits.
+
+
+456
+00:31:58,510 --> 00:32:01,900
+Yeah I am way too lazy to figure out,
+
+
+457
+00:32:02,020 --> 00:32:04,330
+how to use them on mmap and map,
+
+
+458
+00:32:04,330 --> 00:32:08,550
+so I'm gonna just cook up a new page table entry right here.
+
+
+459
+00:32:13,400 --> 00:32:14,840
+I have a question,
+
+
+460
+00:32:14,870 --> 00:32:18,530
+so actually I ran into this issue in almost every lab
+
+
+461
+00:32:18,530 --> 00:32:23,390
+in which I somehow needed to re-map things
+
+
+462
+00:32:23,390 --> 00:32:33,960
+and because it occurred so often, I implemented a map that which could re-map basically,
+
+
+463
+00:32:34,290 --> 00:32:40,740
+and I was wondering is that a bad design choices, like dangerous, don't.
+
+
+464
+00:32:41,010 --> 00:32:44,100
+No, no, that's totally reasonable,
+
+
+465
+00:32:44,100 --> 00:32:46,260
+you know the functions in xv6 are,
+
+
+466
+00:32:47,140 --> 00:32:52,030
+are you know specialized to xv6 as it exists,
+
+
+467
+00:32:52,450 --> 00:32:58,520
+and so they you know they make assumptions about how the other code works,
+
+
+468
+00:32:58,520 --> 00:33:03,350
+they have panics in them that are intended to catch other code using them in unexpected ways,
+
+
+469
+00:33:03,350 --> 00:33:06,890
+but if you change the way xv6 works and you need to do different things then,
+
+
+470
+00:33:06,950 --> 00:33:13,710
+it's totally reasonable to modify you know you need to be able to re-map this without a panic,
+
+
+471
+00:33:13,710 --> 00:33:16,050
+well old xv6 never needs to do that.
+
+
+472
+00:33:18,440 --> 00:33:22,250
+If your code does so, you should feel free to modify anything you need to.
+
+
+473
+00:33:25,340 --> 00:33:29,060
+Okay, so okay, so the deal is here,
+
+
+474
+00:33:29,060 --> 00:33:32,450
+we had a write protected page that was probably shared with another process,
+
+
+475
+00:33:32,480 --> 00:33:35,420
+what do we have to do to that other process at this point,
+
+
+476
+00:33:39,240 --> 00:33:40,920
+what do we need to do to the other process.
+
+
+477
+00:33:46,340 --> 00:33:51,080
+We can just not do anything, and then when it page faults,
+
+
+478
+00:33:51,560 --> 00:33:55,970
+we allocate a new page and remove the original one.
+
+
+479
+00:33:56,550 --> 00:33:57,420
+That's absolutely right,
+
+
+480
+00:33:57,630 --> 00:34:01,350
+so you could imagine doing something but it would be quite complex to do it correctly
+
+
+481
+00:34:01,740 --> 00:34:03,630
+and so we just do nothing,
+
+
+482
+00:34:03,870 --> 00:34:07,950
+and if the other process never raised this page, well it's not a problem,
+
+
+483
+00:34:08,070 --> 00:34:10,590
+if it does write a page, then it will go through all this,
+
+
+484
+00:34:10,590 --> 00:34:15,090
+it will make a copy and it'll proceed safely as well,
+
+
+485
+00:34:15,600 --> 00:34:17,400
+so doing nothing is totally reasonable.
+
+
+486
+00:34:18,540 --> 00:34:24,180
+Okay, so now we're going to return the return value of zero since there was no error
+
+
+487
+00:34:24,360 --> 00:34:27,180
+and hopefully the process will.
+
+
+488
+00:34:29,000 --> 00:34:35,030
+Maybe we should should free the physical page right, or are we not there yet, or.
+
+
+489
+00:34:35,030 --> 00:34:36,140
+We are not.
+
+
+490
+00:34:38,030 --> 00:34:41,300
+I guess we're going steps, we shouldn't, yeah.
+
+
+491
+00:34:41,570 --> 00:34:47,480
+So if I did this, what would happen well they would definitely crash, right alright.
+
+
+492
+00:34:47,480 --> 00:34:48,440
+So let's not do this
+
+
+493
+00:34:49,880 --> 00:34:53,020
+or I don't know if we'll crash,
+
+
+494
+00:34:53,020 --> 00:34:59,500
+but we would then be if we if we free the page it would be presumably pa1,
+
+
+495
+00:34:59,500 --> 00:35:01,480
+because we don't have free pa2,
+
+
+496
+00:35:01,780 --> 00:35:03,340
+because we're using pa2,
+
+
+497
+00:35:03,340 --> 00:35:07,180
+if we free pa1, that means the other process has got a problem,
+
+
+498
+00:35:07,720 --> 00:35:09,520
+it has now mapped into its address space
+
+
+499
+00:35:09,520 --> 00:35:12,940
+and presumably using executing instructions in, I don't know what,
+
+
+500
+00:35:13,360 --> 00:35:16,930
+a page that we just freed and might be reusing for some other purpose,
+
+
+501
+00:35:17,480 --> 00:35:18,770
+writing something else over,
+
+
+502
+00:35:18,950 --> 00:35:24,090
+so I'm reluctant to free it, although it's.
+
+
+503
+00:35:26,880 --> 00:35:31,230
+Oh yeah, so sadly, among many other things,
+
+
+504
+00:35:31,960 --> 00:35:39,560
+xv6 walk is never called from outside of the vm.c, in ordinary xv6,
+
+
+505
+00:35:39,560 --> 00:35:41,270
+but now we're doing it.
+
+
+506
+00:35:51,120 --> 00:35:52,890
+Alright, where were we.
+
+
+507
+00:35:59,230 --> 00:36:03,790
+Okay, remeber the very first page what we got was scause two,
+
+
+508
+00:36:04,210 --> 00:36:07,090
+why are we getting scause two page faults.
+
+
+509
+00:36:14,300 --> 00:36:15,650
+It's an illegal instruction,
+
+
+510
+00:36:20,920 --> 00:36:22,180
+like this is the next problem,
+
+
+511
+00:36:22,630 --> 00:36:24,430
+we have to solve this problem now.
+
+
+512
+00:36:26,020 --> 00:36:26,950
+What's gone wrong,
+
+
+513
+00:36:32,300 --> 00:36:36,050
+or what are what are some plausible guesses for what might have gone wrong.
+
+
+514
+00:36:43,270 --> 00:36:46,210
+So the sequence we when I type cowtest,
+
+
+515
+00:36:46,240 --> 00:36:50,800
+what we think happens is that the shell forks is copy-on-write fork.
+
+
+516
+00:36:51,710 --> 00:36:57,300
+We have a child running the shells instructions,
+
+
+517
+00:36:58,280 --> 00:37:03,500
+probably taking store faults, but for handling those store faults correctly
+
+
+518
+00:37:03,620 --> 00:37:08,360
+and then the child execs, the child copy the shell execs cowtest.
+
+
+519
+00:37:13,920 --> 00:37:16,920
+What bad thing might that do to the parent shell.
+
+
+520
+00:37:22,480 --> 00:37:30,100
+Well, when you call exec, the implementation of exec freeze up all the processes current pages,
+
+
+521
+00:37:31,140 --> 00:37:36,750
+and then allocates new pages to load the file into your exec.
+
+
+522
+00:37:39,160 --> 00:37:42,610
+What's going to happen in the child, the child shell calls exec,
+
+
+523
+00:37:42,610 --> 00:37:44,560
+it frees all of its pages,
+
+
+524
+00:37:50,630 --> 00:37:52,610
+what's that gonna do to the parent show.
+
+
+525
+00:37:52,670 --> 00:37:53,960
+Is it gonna end up.
+
+
+526
+00:37:54,050 --> 00:37:55,280
+Essentially, oh sorry.
+
+
+527
+00:37:56,260 --> 00:38:02,710
+Is it going to accidentally free the shell's page pages.
+
+
+528
+00:38:02,980 --> 00:38:08,630
+Yes, we're gonna free every single one of shell's pages except the one or two that the, that were written.
+
+
+529
+00:38:08,840 --> 00:38:11,330
+So this includes the shells instruction pages,
+
+
+530
+00:38:11,630 --> 00:38:14,060
+and then we're going to reallocate them,
+
+
+531
+00:38:14,060 --> 00:38:17,180
+they're going to be instantly reallocated by exec to hold other stuff,
+
+
+532
+00:38:17,180 --> 00:38:19,910
+loaded from the file that we're running cowtest,
+
+
+533
+00:38:20,090 --> 00:38:22,430
+so that's going to totally change everything in the show underfoot
+
+
+534
+00:38:22,460 --> 00:38:25,700
+and unsurprisingly it's going to instantly crash.
+
+
+535
+00:38:26,840 --> 00:38:30,050
+So, we have not free those pages somehow.
+
+
+536
+00:38:32,700 --> 00:38:34,080
+They don't see that.
+
+
+537
+00:38:34,740 --> 00:38:35,580
+A quick question,
+
+
+538
+00:38:35,700 --> 00:38:39,960
+what does the SEPC here point to which assembly file,
+
+
+539
+00:38:39,960 --> 00:38:41,520
+would you find that instruction.
+
+
+540
+00:38:42,960 --> 00:38:54,680
+Well. You said its shell right.
+
+
+541
+00:38:55,210 --> 00:38:58,240
+It's the last time was for some other fault,
+
+
+542
+00:38:58,270 --> 00:39:01,510
+somewhere else it would show, what it is here I actually don't know,
+
+
+543
+00:39:01,510 --> 00:39:06,680
+I never, I did not unfortunately take the time to track this down.
+
+
+544
+00:39:07,500 --> 00:39:13,200
+The o-, so one problem with any answer even if I could give you an answer,
+
+
+545
+00:39:13,230 --> 00:39:16,680
+so the answer is either the shell or cowtest ,
+
+
+546
+00:39:17,370 --> 00:39:24,130
+for process id three, that again is the it's probably cowtest.
+
+
+547
+00:39:25,140 --> 00:39:27,270
+I just say I don't completely know what's going on here,
+
+
+548
+00:39:27,390 --> 00:39:31,470
+looking at the asm file is unlikely to be helpful,
+
+
+549
+00:39:31,650 --> 00:39:35,190
+because the whole problem that we believe has happened is that,
+
+
+550
+00:39:36,590 --> 00:39:41,300
+the page holding instructions was freed and reused,
+
+
+551
+00:39:41,420 --> 00:39:47,780
+and so they were therefore not executing the instructions in the [].asm file anymore,
+
+
+552
+00:39:48,260 --> 00:39:50,150
+or executing some garbage,
+
+
+553
+00:39:52,370 --> 00:39:54,530
+so we could look at address 1004 but it,
+
+
+554
+00:39:55,970 --> 00:39:57,980
+it wouldn't really tell us what had happened.
+
+
+555
+00:39:58,740 --> 00:40:01,530
+We might we probably could find this out using the debugger,
+
+
+556
+00:40:02,400 --> 00:40:06,040
+we could break in gdb
+
+
+557
+00:40:06,040 --> 00:40:07,150
+and then look at the instructions,
+
+
+558
+00:40:07,150 --> 00:40:12,100
+it's actually a at whatever virtual address 1004 points to.
+
+
+559
+00:40:13,190 --> 00:40:16,880
+Quick follow-up question, about that [],
+
+
+560
+00:40:17,240 --> 00:40:22,190
+so my understanding is that we're getting an invalid with instruction fault,
+
+
+561
+00:40:22,190 --> 00:40:28,180
+because like we're changing the instruction page instruction physical memory underfoot,
+
+
+562
+00:40:28,180 --> 00:40:30,880
+and like the memories just being written to something else,
+
+
+563
+00:40:30,940 --> 00:40:36,270
+is it possible that, like in some lucky case
+
+
+564
+00:40:36,270 --> 00:40:38,560
+that they are being rewritten,
+
+
+565
+00:40:38,680 --> 00:40:42,670
+but when we look at it again it's being rewritten to valid instruction pages,
+
+
+566
+00:40:42,670 --> 00:40:46,270
+so we actually to start executing like random instructions
+
+
+567
+00:40:46,270 --> 00:40:48,280
+and we don't actually get an invalid instruction fault,
+
+
+568
+00:40:48,280 --> 00:40:49,210
+we get some other fault.
+
+
+569
+00:40:49,480 --> 00:40:52,450
+Yes, absolutely absolutely.
+
+
+570
+00:40:53,440 --> 00:40:58,420
+Yeah, yeah I mean really we're now, like anything could happen .
+
+
+571
+00:40:58,630 --> 00:40:59,170
+I see.
+
+
+572
+00:40:59,320 --> 00:41:01,210
+I would not have been able to guess,
+
+
+573
+00:41:01,240 --> 00:41:04,570
+if I had not done this lab,
+
+
+574
+00:41:04,940 --> 00:41:08,540
+I Wouldn't be able to guess what will go wrong at this point.
+
+
+575
+00:41:11,720 --> 00:41:16,850
+Indeed I think I've seen other strange things happen at this point.
+
+
+576
+00:41:18,540 --> 00:41:21,450
+It's maybe the data, may be the first page, that has garbage
+
+
+577
+00:41:21,450 --> 00:41:22,770
+and it actually has data in it
+
+
+578
+00:41:22,770 --> 00:41:28,440
+and shell trips over some complete garbage data like stack instead of instructions.
+
+
+579
+00:41:30,940 --> 00:41:32,710
+Okay, so we don't want to free the page right away,
+
+
+580
+00:41:32,710 --> 00:41:36,850
+we we only want to free the page when it's really not being used anymore.
+
+
+581
+00:41:39,730 --> 00:41:45,160
+So can anybody propose criterion
+
+
+582
+00:41:45,160 --> 00:41:50,230
+for when we should or shouldn't free the page for each page of memory.
+
+
+583
+00:41:51,080 --> 00:41:54,980
+We could keep track of like how many times are
+
+
+584
+00:41:54,980 --> 00:41:58,580
+like basically whenever in kalloc whenever you,
+
+
+585
+00:41:59,250 --> 00:42:02,310
+you should increment and decrement some type variable
+
+
+586
+00:42:02,490 --> 00:42:05,610
+and keep an array of like all the different addresses.
+
+
+587
+00:42:05,820 --> 00:42:07,260
+Yes, yeah exactly.
+
+
+588
+00:42:07,260 --> 00:42:09,240
+So, one way to think about this is
+
+
+589
+00:42:09,240 --> 00:42:15,720
+that we want to only free a page when there's zero page tables that refer to it,
+
+
+590
+00:42:15,960 --> 00:42:21,210
+but there could be many, if a program forks and forks again forks again,
+
+
+591
+00:42:21,210 --> 00:42:24,360
+[] we can now have like three or four different processes,
+
+
+592
+00:42:24,360 --> 00:42:27,900
+that all refer to copy-on-write fork to this one page,
+
+
+593
+00:42:28,560 --> 00:42:33,600
+so that this, you know this count of how many times how many page tables refer to a page
+
+
+594
+00:42:33,600 --> 00:42:34,920
+and go up due to fork
+
+
+595
+00:42:35,130 --> 00:42:39,120
+and they can go back down when a process exits or calls exec,
+
+
+596
+00:42:39,570 --> 00:42:43,260
+you know it clears all these references out of its page table entry
+
+
+597
+00:42:43,320 --> 00:42:47,490
+or if a process actually does a write and causes a write fault,
+
+
+598
+00:42:47,670 --> 00:42:51,660
+that's also a situation in which we have one fewer reference,
+
+
+599
+00:42:52,230 --> 00:42:54,660
+fewer page tables referring to a page.
+
+
+600
+00:42:55,210 --> 00:42:56,530
+So we want to keep a count,
+
+
+601
+00:42:56,800 --> 00:43:01,930
+and we want to count by counting the number of page table entries that refer to a page.
+
+
+602
+00:43:02,840 --> 00:43:05,600
+So we need to think about how to maintain this count,
+
+
+603
+00:43:05,600 --> 00:43:11,000
+and when to increment it exactly where in the code to increment it and decrement it.
+
+
+604
+00:43:12,870 --> 00:43:15,030
+Okay so they ,
+
+
+605
+00:43:15,940 --> 00:43:18,220
+if there's as you maybe aware,
+
+
+606
+00:43:18,220 --> 00:43:23,110
+there's multiple ways to maintain this count,
+
+
+607
+00:43:23,740 --> 00:43:29,740
+the way I do it is I make an array called refcount,
+
+
+608
+00:43:29,860 --> 00:43:32,910
+just gonna have it for every page a count.
+
+
+609
+00:43:33,640 --> 00:43:37,240
+We need to know how many entries are in refcount in xv6,
+
+
+610
+00:43:37,240 --> 00:43:43,630
+so simple, that it just has it just uses a fixed amount of memory, physical memory,
+
+
+611
+00:43:43,660 --> 00:43:46,390
+we only need to keep a count per page of physical memory,
+
+
+612
+00:43:46,600 --> 00:43:52,380
+we know that, from inspecting kinit that,
+
+
+613
+00:43:53,840 --> 00:43:57,620
+xv6 uses only PHYSTOP, amount of physical memory,
+
+
+614
+00:43:58,130 --> 00:44:01,190
+we only need to keep a count per page, not per byte,
+
+
+615
+00:44:01,190 --> 00:44:04,220
+so we're going to divide PHYSTOP by 4096.
+
+
+616
+00:44:04,710 --> 00:44:06,330
+That's how many array elements we need.
+
+
+617
+00:44:09,150 --> 00:44:11,160
+In a more serious operating system,
+
+
+618
+00:44:11,160 --> 00:44:15,230
+we don't know how much memory is available, until we inspect the hardware,
+
+
+619
+00:44:15,230 --> 00:44:20,570
+we might have to, we would have to allocate this array dynamically.
+
+
+620
+00:44:20,990 --> 00:44:23,890
+Any questions about, where to put the counts.
+
+
+621
+00:44:28,410 --> 00:44:29,370
+Alright .
+
+
+622
+00:44:29,730 --> 00:44:30,090
+Actually.
+
+
+623
+00:44:30,090 --> 00:44:30,720
+Yes.
+
+
+624
+00:44:30,750 --> 00:44:34,710
+I'm wondering is there a reason that you're using 4096 specifically
+
+
+625
+00:44:34,710 --> 00:44:36,540
+and not the page size macro.
+
+
+626
+00:44:37,850 --> 00:44:40,820
+Yeah the reason is that I can remember 4096
+
+
+627
+00:44:40,970 --> 00:44:43,610
+and I don't remember the name of the page size macro,
+
+
+628
+00:44:43,910 --> 00:44:45,470
+but I'm happy to use it, if you like.
+
+
+629
+00:44:47,850 --> 00:44:52,530
+It actually if if xv6 was intended to be portable
+
+
+630
+00:44:52,530 --> 00:44:56,100
+and to be able to run on all kinds of different machines with different page sizes,
+
+
+631
+00:44:56,160 --> 00:44:57,960
+we have to be much more careful about this,
+
+
+632
+00:44:57,960 --> 00:45:02,280
+but there's 500 ways in which xv6 is totally not portable.
+
+
+633
+00:45:04,390 --> 00:45:08,830
+So, I don't worry about it.
+
+
+634
+00:45:09,250 --> 00:45:12,850
+Page sizes determined in hardware and I guess where.
+
+
+635
+00:45:15,100 --> 00:45:21,670
+The hardware, that RISC-V manual says, how big a pages.
+
+
+636
+00:45:22,560 --> 00:45:30,030
+Yeah, because the , it's the MMU that takes a virtual address
+
+
+637
+00:45:30,030 --> 00:45:32,250
+and uses it to index into the page table.
+
+
+638
+00:45:32,550 --> 00:45:36,660
+Oh, right right, because the address translation happens in hardware,
+
+
+639
+00:45:36,660 --> 00:45:39,600
+so the hardware has to know how big pages are, OK.
+
+
+640
+00:45:40,260 --> 00:45:44,880
+It's configurable, but you know there's a couple different strategies you can tell the hardware to use,
+
+
+641
+00:45:44,880 --> 00:45:48,360
+but we tell it to use 4096 byte pages.
+
+
+642
+00:45:49,670 --> 00:45:50,240
+Okay.
+
+
+643
+00:45:50,630 --> 00:45:54,470
+We're sorry profession, so where are, I guess is a C question,
+
+
+644
+00:45:54,470 --> 00:46:00,080
+so in where our global variables like refcount stored,
+
+
+645
+00:46:00,690 --> 00:46:05,940
+like what, like are they associated with specific process or.
+
+
+646
+00:46:05,970 --> 00:46:13,180
+This is the kernel, what's going on is that the file the executable file,
+
+
+647
+00:46:16,420 --> 00:46:20,290
+that the compiler and the loader or linker produces,
+
+
+648
+00:46:22,270 --> 00:46:31,780
+has this sort of this, indicates how much data how the total size of all the global variables in the program.
+
+
+649
+00:46:32,760 --> 00:46:35,810
+And, so we don't see the code for this,
+
+
+650
+00:46:35,810 --> 00:46:38,690
+but when QEMU loads the kernel,
+
+
+651
+00:46:41,710 --> 00:46:46,450
+well what's really going on is that when you compile,
+
+
+652
+00:46:46,600 --> 00:46:51,590
+the program called the linker figures out based on ,
+
+
+653
+00:46:51,620 --> 00:46:54,110
+look at all the global variables and their sizes
+
+
+654
+00:46:54,230 --> 00:46:59,650
+and assigns an address in memory, yeah, to each global variable.
+
+
+655
+00:47:04,340 --> 00:47:06,080
+And that's where it lives in memory.
+
+
+656
+00:47:08,090 --> 00:47:18,970
+I mean, and, we just arrange that the you know,
+
+
+657
+00:47:18,970 --> 00:47:25,480
+so xv6 kernel uses you know 10,000 bytes of various global variables,
+
+
+658
+00:47:26,090 --> 00:47:31,460
+and wherever the boot process loads it into memory, say at address a million ,
+
+
+659
+00:47:31,460 --> 00:47:39,110
+it just uses those addresses for the global variables.
+
+
+660
+00:47:39,200 --> 00:47:42,380
+I see, is this is this similar to how,
+
+
+661
+00:47:42,410 --> 00:47:47,810
+like there's only one copy of like the instructions for a program on disk
+
+
+662
+00:47:47,810 --> 00:47:52,760
+and there's only like one copy of a kind of global variables for that program on this.
+
+
+663
+00:47:55,330 --> 00:48:00,130
+Well, a program this,
+
+
+664
+00:48:00,130 --> 00:48:05,010
+well, I'm not really sure how to answer this,
+
+
+665
+00:48:05,010 --> 00:48:11,980
+I mean the the, when you declare a global variable, like int x,
+
+
+666
+00:48:12,440 --> 00:48:15,590
+when you compile the compiler and the linker just decide
+
+
+667
+00:48:15,650 --> 00:48:18,080
+based on who knows what or it's configurable,
+
+
+668
+00:48:18,080 --> 00:48:20,600
+but they decide the address for that variable,
+
+
+669
+00:48:20,810 --> 00:48:23,780
+they decide alright boy x is going to address 1000,
+
+
+670
+00:48:24,580 --> 00:48:26,980
+and then the code that reads the write x,
+
+
+671
+00:48:26,980 --> 00:48:30,760
+you know if we have code that says refcount of zero equals one,
+
+
+672
+00:48:31,990 --> 00:48:37,190
+you know, but that compiled into was just setting the memory at address a thousand
+
+
+673
+00:48:37,190 --> 00:48:39,890
+or wherever we linker decided to put refcount
+
+
+674
+00:48:39,950 --> 00:48:44,900
+which is does a store to set the memory address 1001.
+
+
+675
+00:48:50,790 --> 00:49:00,200
+Yeah, it's not, it's actually almost exactly the same thing that happens when you run an ordinary user program.
+
+
+676
+00:49:02,980 --> 00:49:06,670
+You know the linker and compiler decide where memory global variables are.
+
+
+677
+00:49:07,400 --> 00:49:11,460
+They just being right there and, and it just works.
+
+
+678
+00:49:13,050 --> 00:49:15,480
+I'm sorry, that's not much of an explanation.
+
+
+679
+00:49:18,560 --> 00:49:25,160
+Alright, so just a define this global array of counts one per physical page
+
+
+680
+00:49:25,730 --> 00:49:29,470
+and we need to modify these counts in various places,
+
+
+681
+00:49:29,530 --> 00:49:31,900
+certainly when we first allocate a page,
+
+
+682
+00:49:31,930 --> 00:49:35,230
+we're going to say that it has one reference,
+
+
+683
+00:49:35,230 --> 00:49:38,890
+because we return the address of the page to whoever called kalloc
+
+
+684
+00:49:39,130 --> 00:49:43,390
+and at the moment only that program has a reference to this page,
+
+
+685
+00:49:43,390 --> 00:49:56,400
+so I'm just gonna set the refcount for this page to be one.
+
+
+686
+00:49:56,400 --> 00:49:58,800
+So first of all I'm just going to calculate the page number,
+
+
+687
+00:49:58,800 --> 00:50:06,260
+which is the address of the page divided by 4096, the page number.
+
+
+688
+00:50:08,690 --> 00:50:13,730
+And then I'm going to set the reference count for the page,
+
+
+689
+00:50:13,730 --> 00:50:15,260
+we just allocated to one.
+
+
+690
+00:50:21,920 --> 00:50:23,240
+Any questions about this code.
+
+
+691
+00:50:27,570 --> 00:50:32,490
+Just because I know that I'm going to have bugs with reference counting,
+
+
+692
+00:50:33,120 --> 00:50:36,120
+I'm actually do a little bit of a sanity check here
+
+
+693
+00:50:36,120 --> 00:50:43,540
+and I'm just, the you know the reference count really should be zero,
+
+
+694
+00:50:43,540 --> 00:50:45,790
+if the pages we just allocated a page was free,
+
+
+695
+00:50:45,940 --> 00:50:48,010
+boy it better have a reference count of zero.
+
+
+696
+00:50:54,140 --> 00:50:55,550
+Any questions about this code?
+
+
+697
+00:51:00,490 --> 00:51:03,520
+Alright, so in general we want to increment the reference count
+
+
+698
+00:51:03,520 --> 00:51:11,580
+when we add, when copy-on-write fork adds a page table entry that points to an existing page
+
+
+699
+00:51:12,000 --> 00:51:17,030
+and we want to, actually, we want to decrement the reference count,
+
+
+700
+00:51:17,760 --> 00:51:19,440
+as it turns out in many places,
+
+
+701
+00:51:19,590 --> 00:51:24,090
+for example when a process exits, we need to decrement the reference count of all its pages,
+
+
+702
+00:51:24,090 --> 00:51:28,840
+when you call exec, and that frees all the current memory,
+
+
+703
+00:51:28,840 --> 00:51:29,830
+because it's going to replace it,
+
+
+704
+00:51:29,830 --> 00:51:31,480
+we want to decrement all those reference counts,
+
+
+705
+00:51:31,480 --> 00:51:33,760
+when a copy-on-write page fault happens
+
+
+706
+00:51:33,760 --> 00:51:38,260
+and we make a copy we want to decrement reference count on the old page,
+
+
+707
+00:51:38,410 --> 00:51:42,940
+it turns out these are all the same places that concurrently free a page,
+
+
+708
+00:51:42,940 --> 00:51:48,070
+because the current xv6 think there's only ever one reference to each page ,
+
+
+709
+00:51:48,070 --> 00:51:50,500
+so in most of the places we care about where we want to decrement,
+
+
+710
+00:51:50,500 --> 00:51:52,060
+there's concurrently a called kfree,
+
+
+711
+00:51:52,300 --> 00:51:57,610
+so what I'm gonna do is modify kfree to be have somewhat different semantics
+
+
+712
+00:51:57,610 --> 00:52:04,180
+and to have kfree be, sort of a function that decrements the reference count
+
+
+713
+00:52:04,300 --> 00:52:07,840
+and free the page only if the reference count has dropped to zero.
+
+
+714
+00:52:08,890 --> 00:52:12,310
+I mean, I'll just automatically fix all the places that call kfree.
+
+
+715
+00:52:16,830 --> 00:52:24,470
+Alright so, we need to actually do the check, before we fill the page with junk.
+
+
+716
+00:52:25,300 --> 00:52:28,090
+So, this makes a little bit more complicated,
+
+
+717
+00:52:28,090 --> 00:52:31,840
+because even though there's a critical section with locks and kfree already,
+
+
+718
+00:52:31,960 --> 00:52:35,830
+we can't use it, because it happens after the point at which we filled the page with garbage.
+
+
+719
+00:52:37,680 --> 00:52:41,130
+So, we need to lock,
+
+
+720
+00:52:41,130 --> 00:52:46,810
+because we could be free in the same page at the same time from multiple different cores,
+
+
+721
+00:52:47,260 --> 00:52:57,030
+again I'm gonna find the page number by dividing the physical address by 4096.
+
+
+722
+00:52:58,160 --> 00:53:03,800
+I want to panic, again, just a sanity check.
+
+
+723
+00:53:04,620 --> 00:53:08,700
+Gosh, you know if we're freeing a page, that better have more than zero refcounts.
+
+
+724
+00:53:15,210 --> 00:53:19,830
+We need to return if the page has more than one reference count to it.
+
+
+725
+00:53:20,820 --> 00:53:25,570
+Actually, let's decrement the reference count,
+
+
+726
+00:53:26,470 --> 00:53:29,560
+we want to return after we release locks
+
+
+727
+00:53:29,560 --> 00:53:31,000
+and we have to remember a variable,
+
+
+728
+00:53:31,000 --> 00:53:35,350
+I'm gonna remember whether the page has more references and then release locks and then return,
+
+
+729
+00:53:35,620 --> 00:53:44,130
+so I'm gonna make a temporary variable which has the and release,
+
+
+730
+00:53:46,640 --> 00:53:50,240
+then say if there's still references this page,
+
+
+731
+00:53:50,240 --> 00:53:52,070
+let's just return and not free it.
+
+
+732
+00:53:52,750 --> 00:53:55,690
+And only if the reference count drop to zero, we free it.
+
+
+733
+00:53:57,360 --> 00:53:58,230
+Any questions?
+
+
+734
+00:53:58,620 --> 00:54:03,480
+Can you explain again, why you have to acquire the kmem lock this process.
+
+
+735
+00:54:04,220 --> 00:54:06,650
+Why have to acquire it all.
+
+
+736
+00:54:07,160 --> 00:54:10,280
+Yeah when you're doing the page number calculations and.
+
+
+737
+00:54:10,730 --> 00:54:18,010
+It's this line, really is this line, the next line of the problem,
+
+
+738
+00:54:18,010 --> 00:54:23,830
+the issue is that on this page, we now is likely has more than one reference to it
+
+
+739
+00:54:23,890 --> 00:54:28,960
+and so if two processes with a reference to the same with the page table entry point at the same page,
+
+
+740
+00:54:29,200 --> 00:54:32,050
+if they both exit at the same time on different cores,
+
+
+741
+00:54:32,260 --> 00:54:35,890
+they're both gonna call kfree for the same page at the same time.
+
+
+742
+00:54:38,740 --> 00:54:44,530
+Could you just create a new lock for the reference count variable and use that as well.
+
+
+743
+00:54:48,610 --> 00:54:49,150
+Yes.
+
+
+744
+00:54:51,340 --> 00:54:55,420
+Yeah, basically everybody, you know all code that manipulates these counts need to use the same lock,
+
+
+745
+00:54:55,420 --> 00:54:58,450
+but I don't think it matters what lock is.
+
+
+746
+00:55:00,980 --> 00:55:03,980
+Okay, so this takes care of decre-, most of the decrement,
+
+
+747
+00:55:03,980 --> 00:55:05,630
+we care about every time the page is free,
+
+
+748
+00:55:05,630 --> 00:55:08,900
+we're really gonna you know only free if the reference counts [] to zero,
+
+
+749
+00:55:09,020 --> 00:55:12,680
+we also need to increment the reference count,
+
+
+750
+00:55:12,980 --> 00:55:14,900
+where do we need to increment the reference count.
+
+
+751
+00:55:22,240 --> 00:55:25,090
+Well, because I know we're going to need to do it right,
+
+
+752
+00:55:25,090 --> 00:55:29,320
+the function that anybody can call .
+
+
+753
+00:55:41,460 --> 00:55:43,620
+Again I want to panic if something is weird,
+
+
+754
+00:55:43,620 --> 00:55:50,750
+so if the address is wacky, I'm certainly don't want to go beyond the end of the array.
+
+
+755
+00:55:52,820 --> 00:55:56,210
+Or if we don't want to increment the reference count of page,
+
+
+756
+00:55:56,210 --> 00:56:00,270
+reference counts currently zero, that's also an error,
+
+
+757
+00:56:04,440 --> 00:56:05,490
+I'm just putting these in there,
+
+
+758
+00:56:05,490 --> 00:56:10,740
+because I know from experience with my code that this is exactly the kind of place, I'm going to have a bug in.
+
+
+759
+00:56:25,610 --> 00:56:27,710
+All right, where should I call increment from.
+
+
+760
+00:56:30,860 --> 00:56:33,110
+You have uvmcopy when you.
+
+
+761
+00:56:35,060 --> 00:56:40,950
+I think uvmcopy is the only place that makes another reference to a page.
+
+
+762
+00:56:46,600 --> 00:56:51,010
+Alright gosh, I'm going with this well, it almost doesn't really matter.
+
+
+763
+00:56:52,400 --> 00:56:55,010
+We're making another reference to pa,
+
+
+764
+00:56:55,040 --> 00:56:58,570
+so I want to say incref pa.
+
+
+765
+00:57:01,850 --> 00:57:06,150
+Or, likely to run into trouble from the compiler,
+
+
+766
+00:57:06,150 --> 00:57:11,850
+if we don't put a definition for it in traps.h whatever.
+
+
+767
+00:57:12,580 --> 00:57:13,210
+Okay,
+
+
+768
+00:57:18,450 --> 00:57:19,530
+let's see.
+
+
+769
+00:57:39,230 --> 00:57:47,260
+That was pretty quick, that was kfree ref, kfree is unhappy.
+
+
+770
+00:57:50,380 --> 00:57:54,010
+Okay, well here's the time we don't know, is very early in the boot process
+
+
+771
+00:57:54,010 --> 00:57:56,680
+which is maybe a hint it to what's going wrong.
+
+
+772
+00:57:57,310 --> 00:58:02,800
+If anybody has any guesses, I'd be happy to hear them,
+
+
+773
+00:58:02,800 --> 00:58:05,830
+meanwhile just fire up the debugger try to get backtrace.
+
+
+774
+00:58:06,660 --> 00:58:08,250
+It is during kinit,
+
+
+775
+00:58:08,250 --> 00:58:15,030
+because you're trying to put things into the linked list and you haven't allocated yet.
+
+
+776
+00:58:16,360 --> 00:58:22,780
+So you in when you trying to load everything into a linked list,
+
+
+777
+00:58:23,140 --> 00:58:26,170
+you haven't called kalloc before that.
+
+
+778
+00:58:26,500 --> 00:58:27,790
+Yeah that's exactly right,
+
+
+779
+00:58:28,090 --> 00:58:32,940
+so, see that in action here, okay I got the panic,
+
+
+780
+00:58:32,940 --> 00:58:38,030
+type where and it's in , here's kfree being called and paniced
+
+
+781
+00:58:38,030 --> 00:58:40,010
+and it's being called from freerange right at the beginning,
+
+
+782
+00:58:40,010 --> 00:58:43,040
+when we're initializing a the free list indeed,
+
+
+783
+00:58:43,400 --> 00:58:47,300
+so there's something to be fixed in freerange,
+
+
+784
+00:58:47,330 --> 00:58:50,480
+the problem is I'm calling kfree as,
+
+
+785
+00:58:50,480 --> 00:58:53,300
+as you said I'm calling kfree but of course, all the reference counts are zero
+
+
+786
+00:58:53,300 --> 00:58:55,490
+and kfree panics at the reference count of zero,
+
+
+787
+00:58:55,820 --> 00:59:03,500
+so I'll just, I'll just hack this to be.
+
+
+788
+00:59:11,100 --> 00:59:11,610
+How about that.
+
+
+789
+00:59:20,300 --> 00:59:25,220
+Oh okay, we managed to boot now , by wonderful done,
+
+
+790
+00:59:25,220 --> 00:59:26,030
+let's see.
+
+
+791
+00:59:30,160 --> 00:59:32,530
+Okay, so let's run the cowtest again.
+
+
+792
+00:59:34,290 --> 00:59:36,420
+Um, we pass this simple test,
+
+
+793
+00:59:36,420 --> 00:59:39,600
+aha, so we passed the simple test which is great.
+
+
+794
+00:59:41,490 --> 00:59:45,450
+And we passed one time through the three test,
+
+
+795
+00:59:45,510 --> 00:59:50,860
+but we didn't pa-, we can make it through the second time to the three test
+
+
+796
+00:59:51,700 --> 00:59:57,310
+and the three test triggered a the print statement that I added to trap
+
+
+797
+00:59:57,310 --> 01:00:03,570
+which said cow kalloc failed, which only would print it if we're out of memory.
+
+
+798
+01:00:05,030 --> 01:00:06,170
+So we're out of memory.
+
+
+799
+01:00:09,550 --> 01:00:10,660
+Why are we out of memory.
+
+
+800
+01:00:17,220 --> 01:00:21,120
+So we've updated reference counts every time we've allocated,
+
+
+801
+01:00:21,600 --> 01:00:27,090
+but we haven't called a decrement counts whenever we've tried to hree right.
+
+
+802
+01:00:27,450 --> 01:00:29,310
+So where should I add .
+
+
+803
+01:00:31,670 --> 01:00:38,090
+Well, with your current approach, I think pa1 that reference count needs to get decrement,
+
+
+804
+01:00:38,090 --> 01:00:39,620
+so we would need to kfree it.
+
+
+805
+01:00:39,980 --> 01:00:41,300
+Yeah exactly.
+
+
+806
+01:00:41,330 --> 01:00:47,730
+So, I think somebody actually possibly brought this up , 45 minutes ago,
+
+
+807
+01:00:47,910 --> 01:00:52,700
+let's see, let's free pa1, not p2.
+
+
+808
+01:00:53,320 --> 01:00:58,850
+Okay, and so now what kfree means, now is don't is not free this page,
+
+
+809
+01:00:58,880 --> 01:01:02,330
+it's what kfree means is decrement the refcount on this page
+
+
+810
+01:01:02,360 --> 01:01:03,650
+and free if it's zero
+
+
+811
+01:01:03,860 --> 01:01:06,950
+and so forth in a simple situation where there was just one fork
+
+
+812
+01:01:07,130 --> 01:01:09,500
+and so there were two references to the page,
+
+
+813
+01:01:09,830 --> 01:01:13,220
+and we've taken a right fault to make a copy,
+
+
+814
+01:01:13,250 --> 01:01:16,580
+where now all kfree is going to do is decrement the count to be one
+
+
+815
+01:01:16,580 --> 01:01:18,950
+and now the other process can use the page,
+
+
+816
+01:01:19,130 --> 01:01:20,840
+we're not actually gonna free it.
+
+
+817
+01:01:23,020 --> 01:01:25,810
+Okay so hopefully now,
+
+
+818
+01:01:27,340 --> 01:01:37,810
+We'll, not run out of memory in the cowtest.
+
+
+819
+01:01:41,830 --> 01:01:42,790
+Um, I love it,
+
+
+820
+01:01:42,880 --> 01:01:47,170
+okay, we made it through the three test, without running out of memory.
+
+
+821
+01:01:51,420 --> 01:01:51,930
+Alright,
+
+
+822
+01:01:54,140 --> 01:01:55,940
+we're not done, sadly ,
+
+
+823
+01:01:55,940 --> 01:02:02,890
+we have this interesting error in the file test,
+
+
+824
+01:02:02,890 --> 01:02:04,720
+so let's take a look at the file test.
+
+
+825
+01:02:09,380 --> 01:02:13,560
+Yeah. Alright, so here's the filetest
+
+
+826
+01:02:13,890 --> 01:02:18,090
+and it says right in the comments of the test that it's investigating copyout,
+
+
+827
+01:02:18,090 --> 01:02:22,910
+so, good hint of where our problem is going to be,
+
+
+828
+01:02:23,300 --> 01:02:26,210
+the thing that actually failed is,
+
+
+829
+01:02:26,630 --> 01:02:29,090
+I mean you have to use your imagination a little bit,
+
+
+830
+01:02:29,090 --> 01:02:32,330
+but, the error message seems to be this one,
+
+
+831
+01:02:32,330 --> 01:02:35,330
+printed from two different processes at the same time.
+
+
+832
+01:02:37,440 --> 01:02:39,990
+And indeed, this is a loop, this test is a loop,
+
+
+833
+01:02:40,560 --> 01:02:43,830
+that for four iterations, just forks
+
+
+834
+01:02:43,830 --> 01:02:47,130
+and so it's going to produce four concurrent processes,
+
+
+835
+01:02:47,340 --> 01:02:50,340
+this error message will be interleaved ,
+
+
+836
+01:02:50,490 --> 01:02:52,320
+so we need to know why that read failed,
+
+
+837
+01:02:52,320 --> 01:02:53,880
+if we want to understand what the bug is,
+
+
+838
+01:02:53,910 --> 01:02:56,010
+we need to know why the reed failed,
+
+
+839
+01:02:56,220 --> 01:02:58,770
+the first step is maybe to figure out what the read actually returned,
+
+
+840
+01:02:58,770 --> 01:03:05,210
+all we know is that, it, returned something other than sizeof i,
+
+
+841
+01:03:05,240 --> 01:03:06,830
+but we don't know what it returns,
+
+
+842
+01:03:06,830 --> 01:03:09,830
+so I'm going to capture the return value,
+
+
+843
+01:03:15,680 --> 01:03:18,830
+and I'm going to print the return value, at least know.
+
+
+844
+01:03:21,930 --> 01:03:23,730
+Oh, I have a question, sorry,
+
+
+845
+01:03:23,790 --> 01:03:27,660
+it seems like three of the threads failed,
+
+
+846
+01:03:27,660 --> 01:03:32,830
+but, one of them didn't end, it's like still running,
+
+
+847
+01:03:33,280 --> 01:03:34,630
+why is it not failing.
+
+
+848
+01:03:35,490 --> 01:03:37,170
+Why did the third [thread] not fail.
+
+
+849
+01:03:38,700 --> 01:03:42,240
+The fourth If you, if you do cowtest and then echo,
+
+
+850
+01:03:42,760 --> 01:03:46,840
+that other one is still going to be running and you're gonna see more output.
+
+
+851
+01:03:49,290 --> 01:03:51,240
+Yes, three failed and one didn't .
+
+
+852
+01:03:53,230 --> 01:03:57,640
+Um, let's just finish investigating why any of them failed,
+
+
+853
+01:03:57,790 --> 01:04:03,460
+and then I can make a guess although I don't really know why one of them didn't fail.
+
+
+854
+01:04:05,110 --> 01:04:08,500
+Okay, so , what's happening here is that readers returning minus one.
+
+
+855
+01:04:09,740 --> 01:04:11,570
+So why is read returning minus one.
+
+
+856
+01:04:12,870 --> 01:04:17,670
+You might hypothesize that the you know we were passing this buffer into read,
+
+
+857
+01:04:18,060 --> 01:04:21,210
+you might imagine that the you know read,
+
+
+858
+01:04:21,210 --> 01:04:28,560
+and read needs to do something namely called copyout to copy file data into this into this buffer,
+
+
+859
+01:04:29,120 --> 01:04:30,110
+that we passed to read,
+
+
+860
+01:04:30,110 --> 01:04:33,200
+maybe something's going wrong with that and its relationship to copy-on-write fork,
+
+
+861
+01:04:33,440 --> 01:04:40,150
+so let's take a look at read, and see why it's failing.
+
+
+862
+01:04:40,730 --> 01:04:44,440
+Track down, why read,
+
+
+863
+01:04:44,470 --> 01:04:46,450
+alright, so let's capture the,
+
+
+864
+01:04:46,480 --> 01:04:52,000
+read all sys_read does this calls calls fileread after fetching a bunch of arguments.
+
+
+865
+01:04:55,010 --> 01:04:57,920
+So we'll fix this to ,
+
+
+866
+01:04:58,480 --> 01:05:01,540
+take one step closer to understanding why things are going wrong.
+
+
+867
+01:05:05,310 --> 01:05:09,770
+We are expecting cc to be minus one.
+
+
+868
+01:05:18,500 --> 01:05:24,410
+Um, that's interesting, we never saw cc minus equals minus one.
+
+
+869
+01:05:25,060 --> 01:05:30,010
+In fact, the failure occurred, a failure starts occurring here,
+
+
+870
+01:05:30,040 --> 01:05:36,010
+before we get any corresponding cc print statements
+
+
+871
+01:05:36,010 --> 01:05:39,790
+and it's not minus one at all, it's four, which is a non failure value.
+
+
+872
+01:05:42,620 --> 01:05:44,990
+So what that means is that something before the call,
+
+
+873
+01:05:44,990 --> 01:05:50,780
+the fileread must have caused must have triggered this return,
+
+
+874
+01:05:50,930 --> 01:05:56,070
+so one of these functions here, has caused read to return minus one.
+
+
+875
+01:05:58,690 --> 01:06:00,940
+Please feel free to guess while I'm typing.
+
+
+876
+01:06:03,980 --> 01:06:05,300
+This was a complete surprise to me
+
+
+877
+01:06:05,300 --> 01:06:08,050
+by the way when I tracked it down.
+
+
+878
+01:06:08,950 --> 01:06:11,260
+Oh I think the file is descriptor.
+
+
+879
+01:06:12,010 --> 01:06:14,260
+Yeah the file descriptor, I saw,
+
+
+880
+01:06:14,260 --> 01:06:18,430
+what I expected was that fileread was failing due to something
+
+
+881
+01:06:18,430 --> 01:06:23,290
+and copyout not doing the right thing with copy-on-write pages.
+
+
+882
+01:06:24,220 --> 01:06:25,990
+But that is not at all where the failure is.
+
+
+883
+01:06:26,290 --> 01:06:32,190
+OK, so now, if we want to find out like it's either argfd or argint or argaddr, that's failing,
+
+
+884
+01:06:32,280 --> 01:06:36,180
+let's start with argfd, I'm just gonna stick print statements in here,
+
+
+885
+01:06:36,180 --> 01:06:43,760
+to help me , figure out which one of these failure cases actually triggering triggering,
+
+
+886
+01:06:43,850 --> 01:06:45,890
+so like two places it returns minus one,
+
+
+887
+01:06:46,280 --> 01:06:49,760
+this one there's something wrong with the fd itself.
+
+
+888
+01:06:52,580 --> 01:06:56,700
+So we're gonna get these print statements on cases where. argfd returns minus one.
+
+
+889
+01:07:05,950 --> 01:07:10,000
+Yeah, what is this mean, fd-.
+
+
+890
+01:07:10,060 --> 01:07:16,560
+Alright, so the that we expect these fd printouts to occur, just before the error,
+
+
+891
+01:07:16,710 --> 01:07:22,450
+so we saw is fd nine, it was fd nine, this causes the error,
+
+
+892
+01:07:22,810 --> 01:07:25,120
+so fd 9 failed one of these three tests,
+
+
+893
+01:07:25,120 --> 01:07:27,040
+but we know it's not less than zero,
+
+
+894
+01:07:27,370 --> 01:07:32,350
+I happen to know it's not greater than equal to NOFILE, a number of open files,
+
+
+895
+01:07:32,350 --> 01:07:38,200
+and so that means that the ofile array, a for nine file descriptor nine must have been zero,
+
+
+896
+01:07:38,200 --> 01:07:41,410
+that is in this process, there is no file descriptor nine.
+
+
+897
+01:07:43,700 --> 01:07:47,500
+So somehow, copy-on-write test,
+
+
+898
+01:07:49,680 --> 01:07:55,920
+this code and copy-on-write test is passing an invalid file descriptor to read.
+
+
+899
+01:07:56,580 --> 01:08:00,560
+So, file descriptor in comes from fds,
+
+
+900
+01:08:00,620 --> 01:08:03,930
+fds comes from a call to pipe.
+
+
+901
+01:08:06,710 --> 01:08:10,280
+How could I usually pipe, if it doesn't fail, it leaves the file descriptor in the array,
+
+
+902
+01:08:10,280 --> 01:08:11,420
+so how could this go wrong.
+
+
+903
+01:08:18,860 --> 01:08:23,270
+Oh, we all know the answer has to be blah blah blah copyout.
+
+
+904
+01:08:25,880 --> 01:08:27,290
+So what's the missing piece.
+
+
+905
+01:08:38,060 --> 01:08:42,100
+I mean, I guess like one thing that help me track this down
+
+
+906
+01:08:42,100 --> 01:08:47,450
+as I realized at least first of all fd should not be nine,
+
+
+907
+01:08:47,480 --> 01:08:51,110
+on every iteration nine is kind of the value that you would expect,
+
+
+908
+01:08:52,470 --> 01:08:56,310
+kind of add on the last iteration, that's kind of like the highest call to pipe.
+
+
+909
+01:08:56,310 --> 01:08:58,560
+Yeah yeah, they all got nine, you're right.
+
+
+910
+01:08:58,980 --> 01:09:02,550
+There's something they're kind of touching each other's memory strange.
+
+
+911
+01:09:03,010 --> 01:09:04,660
+Yeah that's exactly right.
+
+
+912
+01:09:04,810 --> 01:09:11,400
+So, you know the fds pipe, the way pipe turns the file descriptors is that it calls copyout,
+
+
+913
+01:09:12,380 --> 01:09:16,880
+to copy the file descriptor number that is allocated into the caller's address space.
+
+
+914
+01:09:17,150 --> 01:09:19,700
+Well, we're using copy-on-write fork here,
+
+
+915
+01:09:19,700 --> 01:09:21,500
+so if we're not careful,
+
+
+916
+01:09:21,530 --> 01:09:26,360
+so at least initially there's just one page and it's shared among all the processes.
+
+
+917
+01:09:26,570 --> 01:09:28,640
+So the first process that calls pipe,
+
+
+918
+01:09:29,780 --> 01:09:35,840
+if something goes wrong, the pipe system call might conceivably write the shared page.
+
+
+919
+01:09:36,700 --> 01:09:40,900
+And that value that file descriptor will then be seen by all the processes,
+
+
+920
+01:09:40,900 --> 01:09:44,170
+instead of just the process that actually allocated the descriptor.
+
+
+921
+01:09:46,660 --> 01:09:50,440
+They really see this as a kind of at least hypothetical risk.
+
+
+922
+01:09:54,030 --> 01:09:56,280
+So let's look at what, try to imagine,
+
+
+923
+01:09:56,340 --> 01:10:11,460
+so first let's look a sysfile to see how pipe, copies out the file descriptors that allocates
+
+
+924
+01:10:12,540 --> 01:10:16,820
+and indeed down here, these two calls to copyout
+
+
+925
+01:10:17,000 --> 01:10:18,950
+to copy the two elements of that pipe array,
+
+
+926
+01:10:18,950 --> 01:10:25,830
+so pipe is using copyout to copy the file descriptor numbers into the array in user space.
+
+
+927
+01:10:26,420 --> 01:10:27,680
+So what is copyout do.
+
+
+928
+01:10:31,500 --> 01:10:35,520
+Well, it looks up the virtual address to find a physical address.
+
+
+929
+01:10:37,100 --> 01:10:45,620
+And then its writes, copies over that physical address and that's it.
+
+
+930
+01:10:46,180 --> 01:10:52,090
+So, one thing it is not doing is checking for write permission, doesn't look at PTE_W.
+
+
+931
+01:10:53,590 --> 01:10:58,420
+And so with this page, at this virtual address refers to a copy-on-write shared page,
+
+
+932
+01:10:58,600 --> 01:11:01,840
+copyout just has no idea it just goes ahead and writes it.
+
+
+933
+01:11:02,580 --> 01:11:06,330
+So I mean indeed, when pipe calls copyout,
+
+
+934
+01:11:06,330 --> 01:11:08,460
+it's going to be writing a shared page,
+
+
+935
+01:11:08,460 --> 01:11:13,770
+that all of the forked processes see this modification not just the process that called pipe.
+
+
+936
+01:11:15,270 --> 01:11:18,000
+Any questions about, why this is happening.
+
+
+937
+01:11:25,570 --> 01:11:26,140
+Okay.
+
+
+938
+01:11:29,000 --> 01:11:32,240
+Alright, so as you all know we need to modify copyout
+
+
+939
+01:11:32,660 --> 01:11:37,340
+to since copyout is looking up a virtual address and translating into a physical address,
+
+
+940
+01:11:37,340 --> 01:11:39,110
+but it is not using the MMU,
+
+
+941
+01:11:39,350 --> 01:11:43,730
+so the MMU doesn't catch the right fault, because the MMU is not involved,
+
+
+942
+01:11:45,290 --> 01:11:47,390
+walkaddr looks at the page table itself
+
+
+943
+01:11:47,390 --> 01:11:51,560
+instead of basically getting there MMU to look at the page table for it.
+
+
+944
+01:11:54,040 --> 01:11:58,210
+Okay, so , we need to modify copyout,
+
+
+945
+01:11:58,270 --> 01:12:01,690
+we don't wanna call walkaddr, walkaddr just produces a physical address,
+
+
+946
+01:12:01,720 --> 01:12:06,040
+we actually want the page table entry, because we want to look at the permission bits,
+
+
+947
+01:12:06,070 --> 01:12:09,970
+to see if it's a copy-on-write protected page,
+
+
+948
+01:12:10,210 --> 01:12:11,710
+so we're going to call walk instead.
+
+
+949
+01:12:20,770 --> 01:12:23,650
+We need to check all the usual errors,
+
+
+950
+01:12:24,510 --> 01:12:26,280
+so maybe there's no mapping at all,
+
+
+951
+01:12:29,260 --> 01:12:31,330
+maybe it's not a valid mapping,
+
+
+952
+01:12:33,450 --> 01:12:38,190
+or maybe it's a mapping that the user code is not allowed to use,
+
+
+953
+01:12:38,430 --> 01:12:41,550
+in all those cases, it's an error,
+
+
+954
+01:12:41,550 --> 01:12:43,380
+but this time we can actually return an error,
+
+
+955
+01:12:43,560 --> 01:12:46,650
+actually call read to return minus one instead of killing the process,
+
+
+956
+01:12:46,680 --> 01:12:47,460
+that's nice.
+
+
+957
+01:12:50,690 --> 01:12:53,810
+Next we need to know how to check whether it's a copy-on-write page.
+
+
+958
+01:12:54,080 --> 01:12:57,680
+Any, any ideas for how we can
+
+
+959
+01:12:59,340 --> 01:13:03,270
+check whether we should apply copy whether we should do a copy at this point.
+
+
+960
+01:13:11,130 --> 01:13:15,360
+What's different about between copy-on-write pages and just sort of ordinary unshared pages.
+
+
+961
+01:13:18,170 --> 01:13:20,030
+Would the reference count to be large.
+
+
+962
+01:13:21,000 --> 01:13:27,760
+Um, that's a good point, if the reference count was greater than one,
+
+
+963
+01:13:27,760 --> 01:13:33,160
+that's certainly a very strong hint, that's a copy-on-write page.
+
+
+964
+01:13:33,900 --> 01:13:38,700
+But if the reference count is one does that mean it's not a copy-on-write page.
+
+
+965
+01:13:45,900 --> 01:13:48,930
+It turns out if you fork and the child takes a copy-on-write fault
+
+
+966
+01:13:48,930 --> 01:13:53,100
+and makes a copy that reduces the reference count to one,
+
+
+967
+01:13:53,520 --> 01:13:55,800
+but the page is still write protected in the parent.
+
+
+968
+01:13:59,550 --> 01:14:04,550
+And actually probably we could get away with modifying in that case,
+
+
+969
+01:14:04,580 --> 01:14:08,550
+so I think we actually could check the reference count.
+
+
+970
+01:14:09,980 --> 01:14:14,510
+And only treated as a copy-on-write page, if the reference count greater than zero,
+
+
+971
+01:14:14,690 --> 01:14:19,010
+but what I'm gonna do is different, even easier shortcut
+
+
+972
+01:14:19,850 --> 01:14:25,460
+and say if the page is write protected, the only way a page can be write protected
+
+
+973
+01:14:25,610 --> 01:14:27,800
+and have the PTE_U bit set,
+
+
+974
+01:14:28,460 --> 01:14:32,540
+in this version of xv6 is if it's a copy-on-write page.
+
+
+975
+01:14:35,170 --> 01:14:38,470
+So this has saved me a little bit of typing compared to checking the reference count,
+
+
+976
+01:14:38,800 --> 01:14:42,790
+we already wrote the code to deal with this in trap.c.
+
+
+977
+01:14:46,180 --> 01:14:49,070
+So I'm just gonna call that code from here.
+
+
+978
+01:14:51,840 --> 01:14:54,900
+We still have to deal with the possible error return,
+
+
+979
+01:14:54,900 --> 01:15:00,140
+if it's a, a crazy address.
+
+
+980
+01:15:00,700 --> 01:15:01,600
+Oh, actually, we don't.
+
+
+981
+01:15:11,880 --> 01:15:12,630
+Alright.
+
+
+982
+01:15:15,000 --> 01:15:18,280
+Alright, so the pages not right at all,
+
+
+983
+01:15:18,280 --> 01:15:20,080
+we're just going to copy-on-write fault
+
+
+984
+01:15:20,230 --> 01:15:23,980
+and copy-on-write fault does the copy and it makes the page writable,
+
+
+985
+01:15:25,210 --> 01:15:30,100
+so I think we're, we're almost done at this point,
+
+
+986
+01:15:30,340 --> 01:15:35,950
+however if copying, if cowfault did make a.
+
+
+987
+01:15:42,310 --> 01:15:42,910
+We gonna get rid of this.
+
+
+988
+01:15:43,420 --> 01:15:49,330
+If cowfault did make a copy, it's going to modify the physical address in the page table entry,
+
+
+989
+01:15:49,480 --> 01:15:52,690
+so we have to pull that physical address out of the page table entry again,
+
+
+990
+01:15:52,690 --> 01:15:53,770
+in case it was changed,
+
+
+991
+01:15:53,980 --> 01:15:55,120
+I'm just gonna do that,
+
+
+992
+01:15:55,120 --> 01:16:00,770
+since we have the page table entry right here.
+
+
+993
+01:16:02,420 --> 01:16:06,320
+And I think this is more or less enough.
+
+
+994
+01:16:07,590 --> 01:16:12,630
+So, any any questions about the modification to copyout.
+
+
+995
+01:16:15,940 --> 01:16:20,800
+Alright I got to make a global declaration for cowfault.
+
+
+996
+01:16:37,190 --> 01:16:37,820
+Ah beautiful.
+
+
+997
+01:16:43,870 --> 01:16:46,480
+Alright that's looking great .
+
+
+998
+01:16:46,510 --> 01:16:47,920
+Anybody happen to know if we're done.
+
+
+999
+01:16:57,820 --> 01:17:00,790
+We may or not be, we also have to pass usertests.
+
+
+1000
+01:17:02,680 --> 01:17:07,950
+Oh alright, let me get rid of this print statements.
+
+
+1001
+01:17:25,540 --> 01:17:29,590
+I think the execout test intentionally allocates a lot of memory.
+
+
+1002
+01:17:33,260 --> 01:17:39,130
+Alright any questions while we wait for the verdict from usertests.
+
+
+1003
+01:17:44,140 --> 01:17:45,340
+Oh, usertests was unhappy,
+
+
+1004
+01:17:45,340 --> 01:17:48,130
+I think this is a familiar piece of damage
+
+
+1005
+01:17:48,130 --> 01:17:56,720
+which somebody's brought up already it's a , it's the panic at walk
+
+
+1006
+01:17:57,020 --> 01:18:01,460
+if the user process, usertests actually I think does intentionally.
+
+
+1007
+01:18:01,610 --> 01:18:04,340
+We'll take a look at usertests ,
+
+
+1008
+01:18:09,540 --> 01:18:11,550
+and it's the copyout test.
+
+
+1009
+01:18:14,090 --> 01:18:15,950
+And even says in the comment,
+
+
+1010
+01:18:15,950 --> 01:18:18,380
+it passes ridiculous pointers to system call.
+
+
+1011
+01:18:18,680 --> 01:18:22,970
+Alright, so what we're faced with is copyout ,
+
+
+1012
+01:18:23,560 --> 01:18:25,060
+we pass in a ridiculous pointer,
+
+
+1013
+01:18:25,060 --> 01:18:27,610
+it's simply called walk with that ridiculous pointer
+
+
+1014
+01:18:28,060 --> 01:18:32,050
+and walk panics, if you give it a ridiculous pointer.
+
+
+1015
+01:18:32,110 --> 01:18:41,210
+So, as somebody mentioned, we need to not call walk with ridiculous pointers,
+
+
+1016
+01:18:42,970 --> 01:18:44,530
+what is it, MAXVA or something.
+
+
+1017
+01:18:46,440 --> 01:18:46,980
+Alright.
+
+
+1018
+01:18:47,570 --> 01:18:51,590
+Of course, we're totally entitled to return an error
+
+
+1019
+01:18:51,590 --> 01:18:56,300
+if the user process pass this or how to [] pointer.
+
+
+1020
+01:19:00,050 --> 01:19:02,900
+Alright, I'm just hoping it passes now.
+
+
+1021
+01:19:05,090 --> 01:19:06,710
+I'm not aware of any other problems.
+
+
+1022
+01:19:09,600 --> 01:19:13,150
+Okay, questions.
+
+
+1023
+01:19:16,490 --> 01:19:19,190
+I guess my question is more broad,
+
+
+1024
+01:19:19,580 --> 01:19:23,870
+like we saw when we were doing that with small steps,
+
+
+1025
+01:19:23,960 --> 01:19:29,710
+we're getting random bugs at this point that others have,
+
+
+1026
+01:19:29,770 --> 01:19:37,980
+and if we're doing the lab from scratch, then wouldn't it be confusing to get all of those weird bugs,
+
+
+1027
+01:19:38,720 --> 01:19:44,850
+and how would how would you, how do you know whether it's bug with something you wrote
+
+
+1028
+01:19:44,880 --> 01:19:47,940
+or a bug because you didn't write the rest of it.
+
+
+1029
+01:19:48,540 --> 01:19:50,310
+I'm afraid I cannot answer your question.
+
+
+1030
+01:19:51,980 --> 01:19:58,430
+The the sad truth about bugs, particularly bugs caused by doing funny things to page tables inside the kernel,
+
+
+1031
+01:19:58,850 --> 01:20:03,700
+is that every bug, you know every bug is different.
+
+
+1032
+01:20:04,500 --> 01:20:09,420
+And how you know what turns out to be the winning strategy for tracking a bug down.
+
+
+1033
+01:20:10,540 --> 01:20:13,180
+It just depends totally on the nature of the bug.
+
+
+1034
+01:20:15,330 --> 01:20:19,480
+My usual, you know I'm not, I have some,
+
+
+1035
+01:20:19,870 --> 01:20:24,580
+I have a collection of strategies that are sometimes helpful and sometimes not,
+
+
+1036
+01:20:25,160 --> 01:20:28,160
+like I'm a huge believer, I'm putting print statements into the code
+
+
+1037
+01:20:28,160 --> 01:20:32,270
+in order to gather information or to verify hypotheses.
+
+
+1038
+01:20:34,720 --> 01:20:37,240
+I'll often spend time just looking at the code,
+
+
+1039
+01:20:37,360 --> 01:20:41,650
+just for the purpose of generating sort of brainstorming with myself,
+
+
+1040
+01:20:41,650 --> 01:20:45,850
+just try to generate you know things that could possibly be going wrong at this point,
+
+
+1041
+01:20:46,330 --> 01:20:48,160
+and then put print statements in [] panics
+
+
+1042
+01:20:48,160 --> 01:20:55,270
+or something to try to rule in and rule out various guesses at what the problem might be.
+
+
+1043
+01:20:55,890 --> 01:21:00,690
+Another possibility is that you know you've made some you know your code worked
+
+
+1044
+01:21:00,690 --> 01:21:02,580
+or didn't show this error or something,
+
+
+1045
+01:21:02,850 --> 01:21:05,100
+you know half an hour ago and you made some changes,
+
+
+1046
+01:21:05,100 --> 01:21:06,180
+and now you have some bug,
+
+
+1047
+01:21:06,360 --> 01:21:12,230
+another possibility is to if you can, you know back up to a version of the code that didn't have the bug
+
+
+1048
+01:21:12,230 --> 01:21:15,050
+and sort of add your changes bit by bit until the bug shows up.
+
+
+1049
+01:21:16,560 --> 01:21:20,640
+Now, these are, I don't know any strategy that always works
+
+
+1050
+01:21:20,640 --> 01:21:22,230
+or even works more than a fraction of the time.
+
+
+1051
+01:21:25,260 --> 01:21:28,260
+But the truth is part of what you're learning in this class
+
+
+1052
+01:21:28,290 --> 01:21:30,060
+as well as learning about operating systems,
+
+
+1053
+01:21:30,630 --> 01:21:33,960
+you know you're getting experience writing and debugging code.
+
+
+1054
+01:21:37,860 --> 01:21:39,060
+Sorry, not to be more helpful.
+
+
+1055
+01:21:42,950 --> 01:21:43,850
+Other questions?
+
+
+1056
+01:21:52,650 --> 01:21:57,630
+Alright , we're at the end of class time.
+
+
+1057
+01:22:00,580 --> 01:22:01,900
+I'm happy to talk more,
+
+
+1058
+01:22:02,790 --> 01:22:06,480
+but we're done with the formal part of this class.
+
+
+1059
+01:22:10,930 --> 01:22:14,320
+Alright and to see you all on Wednesday.
+
+
+1060
+01:22:15,390 --> 01:22:17,160
+Oh, sorry I actually have another question,
+
+
+1061
+01:22:17,190 --> 01:22:24,340
+when we were a seeing our first write fault,
+
+
+1062
+01:22:24,460 --> 01:22:29,920
+we also saw after that for the shell illegal instruction fault
+
+
+1063
+01:22:30,100 --> 01:22:34,320
+and then something for the init process, what was that.
+
+
+1064
+01:22:39,620 --> 01:22:48,480
+Well, I don't have a theory.
+
+
+1065
+01:22:48,600 --> 01:22:53,700
+Init process, I don't think would share pages with anything.
+
+
+1066
+01:22:55,090 --> 01:22:57,460
+I I just don't know I'm sorry.
+
+
+1067
+01:22:58,070 --> 01:22:58,520
+We could .
+
+
+1068
+01:23:01,890 --> 01:23:02,790
+I would have to back up,
+
+
+1069
+01:23:02,790 --> 01:23:05,280
+this happened very early, when I was doing the lab,
+
+
+1070
+01:23:05,310 --> 01:23:07,410
+we just had to copy the page table, nothing else.
+
+
+1071
+01:23:07,410 --> 01:23:07,920
+Yeah.
+
+
+1072
+01:23:08,440 --> 01:23:13,300
+I think it was, like scause f for the shell
+
+
+1073
+01:23:13,420 --> 01:23:20,650
+and I think scause c for the init process, maybe.
+
+
+1074
+01:23:21,810 --> 01:23:27,360
+Alright, let me let's see if you really, let's let's we can .
+
+
+1075
+01:23:32,270 --> 01:23:42,250
+Let's reconstruct the lab from scratch,
+
+
+1076
+01:23:44,100 --> 01:23:45,420
+clone.
+
+
+1077
+01:24:07,740 --> 01:24:10,110
+Okay, this point we've just made,
+
+
+1078
+01:24:11,260 --> 01:24:14,290
+I just made a change to uvmcopy right.
+
+
+1079
+01:24:16,700 --> 01:24:21,180
+So we were, what are we not doing here,
+
+
+1080
+01:24:21,180 --> 01:24:24,690
+we're not allocating and we're not doing memmove.
+
+
+1081
+01:24:27,420 --> 01:24:39,340
+But we are, we're gonna pass pa to mappages
+
+
+1082
+01:24:39,340 --> 01:24:43,180
+and I think the very first the very first time I ran anything.
+
+
+1083
+01:24:43,800 --> 01:24:45,450
+I think this was the state of play.
+
+
+1084
+01:24:46,050 --> 01:24:48,660
+It was after we did the flag, so so.
+
+
+1085
+01:24:48,660 --> 01:24:49,020
+Okay.
+
+
+1086
+01:24:55,490 --> 01:24:57,140
+Alright, so let's clear.
+
+
+1087
+01:25:11,790 --> 01:25:12,750
+That looks good.
+
+
+1088
+01:25:35,420 --> 01:25:41,450
+Alright, we got a c, well let's see c instruction page fault ,
+
+
+1089
+01:25:41,450 --> 01:25:50,350
+so okay so scause two, you know, as you know we think a shared process id to,
+
+
+1090
+01:25:50,350 --> 01:25:53,380
+man you're right, it's process id one.
+
+
+1091
+01:26:00,740 --> 01:26:03,170
+I just don't have a theory for why process id one.
+
+
+1092
+01:26:05,510 --> 01:26:06,770
+[Later on], it's trouble.
+
+
+1093
+01:26:07,490 --> 01:26:10,070
+Let's let's let's look at what it does.
+
+
+1094
+01:26:14,340 --> 01:26:15,060
+I just see it.
+
+
+1095
+01:26:33,520 --> 01:26:34,960
+Okay, it exec this shell.
+
+
+1096
+01:26:39,580 --> 01:26:42,310
+I don't know.
+
+
+1097
+01:26:42,400 --> 01:26:45,220
+You know, okay, oh here's an idea,
+
+
+1098
+01:26:45,310 --> 01:26:48,070
+process id two is taken a fault and it's exited.
+
+
+1099
+01:26:48,850 --> 01:26:49,450
+[] later.
+
+
+1100
+01:26:49,450 --> 01:26:55,660
+Yeah, so that means that this way to init, it has returned, right,
+
+
+1101
+01:26:55,810 --> 01:26:58,030
+let's go back around the loop and call fork again
+
+
+1102
+01:26:58,030 --> 01:27:03,980
+and so you know after fork we're now sharing or you know depending on all this damage code.
+
+
+1103
+01:27:07,460 --> 01:27:08,690
+Oh okay I see.
+
+
+1104
+01:27:09,270 --> 01:27:11,220
+Oh yeah that's that's very confusing.
+
+
+1105
+01:27:11,740 --> 01:27:15,040
+Oh yeah, these errors are just like complete [bananas],
+
+
+1106
+01:27:15,070 --> 01:27:19,480
+because we violated all sorts of intuitions about how things should work.
+
+
+1107
+01:27:21,120 --> 01:27:21,870
+Okay.
+
+
