@@ -1,2669 +1,3336 @@
 1
 00:00:12,310 --> 00:00:15,310
+好的，我们检查一下声音，大家都能听到我说话吗？
 Okay, okay, we get a sound check, can everybody hear me?
 
 2
 00:00:18,980 --> 00:00:19,490
+是的。
 Yep.
 
 3
 00:00:19,880 --> 00:00:23,840
+好的，我们开始。
 Okay, good, whatever, let's going.
 
 4
 00:00:23,840 --> 00:00:29,570
+下午好，傍晚好，早上好，晚上好，无论你在哪里。
 Good afternoon, or good evening or good morning or good night, wherever you are.
 
 5
 00:00:30,110 --> 00:00:33,950
+今天的讲座，我要讲的是页面错误。
 Today's lecture, I'm going to be, about page fault.
 
 6
 00:00:34,780 --> 00:00:40,210
+具体来说，我们的计划的是，
 In particular, we're gonna plan is to,
 
 7
 00:00:41,930 --> 00:00:55,100
+使用页面错误，实现几个虚拟内存功能。使用页面错误。
 cover implement, implemented number of virtual memory features, using page faults.
 
 8
 00:01:03,680 --> 00:01:09,050
+我们接下来要看的功能是懒分配，
 And the features that we're gonna be looking at are lazy allocation,
 
 9
 00:01:09,760 --> 00:01:11,890
+这是下一个实验的主题。
 which is the topic of the next lab.
 
 10
 00:01:14,950 --> 00:01:29,950
+是的，我们还要看，写入时复制 fork ，按需调页，以及内存映射文件， mmap 。
 Yeah, we're gonna look at demand, copy-and-write fork, demand paging, and memory map files, mmap.
 
 11
 00:01:32,540 --> 00:01:34,370
+还有，嗯。
 And, um.
 
 12
 00:01:35,080 --> 00:01:40,060
+几乎所有操作系统都实现了这些功能，
 And almost you know in sort of [] operating system actually implements all these features,
 
 13
 00:01:40,930 --> 00:01:44,950
+深入 Linux ，你会看到所有这些功能都已经实现。
 look inside of Linux, you'll see all these features actually are implemented.
 
 14
 00:01:45,160 --> 00:01:48,340
+在 xv6 中，目前（这些功能）一个都没有实现。
 In xv6, as it stands none of them are implemented.
 
 15
 00:01:49,340 --> 00:01:52,880
+实际上，页面错误在 xv6 中做的是，
 In fact, what page fault does in xv6,
 
 16
 00:01:52,880 --> 00:01:57,380
+如果在用户空间中发生页面错误，就杀死这个进程，没有别的[事情]。
 if page fault happens in user space, basically kill the process, whatever [interesting].
 
 17
 00:01:57,920 --> 00:02:00,050
+所以在这次演讲中，我们要探索一下，
 And so in this lecture, we're going to explore
 
 18
 00:02:00,050 --> 00:02:04,940
+可以在页面错误处理器中做什么有趣的事情，来实现这些功能。
 what interesting things, you could do in the page fault handler to actually implement these features.
 
 19
 00:02:05,270 --> 00:02:12,290
+所以这节课，减少了演示代码，更多是设计层面的。
 So this lecture a little bit less walking through code and understanding existing code, a little bit more design level.
 
 20
 00:02:12,410 --> 00:02:15,260
+从这个意义上来说，我们甚至没有代码可看。
 In the sense, we don't even have code to look at.
 
 21
 00:02:16,130 --> 00:02:18,950
+另一个重要的东西是懒分配，
 Another thing that's important to mention is lazy allocation,
 
 22
 00:02:18,950 --> 00:02:20,180
+是下一个实验的主题，
 is topic of the next lab,
 
 23
 00:02:20,450 --> 00:02:21,950
+希望它能在今天推出。
 hopefully it will push out today.
 
 24
 00:02:22,100 --> 00:02:27,500
+写入时复制 fork ，也是一个实验的主题，
 And copy-on-write fork, it's gonna be a topic of one of the labs
 
 25
 00:02:27,620 --> 00:02:32,030
+还有， mmap 也是后续实验的另一个主题。
 and mmap is going to be another topic of one of the subsequent labs.
 
 26
 00:02:32,500 --> 00:02:36,370
+所以这是操作系统中最有趣的部分之一，
 So this is gonna be one of the interesting parts of an operating system,
 
 27
 00:02:36,460 --> 00:02:39,280
+我们将在这些实验上花费很多时间。
 we're gonna be spending quite a bit of time on these labs.
 
 28
 00:02:41,110 --> 00:02:44,680
+现在，在深入讨论细节之前，
 Now, you know before diving into details,
 
 29
 00:02:44,680 --> 00:02:50,200
+回顾一下可能会有帮助，
 it is probably helpful to take a little bit of step back
 
 30
 00:02:50,230 --> 00:02:56,320
+你可以认为虚拟内存主要有两个好处。
 and so you can think about virtual memory having two major benefits.
 
 31
 00:03:02,370 --> 00:03:07,330
+一个是隔离，从某种意义上说，隔离是，
 One is isolation, so isolation in the sense that,
 
 32
 00:03:07,540 --> 00:03:12,100
+虚拟内存允许操作系统，给每个应用程序提供自己的地址空间，
 virtual memory allows the operating system to give every application it's own address space,
 
 33
 00:03:12,160 --> 00:03:20,650
+使一个应用程序不可能意外地或恶意地修改另一应用程序的地址空间。
 and so it's impossible for one application to, or by accidental or maliciously to modify another application address space.
 
 34
 00:03:21,080 --> 00:03:25,550
+它还提供了用户和内核地址空间之间的隔离，我们讨论过的，
 It also provides isolation between user and kernel address space as we talk about quite a bit
 
 35
 00:03:25,730 --> 00:03:27,830
+也是你们在页表实验中看到的那样。
 and as you've seen in the page table lab.
 
 36
 00:03:28,570 --> 00:03:34,480
+虚拟内存的另一个好处，
 But sort of another view or another benefit of virtual memory,
 
 37
 00:03:34,480 --> 00:03:36,850
+之前我提到过几次，
 you know alluded to a couple times earlier
 
 38
 00:03:37,150 --> 00:03:39,940
+它提供了一定程度的间接性。
 is that it provides a level of indirection,
 
 39
 00:03:47,340 --> 00:03:50,910
+处理器指令，只使用虚拟地址，
 you know, the processor instructions, you know only use virtual addresses,
 
 40
 00:03:51,680 --> 00:03:57,410
+而内核定义了从虚拟地址到物理地址的映射，
 but the kernel gets to sort of define the mapping from virtual addresses to physical addresses,
 
 41
 00:03:58,800 --> 00:04:05,720
+它允许各种有趣的功能，
 and that allows all kinds of interesting -, interesting features,
 
 42
 00:04:05,720 --> 00:04:09,140
+就像我们要在这节课中讨论的那样。
 like the ones we're gonna be talking about in this lecture.
 
 43
 00:04:10,910 --> 00:04:13,180
+这个，稍等。
 The. Second.
 
 44
 00:04:18,200 --> 00:04:19,400
+还有。
 And the.
 
 45
 00:04:24,280 --> 00:04:30,400
+内核控制着从虚拟地址空间到物理地址空间的映射，
 The kernel controls this particular mapping from virtual to physical address space
 
 46
 00:04:30,490 --> 00:04:34,090
+到目前为止，xv6 的映射都很无趣，
 and most so far in xv6, that mapping has to be quite boring,
 
 47
 00:04:34,960 --> 00:04:37,270
+事实上，内核主要是恒等映射，
 in fact the kernel is mostly direct mapping
 
 48
 00:04:37,450 --> 00:04:41,920
+xv6 做了几件有趣的事情，
 and a couple of interesting things that we do, xv6 does,
 
 49
 00:04:41,950 --> 00:04:45,160
+其中一个我们可以看到的是 trampoline 页。
 which is mapping one as we've seen, the trampoline page,
 
 50
 00:04:46,330 --> 00:04:50,650
+允许内核将一个页面映射到多个地址空间，
 allowed kernel map one page into many address spaces,
 
 51
 00:04:50,770 --> 00:04:55,210
+另一个可以看到的有趣的例子是守护页，
 another interesting case that we've seen is the guard page,
 
 52
 00:04:55,750 --> 00:05:02,020
+它用来在用户空间和内核空间中保护栈。
 to protect stack, both in the kernel, in kernel space and user space and kernel space.
 
 53
 00:05:02,940 --> 00:05:04,350
+但是你想一下，
 But if you think about it,
 
 54
 00:05:04,350 --> 00:05:07,950
+目前为止，这种映射是相对静态的，
 so far that mapping has been relatively static,
 
 55
 00:05:07,980 --> 00:05:13,290
+我们设置一次，用户或内核页表映射，
 you know we set it up once, you know maybe per user, kernel page table mapping,
 
 56
 00:05:13,290 --> 00:05:17,310
+在开始时设置一次，还有进程 fork 时设置一次，
 setup once in the beginning and processes once at fork
 
 57
 00:05:17,370 --> 00:05:20,700
+然后内核不会对这个映射做任何其他的事情。
 and they're sort of the kernel doesn't really do anything else with this mapping.
 
 58
 00:05:21,680 --> 00:05:27,050
+而页面错误给我们的是，让这些映射变为动态的。
 And what page fault gives us is actually to make these maps dynamic.
 
 59
 00:05:27,440 --> 00:05:35,950
+所以使用页面错误，我们可以改变，
 So using page faults, and we can change,
 
 60
 00:05:37,170 --> 00:05:47,050
+内核可以动态地改变映射。
 the kernel can change the mapping, sort of dynamically on the fly.
 
 61
 00:05:47,080 --> 00:05:52,990
+这是一种非常强大的机制，
 And this turns out to be extremely powerful mechanism,
 
 62
 00:05:52,990 --> 00:05:57,550
+将页表和页面错误结合起来，
 so you can combine page tables and page faults,
 
 63
 00:05:57,820 --> 00:06:02,500
+内核有了极大的灵活性。
 you, have enormous, kernel has an enormous amount of flexibility.
 
 64
 00:06:03,000 --> 00:06:07,740
+灵活性是因为你可以在运行时修改指向。
 And the flexibility [comes down], because you can change the level of [direction] on the fly.
 
 65
 00:06:09,960 --> 00:06:12,210
+所以我们要做的是，
 And, so what we're going to be doing is basically
 
 66
 00:06:12,210 --> 00:06:20,460
+研究这种动态映射或动态修改页表的各种用法，
 looking at all kinds of usages of this dynamic re-mapping or dynamic changing of the page tables,
 
 67
 00:06:20,460 --> 00:06:22,530
+这给你带来有趣的功能。
 that gives you interesting features.
 
 68
 00:06:24,770 --> 00:06:27,050
+所以我们要考虑的第一件事，
 So the first thing, we may want to think about,
 
 69
 00:06:27,110 --> 00:06:30,860
+是需要什么信息，
 is a little bit, is what information is needed,
 
 70
 00:06:30,890 --> 00:06:33,440
+如果发生页面错误，
 you know if here in a page fault happens,
 
 71
 00:06:34,740 --> 00:06:40,630
+内核需要响应这个页面错误，
 and, kernel wants to respond to this page fault,
 
 72
 00:06:40,630 --> 00:06:44,530
+那么它需要什么信息才能做出回应。
 you know what information does it need to actually be able to respond.
 
 73
 00:06:45,270 --> 00:06:56,510
+很明显，我们需要错误的虚拟地址，
 You know sort of quite you know obviously, we'd like to have the virtual address of, virtual address of faulting,
 
 74
 00:07:00,040 --> 00:07:01,600
+（这个地址）会引起页面错误。
 where gonna cause page fault.
 
 75
 00:07:05,270 --> 00:07:11,390
+比如，你想看到这个，错误虚拟地址。
 Say you want to see this, the faulting virtual address.
 
 76
 00:07:15,440 --> 00:07:20,600
+你可能已经在页表实验中，看到了一些这样的错误，
 And you've seen presumably some of these panic calls in your page fault lab,
 
 77
 00:07:20,600 --> 00:07:23,450
+内核实际上有额外的状态，
 and you know the kernel actually has extra [status],
 
 78
 00:07:23,450 --> 00:07:26,030
+当我们发生页面错误时，把它们打印出来，
 in fact that prints them out when we actually page fault happens
 
 79
 00:07:26,150 --> 00:07:31,790
+它在 stval 寄存器里。
 and it happens to be sitting in the stval register.
 
 80
 00:07:35,530 --> 00:07:40,600
+所以，当用户应用程序导致页面错误时，
 So when user application, causes a page fault,
 
 81
 00:07:40,840 --> 00:07:44,590
+页面错误调用相同的陷阱机制，
 the page fault basically invokes the same trap machinery,
 
 82
 00:07:44,710 --> 00:07:46,810
+像 Robert 在上一节课中谈到的，
 that Robert discussed in the last lecture,
 
 83
 00:07:47,080 --> 00:07:48,730
+它们几乎完全相同，
 it's almost completely identical,
 
 84
 00:07:48,910 --> 00:07:56,020
+但是在页面错误的情况下，它还会把错误地址放入 stval 寄存器中。
 but in the case of page fault, it also will put the faulting address into that stval register.
 
 85
 00:07:57,370 --> 00:08:00,160
+这就是，我们可能要知道的一件事，
 So that is, one thing that we probably want to know,
 
 86
 00:08:00,160 --> 00:08:03,160
+我们可能想知道的第二件事，是错误类型。
 the second thing that we probably want to know is the type of fault.
 
 87
 00:08:11,580 --> 00:08:13,920
+因为可能，
 Because it may be, in terms of,
 
 88
 00:08:13,920 --> 00:08:16,620
+我们可能希望做出不同的回应，
 we may want to do respond different differently
 
 89
 00:08:16,620 --> 00:08:21,120
+对于加载指令引起的页面错误，
 in terms of to page fault due to a load instruction
 
 90
 00:08:21,270 --> 00:08:23,820
+或由于保存指令的页面错误，
 or page fault due to a store instruction,
 
 91
 00:08:23,850 --> 00:08:26,370
+或由于跳转指令引起的页面错误。
 or page fault due to a jump instruction.
 
 92
 00:08:26,880 --> 00:08:32,970
+如果你查看 RISC-V 文档。
 And, so in fact if you look at the RISC-V documentation.
 
 93
 00:08:33,930 --> 00:08:37,260
+这里是 RISC-V 文档，
 Here's the RISC-V documentation in here,
 
 94
 00:08:37,320 --> 00:08:41,550
+在 scause 中，我们在 trap 课程中提到的，
 in the scause, we that we was mentioning the trap lecture,
 
 95
 00:08:41,700 --> 00:08:49,780
+有一些与页面错误有关的原因，
 there are, a member of causes that actually related to page faults,
 
 96
 00:08:49,990 --> 00:08:55,570
+是的，看一下编号 13 ，是一个加载页面错误，
 so yeah but if you look at number thirteen, it's a load page fault,
 
 97
 00:08:55,750 --> 00:08:58,360
+编号 15 是一个存储页面错误，
 number fifteen is a store page fault,
 
 98
 00:08:58,510 --> 00:09:00,880
+而编号 12 是指令页面错误。
 and number twelve is an instruction page fault.
 
 99
 00:09:01,410 --> 00:09:06,030
+所以，这些在 scause 寄存器中，然后我们就能得到这些信息。
 So these are, in the scause register, then we get that information.
 
 100
 00:09:08,880 --> 00:09:14,950
+所以，有三种不同的类型，读，写和指令。
 And so there's three different types, you know read write and instruction.
 
 101
 00:09:16,820 --> 00:09:17,960
+往回走一点，
 And just go back,
 
 102
 00:09:17,990 --> 00:09:25,040
+有一个 scause 实际上是由 ecall 指令引起的，
 you know the one scause, you know actually was caused by the [ecall] instruction,
 
 103
 00:09:25,040 --> 00:09:27,650
+内核传输是编号 8 。
 to actually the kernel transfer is number eight.
 
 104
 00:09:28,310 --> 00:09:31,370
+好的，这就是我们在 trap 讲座中看到的，
 Alright, so that's the one that we saw in the trap lecture,
 
 105
 00:09:31,370 --> 00:09:33,560
+我们在 trap 演讲中花了很多时间思考。
 that we spend a lot of time thinking about in that trap lecture.
 
 106
 00:09:33,620 --> 00:09:36,500
+但基本上所有其他页面错误或异常，
 But basically all the other page faults or exceptions
 
 107
 00:09:37,460 --> 00:09:43,130
+使用相同的机制从用户空间到内核空间，
 use the same mechanism to transfer from user space to kernel space
 
 108
 00:09:43,460 --> 00:09:47,270
+一旦进入内核空间，出现页面错误，
 and once in kernel space, in the case of the page fault,
 
 109
 00:09:47,270 --> 00:09:50,900
+就设置 stval 寄存器，设置 scause 寄存器。
 the stval register set, scause register set.
 
 110
 00:09:52,060 --> 00:09:55,810
+然后，我们可能想知道的第三件事是，
 Then the third thing, that we probably want to know is
 
 111
 00:09:55,870 --> 00:10:07,150
+引起页面错误的指令的虚拟地址。
 the instruction or address the virtual address of instruction, that cause the page fault.
 
 112
 00:10:14,890 --> 00:10:16,570
+还有，有没有人还记得，
 And, you know, anybody remember
 
 113
 00:10:16,570 --> 00:10:21,610
+从 trap 课程中，指令在哪里，地址在哪里？
 where you know from the trap lecture, where the where the instruction is, where the addresses?
 
 114
 00:10:25,220 --> 00:10:25,880
+有人知道吗？
 Anybody?
 
 115
 00:10:26,560 --> 00:10:29,410
+是 sepc 吗？是的，正确。
 Is it sepc? Yeah exactly.
 
 116
 00:10:29,680 --> 00:10:35,620
+这里有个 sepc 寄存器，管理者模式异常程序计数器，
 And there's this register, sepc correct, the supervisor exception exception program counter,
 
 117
 00:10:35,740 --> 00:10:42,540
+作为陷阱处理代码的一部分，它保存在哪里？
 there is where it is and where is that saved as part of the trap handling code?
 
 118
 00:10:45,000 --> 00:10:45,930
+在 tramframe ？
 In the trapframe?
 
 119
 00:10:46,140 --> 00:10:47,670
+是的，在 tramframe 中，
 Yeah, there's in the trapframe correct,
 
 120
 00:10:47,670 --> 00:10:52,980
+这里有一个 tramframe epc ，包含异常程序计数器。
 there's trapframe epc, actually has the exception program counter.
 
 121
 00:10:54,150 --> 00:10:57,180
+所以，我们考虑一下 xv6 所做的硬件机制，
 So we think about the hardware mechanism actually what xv6 does,
 
 122
 00:10:57,270 --> 00:11:01,860
+当出现页面错误时，有三条可能对我们非常有价值的信息，
 we have three pieces of information are probably extremely valuable to us, when we get actually page fault,
 
 123
 00:11:01,890 --> 00:11:06,480
+即引起错误的地址，错误类型，
 namely the address of cause fault, the type of fault
 
 124
 00:11:06,750 --> 00:11:10,710
+还有异常程序计数器，比如它发生在用户空间的什么地方。
 and the exception program counter like where did it happen to user space.
 
 125
 00:11:11,200 --> 00:11:13,930
+我们关心异常程序计数器的原因是，
 And the reason we care a lot about the exception program counter is
 
 126
 00:11:13,930 --> 00:11:19,240
+因为当我们想在处理程序中修复页表时，
 because when we probably want to repair, in the handler going to repair the pagetable
 
 127
 00:11:19,660 --> 00:11:22,090
+然后我们会重新运行相同的指令，
 and then we're gonna basically restart the same instruction
 
 128
 00:11:22,420 --> 00:11:26,950
+希望在修复页面错误或修复页表之后，
 and hopefully the after repairing the page fault or reparing the pagetables
 
 129
 00:11:26,980 --> 00:11:29,170
+那条指令可以继续运行。
 that instruction can just run without any trouble.
 
 130
 00:11:29,560 --> 00:11:35,200
+所以，可以重新执行引起错误的指令是很重要的。
 And so it's important that we can be resume the instruction that actually that we cause fault.
 
 131
 00:11:38,370 --> 00:11:39,270
+这些能理解吗？
 Is that all makes sense?
 
 132
 00:11:42,960 --> 00:11:46,020
+好的，现在我要看一下，
 Okay, so now I'm gonna look at,
 
 133
 00:11:46,140 --> 00:11:50,700
+实际上 RISC-V 给我们提供的基础机制和基本信息，
 you know the basic mechanism and basic information that the RISC-V is actually giving us
 
 134
 00:11:51,000 --> 00:11:59,110
+我想看一份功能清单，
 and I want to look at, basically go through a list of, you know features
 
 135
 00:11:59,170 --> 00:12:01,480
+可以帮助我们理解，
 that will help us, you know we understand actually
 
 136
 00:12:01,480 --> 00:12:09,600
+我们如何使用页面错误程序修复页表，并做一些有趣的事情。
 how we can use the page fault handler to repair the pagetable and do interesting things.
 
 137
 00:12:09,930 --> 00:12:19,610
+所以我想看的第一件事是分配，特别是， sbrk 。
 So the first thing I want to look at is allocation, in particular, you know sbrk.
 
 138
 00:12:25,210 --> 00:12:29,020
+所以， sbrk 是 xv6 提供的系统调用，
 So sbrk is the system call, that xv6 provides,
 
 139
 00:12:29,140 --> 00:12:33,880
+它允许应用程序增加自己的堆空间，
 that allows an application to basically grow grow its heap
 
 140
 00:12:34,150 --> 00:12:40,150
+当应用程序启动时， sbrk 指向这里，
 when the application starts sbrk points here,
 
 141
 00:12:41,470 --> 00:12:44,020
+位于堆的底部，栈的顶端，
 at the bottom of the heap, you know top of the stack,
 
 142
 00:12:44,410 --> 00:12:49,330
+实际上，这也是 p->sz 指向的地方。
 in fact it's the same place where you know p->sz basically you know points to.
 
 143
 00:12:50,200 --> 00:12:51,550
+所以，当调用 sbrk 时，
 And so when sbrk called,
 
 144
 00:12:51,700 --> 00:12:54,610
+比如 sbrk 1 2 3 4 5 ，
 for example, sbrk called, it's like one two three four five,
 
 145
 00:12:54,610 --> 00:12:56,950
+数字是你想要分配的页数，
 you know the number of pages that you know you want to allocate,
 
 146
 00:12:57,250 --> 00:13:07,760
+sbrk 系统调用提高这个界限，到这里某个地方。
 the sbrk system call basically bumps up you know this boundary, to something there.
 
 147
 00:13:08,350 --> 00:13:15,430
+这就是说，当调用 sbrk 系统调用时，
 And that and so what, that means that when the sbrk actually happens or sbrk system call is called,
 
 148
 00:13:15,460 --> 00:13:22,750
+内核分配物理内存，映射到用户用用程序的地址空间，
 the kernel allocation physical memory, map it into the address space of the user application,
 
 149
 00:13:23,050 --> 00:13:26,140
+将内存置零，然后从系统调用返回。
 zero the memory and then basically return from the system call.
 
 150
 00:13:27,210 --> 00:13:35,280
+之后，应用程序可以增长它需要的物理内存，
 And after time and the application can grow, you know that physical memory or memory that it needs
 
 151
 00:13:35,280 --> 00:13:39,450
+或者它可能多次调用 sbrk 。
 or it might want by just calling multiple times to sbrk.
 
 152
 00:13:39,950 --> 00:13:45,500
+应用程序还可以使用一个负数调用 sbrk ，来缩小它的地址空间。
 The application also decrease or shrink its address space by calling sbrk with a negative number.
 
 153
 00:13:46,830 --> 00:13:50,490
+但是，我想把重点放在增加地址空间的情况下。
 But I want to focus on the case where we're growing the address space.
 
 154
 00:13:50,730 --> 00:13:57,060
+在 xv6 中， sbrk 是急切的，
 And in xv6 as it is, the sbrk is eager
 
 155
 00:13:57,900 --> 00:14:00,210
+或者我们称之为[急分配]，
 or does what we're gonna call eager allocation,
 
 156
 00:14:03,650 --> 00:14:09,560
+也就是说，只要一调用 sbrk ，
 namely as soon as the sbrk called,
 
 157
 00:14:09,620 --> 00:14:14,690
+内核会立即分配应用程序需要的物理内存。
 the kernel will immediately allocate the physical memory that the application is asking for.
 
 158
 00:14:15,570 --> 00:14:17,190
+在实践中，
 And it turns out that in practice,
 
 159
 00:14:17,370 --> 00:14:21,740
+应用程序很难预测，它需要多少内存，
 it's actually hard for applications to predict, how much memory they need,
 
 160
 00:14:22,310 --> 00:14:30,030
+所以，通常情况下，应用程序会多申请，
 so, typically applications tend to over ask,
 
 161
 00:14:36,600 --> 00:14:38,670
+所以，它们申请的比需要的多，
 and so they ask a lot more than they really need,
 
 162
 00:14:38,910 --> 00:14:45,720
+通常，这意味着地址空间会有比较大的增长，
 and often that means which means that basically you know the address space will grow quite a bit,
 
 163
 00:14:45,840 --> 00:14:48,930
+即使应用程序从未使用到的内存。
 even with memory does actually never used by the application.
 
 164
 00:14:49,530 --> 00:14:52,380
+你可能认为那很愚蠢，怎么会发生这种事，
 You might think that was stupid, how could that happen,
 
 165
 00:14:52,620 --> 00:14:55,710
+嗯，想想如果你写一个程序，
 well, you know, think about if you write an application program
 
 166
 00:14:55,710 --> 00:14:59,880
+典型的程序可能会输入，
 and the typical application program maybe reach an input
 
 167
 00:14:59,880 --> 00:15:03,780
+或者具有用于某些计算的矩阵，
 or has a matrix that uses for some computation,
 
 168
 00:15:04,140 --> 00:15:08,100
+通常，应用程序编写者会为最坏的情况做准备，
 and often the application writer sort of plans for the worst case,
 
 169
 00:15:08,130 --> 00:15:13,560
+为最大的矩阵分配内存，而应用程序可能永远不需要。
 you know allocates memory for the biggest matrix, the application might never ever need.
 
 170
 00:15:13,980 --> 00:15:15,390
+但是一般情况下，
 But in the common case,
 
 171
 00:15:15,510 --> 00:15:20,460
+应用程序的计算，可能是小得多的输入或小得多的矩阵，
 application maybe computes are much smaller input or a much smaller matrix
 
 172
 00:15:20,760 --> 00:15:25,260
+事实上，对于应用程序程序员来说，这很常见，
 and so it's quite common, in fact for application programmers
 
 173
 00:15:25,260 --> 00:15:27,780
+如果你考虑一下自己编写的应用程序，
 and probably if you think about your own applications written
 
 174
 00:15:27,840 --> 00:15:31,260
+过多申请并拥有它们使用（的内存）。
 to actually over ask and actually [own] their use.
 
 175
 00:15:32,100 --> 00:15:36,180
+我们希望，原则上，不是什么大问题，
 And we'd like to, principle, not a big problem,
 
 176
 00:15:36,180 --> 00:15:39,510
+使用虚拟内存和页面错误处理程序，
 but you know using actually virtual memory and page fault handlers,
 
 177
 00:15:39,750 --> 00:15:46,410
+我们完全可以以一种聪明的方式做出回应，
 we can actually totally totally responded at, in sort of an intelligent manner,
 
 178
 00:15:46,860 --> 00:15:50,250
+通过使用懒分配。
 and, by basically doing lazy allocation.
 
 179
 00:15:59,060 --> 00:16:01,550
+它的基本想法很简单，
 And the basic idea is very simple,
 
 180
 00:16:01,700 --> 00:16:08,140
+在 sbrk 中我们基本上什么也不做，
 at sbrk, we're basically gonna do almost nothing,
 
 181
 00:16:08,350 --> 00:16:12,040
+我们唯一要做的是，记住增加了地址空间，
 the only thing that we need to know, remember of course that we get grow address space,
 
 182
 00:16:12,040 --> 00:16:20,470
+所以，我们唯一要做的就是 p->sz 增加一个数，
 so the only thing we are going to be doing is actually bumping up you know p->sz, you know, whatever with the number,
 
 183
 00:16:21,690 --> 00:16:24,930
+把 p->sz 设置成一个加上 n 的大小，
 you know set p->sz to one of the new size plus you know n
 
 184
 00:16:24,930 --> 00:16:27,660
+n 是内存的分配量。
 and you know what n is the amount of memory that's allocated.
 
 185
 00:16:28,600 --> 00:16:30,940
+然后，我们没有分配，
 And then you know, that we don't allocate,
 
 186
 00:16:30,940 --> 00:16:33,580
+内核在这时没有分配任何物理内存，
 the kernel doesn't allocate any physical memory at that particular point of time,
 
 187
 00:16:33,580 --> 00:16:35,440
+它什么也没做。
 it doesn't zero, there's absolutely nothing.
 
 188
 00:16:37,570 --> 00:16:40,930
+然后，在某个时刻，应用程序可能会使用该内存，
 Then, at some point the application will use or might use that memory, correct,
 
 189
 00:16:40,930 --> 00:16:43,630
+如果那是它需要的一块内存，
 if it is actually one of the pieces of memory that it really needs
 
 190
 00:16:43,870 --> 00:16:46,480
+这会导致页面错误。
 and that will cause a page fault.
 
 191
 00:16:47,360 --> 00:16:52,960
+因为，我们没有映射那块内存到页面映射中，
 Because we didn't map, that memory actually into the page map yet,
 
 192
 00:16:53,350 --> 00:17:01,030
+因此，如果我们引用虚拟地址，高于 p->sz 但是低于 p->sz + n ，
 and so, if we do reference virtual address, you know above, you know, this p->sz, but below p->sz plus n,
 
 193
 00:17:01,180 --> 00:17:07,540
+我们希望的是，内核分配一个页面并重新启动指令。
 what we'd like to be happening is that you know the kernel allocate a page and restarts instruction.
 
 194
 00:17:08,190 --> 00:17:10,440
+所以，如果我们遇到页面错误，
 So, if we get a page fault
 
 195
 00:17:10,590 --> 00:17:22,240
+并且看到虚拟地址高于 p->sz ，抱歉，低于 p->sz ，
 and we see that the virtual address is bigger than p->sz, it's below, sorry, these below p->sz, for p->sz,
 
 196
 00:17:22,240 --> 00:17:26,170
+而且这个地址高于栈，
 then we know that this must be virtual address I guess above stack,
 
 197
 00:17:28,770 --> 00:17:32,310
+我们知道这是一个堆中的地址，
 we know that this is an address that actually comes out of the heap,
 
 198
 00:17:32,430 --> 00:17:37,200
+但是，内核还没有为它分配任何物理内存。
 but for which we, the kernel hasn't allocated any physical memory yet.
 
 199
 00:17:38,050 --> 00:17:41,680
+对这个页面错误的反应可以很直接，
 And so the response to this page fault could be reasonably straightforward,
 
 200
 00:17:41,680 --> 00:17:45,670
+在页面错误处理程序中，我们可以分配一个页面，
 in the page fault handler itself, we can allocate a page,
 
 201
 00:17:46,420 --> 00:17:58,310
+使用 kalloc ，分配一页，置零，并映射到页表中，
 using kalloc, allocate one page, zero the page, map the page into the pagetable,
 
 202
 00:17:58,310 --> 00:18:04,730
+更新页表，然后重启指令。
 so updating the pagetables, then basically restart the instruction.
 
 203
 00:18:07,000 --> 00:18:10,330
+比如，加载指令或保存指令，
 So, for example is a load instruction or a store instruction
 
 204
 00:18:10,450 --> 00:18:18,010
+从进程已经包含，但实际未分配的内存中加载或读取，
 that loads from or to read you know from not allocated piece of memory that actually the process has,
 
 205
 00:18:18,280 --> 00:18:24,280
+现在，我们映射了这个物理页面后，重启命令应该可以正常工作。
 now after we mapped in this physical page, the restart instruction should just work.
 
 206
 00:18:25,210 --> 00:18:26,230
+Amiar ，继续。
 Amiar, go ahead.
 
 207
 00:18:28,260 --> 00:18:33,300
+好的，我想知道在急分配的情况下，
 Right, so I was wondering in the case where we're doing eager allocation,
 
 208
 00:18:33,750 --> 00:18:37,560
+某一时刻，进程消耗很多内存，
 and there comes a point where process consumes so much memory,
 
 209
 00:18:37,560 --> 00:18:40,920
+它耗尽物理内存资源，
 that it actually exhausts the physical memory resource,
 
 210
 00:18:41,910 --> 00:18:45,300
+如果我们不使用急分配，而使用懒分配，
 if we don't do eager allocation, we do lazy instead,
 
 211
 00:18:46,470 --> 00:18:49,950
+在什么情况下，应用程序才会知道没有物理内存。
 at what point would the application know that there is no physical memory.
 
 212
 00:18:50,700 --> 00:18:52,770
+是的，这是个很好的问题，
 Yeah, that's a great question,
 
 213
 00:18:52,890 --> 00:18:56,130
+基本上，从应用程序的角度看，
 you know, basically you know it almost looks through the application,
 
 214
 00:18:56,130 --> 00:19:00,030
+有无限多的内存。
 there's this illusion of unlimited physical amount of memory.
 
 215
 00:19:00,750 --> 00:19:03,990
+当然在某些时候，你可能用得太多了，
 You know, at some point of course, you know you might use so much,
 
 216
 00:19:03,990 --> 00:19:07,020
+基本上使用了所有物理内存，
 you know that basically use all physical memory,
 
 217
 00:19:07,020 --> 00:19:09,360
+所以，如果它再多申请一页，
 and so if then it touches one more page,
 
 218
 00:19:09,420 --> 00:19:12,390
+这个时候，物理内存不够用了。
 which there's no physical memory present at that particular point in time.
 
 219
 00:19:12,860 --> 00:19:15,230
+然后内核可以采取几个操作，
 Then you know there's a couple of actions that the kernel can take
 
 220
 00:19:15,260 --> 00:19:17,840
+稍后我会谈到更复杂的问题，
 and I'll talk about more sophisticated ones later,
 
 221
 00:19:18,050 --> 00:19:21,230
+你要在 lazy 实验中做的是，
 what you're gonna be doing in the lazy lab
 
 222
 00:19:21,440 --> 00:19:26,180
+如果内存增长到没有空闲内存，
 is you know if the memories up and there's no more free memory,
 
 223
 00:19:26,390 --> 00:19:31,210
+在这种情况下，你只需要返回一个错误，并杀死进程。
 you just return an error, actually kill the process in that particular case.
 
 224
 00:19:32,660 --> 00:19:36,140
+而且因为内存不足，内核也不能做什么，
 And so because you're out of memory, so there's nothing kernel can do
 
 225
 00:19:36,170 --> 00:19:38,960
+这时，只能返回或杀死进程。
 and at that point, you know return or kill the process.
 
 226
 00:19:40,970 --> 00:19:42,830
+这就是你要在 lazy 实验中做的，
 That's you're going to do in lazy lab,
 
 227
 00:19:42,830 --> 00:19:44,060
+我们稍后会在这节课中看到，
 we'll see later in this lecture,
 
 228
 00:19:44,060 --> 00:19:45,650
+你可以做的比这更复杂。
 you can be more sophisticated than that.
 
 229
 00:19:48,040 --> 00:19:50,530
+我想这引出了一个话题，
 And I think this is generally brings up a topic
 
 230
 00:19:50,530 --> 00:19:54,970
+我们有一组运行在操作系统上的进程，
 that is we have a collection of processes running on an operating system,
 
 231
 00:19:54,970 --> 00:19:56,530
+而物理内存是有限的，
 there's a limited amount of physical memory,
 
 232
 00:19:56,710 --> 00:20:00,610
+并且这些有限的物理内存必须以某种方式在应用程序之间共享。
 and that limited physical memory must be shared in some way between the applications.
 
 233
 00:20:01,040 --> 00:20:05,150
+我将在 10 20 分钟后，详细讨论这个问题。
 And so I'll talk a little bit much more about it in 10,20 minutes.
 
 234
 00:20:07,440 --> 00:20:11,340
+好的，聊天窗口中有个问题。
 Okay, there's a question in the chat.
 
 235
 00:20:11,460 --> 00:20:18,660
+为什么虚拟地址比较不是从零开始的。
 Why is the condition virtual address, virtual address [booms] doesn't start at zero.
 
 236
 00:20:19,150 --> 00:20:24,940
+好的，这是一个关于这个检查的问题。
 OK, there's a question about this particular check here.
 
 237
 00:20:26,140 --> 00:20:32,030
+所以，这里有栈，
 So, remember, we have our stack here,
 
 238
 00:20:32,590 --> 00:20:38,290
+这里有进程的数据和文本，
 and we have our data here and we have our text in user process
 
 239
 00:20:38,620 --> 00:20:42,520
+我们把 p->sz 增加到更大的位置。
 and basically we've bumped up p->sz to something bigger.
 
 240
 00:20:45,120 --> 00:20:48,660
+我们已经增加了[]，但是没有分配内存，
 We've bumped up the [growth], we havn't the allocated memory here yet,
 
 241
 00:20:48,690 --> 00:20:51,150
+所以这个内存还没有物理分配，
 so this memory has not been physically allocated yet,
 
 242
 00:20:51,150 --> 00:20:54,900
+所以这个检查，如果地址落在 p->sz 以下，
 so this check this check if the address falls below p->sz
 
 243
 00:20:54,900 --> 00:20:57,750
+它是用户地址空间中的有效地址，
 and it actually is a valid address in the user address space,
 
 244
 00:20:57,750 --> 00:21:01,350
+如果在 p->sz 之上，可能是编程错误，
 if there above p->sz, presumably that's a programming error,
 
 245
 00:21:01,500 --> 00:21:06,360
+用户应用程序试图在内存中，引用实际上不属于它的内存。
 and the program or user applications trying to reference in memory that actually doesn't have.
 
 246
 00:21:07,390 --> 00:21:08,770
+希望我回答了这个问题。
 Hopefully that answered the question.
 
 247
 00:21:11,380 --> 00:21:12,160
+是的，谢谢。
 Yeah, thank you.
 
 248
 00:21:12,810 --> 00:21:21,750
+好的，为了感受一下懒分配是什么，
 Okay, so to get a little bit of feel, you know what it actually means and this lazy allocation,
 
 249
 00:21:22,020 --> 00:21:30,990
+这可能是今天唯一要做的编程或代码，
 and that's probably, the only sort of programming or code things that were going to be doing today is,
 
 250
 00:21:31,020 --> 00:21:36,420
+让我们看看它在代码中的样子。
 let's try to sort of sketch out or look actually how will look in the in code.
 
 251
 00:21:38,350 --> 00:21:41,080
+当[]，你可以看到它非常简单，
 When the [], you see that it will be surprising easy
 
 252
 00:21:41,290 --> 00:21:47,290
+另外，这可能对 lazy 实验有很大帮助。
 and furthermore it's probably big help for the lazy lab.
 
 253
 00:21:48,150 --> 00:21:51,240
+所以，希望这能帮助你更直接地开始。
 And so, hopefully that will help you get going pretty straightforwardly.
 
 254
 00:21:52,600 --> 00:21:59,730
+让我们看几个页面错误。
 And at large [resources] to look at a couple page faults.
 
 255
 00:21:59,730 --> 00:22:03,000
+我有个问题，我有一个想法，
 I have a question, actually we got a point,
 
 256
 00:22:03,810 --> 00:22:06,030
+为什么我们杀死应用程序，
 why do we actually need to kill the application,
 
 257
 00:22:06,060 --> 00:22:10,950
+操作系统能不能返回一个负数，内存不足什么的。
 could the operating system just to return like a [negative], out of memory trying to something else.
 
 258
 00:22:11,970 --> 00:22:14,940
+我们稍后再回答这个问题，
 Let's respond to the question a little bit later,
 
 259
 00:22:14,940 --> 00:22:17,400
+在页面错误中，我们直接杀死该进程，
 in the page fault, we're going to just kill the process,
 
 260
 00:22:17,780 --> 00:22:21,320
+但是，我们可以在[]实验中做得更复杂，
 but you know we could be more sophisticated, in [] lab,
 
 261
 00:22:21,950 --> 00:22:23,270
+真正的内核更复杂。
 real kernels are more sophisticated.
 
 262
 00:22:25,060 --> 00:22:27,520
+好的，虽然最后它们可能还是被杀死，
 Okay, although in the end they might still kill,
 
 263
 00:22:27,790 --> 00:22:30,730
+如果没有更多的内存，还有什么能做的，
 if there's no more memory, what what's there to be done,
 
 264
 00:22:30,760 --> 00:22:32,170
+我们基本上别无选择。
 you know there's basically no choice.
 
 265
 00:22:34,140 --> 00:22:37,200
+好的，所以首先我要修改的，
 Okay, so the first thing we're going to modify,
 
 266
 00:22:37,200 --> 00:22:41,490
+growproc 增加应用程序的地址空间，
 so remember that's growproc you know actually grows to address space with the application,
 
 267
 00:22:41,490 --> 00:22:43,080
+分配内存和其他的东西，
 allocates memory and all that kind of stuff,
 
 268
 00:22:43,170 --> 00:22:44,310
+我们不会这么做，
 we're just not gonna do that,
 
 269
 00:22:45,090 --> 00:22:51,790
+你只需要设置 p->sz 为 p->sz + n 。
 you're just gonna set p->sz, you know to p->sz plus n.
 
 270
 00:22:52,120 --> 00:22:55,870
+现在，让我们假设数字只是增长而不用考虑减少，
 So let's assume that number only growing and not worry about shrinking for now,
 
 271
 00:22:56,290 --> 00:22:57,520
+这就是我们要做的。
 and that is what we're gonna be doing.
 
 272
 00:22:58,350 --> 00:23:04,260
+所以，这会使虚拟地址空间增加 n ，这就是我们要做的。
 So this grows the virtual address space by n, that's all we're going to be doing.
 
 273
 00:23:05,920 --> 00:23:08,020
+让我们看看，是否有编程错误，
 Let's see if I can make no programming mistakes,
 
 274
 00:23:08,050 --> 00:23:11,930
+我想，我有一个编程错误。
 I did make a programming mistake, I guess.
 
 275
 00:23:13,060 --> 00:23:15,880
+我这里没有 proc p ，所以 myproc 。
 I don't have proc p here, so myproc.
 
 276
 00:23:24,000 --> 00:23:27,300
+是的，所以程序只是像往常启动一样运行，
 Yeah, so the program just runs as usual we boot,
 
 277
 00:23:27,450 --> 00:23:32,220
+我想如果我们执行 echo hi ，我们会遇到一个页面错误，
 I think if we do like echo hi, we're gonna get actually a page fault
 
 278
 00:23:32,250 --> 00:23:35,310
+我们出现页面错误的原因是，
 and the reason that we get a page fault is because,
 
 279
 00:23:35,310 --> 00:23:42,090
+shell 要 fork echo ，然后子进程执行 echo ，
 the shell who's gonna fork you know echo and then the child's gonna exec echo,
 
 280
 00:23:42,270 --> 00:23:44,130
+shell 实际上分配了一些内存，
 the shell actually allocate some memory,
 
 281
 00:23:44,630 --> 00:23:48,590
+因此 shell 调用 sbrk ，然后事情不太好，
 and so the shell calls sbrk and things are not looking good,
 
 282
 00:23:48,620 --> 00:23:53,000
+但是，这里的信息看起来比较有趣，
 but it's sort of interesting to look at, you know, the information here,
 
 283
 00:23:53,270 --> 00:24:00,130
+这里打印出 scause 寄存器，它的值是 15 。
 so here's it prints out the scause register, the value scause and it's fifteen.
 
 284
 00:24:00,660 --> 00:24:03,180
+有没有人记得 15 是什么？
 Anybody, remember what fifteen is?
 
 285
 00:24:06,860 --> 00:24:09,440
+从刚在我展示的那张表中，
 You know from that table I just show you a little bit a while ago,
 
 286
 00:24:09,440 --> 00:24:11,660
+用于写入或存储页面错误。
 actually used to write or store page fault.
 
 287
 00:24:12,420 --> 00:24:16,020
+我们看到的进程 3 ，可能是 shell 。
 We see this process three, that's probably the shell.
 
 288
 00:24:16,520 --> 00:24:20,510
+我们实际上看到的是异常程序计数器，它是 12a4 ，
 And we actually see the exception program counter, it's one two a four
 
 289
 00:24:20,660 --> 00:24:24,710
+我们可以看到发生错误的虚拟地址是 4008 。
 and we see the address given the virtual address in which we fault, which is 4008.
 
 290
 00:24:25,440 --> 00:24:31,420
+那么让我们来看一下 shell 的汇编代码，
 And so let's look at the, you know, we can look at the assembly of the shell,
 
 291
 00:24:31,780 --> 00:24:35,710
+makefile 为我们生成了该文件，
 makefile nice for us, nice enough for us to actually generate that
 
 292
 00:24:36,250 --> 00:24:40,700
+我们可以看看地址 12a4 。
 and we can look at the address 12a4.
 
 293
 00:24:41,660 --> 00:24:45,830
+我们看到是个一个存储指令，
 And you know we see indeed, you know, there's a store instruction right,
 
 294
 00:24:45,830 --> 00:24:49,880
+这个存储指令看起来就是发生错误的地方。
 the store instruction and, it looks like that's where we're faulting.
 
 295
 00:24:50,860 --> 00:24:56,050
+往后滚动一点，看这里的汇编代码，
 So you know scroll back a little bit and look at this assembly here,
 
 296
 00:24:56,050 --> 00:25:00,700
+我们看到这实际上是 malloc 实现的一部分。
 you know we see that actually this is in part of the implementation of malloc.
 
 297
 00:25:01,330 --> 00:25:05,230
+所以这看起来是完全合理的，这是 malloc 实现，
 So that seems totally reasonable, here's malloc implementation,
 
 298
 00:25:05,470 --> 00:25:12,460
+这并不奇怪，我们使用 sbrk 获得一些内存来实现用户 malloc 。
 not surprising that we, presumably we use sbrk to get some memory for implementing the user malloc.
 
 299
 00:25:13,060 --> 00:25:19,900
+我们把从内核得到内存，初始化为一个空闲列表，
 And, we're basically initializing a free list of the use the memory that we've just gotten from the kernel,
 
 300
 00:25:20,140 --> 00:25:27,070
+这个 12a4 行，我猜是写入一些东西，
 and this line 12a4, [] writes, you know, I guess write something insides
 
 301
 00:25:27,340 --> 00:25:32,110
+但我们正在写入实际上未分配的内存。
 but we were writing to memory that actually hasn't been allocated.
 
 302
 00:25:33,240 --> 00:25:36,330
+我们可以看到内存可能未分配的另一个原因是，
 Another reason that we could see that the memory probably not allocated is,
 
 303
 00:25:36,630 --> 00:25:41,580
+我认为 shell 实际上有四页文本和数据，
 the I think shell actually has four pages of text and data
 
 304
 00:25:41,820 --> 00:25:45,660
+我们正在第四页的上方，在第五页，
 and we're basically sitting just above the fourth page, in the fifth page,
 
 305
 00:25:45,660 --> 00:25:47,640
+实际上，我们的位置比它高出 8 个字节，
 in fact we're sitting eight bytes above it,
 
 306
 00:25:47,970 --> 00:25:49,140
+这在某种程度上是有道理的，
 that sort of makes sense,
 
 307
 00:25:49,440 --> 00:25:53,310
+再看一下指令，在 {124a -} ，
 look at the instruction again, where at 124a,
 
 308
 00:25:53,790 --> 00:26:02,130
+这里 a0 可能放的是 4000 ， 8 是额外的偏移量，
 you know see here basically probably a0 holds 4000 and eight is the additional offset,
 
 309
 00:26:02,160 --> 00:26:06,220
+我们实际上引用的，这就是错误所在。
 you know that we're actually referencing, that's the fault.
 
 310
 00:26:07,050 --> 00:26:13,110
+现在我们想做的是，做一些稍微复杂一点的事。
 And now what we like to do, is you know do something slightly more sophisticated.
 
 311
 00:26:13,660 --> 00:26:19,210
+然后，我们要做的是，让我们到 trap.c ，
 Then, we're gonna be doing and so let's go to trap.c,
 
 312
 00:26:27,280 --> 00:26:31,390
+查看 usertrap ，这个发生在 usertrap ，
 and look at usertrap, this happens in usertrap,
 
 313
 00:26:34,600 --> 00:26:38,980
+usertrap 是 Robert 上周讨论过的函数，
 usertrap is the function that we, Robert had discussed a week ago,
 
 314
 00:26:39,250 --> 00:26:43,780
+它只是对于不同的原因，执行一些操作，
 and it just goes through the different causes and perform some action,
 
 315
 00:26:43,870 --> 00:26:47,770
+所以，这一行是 scause 8 ，
 so we're a little bit, here's, this line is scause eight
 
 316
 00:26:47,770 --> 00:26:50,620
+就是我们要处理系统调用的点。
 and you know that's the point we're going to process system calls.
 
 317
 00:26:51,360 --> 00:26:57,420
+然后，有一行用于检查是否有设备中断，并处理设备中断，
 Then there's a line that checks whether there was any a device interrupt and processes inside of device interrupt,
 
 318
 00:26:57,840 --> 00:27:02,910
+如果这些都没有发生，我们得到一个 trap ，并杀死进程。
 and if there's none of those to happen, then basically we get this a trap and the process of being killed.
 
 319
 00:27:03,610 --> 00:27:05,740
+我们需要做的是，
 And basically what we need to do is,
 
 320
 00:27:05,740 --> 00:27:11,750
+需要在这里添加一些代码，检查另一种情况，
 you need to add some code here, that you know checks for another case, right,
 
 321
 00:27:11,750 --> 00:27:17,350
+我想我们要做的是，添加一行 if r_scause ，
 basically I guess the case that we want to [] a line is if r_scause,
 
 322
 00:27:18,050 --> 00:27:25,440
+r_scause 是不是 15 ，
 [] call it like it's r_scause is fifteen,
 
 323
 00:27:27,550 --> 00:27:28,810
+我们想做点别的事。
 we want to do something else.
 
 324
 00:27:32,000 --> 00:27:32,840
+这个能理解吗？
 Does that make sense?
 
 325
 00:27:34,620 --> 00:27:35,760
+那么，你想在这里做什么，
 So what do you want to do here,
 
 326
 00:27:42,130 --> 00:27:45,970
+对这些代码，你的计划什么？
 what is sort of the plan for [] for these couple lines of code?
 
 327
 00:27:50,130 --> 00:28:02,960
+我们可能要检查 p->sz 是不是大于 stval 中的虚拟地址。
 We want to check if p->sz is more than the virtual address that in stval, perhaps.
 
 328
 00:28:03,760 --> 00:28:05,620
+是的，继续。
 Yeah, go ahead.
 
 329
 00:28:06,480 --> 00:28:14,520
+然后，我认为做一些像 uvmalloc 做的事情。
 Oh, and this is the case then do something like uvmalloc, I think.
 
 330
 00:28:15,170 --> 00:28:16,280
+这是我们可以做的一种方法，
 That's one way we could do it,
 
 331
 00:28:16,340 --> 00:28:19,370
+因为只是一个演示，我会偷懒一下，
 so I'm going to cut some corners just for a demo
 
 332
 00:28:19,370 --> 00:28:22,940
+在实验里，你需要多做一点工作，
 and presumably in the lab itself, you will need to do a little bit more work,
 
 333
 00:28:23,120 --> 00:28:28,850
+但是，这是我们需要的代码片段。
 but basically here's the sort, I think [] code section of code, we need.
 
 334
 00:28:29,670 --> 00:28:31,140
+让我们看看。
 So let's see.
 
 335
 00:28:32,700 --> 00:28:33,750
+我在哪里。
 Where I was.
 
 336
 00:28:34,410 --> 00:28:40,000
+这是 usertrap ，让我把它粘贴进去。
 Here's usertrap, let me just kind of paste into it.
 
 337
 00:28:41,230 --> 00:28:44,950
+我们可以看看，只有一条用于调试的 print 语句，
 And we can look at, you know just a print statement for debugging
 
 338
 00:28:45,010 --> 00:28:49,480
+我们要在这个处理程序里做的是，分配一个物理页。
 and basically we're going to do in this handler, I'm gonna allocate a physical page.
 
 339
 00:28:50,190 --> 00:28:56,580
+如果没有物理页面，意味着我们内存不足，我们要杀死这个进程，
 If there's no physical page, mean we're out of memory, we're gonna kill the process for now,
 
 340
 00:28:56,640 --> 00:28:59,370
+如果有物理页面，我们将页面清零，
 if there's a physical page, we'll zero the page,
 
 341
 00:28:59,850 --> 00:29:06,750
+然后，我们只需要将页面映射到用户地址空间中适当的地址，
 then we just map the page at the appropriate address, in the address space of the user
 
 342
 00:29:06,840 --> 00:29:10,920
+[特别]将其映射到四舍五入的虚拟地址上，
 in particular map it on the rounded down virtual address,
 
 343
 00:29:11,130 --> 00:29:17,730
+所以，这里的错误地址是 4008 ，是第五页中的第八个字节，
 so the faulting address 4008 here, and so that's eight bytes into the fifth page
 
 344
 00:29:17,880 --> 00:29:22,830
+我们想要映射这个物理页面到虚拟页面的底部，所以是 4000 ，
 and we want to map that physical page at the bottom of the physical, virtual page, so at 4000,
 
 345
 00:29:23,530 --> 00:29:27,100
+四舍五入到 4000 ，然后将 4000 映射到这个物理页面。我们将4000映射到此物理页面。
 rounded down to 4000 then we map 4000 to this physical page.
 
 346
 00:29:27,950 --> 00:29:32,450
+当然，我们还要设置常用的权限位， u 标志位，还有读和写。
 And then of course we have to set the usual permission bits, you know u bit, read and write.
 
 347
 00:29:34,140 --> 00:29:34,860
+这能理解吗？
 Does that make sense?
 
 348
 00:29:38,380 --> 00:29:40,240
+我想我可以删掉这一行。
 Yeah, I guess I can get rid of this line.
 
 349
 00:29:42,540 --> 00:29:44,820
+让我们看看，试一下。
 So let's see, let's try it out.
 
 350
 00:29:49,750 --> 00:29:51,940
+我想，我犯了一些错误。
 And I guess I made some mistakes.
 
 351
 00:29:54,570 --> 00:29:58,500
+我认为在 else 那里，你在底部没有开始的括号。
 I think that on the else, you don't have an opening bracket at the bottom.
 
 352
 00:29:59,430 --> 00:30:06,320
+哦，是的，所以，我需要多一个（括号），哦，是的。
 Oh yeah, yeah, so if, I do I do I need one more, oh yeah.
 
 353
 00:30:10,340 --> 00:30:14,420
+哦，抱歉，我是说在 else 的右边，你没有正确的括号，
 Oh, sorry, I mean on the else right here, you don't have an opening bracket right,
 
 354
 00:30:14,900 --> 00:30:20,390
+else 是 printf usertrap unexpected scause 那里的。
 like when is else printf usertrap unexpected scause.
 
 355
 00:30:24,580 --> 00:30:29,230
+希望都是正常的，太棒了，所以 echo hi 。
 And hopefully all [work], excellent, so echo hi.
 
 356
 00:30:29,800 --> 00:30:32,440
+现在，我们当然很乐观，希望它能工作，
 Now, of course we're going to be optimistic and hope it works,
 
 357
 00:30:32,470 --> 00:30:33,730
+我告诉你这是不能工作的，
 I'll tell you it won't work,
 
 358
 00:30:34,520 --> 00:30:36,800
+但我们确实得到了两个页面错误，
 but we did get two page faults right,
 
 359
 00:30:36,800 --> 00:30:39,530
+我们得到了页面错误 4008 ，这个是前面看到的，
 we gotta page fault 4008, you know primarily [],
 
 360
 00:30:39,530 --> 00:30:40,820
+[因为]我们又得到了另一个页面错误。
 because we've got another page fault.
 
 361
 00:30:41,380 --> 00:30:47,380
+所以我们剩下的问题是 uvmunmap 报错，
 And so the only problem we've left is there's a uvmunmap complaining that,
 
 362
 00:30:51,360 --> 00:30:56,490
+指出一些想要取消映射的页实际上并没有映射。
 as complaining that there are some page that we're trying to unmap is actually not mapped.
 
 363
 00:30:57,050 --> 00:30:58,340
+那会是什么呢。
 And what could it be.
 
 364
 00:31:02,450 --> 00:31:04,430
+你认为是什么问题造成这个错误。
 What would you think if we get this panic.
 
 365
 00:31:07,200 --> 00:31:07,980
+有人知道吗？
 Anybody?
 
 366
 00:31:13,620 --> 00:31:17,000
+这里取消映射的是最有可能是哪些内存？
 What memories being unmapped here, most likely.
 
 367
 00:31:21,900 --> 00:31:25,680
+那个懒分配但实际没有分配的。
 The one that was lazily allocated not actually allocated.
 
 368
 00:31:25,950 --> 00:31:30,870
+是的，是懒分配的内存，但实际上还没有分配。
 Yeah, exactly the memory [] lazily allocated, but actually it hasn't been used yet, right.
 
 369
 00:31:30,870 --> 00:31:33,510
+所以，对于懒分配的内存，还没有物理页面。
 And so there is no physical page for that particular lazy memory.
 
 370
 00:31:34,220 --> 00:31:40,660
+因此，在这种情况下，当 pte 为零时，就是还没有映射，
 And so, in this case when the pte is zero, you know there's no mapping yet,
 
 371
 00:31:40,900 --> 00:31:45,100
+这并不是真的错误，这实际上是我们期望的发生的。
 that's not really panic, you know this is actually what we expect you know could happen right.
 
 372
 00:31:45,770 --> 00:31:48,410
+事实上，对于这一页来说，你不需要做任何事，
 And in fact for that page, you don't have to do anything,
 
 373
 00:31:48,650 --> 00:31:51,290
+你可以继续，转到下一页。
 you can just continue to go to the next page.
 
 374
 00:31:53,620 --> 00:31:54,400
+这个能理解吗？
 Does that make sense?
 
 375
 00:31:56,000 --> 00:32:00,140
+那我们就这么做，现在执行 echo hi ，
 So let's do that, now those are the echo hi,
 
 376
 00:32:00,350 --> 00:32:02,840
+我们得到两个页面错误，但是 hi （命令）起作用了，
 and we've got two page faults, but hi works,
 
 377
 00:32:02,900 --> 00:32:11,540
+所以，我们有了一种非常基本的懒分配方案。
 and so we're basically you know have sort of a very basic minimal lazy allocation scheme working.
 
 378
 00:32:14,700 --> 00:32:15,870
+关于这个，有什么问题吗？
 Any questions about this?
 
 379
 00:32:16,820 --> 00:32:21,620
+抱歉，我没听懂，为什么你可以继续，你能再解释一遍吗？
 Sorry, I didn't really follow, why you could just continue, could you explain that again.
 
 380
 00:32:22,010 --> 00:32:31,060
+是的，所以这个 bug 表示我们正在释放未映射的页面。
 Yeah, so the the bug indicated that we had were trying to free page that actually is not mapped.
 
 381
 00:32:32,480 --> 00:32:35,780
+这是怎么发生的，唯一的原因是，
 And you know how could that happen, well the only reason that could happen is
 
 382
 00:32:35,780 --> 00:32:39,740
+因为 sbrk 向上移动了 p->sz ，
 because sbrk moved up p->sz,
 
 383
 00:32:39,980 --> 00:32:43,700
+但是这个应用程序从未使用过这个内存，
 but never used, the application never used in that memory
 
 384
 00:32:43,730 --> 00:32:47,090
+所以它实际上还没有映射，因为它没有被分配。
 and so it actually has no mapping yet, because it was actually not allocated.
 
 385
 00:32:47,660 --> 00:32:52,580
+因为我们是懒分配，只在需要时才为这些页面分配物理内存，
 Because we're lazily allocating, we're only allocating physical memory for those pages when we need it,
 
 386
 00:32:52,850 --> 00:32:55,250
+如果我们不需要它，那么就不会有映射，
 if we didn't need it, then there will be no mapping
 
 387
 00:32:55,250 --> 00:32:57,890
+所以出现这种情况是完全合理的，
 and so it's totally reasonable that there actually is going to be a case
 
 388
 00:32:58,040 --> 00:33:02,690
+虚拟地址还没有映射，因为他们实际上还没有被分配。
 where there's no mapping for virtual address, because they're actually wasn't allocated yet.
 
 389
 00:33:03,130 --> 00:33:05,710
+这种情况下，我们什么都不用做，
 And for that case, we just have to do nothing,
 
 390
 00:33:05,830 --> 00:33:09,710
+我们可以释放这一页，但是没有页面要释放，
 you know, we can free the page, but there is no free page,
 
 391
 00:33:09,950 --> 00:33:13,040
+所以，最好的办法就是继续，转到循环的中的下一页。
 and so the best thing is to continue and just go to the next page in the loop.
 
 392
 00:33:14,380 --> 00:33:16,450
+好的，理解了，谢谢。
 Okay, that makes sense, thank you.
 
 393
 00:33:16,920 --> 00:33:20,850
+是的，如果我们不是继续，但是继续往前，
 Yeah, if we didn't do continue, but basically you know just kept going,
 
 394
 00:33:20,850 --> 00:33:24,720
+然后我们可以创建一个页面，这样你就可以释放这个页面了，
 then we would actually create a page that would be you can do free the page,
 
 395
 00:33:25,740 --> 00:33:26,910
+这就是为什么这里是继续。
 that's why it continues there.
 
 396
 00:33:27,550 --> 00:33:28,210
+理解了。
 Make sense.
 
 397
 00:33:30,770 --> 00:33:32,060
+我也有一个问题，
 Another question,
 
 398
 00:33:32,600 --> 00:33:39,170
+在 uvmunmap 中，我认为 panic 是有原因的，
 in uvmunmap, I assumed the panic was that was there was there for a reason,
 
 399
 00:33:39,380 --> 00:33:44,420
+所以，更合理的实现是使用两个版本，
 so a more correct a more reasonable implementation is to have two versions
 
 400
 00:33:44,630 --> 00:33:46,160
+然后我们使用不会 panic 的那个。
 and we would use the one that doesn't panic.
 
 401
 00:33:47,090 --> 00:33:50,330
+是的，因为为什么会 panic ，
 Yeah, because why was the the panic,
 
 402
 00:33:50,330 --> 00:33:55,790
+它是一个不变量，对于未修改的 xv6 来说，这是正确的，
 while it was basically an invariant that used to be true for unmodified xv6,
 
 403
 00:33:56,270 --> 00:34:00,740
+实际上，未修改的 xv6 永远不应该存在用户内存未映射的情况。
 actually unmodified xv6 should never have a case where those user memory that was not map.
 
 404
 00:34:01,500 --> 00:34:02,820
+所以，出现了 panic ，
 And so therefore the panic goes up,
 
 405
 00:34:03,120 --> 00:34:05,490
+我们现在修改了 xv6 的设计，
 we now change the design of xv6,
 
 406
 00:34:05,550 --> 00:34:09,720
+所以我们必须调整，这个不变量不再是真的，
 so we have to adjust and this invariant is no longer true,
 
 407
 00:34:09,930 --> 00:34:11,250
+所以我们必须消除 panic ，
 so we've got to remove the panic
 
 408
 00:34:11,250 --> 00:34:19,350
+因为那个不变量不再是真的，合理地，不再是真的。
 and because that invariant is just not true, legitimately not true anymore.
 
 409
 00:34:20,290 --> 00:34:21,730
+我明白了，谢谢。
 I see, thanks.
 
 410
 00:34:23,880 --> 00:34:24,510
+这能理解吗？
 That makes sense?
 
 411
 00:34:26,300 --> 00:34:28,910
+所以，有几条[评论]，
 So, so a couple comments,
 
 412
 00:34:28,910 --> 00:34:33,740
+希望这对下一个实验有帮助，
 this will hopefully help a lot with next lab,
 
 413
 00:34:33,740 --> 00:34:37,970
+实际上，这是下一个实验的三个组成部分之一，
 in fact this is one of the three components of the lab, of the next lab,
 
 414
 00:34:37,970 --> 00:34:39,500
+是你必须做的第一件事，
 one of the first things you have to do
 
 415
 00:34:39,830 --> 00:34:42,110
+希望这能帮你节省一些时间，
 and hopefully this will save you some time,
 
 416
 00:34:42,410 --> 00:34:47,960
+或许可以降低你在页面错误实验的痛苦。
 maybe make up for all the pain that you went through in the page fault lab.
 
 417
 00:34:48,760 --> 00:34:51,190
+但显然还不够，
 But clearly not enough right,
 
 418
 00:34:51,190 --> 00:34:52,720
+很多东西是，
 yeah, so like what things are,
 
 419
 00:34:52,750 --> 00:34:54,780
+我们做了一些改变，
 you know, we made these changes,
 
 420
 00:34:54,780 --> 00:34:56,670
+但可能还有更多的东西被破坏。
 but more things are still probably broken.
 
 421
 00:35:01,090 --> 00:35:02,380
+已经提到的一个是，
 One already was mentioned,
 
 422
 00:35:02,410 --> 00:35:06,700
+我没有检查虚拟地址是否低于 p->sz ，
 I actually didn't do it to check whether actually the virtual address was below p->sz
 
 423
 00:35:06,700 --> 00:35:08,140
+这是我们应该做的。
 which we probably should do.
 
 424
 00:35:08,840 --> 00:35:10,250
+还有什么东西可能被破坏了吗？
 Any other things that might be broken?
 
 425
 00:35:17,560 --> 00:35:18,220
+有人知道吗？
 Anybody?
 
 426
 00:35:25,020 --> 00:35:30,180
+通过 sbrk 增加的进程字节数，是一个整型而不是无符号整型，
 Number of bytes to grow the process by sbrk is an int and not an unsigned int,
 
 427
 00:35:30,180 --> 00:35:32,520
+所以可以使用负数。
 so negative numbers could be used.
 
 428
 00:35:33,560 --> 00:35:36,590
+是的，可以使用负数，这意味着缩小地址空间，
 Yes, and negative numbers can use and that means shrinking the address space,
 
 429
 00:35:36,980 --> 00:35:38,120
+所以如果我们缩小地址空间，
 so if we shrink the address space,
 
 430
 00:35:38,120 --> 00:35:39,530
+我们也要小心一点。
 we also have to be a little careful.
 
 431
 00:35:40,110 --> 00:35:45,750
+所以在操作系统中有很多不同的情况，
 So it turns out there's a whole bunch of, as usual, in an operating system and a whole bunch of different cases, right,
 
 432
 00:35:45,750 --> 00:35:49,890
+在那里，我们要查看这个页表条目，
 where which we're going to be looking at this particular pagetable entry
 
 433
 00:35:50,130 --> 00:35:53,730
+对于所有这些不同的情况，我们可能需要修改 xv6 。
 and for all those different cases we might actually have to modify xv6 slightly.
 
 434
 00:35:54,290 --> 00:35:56,990
+这正是实验的目的所在，
 And that's exactly what basically the lab is about
 
 435
 00:35:56,990 --> 00:36:00,650
+要做得足够好，你需要通过 usertests 。
 is you know doing good enough job that basically you can pass usertests.
 
 436
 00:36:01,060 --> 00:36:05,020
+usertests 会有很多你需要处理的情况。
 Usertests will stress a whole bunch of other cases that you will need to deal with.
 
 437
 00:36:07,550 --> 00:36:08,150
+好吧?
 Okay?
 
 438
 00:36:11,340 --> 00:36:12,450
+目前为止，有什么问题吗？
 Any questions so far?
 
 439
 00:36:18,300 --> 00:36:19,440
+好的，让我，
 Okay, let me,
 
 440
 00:36:19,500 --> 00:36:26,280
+我想讲一下其他用途或你可以做的很酷的事情，
 in that case I want to talk about a bunch of other usages or cool things you can do
 
 441
 00:36:26,280 --> 00:36:30,060
+一旦你有了页面错误，页表可以动态更新。
 once you have page faults and pagetables are updated dynamically.
 
 442
 00:36:30,870 --> 00:36:37,590
+另一个几乎是微不足道的，但是经常使用的，
 Another one that is almost trivial, but you know commonly used
 
 443
 00:36:37,590 --> 00:36:46,060
+就是按需补零。
 is what's called zero filled, zero fill on demand.
 
 444
 00:36:51,300 --> 00:36:56,880
+事实上，在操作系统中，有很多空页。
 It turns out that in operating systems, you know there are many null pages.
 
 445
 00:36:58,140 --> 00:37:03,310
+如果你查看用户地址空间，
 And, so, for example if you look at the address space in user space,
 
 446
 00:37:03,490 --> 00:37:07,450
+xv6 并不是很[先进]，
 xv6 doesn't really is not as [advanced],
 
 447
 00:37:07,450 --> 00:37:10,450
+如果你看一下二进制文件的布局，
 but if you look at the layout of a binary,
 
 448
 00:37:10,660 --> 00:37:11,950
+我的意思是，
 I mean [],
 
 449
 00:37:11,950 --> 00:37:14,740
+这有一些文本，这有数据段，
 you know there's some text, there's what's called the data segment
 
 450
 00:37:15,070 --> 00:37:18,370
+而且通常还有所谓的 BSS 段。
 and there's typically also what something is called the BSS segment.
 
 451
 00:37:20,170 --> 00:37:24,790
+所以，当编译器生成二进制文件时，
 And so when the compiler produces a binary,
 
 452
 00:37:24,790 --> 00:37:26,650
+基本上填充这三个部分，
 you know basically fills in these three segments,
 
 453
 00:37:26,830 --> 00:37:28,480
+文本是指令，
 the text you know the instructions,
 
 454
 00:37:28,480 --> 00:37:35,950
+数据是全局变量，它的值不是零，所以是初始化数据。
 you know the data is basically global variables, that actually have a value that is not zero, so initialized data.
 
 455
 00:37:41,860 --> 00:37:44,080
+在 BBS 里，是一种描述，
 In BBS, is basically a description,
 
 456
 00:37:44,110 --> 00:37:46,540
+说明这里有很多变量，
 that says well there's a whole bunch of variables
 
 457
 00:37:46,690 --> 00:37:49,960
+它们的大小，它们应该都是零。
 and it's basically their sizes and they all should be zero.
 
 458
 00:37:51,010 --> 00:37:54,070
+它们没有被列出来的原因是，
 And the reason that they are basically not listed out,
 
 459
 00:37:54,100 --> 00:37:56,800
+或者这些内存不在文件中，
 you know or the memory is not right there in the files,
 
 460
 00:37:56,800 --> 00:37:58,360
+因为这会节省大量的，
 because it will save a lot of
 
 461
 00:37:58,360 --> 00:38:00,910
+比如，如果你在 C 中声明一个大矩阵，
 for example, if you declare big matrix in C,
 
 462
 00:38:01,150 --> 00:38:03,280
+文件顶部是一个全局变量，
 on the top of the file is a global variable
 
 463
 00:38:03,280 --> 00:38:05,620
+它会自动将属性设置为零，
 and it's automatically attribute zeros,
 
 464
 00:38:05,800 --> 00:38:08,500
+为什么要分配文件中的所有空间，
 why allocate all the space in the file,
 
 465
 00:38:08,590 --> 00:38:14,080
+就像是，对于内容中的这个变量，应该是零。
 just like no that basically you know for this particular variable in the content should be zero.
 
 466
 00:38:15,320 --> 00:38:18,650
+令人惊讶的是，在普通操作系统的 exec 上，
 And amazingly on exec, on a normal operating system on exec,
 
 467
 00:38:18,920 --> 00:38:23,320
+我们来看看这三个部分，
 we'll look at these three segments,
 
 468
 00:38:23,320 --> 00:38:26,680
+像 xv6 对文本和数据做的操作，
 [] usual thing that xv6 does for text and data,
 
 469
 00:38:26,770 --> 00:38:33,670
+但是对 BSS ，它会分配内存来保存 BSS ，并将其置零。
 but for BSS, it will allocate you know memory to hold the BSS and basically stick zeroes in there.
 
 470
 00:38:34,120 --> 00:38:40,140
+所以，分配地址空间，其中有数据，
 So, allocated address space takes data in it
 
 471
 00:38:40,140 --> 00:38:45,040
+然后我们查看，这个相当于 BSS ，
 and then we're basically look at, the equivalent of the BSS,
 
 472
 00:38:45,040 --> 00:38:47,290
+所有的全局变量都是零，
 you know all the global variables that basically zero
 
 473
 00:38:47,290 --> 00:38:48,790
+也许还有很多很多页，
 and maybe many many pages,
 
 474
 00:38:51,540 --> 00:38:53,880
+所有这些页内容都是零，
 and all those pages basically have to have the content zero,
 
 475
 00:38:55,570 --> 00:38:57,010
+这就是虚拟地址空间。
 so that's the virtual address space.
 
 476
 00:38:57,010 --> 00:38:58,960
+所以，一般的技巧是，
 And so typical trick, you know, to do is
 
 477
 00:38:58,960 --> 00:39:01,900
+有很多的页面需要是零，
 to say like wow, I've got so many pages that need to have zero,
 
 478
 00:39:01,930 --> 00:39:04,330
+我要在物理内存中做的是，
 what I'm gonna do in physical memory,
 
 479
 00:39:05,160 --> 00:39:09,390
+这是虚拟地址空间和物理地址内存，
 this is the virtual address space and the physical address memory,
 
 480
 00:39:09,660 --> 00:39:15,430
+我要做的是，你可以分配一个零页，把它填满零，
 what I'm gonna do is you're going to allocate one zero page, and fill it with zeros,
 
 481
 00:39:15,610 --> 00:39:19,640
+然后把所有其他页面（需要是零的）都映射到这一页。
 and basically map all the other pages to that one page.
 
 482
 00:39:24,200 --> 00:39:28,580
+这节省了很多物理内存，至少在开始阶段。
 You know saving myself, you know lots you know, lots of physical memory, at least at start up.
 
 483
 00:39:29,520 --> 00:39:33,570
+当然，这些映射必须是特殊对待，
 And of course those mappings has to be limit care, dominate care,
 
 484
 00:39:33,600 --> 00:39:37,020
+我们不允许对它写入，
 we can't, you know we cannot allow write to it right,
 
 485
 00:39:37,020 --> 00:39:39,660
+因为每个页都依赖于它保持为零，
 because everybody's relying on the fact that actually stays zero,
 
 486
 00:39:39,690 --> 00:39:41,400
+所以，我们把它映射为只读。
 so we just map it read only.
 
 487
 00:39:43,440 --> 00:39:47,370
+然后，在某个时候，当应用程序开始写入，
 And then, at some point, when an application starts writing to one of
 
 488
 00:39:47,370 --> 00:39:53,700
+开始加载或保存 BSS 中的页面，
 you know that basically started as a loader and in store, if one of the pages that actually part of the BSS,
 
 489
 00:39:53,940 --> 00:39:58,650
+因为它想在那里保存内存，
 so because he wants you to whatever store one or two there content there,
 
 490
 00:39:58,770 --> 00:40:00,000
+我们会得到页面错误。
 we'll going to get a page fault.
 
 491
 00:40:06,240 --> 00:40:11,610
+那么，在这种情况下，我们应该如何处理页面错误呢？
 And so what should we do on the page fault, in this particular case.
 
 492
 00:40:15,170 --> 00:40:15,770
+有人知道吗？
 Anybody?
 
 493
 00:40:23,850 --> 00:40:27,680
+继续，有人吗，在这个页面错误，我们应该怎么做。
 Go ahead, anybody, I do what should we do in the page fault here.
 
 494
 00:40:28,430 --> 00:40:36,090
+我想我们应该新建一页，都写入零，并重新运行该指令。
 I think we should make a new page and all write zeroes and rerun that instruction.
 
 495
 00:40:36,450 --> 00:40:37,380
+是的，正确，
 Yeah exactly,
 
 496
 00:40:37,380 --> 00:40:42,810
+我们假设我画的，有一个存储指令发生在这里。
 so let's let's assume this were my drawing, that's actually the store instruction happens to one of the top.
 
 497
 00:40:43,460 --> 00:40:45,050
+我们真正想做的是，
 And what we really want to do basically is
 
 498
 00:40:45,140 --> 00:40:49,640
+使用 kalloc 分配一个新的物理页面，将其置零，
 allocate a new physical page, a page memory you know kalloc, put zeros in there,
 
 499
 00:40:49,640 --> 00:40:51,140
+因为这就是我们想要的，
 because you know that's what we're expecting
 
 500
 00:40:51,380 --> 00:40:55,160
+然后我们可以把顶部映射修改为这个映射，
 and then we can change the top mapping for the one for this particular,
 
 501
 00:40:55,620 --> 00:40:59,790
+因为这个页面，假设是这个，
 because this guy [], let me assume that there's this one,
 
 502
 00:40:59,940 --> 00:41:02,790
+我们可以修改这个映射为读写，
 we can change this mapping, you know to be read write,
 
 503
 00:41:03,960 --> 00:41:06,910
+并指着这个新页面，
 and pointed to the new page,
 
 504
 00:41:11,860 --> 00:41:21,290
+然后更新 PTE ，并重启指令。
 and then you basically so copy or update pte, and then restart the instruction.
 
 505
 00:41:28,780 --> 00:41:29,350
+就是这样。
 And that's it.
 
 506
 00:41:30,610 --> 00:41:32,830
+为什么这是一种有效的，
 Why is this an effective
 
 507
 00:41:32,860 --> 00:41:35,350
+为什么我们认为这是一个很好的优化。
 why, why do we think this is actually a good optimization.
 
 508
 00:41:39,570 --> 00:41:41,430
+为什么操作系统这么做。
 Why do operating systems do it.
 
 509
 00:41:49,190 --> 00:41:49,880
+有人知道吗？
 Anybody?
 
 510
 00:41:52,420 --> 00:41:53,770
+你不需要它。
 You don't need it though.
 
 511
 00:41:54,280 --> 00:41:55,840
+继续。
 Go ahead.
 
 512
 00:41:57,200 --> 00:42:00,560
+你不需要使用用户要求的那么多内存，
 You don't need to use as much memory as the user requests,
 
 513
 00:42:00,560 --> 00:42:04,340
+所以更好的是在你需要的时候创造它。
 so it's just better to build it when it when you need it.
 
 514
 00:42:04,700 --> 00:42:07,460
+是啊，有道理，类似于懒分配，
 Yeah, makes sense, similar to the lazy allocation,
 
 515
 00:42:07,460 --> 00:42:11,600
+如果程序说分配了巨大的列表，
 basically if the program say allocated huge you know array
 
 516
 00:42:11,600 --> 00:42:14,030
+或者对于糟糕的输入，
 or you know for the worst possible input,
 
 517
 00:42:14,490 --> 00:42:16,620
+它是一个全局数组，它全部为零，
 it's a global array, it all has to be zero,
 
 518
 00:42:16,620 --> 00:42:18,480
+但可能只有一小部分被使用。
 but maybe only fraction is being used.
 
 519
 00:42:20,230 --> 00:42:21,400
+第二个优势是什么？
 What's the second advantage.
 
 520
 00:42:28,830 --> 00:42:30,960
+第二个优势是，你在 exec 中需要做的工作更少，
 Second advantage you have to do less work in exec
 
 521
 00:42:31,320 --> 00:42:36,300
+所以，程序可能会启动更快，获得更好的交互性能，
 and so the program may start quicker and get basically better interactive performance,
 
 522
 00:42:36,300 --> 00:42:38,250
+因为你实际上不需要分配内存，
 because you don't really have to allocate memory,
 
 523
 00:42:38,250 --> 00:42:39,420
+你不需要将内存置零，
 you don't really have zero memory,
 
 524
 00:42:39,420 --> 00:42:41,220
+你只需要分配一个零页，
 you only have to allocate zero one page
 
 525
 00:42:41,460 --> 00:42:44,130
+其他只是映射页表，
 and the rest like just mapping the pagetables,
 
 526
 00:42:44,130 --> 00:42:45,660
+你只需写入 PTE 条目。
 you just have to write the pte entries.
 
 527
 00:42:47,340 --> 00:42:47,970
+这能理解吗？
 Does that make sense?
 
 528
 00:42:49,400 --> 00:42:56,160
+但是我们的更新或写入会变慢，
 But our updates or writes, so they will become slower,
 
 529
 00:42:56,160 --> 00:42:58,980
+因为每次都会发生页面错误。
 because every time a page fault will occur and.
 
 530
 00:42:59,400 --> 00:43:01,800
+是的，这是绝对有道理的，
 Yeah so you know there's absolute point,
 
 531
 00:43:02,010 --> 00:43:05,370
+所以我们推迟了一些花费，
 so we basically postponed some of the cost later, right,
 
 532
 00:43:05,860 --> 00:43:08,410
+在我们执行页面错误时，
 at the point that we do the page fault,
 
 533
 00:43:08,830 --> 00:43:13,390
+依赖或希望并不是所有的页面都被使用了。
 and you know partially relying or hoping that maybe not all the pages are being used.
 
 534
 00:43:13,840 --> 00:43:18,130
+比如，如果页面是 4096 字节，
 Good like for example if the pages four ninety six four thousand ninety six bytes,
 
 535
 00:43:18,490 --> 00:43:23,590
+基本上我们每 4096 个零就有一个页面错误。
 you know basically we're gonna take one page fault per 4096 zeros, right.
 
 536
 00:43:24,190 --> 00:43:25,630
+那里有一些[]。
 And so do some [] there.
 
 537
 00:43:27,700 --> 00:43:29,200
+但这是一个很好的观点，
 But it's a great point,
 
 538
 00:43:29,230 --> 00:43:32,980
+我们增加了页面错误的成本。
 you know certainly we've made page, we have added the cost of the page fault.
 
 539
 00:43:33,530 --> 00:43:36,740
+页面错误的成本是多少，我们应该怎么考虑？
 How much is the cost of the page fault, how should we think about that.
 
 540
 00:43:38,140 --> 00:43:41,770
+这些与存储指令相比，成本要高得多。
 These are comparable to store instruction more is much more expensive.
 
 541
 00:43:48,300 --> 00:43:50,250
+更高。
 More expensive, right.
 
 542
 00:43:50,310 --> 00:43:51,240
+是的，为什么。
 Yeah, why.
 
 543
 00:43:52,720 --> 00:44:01,920
+保存需要时间访问内存，
 Store will just like need to record, it will take some time to get to the to RAM,
 
 544
 00:44:01,920 --> 00:44:04,830
+但是，错误必须访问内核。
 but the fault will have to go to the kernel.
 
 545
 00:44:05,510 --> 00:44:08,720
+是的，那么，有多少个保存指令，
 Yeah, so, in fact how many store instruction were there,
 
 546
 00:44:08,720 --> 00:44:13,370
+像 Robert 上周展示给你的 trap 处理代码，
 even in the, the trap handling code that Robert showed you last week
 
 547
 00:44:13,550 --> 00:44:17,000
+或者你在 trap 实验中所做的。
 or actually that you're doing currently in the trap lab.
 
 548
 00:44:19,500 --> 00:44:21,840
+好吧，至少有一百个。
 Well at least like a hundred.
 
 549
 00:44:21,990 --> 00:44:24,840
+是的，至少有一百个，需要保存寄存器。
 Yeah at least a hundred, correct, used to save store registers.
 
 550
 00:44:25,710 --> 00:44:26,880
+所以有相当多的，
 So there's quite a bit
 
 551
 00:44:26,880 --> 00:44:31,320
+所以，从用户空间到内核空间的开销也很大，
 and so there's both the overhead of transferring from user space to kernel space as well
 
 552
 00:44:31,320 --> 00:44:36,000
+还有所有用来保存和恢复状态的指令。
 as all the instructions that are being executed to save and restore state.
 
 553
 00:44:36,660 --> 00:44:38,820
+所以，页面错误肯定不是免费的，
 So page fault is definitely not free,
 
 554
 00:44:39,390 --> 00:44:41,490
+所以，之前提出的问题是非常好的问题。
 so the question that was asked earlier very good question.
 
 555
 00:44:45,570 --> 00:44:46,200
+好的。
 Okay.
 
 556
 00:44:47,190 --> 00:44:51,930
+让我们来看一些更多能做的优化，
 So let's look at some more optimizations that what can do,
 
 557
 00:44:51,930 --> 00:44:56,640
+这些都是非常无聊的，或者非常直接的，
 these ones are sort of reasonable boring, or maybe reasonable straightforward,
 
 558
 00:44:56,640 --> 00:45:00,960
+我们希望有更多更令人兴奋的（优化）。
 and we're gonna hopefully get a little bit more couple more exciting ones.
 
 559
 00:45:02,120 --> 00:45:04,580
+看看下一步我想做什么。
 See what is next what I wanted to do about it.
 
 560
 00:45:05,160 --> 00:45:10,890
+下一个，是非常常见的，在许多操作系统中实现了，
 Next one, it's a very common one, in many operating systems implemented
 
 561
 00:45:10,920 --> 00:45:14,940
+实际上，这也是其中一个实验的一个主题。
 and the fact that will also be one of the topics in the one of the labs.
 
 562
 00:45:16,250 --> 00:45:18,050
+那么让我们来做下一个。
 So let's do the next one.
 
 563
 00:45:19,010 --> 00:45:30,770
+这就是写入时复制 fork ，或者称为 COW fork 。
 And that is copy-on-write fork, or something called COW fork.
 
 564
 00:45:34,960 --> 00:45:40,540
+[观察]是非常直截了当的，
 And you know, observation is pretty straightforward,
 
 565
 00:45:40,540 --> 00:45:43,360
+实际上，我们已经在讲座中做过几次[观察]。
 in fact we made this observation a couple times in lecture.
 
 566
 00:45:44,170 --> 00:45:46,510
+但是，当。
 Um, but when.
 
 567
 00:45:48,680 --> 00:45:52,670
+比如 shell ，我们刚才讨论的，
 Let's say you know the shell, we're talking [] a second ago,
 
 568
 00:45:52,670 --> 00:45:56,060
+shell 运行进程命令，
 so shell runs and process's command
 
 569
 00:45:56,060 --> 00:45:59,390
+它实际上执行 fork 来创建子进程，
 and it actually does fork to create child,
 
 570
 00:46:00,670 --> 00:46:03,490
+所以 fork 保留了 shell 的副本，
 and so the fork you know basically keep copy of shell
 
 571
 00:46:03,880 --> 00:46:06,250
+所以我们既有父进程又有子进程，
 and so we got a parent and we got the child
 
 572
 00:46:06,550 --> 00:46:09,730
+而子进程做的第一件事就是 exec ，
 and the child almost one of the first things it does is an exec,
 
 573
 00:46:09,850 --> 00:46:11,650
+或许执行几条指令，
 maybe execute a couple of instructions
 
 574
 00:46:11,920 --> 00:46:14,590
+然后执行 exec ，比如运行 echo  。
 and then actually execs, for example to run echo.
 
 575
 00:46:16,800 --> 00:46:20,880
+正如我们所知，在上一个实验中看到的，
 And as we now know, saw in last lab,
 
 576
 00:46:21,030 --> 00:46:25,080
+fork 创建了 shell 地址空间的完全副本，
 you know the fork creates a complete duplicate of the shell address space,
 
 577
 00:46:25,260 --> 00:46:27,180
+然后 exec 做的第一件事，
 and then exec the first thing that basically does,
 
 578
 00:46:27,180 --> 00:46:32,160
+它会丢弃它，并将其替换为包含 echo 的地址空间。
 it throws out away and replaces it with an address space containing echo.
 
 579
 00:46:33,060 --> 00:46:35,760
+所以这看起来有点浪费，
 And so it seems slightly wasteful right,
 
 580
 00:46:35,760 --> 00:46:40,240
+比如，这里我们有自己的父虚拟地址空间，
 yeah, so here let's say we have our parent virtual address space,
 
 581
 00:46:41,290 --> 00:46:43,900
+然后，这里我们有了一个子（地址空间）。
 and then here we have a child.
 
 582
 00:46:46,030 --> 00:46:49,930
+我们在用户物理内存中实际做的是，
 And what we're actually doing in user physical memory,
 
 583
 00:46:52,970 --> 00:46:56,510
+在正常的 xv6 或未修改的 xv6 中，
 and in the normal case in xv6 or in unmodified xv6,
 
 584
 00:46:56,660 --> 00:47:01,820
+我们之前看到的 shell 有四个页面，一二三四。
 you know there's a bunch of like there were four pages, we saw that the shell has one two three four.
 
 585
 00:47:02,340 --> 00:47:07,470
+当运行 fork 时，
 And, you know when we start, when fork runs,
 
 586
 00:47:07,620 --> 00:47:11,070
+查看这四个页面，一二三四，
 basically you do look at those four pages one two three four
 
 587
 00:47:11,250 --> 00:47:16,200
+并把父（地址空间）的所有内容复制到子（地址空间）。
 and copy all the content you know from those pages the parent into the child.
 
 588
 00:47:17,180 --> 00:47:22,940
+然后，一旦 exec 发生，我们就会释放这些页面。
 And then as soon as the exec happens, basically we're going to free these pages.
 
 589
 00:47:23,420 --> 00:47:26,930
+并且分配新的页面，包含 echo 的内容。
 And allocate new pages actually have the content of echo in it.
 
 590
 00:47:27,990 --> 00:47:34,670
+所以，对于这种情况，有一种好的组织方式是非常有效的，
 So, a good organization one that actually tends to be very effective for this particular sequence
 
 591
 00:47:34,880 --> 00:47:41,060
+如果父进程在它的地址空间中有四个映射，
 is that you know if we if the parent has these four mappings, you know in its address space,
 
 592
 00:47:42,020 --> 00:47:46,550
+比如，零在这里，一在这里，等等。
 going from whatever the zero goes here, the first one goes there and whatever.
 
 593
 00:47:47,980 --> 00:47:50,500
+当我们创建子进程的地址空间时，
 Instead, when we create the child's address space,
 
 594
 00:47:50,500 --> 00:47:53,200
+不是复制或分配新的物理内存，
 instead of creating copying and allocating new physical memory,
 
 595
 00:47:53,230 --> 00:47:59,830
+而是共享父进程已经分配的物理页面。
 what we could do is just share the physical pages that parent actually already has allocated.
 
 596
 00:48:00,540 --> 00:48:07,140
+所以，我们只是把子进程的 pte 指向父进程物理页面的相同位置。
 And so we just set the ptes with child to the same pointing to the same physical pages as in the parent.
 
 597
 00:48:08,780 --> 00:48:10,670
+我们要更小心一点，
 And we're going to be a little careful again, correct,
 
 598
 00:48:10,670 --> 00:48:13,490
+因为如果子进程想要修改其中一个页面，
 because if the child wants to modify one of these pages,
 
 599
 00:48:13,580 --> 00:48:16,760
+那个更新不应该对父进程可见，
 that updates should not be visible to the parent,
 
 600
 00:48:16,760 --> 00:48:19,370
+因为我们希望父进程和子进程之间有很强的隔离，
 because we want strong isolation between the parent and child,
 
 601
 00:48:19,370 --> 00:48:21,050
+所以我们需要更小心一点，
 so we need to be a little more careful,
 
 602
 00:48:21,350 --> 00:48:23,000
+所以为了更小心一点，
 so to be a little more careful about,
 
 603
 00:48:23,000 --> 00:48:28,790
+我们能做的就是，将这些子页面和父页面的映射都设置为只读。
 what we can do is just map those pages both the child and the parent read only.
 
 604
 00:48:32,870 --> 00:48:36,170
+当然，我们也会在某一时刻得到页面错误，
 And then of course we're going to get a page fault at some point,
 
 605
 00:48:36,750 --> 00:48:39,060
+因为父进程要运行子进程运行的（位置）。
 because the parent is going to run where the child is going to run.
 
 606
 00:48:40,130 --> 00:48:45,800
+或许子进程或父进程执行保存指令，
 And, maybe you know the child or parent will do a store instruction
 
 607
 00:48:45,800 --> 00:48:49,520
+可能将数据保存到某个全局变量中，
 to maybe save the data to some global variable somewhere,
 
 608
 00:48:50,020 --> 00:48:52,840
+在这时，会导致页面错误，
 and at that point you know, that that will cause a page fault,
 
 609
 00:48:52,840 --> 00:48:55,930
+因为你正在写入的页面，映射为只读，
 because you were writing to a page that is mapped read only,
 
 610
 00:48:56,110 --> 00:48:57,070
+我们得到一个页面错误，
 we get a page fault
 
 611
 00:48:57,160 --> 00:48:58,240
+那么我们需要做什么。
 and so what do we need to do.
 
 612
 00:48:58,240 --> 00:48:59,860
+我们需要把那个页面复制一份，
 Well, we need to make a copy of the page,
 
 613
 00:49:03,120 --> 00:49:07,860
+我们假设子进程执行存储指令，
 so let's assume that's the child that actually does the store instruction,
 
 614
 00:49:07,980 --> 00:49:09,660
+所以我们分配一个新的页面，
 so we allocate a new page,
 
 615
 00:49:11,400 --> 00:49:17,580
+我们复制出现错误的页面内容到新页面，
 we copy the content of of the page that were faulted on into this new page,
 
 616
 00:49:17,820 --> 00:49:20,550
+我们把那一页映射到子进程中，
 we map that page into the child,
 
 617
 00:49:20,550 --> 00:49:22,350
+而这个我们可以映射为读写，
 and this guy we can map read write,
 
 618
 00:49:22,350 --> 00:49:26,400
+因为私有页面仅在子进程的地址空间中可见，
 because now private page only visible in the child's address space,
 
 619
 00:49:26,700 --> 00:49:29,100
+实际上，出错的页面，
 in fact the page that actually will be fault on,
 
 620
 00:49:29,100 --> 00:49:32,390
+我们现在也可以将父进程页面（标记为）读写。
 we can also now map page read write into the parent.
 
 621
 00:49:34,060 --> 00:49:39,270
+所以，我们复制页面，映射它，然后重启指令。
 And so we copy the page, map it and restart instruction.
 
 622
 00:49:44,940 --> 00:49:47,820
+重启意思是，执行 userret ，
 And when restarting starting really means you know doing userret
 
 623
 00:49:48,210 --> 00:49:53,940
+与上周的讲座中返回用户空间的方法相同。
 the same way that return to user space, in the last week's lecture.
 
 624
 00:49:56,690 --> 00:49:59,150
+这能理解吗，关于这个，有什么问题吗。
 Does this make sense, any questions about this one.
 
 625
 00:49:59,720 --> 00:50:08,120
+抱歉，当你说我们把父进程的虚拟地址映射为读写，
 I'm sorry, when you say we mapped the parents virtual address to we also read write,
 
 626
 00:50:08,210 --> 00:50:12,080
+我们如何找到它，跟子进程的一样吗？
 how do we find it out, is the same as the child's?
 
 627
 00:50:12,200 --> 00:50:18,350
+是的，因为子进程的地址空间是父进程地址空间的副本，
 Yeah because the address space of the child is a duplicate of the parents address space right,
 
 628
 00:50:18,350 --> 00:50:21,290
+所以，如果我们在一个虚拟地址出现错误，
 so if we fault to a particular virtual address,
 
 629
 00:50:21,640 --> 00:50:23,260
+地址空间是相等的，
 seems the address spaces are equal,
 
 630
 00:50:23,470 --> 00:50:28,630
+同一个虚拟地址，同时在父进程的地址空间和子进程的地址空间。
 you know the same virtual address both the parents address space and in the child's address space.
 
 631
 00:50:31,580 --> 00:50:32,870
+理解了，谢谢。
 Makes sense, thank you.
 
 632
 00:50:36,490 --> 00:50:37,720
+另一个问题？
 Another question?
 
 633
 00:50:37,900 --> 00:50:38,350
+嗯。
 Yeah.
 
 634
 00:50:39,130 --> 00:50:45,610
+比如说，某个父进程，或许第一个启动的，
 For, let's say, like some parent [] process, maybe like the first one that launches,
 
 635
 00:50:45,760 --> 00:50:52,220
+它是否使用它的页面设置位读权限，
 does it use its pages, god, does it set just read permissions
 
 636
 00:50:52,460 --> 00:50:57,380
+或者以读写开始，当它 fork 时。
 or does it start off with read write, when it forks it modifies.
 
 637
 00:50:58,060 --> 00:50:59,530
+好的，这是由你决定的，
 OK, OK, it's up to you,
 
 638
 00:51:00,640 --> 00:51:03,580
+这也是一个实验，
 if I knew this is also one lab,
 
 639
 00:51:04,240 --> 00:51:07,540
+你可以在 lazy 实验后实现写入时复制，
 you can implement copy-on-write after the lazy lab,
 
 640
 00:51:07,930 --> 00:51:09,490
+你有一些自由，
 you have some freedom
 
 641
 00:51:09,490 --> 00:51:11,950
+容易做的是映射为只读，
 and an easy thing to do is just also map read only,
 
 642
 00:51:12,280 --> 00:51:13,510
+你会得到页面错误，
 you will get a page fault,
 
 643
 00:51:13,840 --> 00:51:17,530
+然后，你可以执行在写入时复制时也会执行的操作。
 and then you do whatever you normally also would do in the copy-on-write.
 
 644
 00:51:18,030 --> 00:51:21,030
+所以，在这两种情况下，你可以使用相同的机制。
 So you can use the same mechanism, in both cases.
 
 645
 00:51:22,750 --> 00:51:28,000
+没有理由对第一个进程专门处理。
 There's no reason to actually specialize for some separate for the first process.
 
 646
 00:51:30,100 --> 00:51:30,520
+好的，谢谢。
 Okay thanks.
 
 647
 00:51:31,960 --> 00:51:35,150
+我也有一个问题，
 So, I also have a question,
 
 648
 00:51:35,150 --> 00:51:42,020
+考虑到我们经常复制整个页面，
 given that we like kind of copy whole tables, sorry, whole pages around pretty often,
 
 649
 00:51:42,770 --> 00:51:48,920
+存储器硬件有没有实现一个特殊指令，
 does any, like memory hardware implement like a specific instruction,
 
 650
 00:51:48,920 --> 00:51:53,810
+因为内存硬件通常只有一些行，
 because basically memory hardware will usually just have like some data lines
 
 651
 00:51:53,810 --> 00:51:57,590
+读取或保存内存，
 to say read me or stored just memory,
 
 652
 00:51:57,650 --> 00:52:01,220
+但是我们有把 a 页复制到 b 页。
 but we have like [] copy page a to page b.
 
 653
 00:52:02,510 --> 00:52:08,090
+是的， x86 有复制内存范围的硬件指令。
 Yeah, x86 example has hardware instructions for copying range of memory.
 
 654
 00:52:08,560 --> 00:52:11,470
+RISC-V 没有。
 You know RISC-V doesn't.
 
 655
 00:52:12,180 --> 00:52:17,280
+是的，当然在非常高性能实现中，
 Um, yeah, but of course you know in, in a very high performance implementation,
 
 656
 00:52:17,550 --> 00:52:21,030
+所有读取写入会使用流水线，
 all the reads writes will be pipelined,
 
 657
 00:52:21,390 --> 00:52:24,810
+希望以内存带宽的速度运行。
 in hopefully run at the speed of the memory bandwidth.
 
 658
 00:52:28,150 --> 00:52:35,050
+注意，原则上，我们会幸运地在加载和存储或复制时[节省]，
 Note that actually, in principle, we might be lucky and we're saving, correct, on loads and stores or copies,
 
 659
 00:52:35,290 --> 00:52:38,080
+因为在这张图片里，我只复印了一份，
 because in this particular picture, I made only one copy
 
 660
 00:52:38,140 --> 00:52:42,130
+而在未修改的情况下，我们会复制全部四页。
 and in the unmodified case, we would have copied all four pages.
 
 661
 00:52:43,120 --> 00:52:48,760
+所以，无论是在存储器消耗方面还是在性能方面，这是更好的，
 And so, hopefully this is strictly better, both in terms of memory consumption and in terms of performance,
 
 662
 00:52:48,910 --> 00:52:50,020
+fork 会更快。
 you know fork will just be faster.
 
 663
 00:52:54,090 --> 00:52:55,290
+我有一个问题，
 I have a quick question,
 
 664
 00:52:55,470 --> 00:52:59,370
+当页面错误发生时，
 when when the page fault occurs
 
 665
 00:52:59,370 --> 00:53:04,620
+我们看到本质上是我们试图写入只读地址，
 and we see that it was essentially like we were trying to write to a read only address,
 
 666
 00:53:04,830 --> 00:53:10,380
+内核是如何知道这是一种写入时复制 fork 的情况，
 how does the kernel tell, like this is a situation where it's copy-on-write fork
 
 667
 00:53:10,440 --> 00:53:16,560
+而不是试图写入因为某些合法原因标记位只读的内存，
 versus just a situation where the memory it was trying to write was was marked as read only for some legitimate reason
 
 668
@@ -2672,1501 +3339,1876 @@ other than copy-on-write fork
 
 669
 00:53:17,820 --> 00:53:21,900
+在内存中是一种不变量，
 is just kind of an invariance that if a its user memory,
 
 670
 00:53:21,900 --> 00:53:25,380
+然后它被映射为读写，除非它是写入时复制 fork 的结果。
 then it will be mapped read write, unless it was a result of copy-on-write fork.
 
 671
 00:53:25,880 --> 00:53:30,710
+是的，所以它是一个需要在内核中维护的不变量，
 Yeah yeah, so it is an invariant that needs to be maintained in the kernel
 
 672
 00:53:30,710 --> 00:53:34,730
+内核必须以某种方式识别这是写入时复制页面，
 and the kernel must recognize in some way that this is a copy-on-write page, if you will.
 
 673
 00:53:35,340 --> 00:53:37,500
+我很高兴你问了这个问题，
 And so I'm very glad you asked the question,
 
 674
 00:53:37,500 --> 00:53:43,290
+因为 RISC-V 硬件，几乎所有的可分页硬件都支持这一点。
 because it turns out you know the RISC-V hardware, almost all pagetable hardware actually has support for this.
 
 675
 00:53:43,870 --> 00:53:46,180
+我们之前没有提过，
 And we didn't mention it earlier,
 
 676
 00:53:46,180 --> 00:53:53,080
+我们使用的两级或多级的页表都使用 pte ，
 but here's are usual you know, whatever two level, or multilevel pagetable use pte,
 
 677
 00:53:56,040 --> 00:54:01,170
+你看到的 pte ，我讲过 0 到 7 的标志位，
 and you're looking at pte, you know I talked about the bits you know one zero through seven,
 
 678
 00:54:01,200 --> 00:54:04,110
+但没讲过这两个位， RSW 。
 but not about these two bits, RSW.
 
 679
 00:54:06,190 --> 00:54:09,640
+它们是为管理软件保留的。
 And, they are reserved for supervisor software.
 
 680
 00:54:10,200 --> 00:54:17,010
+所以管理软件，内核可以随意使用这些位。
 So the supervisor software, this is the kernel, you can use these bits at its own free will.
 
 681
 00:54:17,550 --> 00:54:19,560
+所以可以做的一件事是
 And so one thing one could do is
 
 682
 00:54:19,560 --> 00:54:23,970
+决定是一个写入时复制页面还是写入时复制错误。
 like say decide that being a basically means this is a copy-on-write page or copy-on-write fault.
 
 683
 00:54:24,610 --> 00:54:30,610
+所以当内核把这些页表用于写入时复制，
 And so when the kernel programs these page tables for copy-on-write,
 
 684
 00:54:30,610 --> 00:54:37,370
+你可以直接设置这些页面的 pte 的位，
 you can just put on the ptes, you know for these particular pages, the bits,
 
 685
 00:54:37,370 --> 00:54:39,170
+设置为写入时复制，
 you know set to be a copy-on-write,
 
 686
 00:54:39,200 --> 00:54:41,030
+在发生页面错误时，
 so that when the page fault happens
 
 687
 00:54:41,270 --> 00:54:44,090
+我们看到设置了写入时复制位，
 and we see that the copy-on-write bit set,
 
 688
 00:54:44,180 --> 00:54:45,890
+那我们到这里（之前的情况），
 then we just go off into this,
 
 689
 00:54:46,780 --> 00:54:51,560
+否则我们就做些别的事，比如，可能是懒分配。
 and otherwise we do something else, for example, maybe the lazy allocation.
 
 690
 00:54:54,310 --> 00:54:54,970
+这能理解吗？
 Does that make sense?
 
 691
 00:54:56,450 --> 00:54:57,230
+好的，谢谢你。
 Yep, thank you.
 
 692
 00:54:57,980 --> 00:55:02,420
+实际上，在实验中，你要做的一件事是，
 And in fact in in the lab, one of the things you will be doing is
 
 693
 00:55:02,420 --> 00:55:06,020
+使用这个位在 pte 中设置写入时复制。
 probably use that bit you know set a copy-on-write in the pte.
 
 694
 00:55:07,380 --> 00:55:11,850
+还有一个[]将在写入时复制实验中显示出来，
 There's one more [] that will show up in the copy-on-write lab
 
 695
 00:55:11,850 --> 00:55:20,430
+目前在 xv6 中，一个物理页面或多或少只属于一个进程，
 is that there's some currently in xv6, basically a physical page more or less only belongs to one process,
 
 696
 00:55:20,820 --> 00:55:24,840
+除了 trampoline 页面，它从来不会被释放，
 with the exception of the trampoline page, which that trampoline were never free,
 
 697
 00:55:24,840 --> 00:55:27,030
+所以这不是一个特别大的问题。
 so that's not really going to a particular big issue.
 
 698
 00:55:27,630 --> 00:55:35,680
+但是，对于那些有多个进程或者多个地址指向相同物理地址的页面，
 But for these pages you now we have multiple processes or multiple address spaces pointing to the same physical address,
 
 699
 00:55:36,180 --> 00:55:39,730
+比如，如果父进程立即退出，
 and so, for example if the parent exits right away,
 
 700
 00:55:39,730 --> 00:55:41,650
+我们就要小心，
 we're gonna live with care and be careful right,
 
 701
 00:55:41,650 --> 00:55:45,580
+因为如果父进程退出，我们能立即释放那一页吗。
 because can we free that page immediately, if the parent exits.
 
 702
 00:55:50,520 --> 00:55:54,810
+可能不能，因为可能有多个子进程。
 Maybe not, because there may be multiple children processes.
 
 703
 00:55:54,810 --> 00:55:57,000
+是啊，可能有子进程在用那个页面，
 Yeah, there might be child using that page
 
 704
 00:55:57,000 --> 00:56:02,490
+内核将释放该页面，那么我们会有麻烦，
 and so we've kernel would free that page, then, you know we're gonna be in trouble,
 
 705
 00:56:02,520 --> 00:56:05,430
+因为如果你看一下 kfree ，
 because basically the if you look at kfree,
 
 706
 00:56:05,430 --> 00:56:08,880
+一旦释放页面， kfree 会写入所有[类型]，
 kfree actually writes all kinds once on a free page
 
 707
 00:56:09,180 --> 00:56:10,860
+然后子进程使用那一页运行，
 and so then the child runs with that page
 
 708
 00:56:10,860 --> 00:56:12,450
+各种奇怪的事情就会发生。
 and all kinds of bizarre things are gonna happen.
 
 709
 00:56:14,040 --> 00:56:16,080
+那么，现在释放应该怎么做呢？
 So what should you be now for free.
 
 710
 00:56:23,450 --> 00:56:28,370
+我想是在没有子进程的情况下释放。
 Free, if you don't have children, I guess.
 
 711
 00:56:28,400 --> 00:56:32,030
+是的，我们用更一般的方式来解释这一说法，
 Yeah, we may be better way of sort of a more general version of that statement
 
 712
 00:56:32,030 --> 00:56:39,930
+就是我们需要做的是，每个物理页面有一个 ref 计数。
 is to say well what we really need to do is we need a ref count every physical page.
 
 713
 00:56:41,130 --> 00:56:45,000
+当我们释放页面时，我们将引用减少 1 ，
 And when we free the page, we decrease the ref down by one
 
 714
 00:56:45,180 --> 00:56:48,270
+如果引用计数达到零，那么我们就可以释放页面了。
 and if the ref count reaches zero, then actually we can free the page.
 
 715
 00:56:48,940 --> 00:56:54,280
+所以，你必须在写入时复制中引入一些额外的数据结构或元信息，
 And so you will have to introduce some additional data structure or meta information in the copy-on-write,
 
 716
 00:56:54,280 --> 00:56:56,560
+用来做引用计数。
 [] actually do that ref counting.
 
 717
 00:56:59,740 --> 00:57:00,820
+我们把这个存放在哪里，
 Where can we store this,
 
 718
 00:57:00,820 --> 00:57:04,840
+因为如果每一页都有引用计数，这会是很多。
 because this if we ever have the ref count every single page, that can be a lot.
 
 719
 00:57:05,320 --> 00:57:09,520
+是的，对于内存的每一个物理页面，我们必须有引用计数。
 Yeah well for every physical page of memory, we will have to do a ref count.
 
 720
 00:57:10,760 --> 00:57:12,470
+是的，你可以少一点，
 Yeah, you can get away with a little bit less,
 
 721
 00:57:12,470 --> 00:57:14,540
+但在实验里进行简化，
 but then we're in for simplification in lab,
 
 722
 00:57:14,540 --> 00:57:18,350
+对于每 4096 字节，
 we're just for everyone for every 4096 bytes,
 
 723
 00:57:18,820 --> 00:57:20,260
+我们需要包含一个引用计数。
 we need to contain a reference count.
 
 724
 00:57:23,630 --> 00:57:31,460
+我们能不能把它写在另外两个空闲位上，然后说，不超过 4 。
 Can we write that down in those other two free bits and say that, no more than four.
 
 725
 00:57:31,880 --> 00:57:38,300
+很好，不是不合理，
 Good yeah, not unreasonable,
 
 726
 00:57:38,300 --> 00:57:41,210
+但是如果你把它 fork 多次，
 but you know if you're fork it multiple times,
 
 727
 00:57:41,640 --> 00:57:42,990
+那就太糟糕了，
 that be too bad, right,
 
 728
 00:57:44,320 --> 00:57:47,950
+三四次之后，你就不能再做优化了。
 after three times or four times, you can't do can't do the optimization anymore.
 
 729
 00:57:52,120 --> 00:57:53,890
+是的，这里有一些自由。
 Yeah there's some freedom here.
 
 730
 00:57:54,960 --> 00:58:01,050
+还有，你真的需要用那个位来指定它是不是写入时复制，
 Also, do you really need to use that bit to specify if it's a copy-on-write,
 
 731
 00:58:01,050 --> 00:58:07,860
+因为内核也可以维护有关进程的一些信息。
 because the kernel could also maintain some information about the processes that.
 
 732
 00:58:08,430 --> 00:58:11,730
+是的，你可以做任何事，
 Yeah yeah yeah, you could you could do anything,
 
 733
 00:58:11,730 --> 00:58:14,460
+一些其他事项信息连同进程地址空间，
 some other matter information along with the process address space
 
 734
 00:58:14,460 --> 00:58:18,180
+比如在这个和那个之间的虚拟地址是文本地址，
 to say basically well virtual addresses between this and that are text addresses,
 
 735
 00:58:18,480 --> 00:58:22,170
+所以，我们在那里有一个页面错误，它一定是写入时复制或其他什么。
 so we have a page fault there and it must be copy-on-write or something.
 
 736
 00:58:23,090 --> 00:58:24,950
+实际上，后来的一个实验里，
 In fact one of the later labs,
 
 737
 00:58:24,950 --> 00:58:31,540
+你会扩展 xv6 维护的元信息，正是这个原因。
 you know you'll certainly extend the meta information that xv6 maintains, exactly for that reason.
 
 738
 00:58:34,110 --> 00:58:37,020
+这里有一些自由，当你开始实现这些实验时。
 There's a bit of freedom here and when you start implementing these labs.
 
 739
 00:58:41,040 --> 00:58:42,330
+关于这个，还有什么问题吗？
 Any further questions about this?
 
 740
 00:59:03,900 --> 00:59:09,420
+好的，让我们进入下一个，叫做按需调页，
 Okay, let's go to the next one, there's something called demand paging,
 
 741
 00:59:11,350 --> 00:59:14,590
+是另一个在大多数操作系统中非常流行的。
 another very popular one in most operating systems implemented.
 
 742
 00:59:17,100 --> 00:59:21,090
+所以，它是回到了 exec 。
 And so the you know it just goes back basically to exec.
 
 743
 00:59:24,220 --> 00:59:27,190
+目前在未修改的 xv6 中，
 So currently in unmodified xv6,
 
 744
 00:59:27,190 --> 00:59:34,860
+xv6 加载文本段，和数据段，
 you know xv6 loads the text segment, and the data segment profile
 
 745
 00:59:34,950 --> 00:59:42,790
+并急切地映射到页表中。
 and maps in eagerly in basically into the pagetable.
 
 746
 00:59:46,960 --> 00:59:51,250
+和我们对懒分配和置零观察到的一样，
 And basically the same observation that we made for lazy and zero filled,
 
 747
 00:59:51,370 --> 00:59:54,430
+我们可以做的是，为什么要急切地去做，
 is that well what we could do is like why do it eagerly,
 
 748
 00:59:54,490 --> 00:59:59,950
+为什么不等一会儿，直到看到应用程序是否真的需要，
 why not just wait a little while, until to see if actually the application really needs,
 
 749
 00:59:59,950 --> 01:00:03,760
+那些特别的指令，二进制文件可能会很大。
 you know those particular set of instructions, you know the binary might be very big.
 
 750
 01:00:04,270 --> 01:00:09,730
+不是真的从磁盘中全部加载进去，
 In instead of actually loading it all in you know from disk,
 
 751
 01:00:09,730 --> 01:00:11,440
+它往往是昂贵的操作，
 it tends to be expensive operation,
 
 752
 01:00:11,740 --> 01:00:17,350
+可能数据段比实际需要的要大得多，
 maybe the data segment is much bigger than really needs than the typical use case requires,
 
 753
 01:00:17,440 --> 01:00:18,970
+我们没必要这么做。
 we don't really have to do that.
 
 754
 01:00:19,700 --> 01:00:25,670
+所以，在 exec 中，不是真正分配虚拟地址空间，
 And so instead of, on exec, instead of actually we allocate the virtual address space,
 
 755
 01:00:25,670 --> 01:00:31,580
+为文件里的文本和数据分配地址空间，
 you know allocate the address space for the text and the data that's in the file,
 
 756
 01:00:31,700 --> 01:00:35,420
+但在 pte 中并没有全部映射，
 but in the ptes were not mapped all,
 
 757
 01:00:35,690 --> 01:00:39,020
+我们只会保留其中一页，
 we're just gonna keep you know pte for one of these pages,
 
 758
 01:00:39,020 --> 01:00:42,020
+我们不能设置有效位，因此有效位为零。
 we just cannot set valid bit, so valid bit to zero.
 
 759
 01:00:44,180 --> 01:00:48,020
+当然，在我们得到第一个页面错误时，
 And of course you know, when we're gonna get our first page fault,
 
 760
 01:00:49,840 --> 01:00:53,530
+如果我们在 exec 中这样做，比如修改 xv6 来做这个。
 if we do this in exec and let's say we modify xv6 to do this.
 
 761
 01:00:54,350 --> 01:00:56,060
+当第一个页面错误发生时，
 When will our first page fault happen,
 
 762
 01:00:59,900 --> 01:01:06,300
+为用户地址或用户程序运行的第一条指令是什么。或用户程序。
 what's the first instruction that is being run for user address or user program.
 
 763
 01:01:09,690 --> 01:01:11,130
+用户程序从哪里开始。
 Where does the user program start.
 
 764
 01:01:12,220 --> 01:01:15,880
+是不是在 uvminit 中的加载初始代码。
 Is it loading the initial code, in uvminit.
 
 765
 01:01:16,000 --> 01:01:20,410
+是的，好的，我们只是[]，
 Yeah okay, we're just [],
 
 766
 01:01:20,410 --> 01:01:24,190
+修改的 exec 没有调用 uvminit ，其中。
 modifying exec and not called the uvminit, where.
 
 767
 01:01:28,660 --> 01:01:32,110
+所以大多数情况下，如果你还记得[]或类似的东西，
 So mostly when we actually if you remember from for [] or something like that,
 
 768
 01:01:32,110 --> 01:01:35,320
+应用程序是从地址零开始的，
 you know the place where an application starts exactly address zero,
 
 769
 01:01:35,980 --> 01:01:38,110
+图片中的这里，
 pictures a little bit is leading here,
 
 770
 01:01:38,110 --> 01:01:42,010
+但是这是文本，这里是零，它上升到某个数字，
 but here's text, here zero it goes up to some number
 
 771
 01:01:42,190 --> 01:01:44,470
+第一条指令在这里，
 and basically the first instruction whatever sits here,
 
 772
 01:01:44,800 --> 01:01:46,540
+这是我们实际上的第一个指令，
 that's the first instruction that we're gonna actually,
 
 773
 01:01:46,540 --> 01:01:49,930
+那个地址，是第一条指令，我们会得到页面错误。
 that address, that's the first instruction, we're going to get a page fault, right.
 
 774
 01:01:51,190 --> 01:01:52,990
+因为我们还没有加载它。
 Because we have not loaded it.
 
 775
 01:02:02,940 --> 01:02:04,140
+那么你想要什么页面错误。
 So what do you want the page fault.
 
 776
 01:02:07,930 --> 01:02:09,400
+好的，我们将在页面错误中做的是，
 Well we're going to do in the page fault,
 
 777
 01:02:09,550 --> 01:02:14,950
+注意到这是其中一个按需页面，
 it's basically will note that this is one of these on demand pages,
 
 778
 01:02:15,420 --> 01:02:18,360
+我们要事先在某个地方记住，
 we have to remember somewhere earlier,
 
 779
 01:02:18,360 --> 01:02:23,690
+这对应于一些文件。这对应于某个文件。
 that you know this corresponds to some, that this corresponds to some file.
 
 780
 01:02:25,920 --> 01:02:38,970
+假设我们在页面错误处理代码中要做的是把页面从文件读到内存中，
 Imagine what we're gonna do in the page fault handler is read, you know that block page from file into memory,
 
 781
 01:02:41,890 --> 01:02:46,840
+将内存映射到页表中，
 map the memory into the pagetable,
 
 782
 01:02:49,460 --> 01:02:50,870
+然后重启指令，
 then restart the instruction,
 
 783
 01:02:56,720 --> 01:02:59,300
+然后，我们就可以继续运行了。
 and, then we're off for running right.
 
 784
 01:02:59,300 --> 01:03:01,640
+所以在最坏的情况下，
 And so we're gonna go in the worst case,
 
 785
 01:03:01,640 --> 01:03:05,480
+如果用户程序使用所有文本，使用所有数据，
 if the user program uses all of its text, uses all of this data,
 
 786
 01:03:05,600 --> 01:03:11,900
+那么我们会在程序的每一个页面都有一个页面错误。
 then we're going to get a page fault for every page, you know in the, in the program.
 
 787
 01:03:12,590 --> 01:03:15,050
+但是，如果我们在这个程序中很幸运，
 But you know we get lucky in the program,
 
 788
 01:03:15,050 --> 01:03:16,700
+它不会使用所有数据段，
 it doesn't use all of its data segment
 
 789
 01:03:16,700 --> 01:03:18,260
+或者不会使用所有文本段，
 or doesn't use all of its text segment,
 
 790
 01:03:18,380 --> 01:03:20,630
+那么我们可能会节省一些内存，
 then we might save some memory
 
 791
 01:03:20,630 --> 01:03:24,970
+我们当然会让 exec 表现得更快，
 and we certainly make exec you know perform, you know, much quicker
 
 792
 01:03:24,970 --> 01:03:26,620
+它会更具互动性，
 and it'll be a little bit more interactive,
 
 793
 01:03:26,770 --> 01:03:28,480
+假设程序开始运行，
 assumes the program starts boom it's running,
 
 794
 01:03:28,930 --> 01:03:31,240
+我们必须准确地做任何工作。
 well we actually have to do any work exactly.
 
 795
 01:03:33,480 --> 01:03:35,310
+这个能理解吗？
 Does that makes this observation makes sense?
 
 796
 01:03:42,140 --> 01:03:53,470
+好的，按需调页有一个扩展，这是按需调页的第二部分。
 Okay so there's a slight extension to demand paging, so this is the second part of the demand paging.
 
 797
 01:03:59,150 --> 01:04:00,140
+是的，这里还有更多。
 Right, there's more.
 
 798
 01:04:04,960 --> 01:04:06,490
+按需调页的第二部分，
 Part two demand paging,
 
 799
 01:04:06,730 --> 01:04:09,100
+原则上，这里有一点小问题，
 in principle, there's a little bit of problem here,
 
 800
 01:04:09,130 --> 01:04:10,630
+我们还没有真正讨论过，
 that we haven't really discussed,
 
 801
 01:04:10,990 --> 01:04:12,220
+可能是这样的，
 it might be the case,
 
 802
 01:04:12,250 --> 01:04:14,290
+可能就是我们真正在读的文件，
 may be the file that we're actually reading
 
 803
 01:04:14,290 --> 01:04:17,620
+或者文本和数据段甚至比物理内存更大，
 or the text and data segments are even bigger than what actually is in physical memory,
 
 804
 01:04:17,650 --> 01:04:21,820
+或者多个应用程序以按需调页开始，
 or if multiple applications started with demand paging,
 
 805
 01:04:21,850 --> 01:04:27,280
+也许有一些它们的二进制文件，比物理内存要大。
 maybe there's some of their binarys, it's basically bigger than there actually is a physical memory.
 
 806
 01:04:28,700 --> 01:04:34,010
+所以，如果你深入按需调页，
 And so, the typical thing you know what, if you go down this demand paging,
 
 807
 01:04:34,010 --> 01:04:37,820
+如果你的内存耗尽，
 [] is to actually if you run out of memory,
 
 808
 01:04:38,990 --> 01:04:42,410
+如果 kalloc 返回零，就是内存不足。
 so if kalloc returns zero, it's out of memory.
 
 809
 01:04:45,440 --> 01:04:48,310
+比如，你的按需页面，
 So, for example, you know your demand page,
 
 810
 01:04:48,340 --> 01:04:55,780
+你在需要从文件系统调入的页面出现页面错误，
 you get a page fault at some page, that needs to be a paged in from a file system,
 
 811
 01:04:56,050 --> 01:04:59,170
+但是你没有更多的空闲页面，你需要做些什么。
 but you don't have any more free pages, you need to do something.
 
 812
 01:04:59,720 --> 01:05:02,570
+所以又回到了前面的问题，
 And so the typical this comes back to earlier question,
 
 813
 01:05:02,570 --> 01:05:05,090
+比如，跟懒分配类似，
 for example the same is to for lazy or
 
 814
 01:05:05,510 --> 01:05:07,070
+如果你的内存用完了，该怎么做。
 you know what to do if you run out of memory.
 
 815
 01:05:07,610 --> 01:05:08,720
+所以如果内存用完了，
 So if you run out of memory,
 
 816
 01:05:08,720 --> 01:05:14,240
+一个很明显的选择就是逐出一个页面。
 one option that you really clearly have is to evict a page.
 
 817
 01:05:19,260 --> 01:05:24,210
+比如，你可以选择一个页面，写会到文件中。然后选择页面并写回文件。
 You can for example instead of you know you can for example and pick the page and write to the file back.
 
 818
 01:05:25,020 --> 01:05:28,710
+比如，一个修改过的数据页面，
 So for example it's a data page that got modified,
 
 819
 01:05:28,710 --> 01:05:31,200
+你就可以把它写回文件系统。
 so you can write it back to the file system.
 
 820
 01:05:32,160 --> 01:05:34,770
+一旦你选择了这一页，
 And then once you pick the page
 
 821
 01:05:34,800 --> 01:05:36,420
+然后你就有了一个新的空闲页面，
 and then you have a new free page
 
 822
 01:05:36,750 --> 01:05:42,510
+你可以使用这个新的空闲页面，
 and you can put the use that you use the new just free page,
 
 823
 01:05:47,020 --> 01:05:50,440
+来解决你遇到的错误，
 to satisfy you know the fault that you had
 
 824
 01:05:50,650 --> 01:05:52,570
+然后再次重启指令。
 and then basically restarting instruction again.
 
 825
 01:05:58,810 --> 01:06:00,880
+再说一次，重启指令有点复杂，
 Again, restarting instruction is a little more complicated,
 
 826
 01:06:00,880 --> 01:06:04,390
+因为整个机制是调用 userret ，
 because the whole machinery to basically do userret
 
 827
 01:06:04,780 --> 01:06:09,310
+开始并转移回用户空间，等等。
 and started and transfer back to user space, etc.
 
 828
 01:06:11,070 --> 01:06:13,950
+一个典型的操作系统将执行此操作，
 And so this is a typical operating system will do this
 
 829
 01:06:14,010 --> 01:06:17,760
+当然，关键问题是要驱逐哪一页。
 and of course the key question is like what page to evict.
 
 830
 01:06:19,890 --> 01:06:21,180
+该选哪一个？
 Which one to choose?
 
 831
 01:06:22,340 --> 01:06:24,110
+那么什么是候选者，
 So what are some candidates
 
 832
 01:06:24,110 --> 01:06:28,860
+有什么合理的方法来选择一个页面来驱逐。
 you know what do, what would be a reasonable policy for choosing a page to evict.
 
 833
 01:06:30,280 --> 01:06:31,630
+最近最少使用。
 Least recently used.
 
 834
 01:06:31,930 --> 01:06:45,290
+是的，所以这是最常用的策略，最近最少使用，或者 LRU 。
 Yeah, so this is the most commonly used strategy, least recently used, or LRU.
 
 835
 01:06:47,860 --> 01:06:53,050
+那是典型的被扔掉的页面，
 And, that was gonna page was typically is thrown out,
 
 836
 01:06:53,500 --> 01:06:58,120
+通常有一些可以做的小优化，
 there's a couple sort of twist typically [] some small optimizations that do,
 
 837
 01:06:58,420 --> 01:07:00,190
+如果你必须选择一页，
 if you have to pick the page
 
 838
 01:07:00,190 --> 01:07:04,760
+你必须在脏页和非脏页之间做出选择，
 and you have to choice between dirty page and non-dirty page,
 
 839
 01:07:04,760 --> 01:07:07,100
+所以，脏页是有保存（东西）的，
 so dirty pages page where there was a store to
 
 840
 01:07:07,520 --> 01:07:11,450
+而非脏页只有读取，没有被写入，
 and non-dirty pages or pages basically has been read, but not written to,
 
 841
 01:07:11,750 --> 01:07:14,550
+你选择哪一个先驱逐出去。
 which one would you prefer evict first.
 
 842
 01:07:16,700 --> 01:07:21,290
+脏页，因为不管怎样，你总要写脏的那个。
 Dirty one, because you would have to write the dirty one at some point anyway.
 
 843
 01:07:21,840 --> 01:07:22,830
+嗯。
 Yeah.
 
 844
 01:07:23,460 --> 01:07:26,460
+抱歉，请再说一遍，确认一下。
 So sorry, say again actually just double-check there.
 
 845
 01:07:27,130 --> 01:07:32,650
+我说的是脏页，因为脏页在某一时刻需要写入内存。
 I said dirty, because dirty pages would need to be written into memory at some point.
 
 846
 01:07:33,180 --> 01:07:37,740
+是的，那是真的，也许现在你得写两遍，
 Yeah that's true, then maybe now you have to write it twice,
 
 847
 01:07:37,770 --> 01:07:40,320
+一旦你写了，以后可能会再次修改。
 you know once you write it may be modified later again.
 
 848
 01:07:41,490 --> 01:07:42,750
+所以实际上。
 And so actually typically.
 
 849
 01:07:42,870 --> 01:07:45,120
+好的，我明白了。
 OK OK's I see.
 
 850
 01:07:45,120 --> 01:07:50,320
+恰恰相反，选择没有写入的页或者非脏页，
 Exactly the opposite, they choose a page that actually has not been written or it's not dirty,
 
 851
 01:07:50,320 --> 01:07:51,550
+因为你不需要做任何事，
 because you don't have to do anything,
 
 852
 01:07:51,700 --> 01:07:52,780
+你可以重新使用它，
 you can just reuse it,
 
 853
 01:07:52,810 --> 01:07:57,880
+如果它在[页表一]中，你可以标记它，
 you can just take mark if it is present in in pagetable one,
 
 854
 01:07:57,910 --> 01:08:01,150
+你标记它是无效的，就可以了。
 you mark there is non valid and then you're done.
 
 855
 01:08:01,700 --> 01:08:04,550
+然后，你可以在另一个页表中重用该页面。
 And then you can reuse that page in another pagetable.
 
 856
 01:08:05,340 --> 01:08:11,490
+所以偏好是首先选择非脏页。
 And so the preference intensity is a take pages that have been not non-dirty ones first.
 
 857
 01:08:13,600 --> 01:08:17,900
+我能不能问一下确认那些脏页。
 Can I just ask for a clarification on the dirty pages.
 
 858
 01:08:18,400 --> 01:08:18,730
+嗯。
 Yeah.
 
 859
 01:08:18,730 --> 01:08:23,620
+所以，我知道，就像在缓存里，
 So, I I know, like in a cache,
 
 860
 01:08:23,620 --> 01:08:26,590
+在内存中，我们说一行是脏的，
 when we have memory and then we say okay a line is dirty,
 
 861
 01:08:26,590 --> 01:08:28,360
+因为它还没有被写入内存，
 because it hasn't been written to memory,
 
 862
 01:08:28,540 --> 01:08:32,650
+但是内存中的一页是什么样子的呢，它脏在哪里，
 but what about a page in memory like what does it correspond to like, how is it dirty,
 
 863
 01:08:32,650 --> 01:08:34,570
+它要写回哪里，
 where does it have to be written back to,
 
 864
 01:08:34,690 --> 01:08:36,250
+它只是存在于内存中，
 it just exists in memory right,
 
 865
 01:08:36,250 --> 01:08:39,820
+是不是它不存在于其他地方，
 isn't that the whole whole thing like it doesn't exist anywhere else really,
 
 866
 01:08:40,120 --> 01:08:41,410
+那么它是如何变脏的。
 so when can it be dirty.
 
 867
 01:08:41,890 --> 01:08:44,470
+好的，比如，如果按需页面是文件页面，
 Yeah okay, so for example if the demand page file page,
 
 868
 01:08:45,290 --> 01:08:47,000
+实际上，我们稍后会谈到，
 actually we'll talk about in a second,
 
 869
 01:08:47,000 --> 01:08:50,930
+在下一个，可能有点太多了，
 like in the next, maybe a little bit too much,
 
 870
 01:08:50,960 --> 01:08:53,600
+但是内存映射文件，
 but if you memory map files,
 
 871
 01:08:53,630 --> 01:08:58,250
+你把文件映射到内存，
 where you map a file into memory,
 
 872
 01:08:58,250 --> 01:09:00,890
+然后把对它保存，那么你就会弄脏那一页。
 and then do store to it, then you would dirty that page.
 
 873
 01:09:01,280 --> 01:09:02,630
+好的，所以这只适用于
 Okay so that only applies
 
 874
 01:09:02,630 --> 01:09:08,090
+一个页面不仅对应内存，还对应文件或其他东西。而且还可以存储到文件或其他文件中。
 when like a page actually response not just to some memory, but also to a file or something else.
 
 875
 01:09:08,270 --> 01:09:10,360
+好的，理解了。
 Okay, okay, that makes sense.
 
 876
 01:09:10,570 --> 01:09:10,870
+嗯。
 Yeah.
 
 877
 01:09:13,020 --> 01:09:18,280
+好的，所以我想再多说两点与此相关的观点，
 Okay, so just to, you know just to make one more two more points related to this,
 
 878
 01:09:18,580 --> 01:09:22,510
+如果你再看这个 pte ，
 if you look at this pte again,
 
 879
 01:09:23,220 --> 01:09:24,900
+所以我们看这个 RSW 位，
 so we saw this RSW bit,
 
 880
 01:09:25,050 --> 01:09:28,650
+你会注意到第七位，就是脏页位。
 you'll notice there actually is a bit seven, that is the dirty bit.
 
 881
 01:09:29,320 --> 01:09:33,340
+所以当硬件曾经写入页面，
 So when the paging hardware where the hardware ever writes you know to page
 
 882
 01:09:33,340 --> 01:09:34,690
+就会设置这个脏页位，
 then [watch] this set dirty bits,
 
 883
 01:09:34,840 --> 01:09:36,280
+这样操作系统稍后就可以看到，
 so the operating system later can see,
 
 884
 01:09:36,280 --> 01:09:39,940
+可以很容易地看到这个页面有写入。
 , oh, this actually page can easily see this page that's actually written to.
 
 885
 01:09:41,290 --> 01:09:47,700
+同样的，还有一个 A 位，表示访问，
 And similarly there is a A bit, that stands for access,
 
 886
 01:09:48,760 --> 01:09:54,520
+所以每当页面读取或写入，访问位会被设置。
 and so whenever pages either written or written either read or written the access bit will be set.
 
 887
 01:09:55,090 --> 01:09:58,540
+为什么知道这一点是有用的？
 And, and why is it useful to know?
 
 888
 01:10:07,430 --> 01:10:09,080
+这可以以哪种方式帮助内核？
 In one way, could that help the kernel?
 
 889
 01:10:09,730 --> 01:10:15,040
+嗯，那些还没被访问过的，你可以驱逐。
 Well, the ones that haven't been accessed, you can, you can evict right.
 
 890
 01:10:15,650 --> 01:10:19,580
+是的，你的意思是如果你想实施最近用过的，
 Yeah, what are you saying that if you want to implement these recently used,
 
 891
 01:10:20,280 --> 01:10:25,590
+如果你发现一个页面在一段时间内没有被访问过，
 if, if you find a page that basically hasn't been accessed in some period of time,
 
 892
 01:10:25,590 --> 01:10:27,390
+你知道它最近没有被使用过，
 you know it actually hasn't been recently used,
 
 893
 01:10:27,420 --> 01:10:29,190
+所以它是一个驱逐候选者，
 so it actually is a candidate for eviction,
 
 894
 01:10:29,460 --> 01:10:33,450
+而设置了访问位的页面，不是驱逐候选者。
 while the pages that have the access bit set are not really candidates for eviction.
 
 895
 01:10:34,990 --> 01:10:41,680
+所以， A 位通常用来实现这个 LRU 策略。
 So, A bit typically used where actually is typically used to implement this LRU strategy.
 
 896
 01:10:44,540 --> 01:10:53,540
+好的，但是你需要每隔一段时间重置访问位为未访问。
 Okay, but would you have to reset the access bits to not access every once in a while.
 
 897
 01:10:53,570 --> 01:10:56,480
+没错，这是操作系统会做的事情。
 Exactly, that's exactly what the typical operation system will do.
 
 898
 01:10:57,170 --> 01:10:59,510
+可能所有内存，
 And if they [] even maybe for all memory,
 
 899
 01:10:59,510 --> 01:11:02,480
+从内存中[清除]，
 they [sweep] for memory [],
 
 900
 01:11:02,480 --> 01:11:06,020
+著名的算法，称为时钟算法，就是这样做的一种方式。
 famous algorithm, which is called the clock algorithm that is one way of doing it.
 
 901
 01:11:10,810 --> 01:11:14,200
+为什么要设置它，为什么要重置。
 [] why would you need to set it, why would you to reset it.
 
 902
 01:11:14,740 --> 01:11:17,350
+如果你想知道我们的页面最近是什么时候使用的，
 Well, if you want to know when our pages recently used,
 
 903
 01:11:17,410 --> 01:11:20,380
+你需要做一个定期的决定，
 you need and you make a periodic decision,
 
 904
 01:11:20,800 --> 01:11:24,160
+然后比如每一百毫秒，或者其他时间，
 then say maybe every hundred milliseconds or whatever every seconds,
 
 905
 01:11:24,160 --> 01:11:25,960
+你清除访问位，
 you clear the access bit,
 
 906
 01:11:26,320 --> 01:11:28,780
+它在接下来的 100 毫秒内访问，
 yeah it gets access in the next hundred milliseconds,
 
 907
 01:11:28,780 --> 01:11:30,760
+你知道它在过去的 100 毫秒内使用的。
 you know it was used in the last hundred milliseconds.
 
 908
 01:11:32,730 --> 01:11:36,840
+那些没有设置访问位的页面，在最近的毫秒内没有使用过。
 And the pages that don't have the access bit set were not used in last in the milliseconds.
 
 909
 01:11:39,150 --> 01:11:42,120
+这样你就可以记录他们如何使用，
 And so then you can keep counters with how intentionally they used
 
 910
 01:11:42,120 --> 01:11:48,210
+特别是帮助我们实现。
 and what is and for really especially the [steppingstone] to [sophisticate] our implementation.
 
 911
 01:11:52,840 --> 01:11:53,800
+好的。
 Okay.
 
 912
 01:11:55,350 --> 01:11:58,500
+我想再谈一件事，
 I want to talk about one more used to,
 
 913
 01:11:59,310 --> 01:12:04,740
+最后一个，你也在一个实验中实现。
 the last one actually you also will be implementing in one of the labs.
 
 914
 01:12:05,440 --> 01:12:07,900
+这就是内存映射文件。
 And that is a memory mapped files.
 
 915
 01:12:21,140 --> 01:12:25,340
+想法是，我们有地址空间，
 The idea is that you know we're we have our address space,
 
 916
 01:12:25,760 --> 01:12:31,220
+我们想做的是加载将整个文件或部分文件到地址空间中，
 what we really want to do is basically be able to load the whole file or parts of the file into the address space,
 
 917
 01:12:31,370 --> 01:12:35,390
+这样我们就可以使用加载存储指令来操作文件的内容，
 so that we can just manipulate the content of the file using load store instructions,
 
 918
 01:12:36,650 --> 01:12:41,840
+你可以读或写。
 instead of read else you can write.
 
 919
 01:12:42,400 --> 01:12:43,840
+为了能够支持这一点，
 And to be able to support that,
 
 920
 01:12:43,840 --> 01:12:50,470
+在大多数现代操作系统中，提供一个系统调用 mmap ，
 you know a typical operating system where most modern operating systems called provide a system call mmap,
 
 921
 01:12:52,120 --> 01:13:01,770
+mmap 使用虚拟地址，虚拟地址长度，[保护]，标志位，
 and basically mmap takes a virtual address or pick some virtual address length, protection, flags,
 
 922
 01:13:02,420 --> 01:13:03,410
+我们要讨论的，
 we're going to talk about
 
 923
 01:13:03,710 --> 01:13:07,520
+然后是打开文件的文件描述符和偏移量。
 and then file descriptor of an open file and an offset.
 
 924
 01:13:08,960 --> 01:13:11,090
+也许你应该，
 Maybe [with] this's like you should
 
 925
 01:13:11,120 --> 01:13:16,460
+映射这个文件描述符到这个虚拟地址，如果这是寻址虚拟地址，
 map you know this file descriptor to this addressing a virtual address,
 
 926
 01:13:16,460 --> 01:13:21,380
+文件描述符从文件 f 中的偏移量开始，
 you know file descriptor starting from offset in the file f,
 
 927
 01:13:21,710 --> 01:13:25,490
+把它映射到虚拟地址 va 的地址。
 you know map that in at the address at the virtual address va.
 
 928
 01:13:26,420 --> 01:13:29,720
+做这个，我们有一些[保护]，读，写等。
 And do that we have some protection read, write etc.
 
 929
 01:13:30,830 --> 01:13:32,150
+我们假设是读写，
 So let's say is read write,
 
 930
 01:13:32,270 --> 01:13:39,980
+那么内核实现 mmap 的方法是，它目前实现mmap的方式，
 then you know the kernel when and so, the way it currently implements mmap is,
 
 931
 01:13:40,190 --> 01:13:43,730
+它急切地做，大多数系统都急切的做，
 it does eagerly, which is like most systems does do it eagerly,
 
 932
 01:13:43,940 --> 01:13:48,200
+复制，读取从偏移量开始的所有字节，
 basically copy, read all the bytes starting from offset,
 
 933
 01:13:48,410 --> 01:13:51,650
+加载从偏移量开始的字节到内存中，
 [] bytes starting from offset into memory,
 
 934
 01:13:51,770 --> 01:13:59,450
+设置 pte 指向物理内存的位置，
 sets up the ptes to point to the physical memory for blocks are located
 
 935
 01:13:59,660 --> 01:14:08,680
+从那时起，应用程序使用加载保存指令修改文件，
 and basically from then on the application use [], use load and store instructions to actually modify the file
 
 936
 01:14:08,830 --> 01:14:11,530
+当所有都完成后，
 and the maybe when they were all done,
 
 937
 01:14:11,770 --> 01:14:14,500
+会有一个对应的 unmap 调用，
 there's typically a corresponding unmap call,
 
 938
 01:14:14,860 --> 01:14:22,310
+和 len ，然后允许应用程序，我已经完成使用这个文件，
 that, and at length, then allows the application to say, OK I'm done with this particular file
 
 939
 01:14:22,370 --> 01:14:26,030
+在 unmap 的时候，需要把脏页写会。
 and at the point of unmap and we need to write back the dirty blocks.
 
 940
 01:14:32,190 --> 01:14:34,410
+我们可以很容易地找出哪些块是脏的，
 And we can easily figure out which blocks are dirty,
 
 941
 01:14:34,620 --> 01:14:37,680
+因为它们在 PTE 中设置了 D 位。
 because they have D bit set into pte.
 
 942
 01:14:38,660 --> 01:14:43,370
+现在，在任何内存或复杂的内存实现中，
 Now, of course in any memory or sophisticated memory implementation,
 
 943
 01:14:43,640 --> 01:14:45,500
+这些都是最近才做的，
 this is all done [lately],
 
 944
 01:14:45,500 --> 01:14:47,570
+你不是立即映射文件，
 you know you just don't map the file immediately,
 
 945
 01:14:47,780 --> 01:14:49,820
+你只要在某个地方保存一份记录，
 you just keep a record somewhere on the [],
 
 946
 01:14:49,820 --> 01:14:54,530
+比如，这个 pte 属于这个特定的文件描述符，
 saying like well you know this PTE really belongs to this particular file descriptor,
 
 947
 01:14:54,530 --> 01:14:57,140
+所有，在旁边有一些控制信息，
 so there's some information maintained on the side
 
 948
 01:14:57,140 --> 01:15:02,260
+通常在一个结构中 vma ，或虚拟内存区。
 which is typically called in a structure called the vma or the virtual memory area.
 
 949
 01:15:07,810 --> 01:15:10,210
+比如，对于此文件 f 有一个 vma ，
 For example, for this file f would be one vma
 
 950
 01:15:10,210 --> 01:15:14,320
+在 vma 中我们记录文件描述符、偏移量等，
 and in a vma we record the file descriptor the offset etc,
 
 951
 01:15:14,560 --> 01:15:17,950
+我们应该使用的内容在哪里，
 where the actual content that then we should live
 
 952
 01:15:17,950 --> 01:15:23,680
+当我们得到在 vma 中地址的页面错误时，
 and so when we get a page fault for a particular address that's in this vma,
 
 953
 01:15:23,740 --> 01:15:28,480
+然后我们可以离开，内核从磁盘读取它，加载到内存中。
 then we can go off and the kernel can read it from disk and bring it into memory.
 
 954
 01:15:30,340 --> 01:15:32,440
+回答早先的一个问题，
 And in response to an earlier question
 
 955
 01:15:32,440 --> 01:15:34,480
+这个脏页位很重要的原因之一是，
 is one of the reasons that this dirty bit is important,
 
 956
 01:15:34,480 --> 01:15:37,510
+因为 mmap 必须写回脏块。
 because as mmap, you have to write back the dirty blocks.
 
 957
 01:15:40,930 --> 01:15:41,770
+这个能理解吗？
 Does this make sense?
 
 958
 01:15:43,960 --> 01:15:45,100
+我有一个问题。
 I have a question.
 
 959
 01:15:46,510 --> 01:15:49,450
+也许这是一个普遍的问题，
 Maybe this is a more general issue,
 
 960
 01:15:49,450 --> 01:15:56,230
+比如说多个进程[]是否在内存映射辅助内存相同的文件，
 but could it ever be an issue of say multiple process [] are memory mapping the same file on secondary storage
 
 961
 01:15:56,290 --> 01:15:58,740
+然后同步。
 and then like [synchronization] is.
 
 962
 01:15:59,130 --> 01:16:03,300
+好问题，那么， Unix 中的语义是什么，
 Good question, so what is the semantics in Unix in general
 
 963
 01:16:03,300 --> 01:16:08,070
+比如，如果多个进程使用读取或写入系统调用读取或写入同一文件，会发生什么情况。
 like what happens if multiple processes read or write to the same file using read or write system calls.
 
 964
 01:16:18,930 --> 01:16:20,430
+你需要保证什么吗。
 Did you needs guarantee anything.
 
 965
 01:16:22,500 --> 01:16:23,700
+这是不确定的。
 It's undefined.
 
 966
 01:16:24,560 --> 01:16:28,730
+是的，写会以某种顺序出现，
 Yeah yeah there's like no the reason write will show up in some order
 
 967
 01:16:28,820 --> 01:16:30,590
+或者写入将以某种顺序出现，
 or the writes will show up in some order,
 
 968
 01:16:30,620 --> 01:16:34,240
+如果两个进程写入文件中的同一块，
 so if two process you write to the same block of the file,
 
 969
 01:16:34,330 --> 01:16:38,380
+可能是第一次写的，或第二次写的，其中之一。
 you know either the first process writes go or the second process writes go, one of two.
 
 970
 01:16:38,940 --> 01:16:40,530
+所以这里也是一样的东西，
 And so here's basically the same thing,
 
 971
 01:16:40,530 --> 01:16:42,120
+我们不需要保证什么。
 we don't really have to guarantee anything.
 
 972
 01:16:42,980 --> 01:16:47,210
+如果你想做一个更复杂的 Unix 操作系统支持文件锁，
 If you want to do a more sophisticated Unix operating system support file locking,
 
 973
 01:16:47,760 --> 01:16:51,840
+在那里你可以锁定文件，然后你就可以正确地同步，
 where you can lock files and then you can properly synchronize,
 
 974
 01:16:52,080 --> 01:16:57,100
+默认情况下，这里没有同步，或者在这一级没有同步。或者在此级别没有同步。
 by default, there's no synchronization, or no synchronization at this level.
 
 975
 01:17:01,880 --> 01:17:02,450
+能理解吗？
 That makes sense?
 
 976
 01:17:04,440 --> 01:17:07,470
+抱歉，长度是什么，标志位是什么。
 I'm sorry, what is length and what is flags.
 
 977
 01:17:07,830 --> 01:17:13,320
+长度是你要映射的文件以字节为单位的长度。
 Of [like] length is the length of the you know the area you want to map the file number of bytes.
 
 978
 01:17:13,890 --> 01:17:19,080
+标志读写 X ，标志当你映射是会看到，
 Flags read write X flags, you know you'll see that when you do a map,
 
 979
 01:17:19,080 --> 01:17:23,640
+我认为这与映射的区域是私有的还是共享的有关。
 I think this has to do with whether the area is mapped private or shared.
 
 980
 01:17:24,250 --> 01:17:28,450
+如果它被映射为共享，那么它可以在多个进程之间共享。
 If it's mapped shared and then it can be shared among multiple processes.
 
 981
 01:17:35,160 --> 01:17:36,450
+关于这个，还有什么问题吗？
 Any further questions about this?
 
 982
 01:17:41,540 --> 01:17:44,570
+如果某个其他进程修改了这个文件，
 If some other process modifies the file in this,
 
 983
 01:17:44,600 --> 01:17:47,750
+也就是说这个不会在这里体现出来，是吗。
 that means that this will not be reflected here, right.
 
 984
 01:17:48,470 --> 01:17:54,200
+没错，除非映射位共享的，那么你就应该体现这些变化。
 That's correct, unless I think if mapped shared, then you're supposed to reflect those changes.
 
 985
 01:17:55,030 --> 01:17:57,940
+好的，但之后它们将使用相同的文件描述符。
 Right, but then they would be using the same file descriptor.
 
 986
 01:18:01,240 --> 01:18:04,990
+我对 mmap 的确切语义不清楚，
 I'm hazy on the exact semantics of mmap,
 
 987
 01:18:04,990 --> 01:18:07,360
+当文件被分享的时候，那里会发生什么。
 when things are shared and what exactly happens there.
 
 988
 01:18:08,220 --> 01:18:10,770
+好的，我想，就像习语中的情况一样，
 Okay I guess so I guess in like the idiomatic case,
 
 989
 01:18:10,770 --> 01:18:14,070
+它们分享了，必须反映出来，
 and shared they would have to reflect it,
 
 990
 01:18:14,070 --> 01:18:20,820
+但是如果一个进程上打开完全相同的文件名，我想设置为分开的，
 but if a process just like actually open the same file name completely set separately I think,
 
 991
 01:18:21,540 --> 01:18:23,850
+它可以是不同步的，即使它是共享的。
 it could be a [un synced], even if it's shared.
 
 992
 01:18:31,040 --> 01:18:36,890
+好的，在文件系统实验之后，你会做内存映射文件。
 Okay, so, so this is after the file system lab, you actually do memory map files.
 
 993
 01:18:37,420 --> 01:18:40,510
+这是我们最后一次虚拟内存实验，
 And that will be our last virtual memory sort of lab,
 
 994
 01:18:40,540 --> 01:18:46,240
+除非你最后决定做更多虚拟内存功能或练习或者做任何你想做的事，
 unless you decide at the end to do more virtual memory features or exercises or whatever you wanna do,
 
 995
 01:18:46,660 --> 01:18:50,440
+用主要工作来结束这节课。
 you know the main job is to conclude this lecture.
 
 996
 01:18:51,100 --> 01:18:53,210
+这是总结。
 The, sort of summary.
 
 997
 01:18:56,000 --> 01:19:01,370
+我们了解了页表工作的很多细节。
 You know, we've lived in the past, in terms of great detail exactly how pagetables work.
 
 998
 01:19:03,050 --> 01:19:05,510
+我们做了几个实验，一个是页面的实验，
 We've done a couple labs, one lab of the pagetables,
 
 999
 01:19:05,510 --> 01:19:10,810
+我们看了 trap 和页面错误如何工作。
 we've looked a lot like how traps work, and you know page fault,
 
 1000
 01:19:11,170 --> 01:19:13,990
+如果你把这两者结合起来，
 and it turns out if you combine the two,
 
 1001
 01:19:16,250 --> 01:19:24,620
+现在你将实现非常强大和优雅的虚拟内存功能。
 now you're gonna implement very powerful and elegant virtual memory features.
 
 1002
 01:19:25,780 --> 01:19:27,580
+我列了一张清单，
 And you know went through a whole list of them,
 
 1003
 01:19:28,030 --> 01:19:31,990
+主要集中在那些将要实现的未来实验上，
 mostly focusing on the ones, that actually going to be implementing future lab,
 
 1004
 01:19:32,380 --> 01:19:34,810
+但是这只是一个子集，
 but you know this is only a subset,
 
 1005
 01:19:34,840 --> 01:19:41,840
+比如，一些操作系统实现了今天讨论的所有这些。
 for example of the ones that you know some operating systems implement the typical operating system to implement all the ones that actually discussed today.
 
 1006
 01:19:42,400 --> 01:19:44,170
+如果你看 Linux ，所有这些都（实现了）。
 If you look at Linux and as all of them.
 
 1007
 01:19:45,800 --> 01:19:47,900
+还有更多有趣的技巧，
 And many more interesting other tricks,
 
 1008
 01:19:47,960 --> 01:19:51,950
+但希望这能让你更好地感受虚拟内存的力量，
 but this hopefully gives you good sense, you know sort out the power of virtual memory,
 
 1009
 01:19:52,190 --> 01:19:56,240
+一旦你可以在页面错误处理程序中动态修改页表。
 once you dynamically can change the pagetables in the page fault handler.
 
 1010
 01:19:59,010 --> 01:20:01,410
+我想正好是在 25 ，
 I think there's exactly at 25,
 
 1011
 01:20:01,410 --> 01:20:03,180
+所以也许是结束的时间了，
 so maybe that's a good point to stop,
 
 1012
 01:20:03,180 --> 01:20:05,340
+但是如果你有任何问题，可以随意提问。
 but if you have any questions, feel free to ask them.
 
 1013
 01:20:08,250 --> 01:20:11,040
+如果没有，祝你顺利完成 trap 实验。
 If not, you know we should, good luck finishing the trap lab.
 
 1014
 01:20:11,870 --> 01:20:14,420
+我希望不会像往年那么痛苦，
 I hope it's not as painful as the year,
 
 1015
 01:20:15,510 --> 01:20:17,970
+不像页面实验那么难。
 we're not as hard as the pagetable lab.
 
 1016
 01:20:21,650 --> 01:20:23,390
+抱歉，我有另一个问题，
 Sorry I had another question,
 
 1017
 01:20:23,390 --> 01:20:25,940
+当你在上一张幻灯片中映射时，
 when you map in the previous slide,
 
 1018
 01:20:25,970 --> 01:20:30,650
+当你映射整个文件或将其放入内存时，
 when you map the whole file or when you put it into memory,
 
 1019
 01:20:30,770 --> 01:20:37,200
+如果发现它比长度还长，然后，会发生什么。
 and it turns out to be longer than length, then, what happens.
 
 1020
 01:20:37,680 --> 01:20:40,230
+抱歉，如果文件不能放入虚拟地址空间？
 Sorry if the file doesn't fit in the virtual address space?
 
 1021
 01:20:41,040 --> 01:20:47,490
+哦，我猜长度就是我们想要的文件大小。
 Oh I guess it was like length is how much of the file, we want.
 
 1022
 01:20:48,390 --> 01:20:54,630
+是的，长度，就像我们希望从偏移量 off 开始映射文件描述符的 10 个字节。
 Yes, so length, just like we want to map like ten bytes out of the file descriptor starting at offset off.
 
 1023
 01:20:55,580 --> 01:20:58,670
+哦，好的，如果文件长于（length），
 Oh, okay, okay, so if the file is longer than,
 
 1024
 01:20:58,670 --> 01:21:01,640
+我们不会把这它整个放入内存中。
 we're not gonna put all of it into memory.
 
 1025
 01:21:03,610 --> 01:21:05,320
+好的，我明白了，谢谢。
 Okay I see, thank you.
 
 1026
 01:21:08,500 --> 01:21:13,870
+我有个问题，我在驱逐页面上有个问题。
 I got a question, I've got a question on the evicting pages.
 
 1027
 01:21:15,300 --> 01:21:19,140
+我们在按需调页第二部分讨论了这个问题，
 So basically we talked about it after the demand paging part two,
 
 1028
 01:21:19,140 --> 01:21:21,000
+但是这是一个一般的程序吗，
 but is that a general procedure,
 
 1029
 01:21:21,000 --> 01:21:22,590
+我们会在这些技术中使用任何一种，
 we would use in any of these techniques,
 
 1030
 01:21:22,590 --> 01:21:24,930
+如果我们发现我们已经超越了物理边界。
 if we discover that we're out of physical boundary.
 
 1031
 01:21:24,960 --> 01:21:27,720
+是的，这只是常见的主要机制，
 Yeah that's just the common majorly mechanism,
 
 1032
 01:21:27,720 --> 01:21:30,210
+即使在懒分配中，
 like, so even in lazy allocation,
 
 1033
 01:21:30,210 --> 01:21:35,910
+我们在没有可供分配给页面的内存时运行，
 we run at the point where there's no memory available anymore to allocate to the page
 
 1034
 01:21:36,150 --> 01:21:38,490
+我们支持按需调页，
 and you know we support demand paging
 
 1035
 01:21:38,490 --> 01:21:42,180
+或者我们驱逐的任何东西，通常使用 LRU 。
 or whatever we evict you know some page you typically using LRU.
 
 1036
 01:21:43,440 --> 01:21:43,770
+好的。
 Okay.
 
 1037
 01:21:43,950 --> 01:21:46,590
+一种考虑的方式是，在稳定状态下，
 One way to think about is that in steady state,
 
 1038
 01:21:46,590 --> 01:21:51,930
+操作系统基本上在任何时候都在使用所有内存的情况下运行。
 the operating system basically runs with all memory in use at any time.
 
 1039
 01:21:52,520 --> 01:21:56,180
+希望使用所有内存，
 And want to use all memory
 
 1040
 01:21:56,690 --> 01:21:58,340
+所以当我们开始一些新的事情时，
 and so when we start something new,
 
 1041
 01:21:58,370 --> 01:21:59,840
+我们得腾出一些地方，
 you know we have to make some room
 
 1042
 01:21:59,900 --> 01:22:01,940
+而 LRU 就是这样做的一种方式。
 and LRU is basically a way to do it.
 
 1043
 01:22:03,290 --> 01:22:05,000
+好的，理解了，谢谢。
 Okay, makes sense, thank you.
 
