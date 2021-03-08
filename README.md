@@ -52,3 +52,7 @@
 - draft - 自定义的 [草稿字幕（.draft.srt）](https://github.com/mayf09/subtitle-tools/blob/develop/draft.srt.md) 文件
 
 - videos.txt - 课程视频链接
+
+## 参与制作
+
+制作字幕使用的 [工作流](https://github.com/mayf09/subtitle-tools/blob/develop/example/README.md) ，纯文本，支持校正时断句，避免手动调整时间轴。
