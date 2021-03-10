@@ -53,6 +53,8 @@
 
 - videos.txt - 课程视频链接
 
+- words.txt - 字幕中的常见单词
+
 ## 参与制作
 
 制作字幕使用的 [工作流](https://github.com/mayf09/subtitle-tools/blob/develop/example/README.md) ，纯文本，支持校正时断句，避免手动调整时间轴。
