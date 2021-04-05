@@ -1,0 +1,4252 @@
+1
+00:00:00,030 --> 00:00:02,040
+The lab compares to a the locking lab.
+
+2
+00:00:07,180 --> 00:00:08,440
+It was a bit more straightforward.
+
+3
+00:00:09,230 --> 00:00:13,250
+Good, are you completely, have you finished the lab, where you are.
+
+4
+00:00:15,320 --> 00:00:18,230
+I just started yesterday and a halfway, so.
+
+5
+00:00:18,350 --> 00:00:21,230
+Okay, good I guess that's good news for people who are starting,
+
+6
+00:00:21,620 --> 00:00:23,000
+anybody finished it yet.
+
+7
+00:00:24,960 --> 00:00:26,640
+I have, I finished it.
+
+8
+00:00:27,250 --> 00:00:30,880
+And any any nasty surprises are worked out reasonably well.
+
+9
+00:00:31,390 --> 00:00:35,480
+I think it worked out Okay, yeah.
+
+10
+00:00:37,870 --> 00:00:39,310
+Much easier than the lock lab.
+
+11
+00:00:40,200 --> 00:00:41,220
+I think so, at least.
+
+12
+00:00:42,120 --> 00:00:44,760
+Well, hopefully will be the case for everybody else too.
+
+13
+00:00:45,510 --> 00:00:49,710
+Yeah yeah, let me get started
+
+14
+00:00:50,010 --> 00:00:56,490
+and the topic I want to talk about today is virtual memory for user applications,
+
+15
+00:00:56,490 --> 00:01:05,560
+you know on a, sort of guided by this paper from 1991, by Appel and Li.
+
+16
+00:01:06,490 --> 00:01:11,080
+So the starting point basically is that, as you well know,
+
+17
+00:01:11,080 --> 00:01:20,900
+that the OS kernel use virtual memory page tables in creative ways.
+
+18
+00:01:26,680 --> 00:01:32,380
+You've seen that we have a lazy allocation lab, copy-on-write to lab,
+
+19
+00:01:32,380 --> 00:01:40,480
+as well as many other sort of features that you know implementation to or aspects of the implementation in the xv6,
+
+20
+00:01:40,480 --> 00:01:47,490
+so and basically the argument that the paper makes, the paper argues,
+
+21
+00:01:48,950 --> 00:01:53,540
+you know the user application should actually benefit to or should have the same powers,
+
+22
+00:01:53,570 --> 00:02:01,900
+you know, [] user apps can use VM too.
+
+23
+00:02:03,320 --> 00:02:08,060
+A little bit, I mean when I mean again, of course, your application running with virtual memory,
+
+24
+00:02:08,060 --> 00:02:14,240
+but I really mean with VM is that they would like to have the same mechanisms that kernel has
+
+25
+00:02:14,240 --> 00:02:17,240
+to its access user application where user modes,
+
+26
+00:02:17,240 --> 00:02:21,710
+application will be able to take page faults, and then you respond to those page faults,
+
+27
+00:02:21,710 --> 00:02:28,390
+you know be able to change the protection bits, or the privilege level to levels in the page table.
+
+28
+00:02:30,420 --> 00:02:37,020
+And so, in the paper argues this case by looking at a bunch of different applications.
+
+29
+00:02:38,650 --> 00:02:41,170
+like six or seven different types of applications
+
+30
+00:02:41,170 --> 00:02:48,070
+and maybe I will ask you like what was your favorite application, you encountered in the paper.
+
+31
+00:02:50,770 --> 00:02:53,320
+Anybody wanna chime in and plot [there].
+
+32
+00:03:00,260 --> 00:03:07,670
+They can allow the user application to decide that a page is going to be,
+
+33
+00:03:08,310 --> 00:03:13,200
+I guess they change the access bits for some particular page.
+
+34
+00:03:13,780 --> 00:03:15,190
+Yeah, that's one of the mechanisms,
+
+35
+00:03:15,190 --> 00:03:17,080
+I'm just curious, which applications,
+
+36
+00:03:17,080 --> 00:03:19,240
+you know they make the case with a bunch of different applications,
+
+37
+00:03:19,270 --> 00:03:25,370
+like the garbage collector or concurrent garbage collector,
+
+38
+00:03:26,210 --> 00:03:27,830
+and a couple other ones,
+
+39
+00:03:27,830 --> 00:03:30,650
+you know, just wondering which ones you thought were most interesting.
+
+40
+00:03:40,160 --> 00:03:44,480
+What other applications do they use or the used to make their case.
+
+41
+00:03:47,660 --> 00:03:50,450
+I thought the data compression application was pretty cool.
+
+42
+00:03:53,930 --> 00:03:59,820
+And the other [] were, people were compelled by.
+
+43
+00:04:04,780 --> 00:04:09,400
+I thought the sort of shared virtual memory between multiple different systems that was pretty cool,
+
+44
+00:04:09,400 --> 00:04:12,670
+I didn't, I don't think I fully understood how it worked,
+
+45
+00:04:12,670 --> 00:04:14,410
+but the general idea of using the protection bits
+
+46
+00:04:14,410 --> 00:04:18,370
+to make sure that different machines are are using that shared memory in the right way
+
+47
+00:04:18,370 --> 00:04:20,200
+and protecting invariance makes sense.
+
+48
+00:04:21,250 --> 00:04:31,090
+So, that's it, you know, basically it turns out that whole area developed in a way that one paper originally described the SVM,
+
+49
+00:04:32,320 --> 00:04:34,000
+developing a whole research area,
+
+50
+00:04:34,560 --> 00:04:39,660
+where you know people all kinds of clever tricks to try to make that actually yeah that scheme to fly.
+
+51
+00:04:40,620 --> 00:04:41,220
+Any others.
+
+52
+00:04:50,450 --> 00:04:53,150
+Because they go off and do a couple other paper applications
+
+53
+00:04:53,150 --> 00:04:57,710
+and they basically argue that you know if you look at all these different quite different applications
+
+54
+00:04:57,710 --> 00:05:00,680
+like shared virtual memory data compression to garbage collector,
+
+55
+00:05:00,680 --> 00:05:01,940
+you know very different in nature,
+
+56
+00:05:02,240 --> 00:05:08,690
+but it turns out that all of them actually rely on a small number of virtual memory primitives to actually make it work.
+
+57
+00:05:09,300 --> 00:05:12,330
+And so the first question to the paper address is
+
+58
+00:05:12,330 --> 00:05:15,090
+like Okay what what what should the primitives look like,
+
+59
+00:05:15,120 --> 00:05:20,870
+the user application needs if they want to implement one of those applications.
+
+60
+00:05:22,260 --> 00:05:24,180
+And so let me talk a little bit about that,
+
+61
+00:05:24,180 --> 00:05:25,470
+first you know what primitives is.
+
+62
+00:05:33,080 --> 00:05:42,050
+And so they are, the ones they the obvious one, of course you need something of a primitive, let's go what I call Trap,
+
+63
+00:05:42,350 --> 00:05:49,190
+basically to allow a page fault that happens sort of inside the kernel to be propagated up to user space.
+
+64
+00:05:50,120 --> 00:05:56,210
+And then in user space, you know and handler can then deal with its page fault
+
+65
+00:05:56,240 --> 00:05:59,390
+and then of course return in the usual way back to the kernel,
+
+66
+00:05:59,390 --> 00:06:00,980
+and then resume the instruction.
+
+67
+00:06:01,710 --> 00:06:03,780
+So clearly the primitive like that is necessary,
+
+68
+00:06:03,780 --> 00:06:07,200
+because otherwise you couldn't do anything in response to a page fault.
+
+69
+00:06:08,120 --> 00:06:12,320
+The other primitive you know they talk about this Prot1,
+
+70
+00:06:12,590 --> 00:06:19,860
+which decreases the accessibility of page,
+
+71
+00:06:19,860 --> 00:06:26,120
+they talk a lot about accessibility, or and what do you mean with accessibility.
+
+72
+00:06:30,660 --> 00:06:31,230
+Anybody?
+
+73
+00:06:33,920 --> 00:06:35,840
+Whether is read, write.
+
+74
+00:06:36,530 --> 00:06:42,770
+Yeah, yeah, so there's different ways in which you can decrease their accessibility,
+
+75
+00:06:42,770 --> 00:06:46,820
+you go from a page that maybe has read write, go to just read only,
+
+76
+00:06:47,240 --> 00:06:51,110
+or maybe you go from here, or read only to actually have no access at all.
+
+77
+00:06:55,670 --> 00:07:00,770
+They also proposed that basically there should be one for each individual page, that's Prot1,
+
+78
+00:07:00,860 --> 00:07:05,510
+there should be one that actually you can do for the application call for a collection of pages.
+
+79
+00:07:06,400 --> 00:07:12,850
+And so basically ProtN boils down in principle to calling Prot1 N times,
+
+80
+00:07:12,940 --> 00:07:20,050
+but why, why do they argue that we should have actually a ProtN version of this primitive too.
+
+81
+00:07:23,070 --> 00:07:27,960
+Is it because actually it's more efficient,
+
+82
+00:07:27,960 --> 00:07:34,350
+because the overhead of protecting the N pages is not much more than protecting one,
+
+83
+00:07:34,350 --> 00:07:40,600
+because, they talked about something like amortizing the work of.
+
+84
+00:07:42,670 --> 00:07:44,710
+Yeah yeah, absolutely right,
+
+85
+00:07:44,770 --> 00:07:46,540
+so basically if you do a Prot1,
+
+86
+00:07:46,570 --> 00:07:50,790
+basically you have to change the page table bits, and do some work,
+
+87
+00:07:50,970 --> 00:07:52,620
+and then at the end of that problem,
+
+88
+00:07:52,620 --> 00:07:55,380
+you typically want to have to flush the TLB,
+
+89
+00:07:55,380 --> 00:07:57,930
+remember this from xv6 implementation,
+
+90
+00:07:58,510 --> 00:08:00,970
+and flushing TLB is expensive
+
+91
+00:08:01,240 --> 00:08:06,580
+and it would be nice if you could amortize basically flushing TLB overall you know the page table changes.
+
+92
+00:08:07,130 --> 00:08:15,050
+So basically ProtN boils down to N times N times changing page table bits plus one TLB flush.
+
+93
+00:08:15,640 --> 00:08:17,200
+And if you did N times Prot1,
+
+94
+00:08:17,200 --> 00:08:24,280
+you would have a one page table switch plus one page to table modification plus one TLB flush from each page,
+
+95
+00:08:24,640 --> 00:08:26,680
+so you can save the TLB flush.
+
+96
+00:08:27,630 --> 00:08:28,440
+Does that make sense?
+
+97
+00:08:37,450 --> 00:08:47,420
+Okay, then you know the primitive Unprot, this increases accessibility as they call it,
+
+98
+00:08:49,940 --> 00:08:54,170
+basically meaning you know if page for example and have [watched] and read only access now,
+
+99
+00:08:54,170 --> 00:08:56,780
+we're just going to promote it to actually have read and write access.
+
+100
+00:08:57,480 --> 00:08:59,760
+There are two other primitives are mentioning,
+
+101
+00:08:59,760 --> 00:09:03,540
+one is primitive to actually find out which page when a page is dirty,
+
+102
+00:09:04,080 --> 00:09:07,770
+and another primitive Map2 which allows,
+
+103
+00:09:08,280 --> 00:09:17,730
+to allows an application to map a particular range twice in the same address page, the same address space,
+
+104
+00:09:17,910 --> 00:09:21,750
+but with a different degrees of accessibility.
+
+105
+00:09:22,540 --> 00:09:24,490
+We'll see that showing up in a second.
+
+106
+00:09:25,320 --> 00:09:30,600
+So you look at these primitives, you know xv6 support any of these,
+
+107
+00:09:32,490 --> 00:09:34,020
+you know for user level applications.
+
+108
+00:09:46,810 --> 00:09:52,120
+Not out of the box, but maybe the alarm handler that we implemented feels close.
+
+109
+00:09:52,270 --> 00:09:55,540
+Good yeah they keep the alarm handler in their mind,
+
+110
+00:09:55,540 --> 00:09:58,780
+that certainly feels very close correctly that is related to the Trap one,
+
+111
+00:10:02,480 --> 00:10:05,720
+but other than that there are xv6 support none of this right,
+
+112
+00:10:05,810 --> 00:10:08,780
+actually it's a very minimal Unix interface,
+
+113
+00:10:08,840 --> 00:10:14,330
+doesn't support any of the more advanced virtual minimal primitives,
+
+114
+00:10:14,420 --> 00:10:19,370
+even though internally the kernel itself does have all the mechanism available,
+
+115
+00:10:19,520 --> 00:10:23,750
+but you're not exposed to user space into a form of system calls.
+
+116
+00:10:24,180 --> 00:10:25,710
+As a result, the papers arguing that
+
+117
+00:10:26,010 --> 00:10:30,600
+any sort of good operating systems should provide you know these primitives are system calls,
+
+118
+00:10:30,600 --> 00:10:31,740
+so the application can use them.
+
+119
+00:10:32,530 --> 00:10:34,090
+So that naturally relates to the question,
+
+120
+00:10:34,090 --> 00:10:41,380
+like what what's the scope you know we've Unix today are available,
+
+121
+00:10:41,410 --> 00:10:46,390
+it turns out, basically you know any, look at modern Unix like Linux,
+
+122
+00:10:46,660 --> 00:10:48,820
+you know these primitives are there,
+
+123
+00:10:49,220 --> 00:10:54,590
+maybe not exactly the same flavor as argued in the paper, but they are there.
+
+124
+00:10:55,350 --> 00:10:56,820
+You even saw it in the paper, correct
+
+125
+00:10:56,820 --> 00:11:00,690
+or some of the operating system did have some version of a subset of them,
+
+126
+00:11:00,930 --> 00:11:04,380
+but today they basically widely supported.
+
+127
+00:11:04,820 --> 00:11:06,200
+If you look at Unix today.
+
+128
+00:11:07,080 --> 00:11:09,870
+Let's see how it actually there instantiate it.
+
+129
+00:11:12,410 --> 00:11:17,480
+And so one of the, first ones is probably the most important one is something that's just called mmap,
+
+130
+00:11:18,210 --> 00:11:25,020
+and that can be used to take some object and map it into the address space of the caller,
+
+131
+00:11:25,540 --> 00:11:27,850
+sort of example if you want to map a file.
+
+132
+00:11:30,160 --> 00:11:33,580
+You know, then you know the system calls something of the following form,
+
+133
+00:11:33,610 --> 00:11:41,480
+you call mmap, mmap actually has quite a bit of a building number of arguments,
+
+134
+00:11:41,870 --> 00:11:46,220
+the first basically says like whether you, you can specify a particular address,
+
+135
+00:11:46,220 --> 00:11:47,990
+or you would like it to be mapped to
+
+136
+00:11:48,050 --> 00:11:53,390
+or you can let the kernel decides to choose the address,
+
+137
+00:11:53,390 --> 00:11:59,360
+and in that case, you specified just know and kernel pick an address where to map,
+
+138
+00:11:59,390 --> 00:12:04,770
+you know the object, specify the length, you specify the protection bits,
+
+139
+00:12:04,770 --> 00:12:08,600
+you know, for example read slash write,
+
+140
+00:12:08,990 --> 00:12:12,320
+and then you know some argument, we want to talk about,
+
+141
+00:12:12,320 --> 00:12:14,180
+but there's something called math private,
+
+142
+00:12:14,210 --> 00:12:24,380
+basically you have to say something about how, what happens if you actually write to that particular object.
+
+143
+00:12:26,640 --> 00:12:28,440
+Let's skip that mostly,
+
+144
+00:12:28,500 --> 00:12:32,580
+then you can forget we can actually pass in the file descriptor in offset.
+
+145
+00:12:34,000 --> 00:12:39,580
+And basically what this says is that you know you should map the content of the file object,
+
+146
+00:12:39,610 --> 00:12:45,910
+pointed to by the file descriptor and you take the file comes to the object you know at offset,
+
+147
+00:12:46,030 --> 00:12:50,710
+map that basically, that particular a particular address from with that length.
+
+148
+00:12:51,510 --> 00:12:54,840
+And so this basically allows you to serve what is called memory map file,
+
+149
+00:12:55,020 --> 00:12:58,740
+so you can bring the contents of the file into your address space,
+
+150
+00:12:58,770 --> 00:13:02,910
+we've actually having to call read or write system calls.
+
+151
+00:13:03,400 --> 00:13:04,540
+It's sort of convenient correct,
+
+152
+00:13:04,540 --> 00:13:08,080
+because then you can manipulate the file just ordinary pointers,
+
+153
+00:13:08,080 --> 00:13:09,880
+you can write at particular locations
+
+154
+00:13:09,880 --> 00:13:14,510
+and then at some point you can write to come back to, to the disk
+
+155
+00:13:14,510 --> 00:13:18,110
+and so it is a convenient interface to a manipulate data structures,
+
+156
+00:13:18,110 --> 00:13:20,840
+that might be stored into might be stored in the file.
+
+157
+00:13:21,700 --> 00:13:27,670
+And in fact, you will be implementing this specific version of an mmap
+
+158
+00:13:27,670 --> 00:13:31,540
+or some version of the file based mmap actually in the next lab.
+
+159
+00:13:33,950 --> 00:13:37,520
+So this basically integrates you know the file system part of xv6,
+
+160
+00:13:37,520 --> 00:13:39,440
+you know virtual memory part of xv6
+
+161
+00:13:39,440 --> 00:13:42,950
+and you can sort of hook them up and by supplying by actually implementing mmap,
+
+162
+00:13:43,980 --> 00:13:46,620
+mmap can also be used in other ways,
+
+163
+00:13:46,620 --> 00:13:51,780
+so you can use the map file, you can also use it to map anonymous memory.
+
+164
+00:13:54,580 --> 00:13:56,830
+And that's basically sort of an alternative to sbrk
+
+165
+00:13:56,830 --> 00:14:01,030
+where you can sort of ask the kernel, please, you know give me a bunch of memory,
+
+166
+00:14:01,300 --> 00:14:05,080
+and you know map at this particular address.
+
+167
+00:14:07,480 --> 00:14:13,840
+So obviously one of the core system calls and related back to the primitives in the second.
+
+168
+00:14:16,570 --> 00:14:24,790
+Okay, there's a couple more calls that are necessary to actually support the primitives at the paper argued for
+
+169
+00:14:24,790 --> 00:14:26,680
+and Unix has has them,
+
+170
+00:14:26,680 --> 00:14:28,480
+so there's more Unix today,
+
+171
+00:14:30,200 --> 00:14:33,290
+there's an imperative system call.
+
+172
+00:14:34,800 --> 00:14:37,950
+So once you have something mapped into the address space,
+
+173
+00:14:38,370 --> 00:14:44,760
+you can actually you know change the the permissions,
+
+174
+00:14:44,910 --> 00:14:50,070
+so whatever you can make it just know and protect the particular match something into the address space,
+
+175
+00:14:50,070 --> 00:14:53,340
+then you go and protect for example for a subset of that part or all of it
+
+176
+00:14:53,580 --> 00:14:55,680
+and map it to particular protection level,
+
+177
+00:14:56,070 --> 00:14:57,270
+so for example if you did this,
+
+178
+00:14:57,270 --> 00:14:59,430
+basically loads could be executed,
+
+179
+00:14:59,760 --> 00:15:05,410
+but stores would you know change into, change into a page fault
+
+180
+00:15:05,800 --> 00:15:09,820
+and similarly if you want to make sure that range in address space is completely inaccessible,
+
+181
+00:15:09,820 --> 00:15:13,580
+now, you can, and protected with none
+
+182
+00:15:13,820 --> 00:15:22,160
+and you know basically then both, everything basically, every access to that particular page or to that address range
+
+183
+00:15:22,310 --> 00:15:24,680
+starting from address to address plus length,
+
+184
+00:15:24,740 --> 00:15:27,260
+will result in a page fault.
+
+185
+00:15:28,830 --> 00:15:34,350
+There's a similar [invention], there's a corresponding call to mmap called unmap,
+
+186
+00:15:34,590 --> 00:15:38,760
+that allows you to basically remove a mapping or move an address range.
+
+187
+00:15:43,620 --> 00:15:46,620
+And actually, if you curious you know exactly how these calls work,
+
+188
+00:15:46,620 --> 00:15:51,660
+you know you should look up the man page of these system calls.
+
+189
+00:15:52,580 --> 00:16:00,470
+And then finally you know the one that we really need is system call sigaction.
+
+190
+00:16:04,530 --> 00:16:06,330
+And basically this is a signal handler.
+
+191
+00:16:11,210 --> 00:16:16,250
+And allows the application to say like you know if a particular signal happens,
+
+192
+00:16:16,250 --> 00:16:18,440
+then you know call this particular function.
+
+193
+00:16:19,530 --> 00:16:24,930
+So maybe you can install basically function f as a signal handler for a particular signal.
+
+194
+00:16:25,510 --> 00:16:27,490
+And in the case of you know page faults,
+
+195
+00:16:27,490 --> 00:16:33,130
+you know the signal that is generated yeah something was called segfault.
+
+196
+00:16:36,740 --> 00:16:40,160
+Typically, you might have seen segfault in user code before,
+
+197
+00:16:40,160 --> 00:16:44,600
+you know typically what happens in the segfault is basically application stops and crashes,
+
+198
+00:16:44,870 --> 00:16:51,970
+but if the application had installed a handler for you know segfault event or segfault signal,
+
+199
+00:16:52,000 --> 00:16:57,580
+then instead of the application being stopped, the handler would have been called by the kernel,
+
+200
+00:16:57,580 --> 00:17:01,000
+and then the application can maybe respond to that particular segfault
+
+201
+00:17:01,000 --> 00:17:04,870
+in the same way in some sense that the kernel responds to a page fault
+
+202
+00:17:04,870 --> 00:17:10,460
+and maybe fixes up the page table so that you know the execution can continue
+
+203
+00:17:10,460 --> 00:17:16,460
+and in this case, maybe the handler will actually call and protect or change the permissions,
+
+204
+00:17:16,490 --> 00:17:19,220
+so that actually the instruction can resumed and continue.
+
+205
+00:17:21,010 --> 00:17:28,620
+And, so in this in fact you know you are the most familiar version that we were,
+
+206
+00:17:28,620 --> 00:17:32,340
+the things that we've seen like a sigaction much like sigalarm,
+
+207
+00:17:32,870 --> 00:17:35,600
+as Amir mentioned a little bit earlier,
+
+208
+00:17:35,600 --> 00:17:42,110
+in this sigalarm lab where you could install the alarm program,
+
+209
+00:17:42,110 --> 00:17:49,070
+basically installed a handler that will have to be called at every clock tick or every you know period of time,
+
+210
+00:17:49,430 --> 00:17:57,760
+and you know physically sigaction is sort of the equivalent that the general version of it where basically can respond to different types of signals.
+
+211
+00:17:59,170 --> 00:18:00,220
+Any questions about this.
+
+212
+00:18:02,780 --> 00:18:09,470
+It seems like mprotect implies that you can add different permission levels on individual addresses
+
+213
+00:18:09,500 --> 00:18:12,080
+whereas in like xv6 that we've been working with,
+
+214
+00:18:12,110 --> 00:18:14,660
+you can only apply permissions on full pages,
+
+215
+00:18:14,660 --> 00:18:17,360
+is that is that a difference, that's a present.
+
+216
+00:18:17,860 --> 00:18:22,750
+No, it's not real difference, you know works at a page level granularity.
+
+217
+00:18:24,400 --> 00:18:29,560
+And it doesn't expose you know there's a separate call to find out what the page page sizes,
+
+218
+00:18:29,620 --> 00:18:31,270
+if you actually curious about it.
+
+219
+00:18:33,630 --> 00:18:34,200
+Thank you.
+
+220
+00:18:35,440 --> 00:18:39,070
+Um, so if you think about the primitives that were in the paper,
+
+221
+00:18:39,070 --> 00:18:43,030
+you know we can map them correctly like what currently Unix or Unix typically provide.
+
+222
+00:18:43,030 --> 00:18:46,050
+So, what equivalent correct for trap,
+
+223
+00:18:46,080 --> 00:18:51,330
+you know that we're in Unix would be provided something called the sigaction sigaction call.
+
+224
+00:18:53,850 --> 00:19:00,180
+And about you know ProtN and Prot1 what is the equivalent to that.
+
+225
+00:19:06,680 --> 00:19:11,300
+Okay, so basically all three of them correctly can be implemented using mprotect.
+
+226
+00:19:14,550 --> 00:19:18,810
+And mprotect you know is flexible enough that you could do it by a single page
+
+227
+00:19:18,840 --> 00:19:24,090
+or actually just ask or you can actually provide something consists of multiple pages
+
+228
+00:19:24,090 --> 00:19:27,690
+and then you could do, you get the same benefit of one TLB flush,
+
+229
+00:19:27,780 --> 00:19:32,580
+for changing permissions on a whole series of pages.
+
+230
+00:19:34,300 --> 00:19:35,530
+Okay?
+
+231
+00:19:36,140 --> 00:19:39,080
+These calls are almost directly map into some of the primitives,
+
+232
+00:19:39,410 --> 00:19:43,490
+turns out that you know dirty, actually a little bit harder to do,
+
+233
+00:19:43,580 --> 00:19:47,420
+you know there's not a direct primitive for or system call for,
+
+234
+00:19:47,480 --> 00:19:51,110
+although you can sort of more or less get it done with some tricks.
+
+235
+00:19:51,290 --> 00:19:53,570
+And I'll talk a little bit later about Map2,
+
+236
+00:19:54,190 --> 00:19:57,340
+there's also not a way to do it,
+
+237
+00:19:57,340 --> 00:20:01,450
+but it's not completely you know sort of a system called just directly maps onto Map2,
+
+238
+00:20:01,720 --> 00:20:05,470
+it turns out that if you with multiple mmaps,
+
+239
+00:20:08,760 --> 00:20:14,210
+you can actually achieve this particular functionality too.
+
+240
+00:20:16,080 --> 00:20:16,650
+Okay?
+
+241
+00:20:16,980 --> 00:20:18,960
+So one way to think about this paper is
+
+242
+00:20:18,960 --> 00:20:23,430
+the kernel developers, you know maybe not totally driven by this paper,
+
+243
+00:20:23,430 --> 00:20:34,440
+but kernel developers, you know have extended you know these, we have provided these primitives actually to, you know today's user applications.
+
+244
+00:20:37,420 --> 00:20:41,020
+Okay, I want to say a few words about the implementation,
+
+245
+00:20:41,020 --> 00:20:43,840
+just a much more sketch level,
+
+246
+00:20:44,170 --> 00:20:50,050
+and then talk a little bit about you know the applications themselves
+
+247
+00:20:50,050 --> 00:20:52,360
+and see how they use these particular primitives.
+
+248
+00:21:00,700 --> 00:21:05,140
+Okay, so, let's talk about there's two aspects that are sort of interesting.
+
+249
+00:21:05,140 --> 00:21:09,730
+One is actually what actually happens inside the virtual memory system to actually support this.
+
+250
+00:21:14,620 --> 00:21:18,010
+I'm just going to sketch this out like what the most important pieces are
+
+251
+00:21:18,160 --> 00:21:24,340
+and in fact you know this is sort of a little bit relevant to mmap lab that is coming up,
+
+252
+00:21:24,370 --> 00:21:26,440
+because you're going to do something similar.
+
+253
+00:21:26,440 --> 00:21:34,090
+So address space, typically in Unix today is represented by you know, of course the hardware page table,
+
+254
+00:21:34,770 --> 00:21:36,510
+which contains the translations,
+
+255
+00:21:37,160 --> 00:21:45,380
+but typically it's augmented with a set of OS data structure, not related to any specific hardware design,
+
+256
+00:21:45,740 --> 00:21:59,550
+these are called virtual, virtual memory areas, in short, VMAs.
+
+257
+00:22:02,740 --> 00:22:12,550
+Basically, what VMA, what VMA represents is you know record some information about the contiguous range of addresses.
+
+258
+00:22:20,470 --> 00:22:22,420
+So if you think about an address space,
+
+259
+00:22:22,980 --> 00:22:26,310
+it might have a number of sections in the address space,
+
+260
+00:22:26,310 --> 00:22:28,140
+you know each [formula] contiguous ranging,
+
+261
+00:22:28,140 --> 00:22:31,110
+basically for each section that would be VMA.
+
+262
+00:22:31,760 --> 00:22:38,660
+And the VMA you know may also has all the same permissions through all the pages
+
+263
+00:22:38,660 --> 00:22:41,090
+in that arrange at the same permissions.
+
+264
+00:22:43,540 --> 00:22:46,360
+And they're backed by the same object.
+
+265
+00:22:55,010 --> 00:23:00,200
+For example, if you have a mmap map map, mmap file,
+
+266
+00:23:00,320 --> 00:23:08,660
+then, the be VMA for that file that describes whatever permissions for the file
+
+267
+00:23:08,780 --> 00:23:12,290
+as well as you know the information about the file itself,
+
+268
+00:23:12,290 --> 00:23:16,160
+the file descriptor, for example, that goes along with that particular VMA
+
+269
+00:23:16,460 --> 00:23:22,640
+and you know the offset in the file were that VMA corresponds to.
+
+270
+00:23:24,220 --> 00:23:27,220
+In fact you know in the lab upcoming lab,
+
+271
+00:23:27,220 --> 00:23:31,900
+you know you will implement a very simple version of VMA
+
+272
+00:23:31,900 --> 00:23:38,620
+and use that to actually implement mmap system call for files
+
+273
+00:23:38,620 --> 00:23:40,540
+where basically you can record in the VMA,
+
+274
+00:23:40,540 --> 00:23:46,900
+you are literally the file descriptor in the offset that corresponds to that particular mmap call, the range have been mapped.
+
+275
+00:23:49,460 --> 00:23:50,480
+Any questions about this?
+
+276
+00:23:56,900 --> 00:24:00,170
+Okay, so then the second piece you know sort of important
+
+277
+00:24:00,170 --> 00:24:03,500
+and then we have a little bit of experience with it's probably worthwhile,
+
+278
+00:24:03,500 --> 00:24:07,850
+you know going through is actually how trap or sigaction,
+
+279
+00:24:10,680 --> 00:24:14,250
+actually, the handler, how an actual trap will work.
+
+280
+00:24:16,900 --> 00:24:18,760
+Actually, you'll be more careful.
+
+281
+00:24:21,190 --> 00:24:24,750
+So we have a user level traps are implemented.
+
+282
+00:24:27,320 --> 00:24:36,140
+And this follows very, it follows very much you know the same outline as actually the sigalarm system call
+
+283
+00:24:36,140 --> 00:24:43,690
+and then the up call that happened when a clock tick, actually passed the time limit.
+
+284
+00:24:44,360 --> 00:24:48,530
+And so the sort of setting here is not not you know clock ticks but page tables,
+
+285
+00:24:48,530 --> 00:24:52,160
+so let's assume there's some PTE that
+
+286
+00:24:52,160 --> 00:25:01,540
+has that marked you know you're invalid or maybe it's not read only and you're actually stored to it
+
+287
+00:25:01,570 --> 00:25:10,570
+and so what happens when the application accesses that PTE that actually is basically invalid or doesn't result in a valid translation.
+
+288
+00:25:10,660 --> 00:25:16,050
+Well as we know then the CPU, jumps into kernel mode,
+
+289
+00:25:20,290 --> 00:25:22,870
+jumps into the kernel at a fixed address,
+
+290
+00:25:22,870 --> 00:25:26,740
+you know you know look at the think the trampoline code,
+
+291
+00:25:26,740 --> 00:25:32,230
+the kernel save state, so, for example save to trapframe,
+
+292
+00:25:35,350 --> 00:25:39,190
+then basically asks, you know the VM system.
+
+293
+00:25:40,820 --> 00:25:45,110
+And what now, what to do.
+
+294
+00:25:47,430 --> 00:25:49,950
+And the VM system might do something so gently
+
+295
+00:25:49,950 --> 00:25:55,050
+and in case if this happened in the lazy lab and in the copy-on-write lab
+
+296
+00:25:55,110 --> 00:26:00,600
+where you know your trap handler code, you know sort of looks at the page table data structures,
+
+297
+00:26:00,600 --> 00:26:02,670
+in this case, resume will look at the VMAs,
+
+298
+00:26:03,120 --> 00:26:10,410
+and you see what the scope is just to address that were where the processor folded on
+
+299
+00:26:10,560 --> 00:26:12,720
+and see what needs to be done
+
+300
+00:26:12,720 --> 00:26:14,760
+and so for example if it is a segfault
+
+301
+00:26:14,760 --> 00:26:19,020
+and application has installed a handler to deal with it,
+
+302
+00:26:19,020 --> 00:26:25,170
+then basically that up call or a handler of the event would be propagated to user space.
+
+303
+00:26:25,760 --> 00:26:28,700
+And so basically let's say there was a handler installed,
+
+304
+00:26:28,700 --> 00:26:33,080
+then basically we're gonna get up call to into user space,
+
+305
+00:26:35,880 --> 00:26:39,390
+in the same way as in the sigalarm lab,
+
+306
+00:26:39,540 --> 00:26:44,640
+you know that will run you know the handler in user space,
+
+307
+00:26:44,640 --> 00:26:49,410
+the handler you might call you know mprotect you know to change the protections.
+
+308
+00:26:52,540 --> 00:26:56,950
+And, then the handler returns to user handler returns to kernel code,
+
+309
+00:27:00,290 --> 00:27:01,280
+there's a kernel,
+
+310
+00:27:03,920 --> 00:27:05,690
+and then the kernel basically resumes,
+
+311
+00:27:07,660 --> 00:27:10,330
+you know they interrupted process.
+
+312
+00:27:15,180 --> 00:27:20,160
+Okay, and you have to if the, when the kernel resumes that interrupt the process,
+
+313
+00:27:20,160 --> 00:27:25,890
+you know if example the handler fixed up sort of the address space of the user program,
+
+314
+00:27:25,920 --> 00:27:28,770
+then they might actually instruction might use execute correctly
+
+315
+00:27:28,800 --> 00:27:33,510
+or if something is wrong, maybe trap back into the kernel right away again,
+
+316
+00:27:33,510 --> 00:27:34,350
+if you know the.
+
+317
+00:27:36,820 --> 00:27:41,050
+If the the hardware still can't translate that particular virtual address.
+
+318
+00:27:42,920 --> 00:27:43,730
+Does this make sense?
+
+319
+00:27:45,890 --> 00:27:52,030
+Maybe there's, remember again, the sigalarm lab and then this would be quite familiar.
+
+320
+00:27:53,660 --> 00:27:55,160
+Yeah, I have a question.
+
+321
+00:27:57,140 --> 00:28:06,260
+What kind of, I think when we're allowing the user to effectively run a handler code on a page fault,
+
+322
+00:28:06,380 --> 00:28:10,670
+aren't there additional security vulnerabilities that could result as a part of this,
+
+323
+00:28:10,670 --> 00:28:12,560
+so I was wondering if it could speak to that.
+
+324
+00:28:12,560 --> 00:28:13,970
+Yeah, it's a great question,
+
+325
+00:28:14,360 --> 00:28:21,670
+by the way can you like maybe everybody turn on their cameras to [], if possible,
+
+326
+00:28:21,700 --> 00:28:24,160
+if you're comfortable doing that I really appreciate it.
+
+327
+00:28:24,160 --> 00:28:27,100
+I think many students in the class will appreciate it too.
+
+328
+00:28:27,760 --> 00:28:36,900
+Yeah, so yeah there's a security issue, the first, what do people think,
+
+329
+00:28:38,230 --> 00:28:43,060
+does this break user kernel, or you know the isolation between different processes.
+
+330
+00:28:49,340 --> 00:28:52,970
+Another way asking the question did sigalarm break, you know isolation.
+
+331
+00:29:00,080 --> 00:29:01,730
+Would it be okay,
+
+332
+00:29:01,730 --> 00:29:11,820
+because the, that that code that the handler would still have access to the same virtual memory,
+
+333
+00:29:11,820 --> 00:29:16,560
+I mean if there are different virtual memories for the process and for like for each of the processes,
+
+334
+00:29:16,560 --> 00:29:23,190
+then that handler should be able to look into other process's memory, that would be okay.
+
+335
+00:29:23,430 --> 00:29:25,620
+Yeah, sure when we do the upcall correct,
+
+336
+00:29:25,620 --> 00:29:29,370
+we're up, make the upcall that specific user space that actually installed the handler,
+
+337
+00:29:30,300 --> 00:29:32,550
+so the handler basically runs in the same context,
+
+338
+00:29:32,550 --> 00:29:37,500
+as runs with the same page table as the application that installed the handler
+
+339
+00:29:37,920 --> 00:29:41,220
+and so the only thing it really can do is you know affect that application,
+
+340
+00:29:41,220 --> 00:29:46,020
+but you know that's the application problem can really affect anybody any other application,
+
+341
+00:29:46,020 --> 00:29:53,620
+because it doesn't have any access to the other applications to page tables, can force switch into them.
+
+342
+00:29:55,190 --> 00:29:56,510
+So this turns out to be fine,
+
+343
+00:29:56,570 --> 00:29:58,970
+of course if the handler doesn't return or does something bad,
+
+344
+00:29:58,970 --> 00:30:01,670
+in the end, the kernel just kill, can always kill the process,
+
+345
+00:30:02,330 --> 00:30:08,630
+so nothing really, you know the only thing that can go bad is you know the process can hurt itself,
+
+346
+00:30:08,750 --> 00:30:10,640
+but it can't hurt any other processes.
+
+347
+00:30:13,080 --> 00:30:14,130
+Amir, does that make sense?
+
+348
+00:30:16,390 --> 00:30:17,920
+Yes, thank you.
+
+349
+00:30:18,940 --> 00:30:24,080
+Okay, so now I want to go through a couple examples.
+
+350
+00:30:24,770 --> 00:30:26,330
+And so to see how you could use it
+
+351
+00:30:26,360 --> 00:30:30,710
+and I'll start out with very simple example to get ourselves into it
+
+352
+00:30:30,710 --> 00:30:32,990
+and then we'll move to the garbage collector,
+
+353
+00:30:33,230 --> 00:30:35,540
+because lots of people ask questions about the garbage collector,
+
+354
+00:30:35,540 --> 00:30:37,730
+so that seems like a good one to dive into.
+
+355
+00:30:40,000 --> 00:30:44,470
+Okay, the first example I want to talk about trivial idea,
+
+356
+00:30:44,500 --> 00:30:47,920
+but you know, in fact there's not even mentioned in the paper,
+
+357
+00:30:48,540 --> 00:30:55,410
+but it is a sort of a cool way of illustrating you know the power that applications get
+
+358
+00:30:55,410 --> 00:30:58,050
+if they actually have these primitives available to them.
+
+359
+00:30:58,720 --> 00:31:07,970
+And the basic idea is to actually build a huge you know memorization table.
+
+360
+00:31:11,040 --> 00:31:13,290
+And the memorization table is basically what it does
+
+361
+00:31:13,290 --> 00:31:16,350
+it just remember you know the result of some computation.
+
+362
+00:31:16,980 --> 00:31:18,780
+And so, for example you can think about in the following way,
+
+363
+00:31:18,780 --> 00:31:20,340
+let's say we're here's our table,
+
+364
+00:31:21,260 --> 00:31:24,860
+and you know table start to get whatever zero to some n
+
+365
+00:31:25,220 --> 00:31:31,730
+and what the table stores is a the result of running some expensive function,
+
+366
+00:31:33,600 --> 00:31:37,050
+for that argument zero or for whatever f(n).
+
+367
+00:31:38,370 --> 00:31:42,060
+So if you wanted to, you know if this table were sort of pre computed,
+
+368
+00:31:42,090 --> 00:31:43,830
+it wants in the beginning of time
+
+369
+00:31:44,160 --> 00:31:49,080
+and then you wanted to look up like you wanted to know what value for f(i) was,
+
+370
+00:31:49,110 --> 00:31:52,900
+well what you do is you just look up in the table,
+
+371
+00:31:53,700 --> 00:31:55,320
+you know in the slot i
+
+372
+00:31:55,440 --> 00:32:00,780
+and basically you get the the value that if i would have computed.
+
+373
+00:32:01,470 --> 00:32:04,830
+And so this would return maybe an expensive computation,
+
+374
+00:32:04,860 --> 00:32:09,360
+maybe f is very expensive, into a basically table lookup,
+
+375
+00:32:10,050 --> 00:32:16,500
+sort of a cool trick you to basically store the results for pre computers
+
+376
+00:32:16,500 --> 00:32:19,110
+and store the results of an expensive computation,
+
+377
+00:32:19,260 --> 00:32:22,110
+and if that's the same computation is actually many many times,
+
+378
+00:32:22,260 --> 00:32:28,380
+then you know pre computer good ones you might be an advantage to a smart thing to do.
+
+379
+00:32:30,620 --> 00:32:32,000
+Does that setup makes sense?
+
+380
+00:32:33,740 --> 00:32:39,620
+Okay, so then the issue, yeah you, of course is that the table or the challenge,
+
+381
+00:32:43,040 --> 00:32:50,140
+the table might be big, might be actually, in fact very big,
+
+382
+00:32:50,140 --> 00:32:52,150
+it might be bigger than maybe your physical memory,
+
+383
+00:32:56,060 --> 00:32:57,500
+but it's still nice to have it.
+
+384
+00:32:58,210 --> 00:33:05,570
+So the solution, one solution you know that you could, used to solve this problem is
+
+385
+00:33:05,570 --> 00:33:10,930
+to basically use the virtual memory primitives as described in the paper.
+
+386
+00:33:12,550 --> 00:33:13,720
+Primitives.
+
+387
+00:33:16,810 --> 00:33:20,230
+And what you do is you know first of all you allocate a huge range,
+
+388
+00:33:26,200 --> 00:33:30,940
+but don't really map, you don't actually allocate any physical memory corresponding to that range
+
+389
+00:33:30,940 --> 00:33:32,800
+[to] use part of your address space,
+
+390
+00:33:33,070 --> 00:33:36,370
+then say I'm going to use that part of my address space, you've got to store the table.
+
+391
+00:33:37,520 --> 00:33:44,270
+And then, on a, page, the, there's no content in the table,
+
+392
+00:33:44,270 --> 00:33:45,740
+[there is] address ranges exist,
+
+393
+00:33:45,980 --> 00:33:48,650
+so if you do a table lookup, like table i,
+
+394
+00:33:49,600 --> 00:33:51,910
+you know that will result into a page fault.
+
+395
+00:33:56,000 --> 00:33:58,040
+And so this plan is on the page fault,
+
+396
+00:33:58,040 --> 00:33:59,930
+you know, you compute all the entries
+
+397
+00:33:59,930 --> 00:34:04,580
+or you know all the page basically covers a bunch of entries in the table,
+
+398
+00:34:04,760 --> 00:34:08,970
+if we reach one of them you're basically you compute function f(i),
+
+399
+00:34:09,630 --> 00:34:12,030
+store it in the slot table i,
+
+400
+00:34:13,000 --> 00:34:18,010
+and then basically resume you know the application right now, the,
+
+401
+00:34:18,900 --> 00:34:23,400
+of course the map the physical page you know so basically take the page fault,
+
+402
+00:34:23,670 --> 00:34:30,980
+you allocate page, and may restore in that page,
+
+403
+00:34:31,010 --> 00:34:34,850
+as a result of f(i) for all the slots in the page.
+
+404
+00:34:36,760 --> 00:34:38,200
+And the advantage of it is correct,
+
+405
+00:34:38,200 --> 00:34:43,090
+if you know a couple of advantages if you have to ever compute f(i) again,
+
+406
+00:34:43,300 --> 00:34:45,700
+you know you're going to actually do the table lookup
+
+407
+00:34:45,700 --> 00:34:48,430
+and you don't actually have to do any expensive computation just with [],
+
+408
+00:34:48,700 --> 00:34:51,400
+in fact, you know even if you do a table i plus one,
+
+409
+00:34:51,400 --> 00:34:55,300
+like there's gonna be a bunch of entries in the in that particular page,
+
+410
+00:34:55,390 --> 00:34:58,360
+they're all basically can now be free, you know just table lookups.
+
+411
+00:34:59,220 --> 00:35:01,050
+Of course, you keep doing this,
+
+412
+00:35:01,170 --> 00:35:03,660
+then you're going to consume all physical memory,
+
+413
+00:35:03,660 --> 00:35:07,740
+and so you know the page fault handler also has to throw out some pages,
+
+414
+00:35:07,740 --> 00:35:09,420
+if you're running out of memory,
+
+415
+00:35:09,420 --> 00:35:17,700
+so you know if much memories in use, use,
+
+416
+00:35:18,510 --> 00:35:20,250
+free some of them, free some pages.
+
+417
+00:35:23,500 --> 00:35:26,380
+And of course then you have to change, change the protection level
+
+418
+00:35:26,830 --> 00:35:30,460
+to make sure that you're going to get in the future page fault for those entries.
+
+419
+00:35:31,060 --> 00:35:41,280
+So you have to presumably call you know Prot1 or ProtN to reduce the accessibility of the page and the terminology of the paper.
+
+420
+00:35:42,530 --> 00:35:44,690
+Does this make sense, that's sort of a plan.
+
+421
+00:35:49,330 --> 00:35:50,620
+Okay.
+
+422
+00:35:51,180 --> 00:35:59,340
+Yeah, you would need to map it would need to request from the operating system to map it to a particular address, right,
+
+423
+00:35:59,610 --> 00:36:01,800
+because it can go anywhere okay.
+
+424
+00:36:01,920 --> 00:36:03,030
+Yeah we're going to be anywhere,
+
+425
+00:36:03,030 --> 00:36:05,670
+as long as you know the operation tell where it actually is.
+
+426
+00:36:07,570 --> 00:36:08,230
+Okay.
+
+427
+00:36:08,740 --> 00:36:10,300
+Maybe to make a little bit more concrete,
+
+428
+00:36:10,300 --> 00:36:12,490
+actually I have a little implementation of this plan.
+
+429
+00:36:13,070 --> 00:36:14,540
+And we can just look at it
+
+430
+00:36:14,570 --> 00:36:21,860
+and see what are, you know, how do you actually do that using the existing you know Unix primitives.
+
+431
+00:36:24,190 --> 00:36:24,850
+Let me.
+
+432
+00:36:32,190 --> 00:36:32,970
+Okay.
+
+433
+00:36:36,500 --> 00:36:42,690
+Can everybody see the Emacs buffer, is the font large enough.
+
+434
+00:36:47,040 --> 00:36:48,540
+I assume that as a yes.
+
+435
+00:36:49,200 --> 00:36:51,780
+So here's the application,
+
+436
+00:36:52,140 --> 00:36:53,700
+let me go to the bottom.
+
+437
+00:36:54,220 --> 00:36:58,930
+So here's main, main basically setup_sqrt_region,
+
+438
+00:36:58,960 --> 00:37:05,650
+basically allocates address space, but doesn't really allocate the physical pages belonging to it.
+
+439
+00:37:06,390 --> 00:37:11,910
+And then it calls this function test_sqrt_region to basically go through that table in a random order,
+
+440
+00:37:12,470 --> 00:37:18,440
+and you know basically checks whether the square root entry in the table for that position
+
+441
+00:37:18,560 --> 00:37:23,480
+is indeed the correct square root value by just computing it literally before that.
+
+442
+00:37:24,010 --> 00:37:24,640
+Okay?
+
+443
+00:37:25,270 --> 00:37:28,030
+So basically test_sqrt_region is going to run
+
+444
+00:37:28,030 --> 00:37:29,920
+and it's going to presumably generate page fault,
+
+445
+00:37:29,920 --> 00:37:32,770
+because none of the tables actually filled in so far.
+
+446
+00:37:33,960 --> 00:37:36,720
+So how does it, how do we get those page faults,
+
+447
+00:37:36,720 --> 00:37:40,290
+well here's the, sort of the fragment of code,
+
+448
+00:37:40,290 --> 00:37:45,120
+that you need to basically install a handler a signal handler for a particular event,
+
+449
+00:37:45,420 --> 00:37:53,760
+we were basically saying here install for a SIG-, you know the SIGSEGV event, the handler SIGSEGV,
+
+450
+00:37:54,180 --> 00:37:58,110
+and so when a segfault happens, when a page fault happens,
+
+451
+00:37:58,200 --> 00:38:02,640
+basically the function, the kernel will call sig handles SIGSEGV
+
+452
+00:38:03,030 --> 00:38:06,390
+and basically you can extract, the faulting address,
+
+453
+00:38:06,390 --> 00:38:10,500
+you know this looks very similar to your trap code, you've seen many many times before.
+
+454
+00:38:11,060 --> 00:38:13,820
+And basically the plan is very straightforward,
+
+455
+00:38:14,210 --> 00:38:17,930
+we map a page at that particular address,
+
+456
+00:38:17,990 --> 00:38:21,530
+you know because that's the address that we want to fill in,
+
+457
+00:38:21,890 --> 00:38:28,480
+we have to, so my expensive function here or the, the replacement for the expensive function
+
+458
+00:38:28,480 --> 00:38:31,150
+or the role of expensive function is the square root function,
+
+459
+00:38:31,330 --> 00:38:36,370
+and so we want to basically fill in you know the square root of whatever value,
+
+460
+00:38:36,370 --> 00:38:39,190
+it has to be there at that particular location in the table.
+
+461
+00:38:39,730 --> 00:38:43,150
+So we allocate a page and and map it there
+
+462
+00:38:43,450 --> 00:38:47,800
+and then we calculate for that page all the square root entries,
+
+463
+00:38:48,280 --> 00:38:49,480
+and then we're done
+
+464
+00:38:49,720 --> 00:38:52,150
+and this this application is a little bit extreme,
+
+465
+00:38:52,390 --> 00:38:57,100
+what I did is basically I run this table with only one physical page allocated,
+
+466
+00:38:57,100 --> 00:38:59,110
+so whatever the last page was,
+
+467
+00:38:59,140 --> 00:39:02,350
+would just release it by unmapping it.
+
+468
+00:39:03,050 --> 00:39:04,910
+And so we have a gigantic table,
+
+469
+00:39:05,000 --> 00:39:08,450
+that's basically represented it by one physical page.
+
+470
+00:39:09,470 --> 00:39:11,630
+And we can just run, you know we wanted to,
+
+471
+00:39:11,630 --> 00:39:12,710
+we could run this application,
+
+472
+00:39:12,710 --> 00:39:18,230
+it's not gonna be that particular exciting, why not.
+
+473
+00:39:19,520 --> 00:39:26,910
+So, compiled it, you know and basically go through and randomly bounces around in a table,
+
+474
+00:39:26,910 --> 00:39:30,630
+presumably causing a lot of different page faults in all the entries,
+
+475
+00:39:30,630 --> 00:39:31,680
+you know actually work out
+
+476
+00:39:31,740 --> 00:39:35,610
+and so even though there's gigantic it was square root page table,
+
+477
+00:39:35,700 --> 00:39:38,700
+table, virtual square root table,
+
+478
+00:39:38,700 --> 00:39:42,300
+the actually physical representation of that table just consist of a single page.
+
+479
+00:39:43,180 --> 00:39:46,660
+And this sort of example of, one of the very simple example,
+
+480
+00:39:46,660 --> 00:39:48,430
+of one of the cool things you can do,
+
+481
+00:39:48,580 --> 00:39:53,470
+if these virtual memory [payments] available to user applications.
+
+482
+00:39:56,430 --> 00:39:57,750
+Any questions about this?
+
+483
+00:39:58,790 --> 00:40:02,630
+Could you just quickly go over that last point,
+
+484
+00:40:02,930 --> 00:40:04,610
+on why there's only one physical page,
+
+485
+00:40:04,610 --> 00:40:09,320
+I guess I was thinking during it like oh this sounds similar to lazy allocation,
+
+486
+00:40:09,320 --> 00:40:11,990
+why, why is it different and I think that answered my question,
+
+487
+00:40:11,990 --> 00:40:14,540
+but I I didn't quite follow, why we ended up.
+
+488
+00:40:15,240 --> 00:40:16,260
+Okay, the reason,
+
+489
+00:40:16,260 --> 00:40:20,550
+okay, so when we start when we set it up, we have no pages,
+
+490
+00:40:21,210 --> 00:40:25,320
+setup square root region actually allocates address space,
+
+491
+00:40:25,350 --> 00:40:30,270
+but then unmap all the physical memory associated with that address immediately.
+
+492
+00:40:30,940 --> 00:40:34,990
+So the point of startup, there's no physical pages allocated to this particular table.
+
+493
+00:40:35,690 --> 00:40:36,410
+Does that make sense?
+
+494
+00:40:39,160 --> 00:40:39,610
+Yeah.
+
+495
+00:40:40,030 --> 00:40:42,010
+Okay, then we get, when we get a page fault,
+
+496
+00:40:42,600 --> 00:40:46,020
+that means there's like one page out of the whole table, that we have not map,
+
+497
+00:40:46,020 --> 00:40:47,400
+we have map no pages,
+
+498
+00:40:47,550 --> 00:40:50,190
+but we're gonna page fault, now we're gonna map one page,
+
+499
+00:40:50,920 --> 00:40:56,470
+and in that one page, we're going to fill in whatever you know the square root of i, i plus one, i plus whatever,
+
+500
+00:40:56,470 --> 00:40:58,180
+just gonna afford that particular page.
+
+501
+00:40:59,960 --> 00:41:02,180
+And then, if we had a page map,
+
+502
+00:41:02,300 --> 00:41:04,280
+which in this case the first time around, we didn't,
+
+503
+00:41:04,670 --> 00:41:05,930
+there's nothing to be done.
+
+504
+00:41:06,880 --> 00:41:12,760
+So now the application runs, you know and look up some more entries page in the square root table
+
+505
+00:41:12,820 --> 00:41:15,490
+and you get another page table for another page fault,
+
+506
+00:41:15,580 --> 00:41:19,570
+because it was looking up a square root entry that actually is not on the allocated page.
+
+507
+00:41:20,080 --> 00:41:20,590
+Okay?
+
+508
+00:41:21,100 --> 00:41:22,810
+So that point we get another page fault,
+
+509
+00:41:23,420 --> 00:41:25,730
+and then we allocate a second page,
+
+510
+00:41:25,910 --> 00:41:29,780
+we calculate the square roots, you know for that particular page,
+
+511
+00:41:29,990 --> 00:41:32,000
+and then we unmap the last page.
+
+512
+00:41:33,500 --> 00:41:35,390
+These is of course like practice you would never do this,
+
+513
+00:41:35,570 --> 00:41:39,350
+in practice you would try to keep a working set of set of pages or something like that,
+
+514
+00:41:39,650 --> 00:41:42,470
+but just to show that you can go pretty extreme,
+
+515
+00:41:42,470 --> 00:41:47,120
+that you can represent like huge page, huge table with a single page of memory,
+
+516
+00:41:47,180 --> 00:41:51,680
+this particular fragment of code unmaps that last one but last page,
+
+517
+00:41:52,900 --> 00:41:53,650
+and it keeps running.
+
+518
+00:41:53,980 --> 00:41:57,340
+So, any point instance, at any point of time,
+
+519
+00:41:57,370 --> 00:41:59,560
+there's only one physical page being used.
+
+520
+00:42:02,880 --> 00:42:04,710
+Does that answer your question?
+
+521
+00:42:06,800 --> 00:42:07,850
+Yeah, I think so, thank you.
+
+522
+00:42:08,300 --> 00:42:09,020
+Okay good.
+
+523
+00:42:09,810 --> 00:42:11,820
+It's just like, it's more like,
+
+524
+00:42:12,600 --> 00:42:14,280
+this is clearly not something you would do in practice,
+
+525
+00:42:14,280 --> 00:42:17,820
+maybe there's more to show you know the power of the primitives,
+
+526
+00:42:17,820 --> 00:42:21,510
+you know that you can represent the gigantic table using one single physical page.
+
+527
+00:42:24,690 --> 00:42:25,590
+Any other questions?
+
+528
+00:42:30,130 --> 00:42:33,650
+Okay,, what I would like to do next,
+
+529
+00:42:33,650 --> 00:42:35,570
+then is talk about another example,
+
+530
+00:42:35,780 --> 00:42:40,190
+and in particular I want to talk about the garbage collector.
+
+531
+00:42:40,960 --> 00:42:43,540
+You know since a lot of questions were about the garbage collector.
+
+532
+00:42:58,990 --> 00:43:03,790
+And so you know yeah, so the garbage collectors are a way of
+
+533
+00:43:03,790 --> 00:43:12,940
+basically for programming languages or languages that basically do memory allocation and freeing on behalf of the programmer,
+
+534
+00:43:12,940 --> 00:43:15,910
+so the programmer doesn't have to call like C correct,
+
+535
+00:43:15,910 --> 00:43:18,820
+you have to call malloc and then you have to call free explicitly to free the memory,
+
+536
+00:43:19,120 --> 00:43:26,770
+languages that use garbage collectors, basically the application only has, only basically call malloc,
+
+537
+00:43:26,830 --> 00:43:28,750
+never has to worry about actually freeing the memory,
+
+538
+00:43:28,840 --> 00:43:32,470
+basically the garbage collector will do the work to determine if the memory still is in use,
+
+539
+00:43:32,470 --> 00:43:35,650
+and if the memory is not in use, then it's actually a free it.
+
+540
+00:43:36,360 --> 00:43:41,610
+And so it's nice, you know what are some example programming languages that have garbage collectors.
+
+541
+00:43:43,590 --> 00:43:44,190
+Java.
+
+542
+00:43:44,550 --> 00:43:49,740
+Yeah java python, you know, Go many of them actually correct,
+
+543
+00:43:49,800 --> 00:43:52,680
+almost you know, other than maybe C Rust,
+
+544
+00:43:52,740 --> 00:43:57,120
+there every other programming language basically has a garbage collector, okay.
+
+545
+00:43:57,240 --> 00:44:03,510
+So as you can imagine, there's a huge literature and a design space for garbage collectors
+
+546
+00:44:03,750 --> 00:44:07,890
+and the point of this paper is not like to use the best garbage collector possible,
+
+547
+00:44:07,890 --> 00:44:14,310
+but here you know basically illustrate if garbage collectors could take advantage of, you know, these user level of the memory primitives.
+
+548
+00:44:15,690 --> 00:44:20,820
+And so the particular garbage colloctor, the paper discusses is copying garbage collector.
+
+549
+00:44:31,690 --> 00:44:36,640
+And the basical plan is sort of you know the top level outline is as follows
+
+550
+00:44:36,850 --> 00:44:42,400
+you basically have a memory, a heap from which you know memory is allocated,
+
+551
+00:44:42,550 --> 00:44:45,640
+you divide the memory in the heap in two pieces,
+
+552
+00:44:46,060 --> 00:44:50,410
+one is the from piece, what the paper calls the from space
+
+553
+00:44:50,560 --> 00:44:52,090
+and the other is the to space.
+
+554
+00:44:53,490 --> 00:44:57,930
+And, let's say we're having started with applications to start
+
+555
+00:44:57,960 --> 00:44:59,670
+and so all memory is free,
+
+556
+00:44:59,790 --> 00:45:02,730
+basically start allocating memory in the from space,
+
+557
+00:45:02,790 --> 00:45:07,180
+so let's say we allocated maybe tree like data structure,
+
+558
+00:45:07,450 --> 00:45:09,580
+you know that here's the root,
+
+559
+00:45:11,260 --> 00:45:15,220
+so the tree and that maybe has a pointer to another object,
+
+560
+00:45:15,550 --> 00:45:18,190
+and that maybe has a pointer to another object,
+
+561
+00:45:18,190 --> 00:45:19,870
+and that is also pointed to by the root,
+
+562
+00:45:20,110 --> 00:45:25,180
+sort of just for a little cicle with of objects.
+
+563
+00:45:25,740 --> 00:45:29,700
+And maybe the application we introduced a lot of other memory too,
+
+564
+00:45:29,790 --> 00:45:32,430
+but there's no nothing pointing to it anymore
+
+565
+00:45:32,790 --> 00:45:38,130
+and so basically the only objects live objects are the ones that actually are basically accessible from the root.
+
+566
+00:45:38,840 --> 00:45:42,980
+So at some point like maybe I've allocated lots of memory before
+
+567
+00:45:43,190 --> 00:45:47,630
+and we allocate one more object, and it turns out there's no space anymore,
+
+568
+00:45:47,930 --> 00:45:51,620
+application ask for one more object, it turns out there's no space anymore for it,
+
+569
+00:45:51,620 --> 00:45:54,470
+because the whole from spaces basically has been used.
+
+570
+00:45:55,580 --> 00:45:58,910
+So then the basic idea is in this a copying garbage collector is
+
+571
+00:45:58,910 --> 00:46:05,690
+to take the objects and copy them over to the user to the to space
+
+572
+00:46:05,720 --> 00:46:08,240
+and the way you do, it is you start from the root,
+
+573
+00:46:08,240 --> 00:46:12,470
+because every application where every has a set of registers,
+
+574
+00:46:12,470 --> 00:46:15,230
+where basically this top level pointers are stored,
+
+575
+00:46:15,680 --> 00:46:19,250
+or maybe there's a local variables on the stack,
+
+576
+00:46:19,490 --> 00:46:21,410
+basically there's a set of root
+
+577
+00:46:21,620 --> 00:46:23,960
+and there for simplicity, I'm just going to assume there's one root
+
+578
+00:46:24,140 --> 00:46:26,330
+and you start tracing basically from the top level.
+
+579
+00:46:26,690 --> 00:46:30,800
+So you know you copy the root object over to the to space,
+
+580
+00:46:32,460 --> 00:46:36,120
+and you know and that's the only thing you do at that point
+
+581
+00:46:36,150 --> 00:46:43,390
+and then you know of course that leaves you know the pointers you know still pointing to whatever objects they were there before.
+
+582
+00:46:46,440 --> 00:46:48,270
+And then you're gonna want to copy the object over,
+
+583
+00:46:48,270 --> 00:46:50,850
+you go and inspect we scan the object,
+
+584
+00:46:51,000 --> 00:46:55,740
+then of course the language runtime knows exactly what type the object is and knows where the points are
+
+585
+00:46:56,100 --> 00:47:03,150
+and just look at these points and says okay, maybe I should copy some more pointers over,
+
+586
+00:47:03,150 --> 00:47:06,810
+because those are actually a clue, you know part of the live data structure.
+
+587
+00:47:07,300 --> 00:47:09,700
+And so basically maybe we'll take the top level pointer,
+
+588
+00:47:10,410 --> 00:47:17,880
+look at that object, you copy that object over you know to the to space,
+
+589
+00:47:18,120 --> 00:47:20,220
+updates you know the pointer here,
+
+590
+00:47:20,250 --> 00:47:25,890
+you know to actually indicate that actually it has been and pointing it to now copied version of the object.
+
+591
+00:47:26,550 --> 00:47:31,950
+And then of course later on we need to remember that we're actually this object has been copied,
+
+592
+00:47:32,250 --> 00:47:34,560
+so you saw a little bit of extra information
+
+593
+00:47:34,770 --> 00:47:37,770
+and remember that these objects are so now still work there,
+
+594
+00:47:39,620 --> 00:47:46,010
+in this process, you know a sort of moving an object from the from space to the to space
+
+595
+00:47:46,010 --> 00:47:50,270
+and leaving a forwarding pointer in the from space, is called forwarding.
+
+596
+00:47:58,980 --> 00:48:01,600
+Okay, so we now, so we did this,
+
+597
+00:48:01,720 --> 00:48:07,100
+we did fix this pointer, we fix that pointer there's one more left,
+
+598
+00:48:07,490 --> 00:48:13,190
+so we'll look at that object and we copy it over like before,
+
+599
+00:48:13,800 --> 00:48:17,550
+and it still has a pointer pointing to this object,
+
+600
+00:48:17,580 --> 00:48:19,770
+so now we look at that particular pointer,
+
+601
+00:48:19,800 --> 00:48:23,160
+look at point say ah, that actually has already been copied
+
+602
+00:48:23,580 --> 00:48:25,620
+and in fact we know what the new location is,
+
+603
+00:48:25,800 --> 00:48:28,740
+so we can just straight updated to point to the right place.
+
+604
+00:48:30,720 --> 00:48:35,670
+Okay, and so at this point you know all the pointers have been you know correctly updated,
+
+605
+00:48:35,670 --> 00:48:38,640
+you know the whole structure, you know the whole cycle,
+
+606
+00:48:38,640 --> 00:48:42,720
+basically of objects as we move from the from space to to space
+
+607
+00:48:42,960 --> 00:48:44,100
+and so at this point we're done.
+
+608
+00:48:53,930 --> 00:48:54,920
+At this point, we're done,
+
+609
+00:48:54,980 --> 00:48:57,800
+we forwarded all the objects
+
+610
+00:48:58,040 --> 00:49:03,290
+and basically the from space, now you know all the objects in the from space are being discarded,
+
+611
+00:49:07,520 --> 00:49:08,630
+and it's now free space.
+
+612
+00:49:17,070 --> 00:49:17,880
+Does that make sense?
+
+613
+00:49:19,360 --> 00:49:21,940
+That's the basic plan in a copying garbage collector.
+
+614
+00:49:23,540 --> 00:49:26,960
+Okay, now the scheme that is used in the paper,
+
+615
+00:49:27,320 --> 00:49:32,170
+couple sophistications, I want to talk about them.
+
+616
+00:49:34,680 --> 00:49:43,920
+First sophistication, you know is that you know they actually they're called this is called bakers algorithm it's old algorithm.
+
+617
+00:49:44,770 --> 00:49:49,350
+And one of the nice, you know future has
+
+618
+00:49:49,350 --> 00:49:53,370
+is that sometimes it's originally called real time,
+
+619
+00:49:53,370 --> 00:49:57,690
+real what I meant is it's an incremental garbage collector.
+
+620
+00:50:02,730 --> 00:50:07,170
+So, and the main idea is that,
+
+621
+00:50:11,350 --> 00:50:16,410
+here if we have our two from space and to space.
+
+622
+00:50:19,340 --> 00:50:24,590
+Main idea is that you know we have our root again,
+
+623
+00:50:25,400 --> 00:50:32,010
+here's root, it had two pointers, and it's pointing back.
+
+624
+00:50:34,520 --> 00:50:40,010
+The main idea is that it's not really necessary to stop the world
+
+625
+00:50:40,010 --> 00:50:43,700
+and copy everything over and then basically resume competition.
+
+626
+00:50:44,400 --> 00:50:49,150
+The only thing really necessary is to actually move copy over the root.
+
+627
+00:50:51,670 --> 00:50:53,110
+And basically do nothing else,
+
+628
+00:50:53,380 --> 00:50:57,610
+and so basically you know at this point you know the root has been copied,
+
+629
+00:50:57,670 --> 00:51:03,040
+but you know it's pointers are still pointing you know the here,
+
+630
+00:51:03,040 --> 00:51:04,930
+because that object has not been scanned,
+
+631
+00:51:05,020 --> 00:51:07,510
+it hasn't been, it's points haven't been updated yet.
+
+632
+00:51:08,250 --> 00:51:10,410
+And and the basic idea is
+
+633
+00:51:10,410 --> 00:51:14,760
+then whenever the application calls new,
+
+634
+00:51:19,480 --> 00:51:23,410
+you know whenever new call you scan a few more objects,
+
+635
+00:51:23,410 --> 00:51:25,270
+or you forward a couple more objects.
+
+636
+00:51:34,920 --> 00:51:36,240
+And that's sort of nice, correct,
+
+637
+00:51:36,240 --> 00:51:45,570
+because basically you spread the cost of actually you know copying the complete you know active or live heap from the application incremental steps,
+
+638
+00:51:45,600 --> 00:51:51,180
+every new ever call allocates contributes a little bit, you know to actually do a complete copy operation.
+
+639
+00:51:52,670 --> 00:51:56,870
+And of course the application might also be using you know some of these pointers,
+
+640
+00:51:56,870 --> 00:52:03,290
+for example if you know root will be dereferencing, actually this, this second red pointer,
+
+641
+00:52:03,350 --> 00:52:05,450
+it's still actually pointing into the from space,
+
+642
+00:52:05,480 --> 00:52:06,680
+and of course that is dangerous,
+
+643
+00:52:06,680 --> 00:52:09,320
+because we shouldn't be tracking pointers in the from space.
+
+644
+00:52:09,740 --> 00:52:17,970
+And so basically this means that every time you do dereference, do dereference a pointer,
+
+645
+00:52:20,410 --> 00:52:27,060
+you need to check, check if it's in the from space, if from space.
+
+646
+00:52:29,020 --> 00:52:32,410
+And if so, you do the forwarding.
+
+647
+00:52:36,880 --> 00:52:38,980
+And so the application is allowed to use the pointers,
+
+648
+00:52:38,980 --> 00:52:45,790
+but basically to run the compiler has to instrument the application that basically every pointer accesses surrounded by that check,
+
+649
+00:52:46,120 --> 00:52:50,230
+so that you know, we basically maintain the invariant that all,
+
+650
+00:52:50,560 --> 00:52:55,180
+at any pointer in the to space, you know points to objects in to space.
+
+651
+00:52:56,040 --> 00:52:57,660
+And we need to ensure that correct,
+
+652
+00:52:57,660 --> 00:52:59,220
+because when in the end we're done,
+
+653
+00:52:59,400 --> 00:53:04,110
+you know we want to remove the from space and have,
+
+654
+00:53:04,800 --> 00:53:07,680
+so that we can discard it and you reuse it as free space.
+
+655
+00:53:09,810 --> 00:53:12,810
+Okay, any questions about this, this is sort of the basic setup.
+
+656
+00:53:20,710 --> 00:53:23,080
+Okay, so, if there are no questions,
+
+657
+00:53:23,080 --> 00:53:25,720
+in the paper makes two points you know about this scheme
+
+658
+00:53:25,840 --> 00:53:33,580
+and one is you know it's annoying or too bad you actually have to do this dereference at every time.
+
+659
+00:53:34,130 --> 00:53:37,520
+So basically, this means load or store instruction,
+
+660
+00:53:37,610 --> 00:53:40,670
+instead of being single instruction actually has a bunch of instructions,
+
+661
+00:53:40,670 --> 00:53:45,290
+namely branch instruction and perhaps you mean calling a function to actually do it forward.
+
+662
+00:53:46,030 --> 00:53:50,560
+And so you know that increase the cost of the application.
+
+663
+00:53:51,380 --> 00:53:54,500
+The second thing that actually points out is that
+
+664
+00:53:54,770 --> 00:54:01,940
+it is not that easy to paralyze a garbage collector,
+
+665
+00:54:02,060 --> 00:54:03,470
+because maybe in a nice setting,
+
+666
+00:54:03,470 --> 00:54:05,540
+it's like if you're running in a multi-core machine,
+
+667
+00:54:05,540 --> 00:54:07,670
+where you know have a lot of free CPUs,
+
+668
+00:54:07,670 --> 00:54:12,020
+basically I realize that the collector you know just put in the backgrounds,
+
+669
+00:54:12,020 --> 00:54:15,680
+you know traverse the object graph,
+
+670
+00:54:16,020 --> 00:54:20,130
+and you know copy things incrementally over as it continues.
+
+671
+00:54:20,640 --> 00:54:25,080
+But if the application at the same time you know is using the graph,
+
+672
+00:54:25,080 --> 00:54:27,270
+there's a risk you know the application maybe you know,
+
+673
+00:54:27,270 --> 00:54:31,440
+there's one of the reference check, one of these checks starts copying an object,
+
+674
+00:54:31,530 --> 00:54:33,690
+while at the same time, the collectors also copying the object
+
+675
+00:54:33,690 --> 00:54:38,340
+and we're not very carefully, we may end up with the object copied twice
+
+676
+00:54:38,340 --> 00:54:40,920
+and the pointer, there's no not pointing in the right places,
+
+677
+00:54:40,950 --> 00:54:43,410
+you can easily see correct there's a race condition,
+
+678
+00:54:43,530 --> 00:54:46,050
+possible of a possibility of race conditions.
+
+679
+00:54:48,260 --> 00:54:52,360
+So there, paper basically describes a scheme,
+
+680
+00:54:52,390 --> 00:54:55,660
+it's like if you had you know the user level primitives,
+
+681
+00:54:55,900 --> 00:54:57,580
+then actually you could do something different,
+
+682
+00:54:57,580 --> 00:54:59,230
+you could do a cool trick
+
+683
+00:54:59,470 --> 00:55:07,570
+and you can actually use VM, you know virtual memory to basically reduce the cost of the check,
+
+684
+00:55:07,780 --> 00:55:11,110
+in almost get concurrency for free.
+
+685
+00:55:12,180 --> 00:55:22,060
+And so the basic ideas, which follows you know we have our same setup,
+
+686
+00:55:22,060 --> 00:55:25,450
+you know our from, and here's our to.
+
+687
+00:55:26,270 --> 00:55:28,130
+And what we're gonna do is
+
+688
+00:55:28,130 --> 00:55:36,030
+like we're gonna have we're gonna have we're gonna region, we actually divide the to space virtually
+
+689
+00:55:36,030 --> 00:55:40,980
+or literally we divide the to space in an area that is a unscanned.
+
+690
+00:55:45,110 --> 00:55:46,610
+Let me a little bit more clear.
+
+691
+00:55:48,760 --> 00:55:56,750
+We have an area basically, here is scanned, and an area unsacnned.
+
+692
+00:55:59,000 --> 00:56:02,960
+And initially basically you know the whole area is unscanned,
+
+693
+00:56:03,440 --> 00:56:05,390
+you know when you know start out,
+
+694
+00:56:05,390 --> 00:56:08,360
+you know you make the flip from the from to the to space,
+
+695
+00:56:08,510 --> 00:56:10,310
+nothing has been scanned yet,
+
+696
+00:56:10,640 --> 00:56:12,290
+because there's no objects at the yet
+
+697
+00:56:12,290 --> 00:56:18,250
+and so but basically scheme starts in the same way, we copy over the root object,
+
+698
+00:56:20,310 --> 00:56:21,600
+it used to be there
+
+699
+00:56:21,690 --> 00:56:27,060
+and copy it over, you have some pointers, you know basically these pointers point still back into the,
+
+700
+00:56:32,910 --> 00:56:37,500
+oops, yeah, in these pointers will point back into the old from space
+
+701
+00:56:37,860 --> 00:56:39,480
+and so that's it,
+
+702
+00:56:39,480 --> 00:56:43,260
+and now we're basically saying, and what we're gonna do is
+
+703
+00:56:43,380 --> 00:56:47,220
+for the unscanned area, which is this point everything,
+
+704
+00:56:47,730 --> 00:56:53,130
+we're going to basically map and map them with no permission, mapping none.
+
+705
+00:56:56,380 --> 00:56:58,630
+And so what does that mean, well that means that
+
+706
+00:56:58,630 --> 00:57:00,400
+the first time around the application,
+
+707
+00:57:00,640 --> 00:57:03,610
+you know after we did the flip, the garbage collected it to flip,
+
+708
+00:57:03,610 --> 00:57:06,730
+the first time the application is usually the root pointer,
+
+709
+00:57:07,000 --> 00:57:08,830
+it will get a page fault,
+
+710
+00:57:08,860 --> 00:57:13,540
+because you know, that part of the address range has actually unmapped.
+
+711
+00:57:14,010 --> 00:57:16,470
+So basically then the ideas in the fault handler,
+
+712
+00:57:22,350 --> 00:57:24,930
+scan one page of objects,
+
+713
+00:57:31,960 --> 00:57:33,970
+and forward to want and need to be forwarded.
+
+714
+00:57:37,850 --> 00:57:39,950
+So basically you know we in this particular setting,
+
+715
+00:57:39,950 --> 00:57:42,590
+where we're only copied over just the root so far,
+
+716
+00:57:42,800 --> 00:57:47,150
+you know we are going to copy over root,
+
+717
+00:57:47,150 --> 00:57:52,340
+we can scan you know the pointers in the object to which the root is pointing,
+
+718
+00:57:52,430 --> 00:57:53,900
+in this case there are only two of them,
+
+719
+00:57:53,930 --> 00:57:58,530
+we kind of copy over those two objects you know into the unscanned space,
+
+720
+00:57:58,530 --> 00:58:00,720
+or maybe let me drawing slightly different here,
+
+721
+00:58:01,700 --> 00:58:06,990
+just make it look like we've got copy over those two objects that were pointing to
+
+722
+00:58:07,500 --> 00:58:12,540
+and basically we update you know the you know remove this scan line,
+
+723
+00:58:12,570 --> 00:58:15,400
+you know from here to there,
+
+724
+00:58:16,080 --> 00:58:17,250
+so this is no scanned.
+
+725
+00:58:20,230 --> 00:58:21,820
+And so after we scan the page,
+
+726
+00:58:21,820 --> 00:58:28,340
+we can actually increase, you know basically protect or basically unprotect,
+
+727
+00:58:30,880 --> 00:58:34,890
+you can unprotect the page, unprotect the scan page.
+
+728
+00:58:42,510 --> 00:58:43,170
+Okay?
+
+729
+00:58:44,120 --> 00:58:46,280
+And you know the, and then the application,
+
+730
+00:58:46,280 --> 00:58:48,530
+you can just you know access the particular object,
+
+731
+00:58:48,530 --> 00:58:51,440
+because we translated you know the pointer that's inside of the objects,
+
+732
+00:58:51,440 --> 00:58:53,480
+it's safe to expose it to the application,
+
+733
+00:58:53,690 --> 00:58:55,550
+the application can traverse those pointers,
+
+734
+00:58:55,670 --> 00:59:00,260
+of course those pointers are still pointing to objects that are having been scanned in
+
+735
+00:59:00,350 --> 00:59:02,930
+then we'll, we'll get a page fault again
+
+736
+00:59:02,930 --> 00:59:04,460
+and then we scan a little bit more.
+
+737
+00:59:04,920 --> 00:59:07,410
+So it basically has the benefits still incremental,
+
+738
+00:59:11,350 --> 00:59:13,120
+you can still do a little bit of work,
+
+739
+00:59:13,120 --> 00:59:17,620
+you know every time we can also do it every time new we can actually allocate you know some do some work,
+
+740
+00:59:17,620 --> 00:59:19,570
+but it has the additional benefit,
+
+741
+00:59:19,780 --> 00:59:21,640
+there's no no pointer check anymore,
+
+742
+00:59:25,060 --> 00:59:28,090
+the pointer check is still there, but it's done in hardware,
+
+743
+00:59:28,600 --> 00:59:30,790
+with the page, the VM hardware does it for us.
+
+744
+00:59:39,280 --> 00:59:40,090
+Does that make sense?
+
+745
+00:59:41,950 --> 00:59:44,320
+Any questions about this, about this plan.
+
+746
+00:59:45,680 --> 00:59:48,230
+I have a question,
+
+747
+00:59:48,260 --> 00:59:54,870
+so, in, in the handler you're saying that you scan one page of objects,
+
+748
+00:59:54,870 --> 01:00:04,220
+but how do you know that the objects that the root has references to will be will fall into the same,
+
+749
+01:00:04,250 --> 01:00:08,600
+like how do you know that the objects that really need to be forwarded,
+
+750
+01:00:08,900 --> 01:00:13,520
+in order to not violate the invariant will be in the same page.
+
+751
+01:00:14,200 --> 01:00:14,950
+You'll be,
+
+752
+01:00:14,950 --> 01:00:17,860
+Okay, there's some set of objects in the page,
+
+753
+01:00:17,860 --> 01:00:19,870
+the starting,
+
+754
+01:00:19,870 --> 01:00:22,030
+okay but let's say you know what the.
+
+755
+01:00:23,930 --> 01:00:29,530
+Okay, at the beginning when we flip this spaces,
+
+756
+01:00:29,530 --> 01:00:30,850
+there's nothing in the to space,
+
+757
+01:00:32,780 --> 01:00:34,640
+what we could do is like what the right thing to do is
+
+758
+01:00:34,640 --> 01:00:36,920
+just copy I just tried to just copy one page,
+
+759
+01:00:36,920 --> 01:00:41,180
+but basically copy over or forward one page,
+
+760
+01:00:41,180 --> 01:00:43,580
+basically copy n objects over,
+
+761
+01:00:43,580 --> 01:00:45,050
+so that they fill a complete page.
+
+762
+01:00:46,040 --> 01:00:46,520
+Right.
+
+763
+01:00:46,760 --> 01:00:50,720
+Now we have n objects sitting on that one page all unscanned.
+
+764
+01:00:51,820 --> 01:00:54,460
+Then, at some point a page fault handler or happen
+
+765
+01:00:54,610 --> 01:01:00,580
+and then you know the garbage collector, you are collector, you go through each object on that one page
+
+766
+01:01:00,640 --> 01:01:02,680
+and looks for its pointers,
+
+767
+01:01:03,260 --> 01:01:13,790
+and for each pointer it moved copies over those you know objects into the, into the unscan part of the to space.
+
+768
+01:01:14,240 --> 01:01:17,750
+And so that if you know anybody or if the application would use one of those
+
+769
+01:01:17,750 --> 01:01:21,380
+instead objects will get a page fault and they can scan those etc etc.
+
+770
+01:01:23,690 --> 01:01:24,740
+Does that answer the question?
+
+771
+01:01:25,100 --> 01:01:25,550
+Yeah.
+
+772
+01:01:27,000 --> 01:01:27,690
+Okay.
+
+773
+01:01:28,900 --> 01:01:30,880
+Oh, sorry I also had a question.
+
+774
+01:01:31,090 --> 01:01:35,770
+Yeah, so after you do this do flip the two in the from.
+
+775
+01:01:36,280 --> 01:01:36,760
+Okay.
+
+776
+01:01:37,330 --> 01:01:41,560
+Okay, you, you start out in the from space you fill it up,
+
+777
+01:01:41,560 --> 01:01:44,470
+you flip to you copied over to the to space
+
+778
+01:01:44,470 --> 01:01:48,070
+and then you call the from, once you're done with the complete with scanning,
+
+779
+01:01:48,740 --> 01:01:51,950
+and you're done with the from space is completely clear,
+
+780
+01:01:51,950 --> 01:01:53,300
+just you flip the names
+
+781
+01:01:53,390 --> 01:01:56,750
+and you start using the to space to actually do the allocations
+
+782
+01:01:56,750 --> 01:01:58,640
+until it's full and then you flip again.
+
+783
+01:02:02,820 --> 01:02:03,750
+Thank you.
+
+784
+01:02:08,070 --> 01:02:10,800
+Any further questions?
+
+785
+01:02:12,990 --> 01:02:17,280
+So one of the, one of the things that one of the arguments the paper also makes,
+
+786
+01:02:17,280 --> 01:02:21,360
+that you know the one other thing that the VM system or using VM,
+
+787
+01:02:21,360 --> 01:02:24,420
+simplifies is basically concurrency,
+
+788
+01:02:25,560 --> 01:02:33,250
+the argument is that, basically the collector you can just go through the unscanned pages,
+
+789
+01:02:33,250 --> 01:02:39,010
+so we have, go through and scan pages and basically scan one page at a time
+
+790
+01:02:39,370 --> 01:02:44,020
+and if it is guaranteed that the application has no pointers
+
+791
+01:02:44,020 --> 01:02:47,350
+or cannot access in the same time that page,
+
+792
+01:02:47,350 --> 01:02:48,370
+because its own map.
+
+793
+01:02:49,280 --> 01:02:52,490
+And so, you know as long as the,
+
+794
+01:02:53,180 --> 01:03:00,590
+so the paging hardware, basically sort of introduces explicit synchronization or protection against races,
+
+795
+01:03:00,680 --> 01:03:03,410
+because only the collector can access that page
+
+796
+01:03:03,410 --> 01:03:06,950
+and the from and the application can actually not access the page.
+
+797
+01:03:07,650 --> 01:03:11,340
+So it gives a nice automatic parallelism,
+
+798
+01:03:11,340 --> 01:03:13,560
+where the application can run and do its business,
+
+799
+01:03:13,590 --> 01:03:15,090
+the collector can do its business,
+
+800
+01:03:15,210 --> 01:03:18,450
+and they will never step on each other's toes,
+
+801
+01:03:18,510 --> 01:03:24,600
+because if the application ever will touch an unscanned page and look at a page fault,
+
+802
+01:03:24,870 --> 01:03:31,650
+and, and the collector never touches scanned pages,
+
+803
+01:03:31,770 --> 01:03:33,810
+and so will never interfere with the application.
+
+804
+01:03:35,430 --> 01:03:39,750
+So you get sort of comparison for free,
+
+805
+01:03:39,750 --> 01:03:41,190
+but it actually has a tricky issue.
+
+806
+01:03:48,420 --> 01:03:49,860
+Although it's almost for free,
+
+807
+01:03:49,860 --> 01:03:52,500
+you know there's actually one thing you actually have to arrange,
+
+808
+01:03:52,860 --> 01:03:59,100
+which is the area correct in the unscanned area, which actually unmapped,
+
+809
+01:03:59,130 --> 01:04:05,070
+so we look at our picture from before here are two,
+
+810
+01:04:05,760 --> 01:04:08,600
+where here's are from, here's our to
+
+811
+01:04:08,690 --> 01:04:14,260
+and you know we have split in the unscanned, scanned the area,
+
+812
+01:04:14,860 --> 01:04:17,800
+and unscanned, and it has no if none, protected none.
+
+813
+01:04:19,110 --> 01:04:20,340
+So that raises the question,
+
+814
+01:04:21,100 --> 01:04:23,830
+you know how this actually do collector, go through,
+
+815
+01:04:23,830 --> 01:04:26,230
+because we can't actually access those pages,
+
+816
+01:04:26,230 --> 01:04:31,000
+because you know their own map correct protectively, they're inaccessible.
+
+817
+01:04:31,610 --> 01:04:33,560
+And so and the trick is basically follows,
+
+818
+01:04:33,800 --> 01:04:36,530
+and this is where map2 comes in.
+
+819
+01:04:38,260 --> 01:04:41,440
+What we're gonna do is actually going to map that same physical memory,
+
+820
+01:04:42,060 --> 01:04:44,820
+we mapped at once correct, we mapped at once in this way,
+
+821
+01:04:45,490 --> 01:04:53,170
+I'm gonna map the second time in the collectors view sort of the collective view of the to space.
+
+822
+01:04:54,490 --> 01:04:56,680
+So these collectors view here's the app view
+
+823
+01:04:57,280 --> 01:05:01,570
+and in the collector's view where I still have to and from exactly like before.
+
+824
+01:05:02,680 --> 01:05:03,730
+Oops, let me try.
+
+825
+01:05:04,750 --> 01:05:07,350
+We have to and from.
+
+826
+01:05:09,100 --> 01:05:12,430
+And what we're doing actually you know here's our unscanned area,
+
+827
+01:05:16,380 --> 01:05:20,220
+but in the collector, we map actually those unscanned area read and write,
+
+828
+01:05:21,350 --> 01:05:23,900
+and so that the collector actually can go through,
+
+829
+01:05:23,900 --> 01:05:27,560
+look at the scan the objects you know and forward pointer is necessary.
+
+830
+01:05:28,530 --> 01:05:32,550
+And so the users look at the place where this map2 call is necessary,
+
+831
+01:05:32,550 --> 01:05:38,730
+where arrange physical piece of physical memory is actually mapped twice
+
+832
+01:05:38,730 --> 01:05:41,910
+in the address space of an application at two different levels of protection,
+
+833
+01:05:42,590 --> 01:05:44,930
+to basically make things, scenario like this work.
+
+834
+01:05:46,850 --> 01:05:47,900
+Any questions about this?
+
+835
+01:05:57,670 --> 01:05:59,230
+I have a question,
+
+836
+01:05:59,230 --> 01:06:11,190
+do you, do you kind of give each collector in the app, different versions of the page table, or.
+
+837
+01:06:11,400 --> 01:06:13,830
+No, they have the same page table correct,
+
+838
+01:06:13,830 --> 01:06:17,190
+but they have the memory mapped in two place,
+
+839
+01:06:17,190 --> 01:06:20,070
+the physical memory map in two different places in the address space,
+
+840
+01:06:20,070 --> 01:06:22,440
+in two different places places in page table.
+
+841
+01:06:23,560 --> 01:06:28,990
+And, in one place you basically the mapping is invalid,
+
+842
+01:06:29,440 --> 01:06:33,100
+and in the other address range, you make the mapping read write.
+
+843
+01:06:35,940 --> 01:06:36,420
+Okay.
+
+844
+01:06:39,440 --> 01:06:42,860
+Would you make, make a make this a little bit more clear.
+
+845
+01:06:44,150 --> 01:06:45,590
+Since there were so many questions about it.
+
+846
+01:06:47,790 --> 01:06:54,510
+I should have a trivial implementation of actually this basic idea,
+
+847
+01:06:54,600 --> 01:06:56,370
+the idea that was described in the paper,
+
+848
+01:06:56,580 --> 01:06:58,230
+that you should make it a little bit more concrete.
+
+849
+01:07:00,250 --> 01:07:05,950
+And so, let me walk through this and ask feel free to jump in,
+
+850
+01:07:06,520 --> 01:07:09,160
+basically toy implementation of what's described in the paper
+
+851
+01:07:09,340 --> 01:07:14,470
+and I'm sure it has bugs, I mean, I haven't really tested this in any way seriously,
+
+852
+01:07:14,590 --> 01:07:18,760
+but it's mostly there's illustrates you know to make everything slightly more concrete.
+
+853
+01:07:19,330 --> 01:07:24,160
+So the collector the api if you will that the application uses is,
+
+854
+01:07:24,370 --> 01:07:32,590
+a new and read pointer and read pointer is that basically does the check whether pointers in from space,
+
+855
+01:07:32,590 --> 01:07:34,990
+and if it is in the from space, that needs to be copied
+
+856
+01:07:35,230 --> 01:07:37,960
+and of course when we're using VM tricks,
+
+857
+01:07:37,960 --> 01:07:40,000
+then basically this read pointer is going to be very cheap,
+
+858
+01:07:40,000 --> 01:07:43,060
+we basically return the existing, returns argument.
+
+859
+01:07:44,590 --> 01:07:46,960
+If we're just for this simple application,
+
+860
+01:07:46,960 --> 01:07:50,380
+I have a linked list and it has two roots,
+
+861
+01:07:50,380 --> 01:07:53,980
+you know pointing one to the head and one to the last node of the linked list,
+
+862
+01:07:53,980 --> 01:07:55,570
+it's a circular linked list,
+
+863
+01:07:56,040 --> 01:07:58,350
+and nothing really too exciting going on,
+
+864
+01:07:58,350 --> 01:08:00,960
+basically what the application for it does is
+
+865
+01:08:01,380 --> 01:08:07,260
+you know thousand times makes the list and makes a list and checks the list
+
+866
+01:08:07,290 --> 01:08:10,770
+and so it generates a lot of garbage like everytime after to make list is done,
+
+867
+01:08:11,130 --> 01:08:13,920
+it's going to make a new one and so the last list is basically garbage.
+
+868
+01:08:14,760 --> 01:08:16,830
+And so the collector actually has something to do
+
+869
+01:08:16,830 --> 01:08:20,460
+and make a list, you know is basically a little bit of ugly code,
+
+870
+01:08:20,700 --> 01:08:25,290
+mostly because you know every pointer needs to be wrapped in this read pointer check.
+
+871
+01:08:26,130 --> 01:08:28,920
+Normally, of course would be generated by a compiler
+
+872
+01:08:28,980 --> 01:08:31,740
+and I don't really have a compiler for a garbage collected language
+
+873
+01:08:31,740 --> 01:08:37,140
+and so I'm just simulating what may be a compiler that might have generated.
+
+874
+01:08:39,080 --> 01:08:42,470
+And basically you want to know the code does is,
+
+875
+01:08:42,470 --> 01:08:46,310
+it goes through the built a list of at least list size,
+
+876
+01:08:46,430 --> 01:08:47,840
+allocates a new element
+
+877
+01:08:48,170 --> 01:08:53,000
+and stick to the present at the beginning of the list
+
+878
+01:08:53,000 --> 01:08:56,540
+and then updates the last pointer to point basically to the beginning of the list,
+
+879
+01:08:56,750 --> 01:08:57,620
+so that's circular.
+
+880
+01:08:59,920 --> 01:09:02,740
+Any questions about this little fragment of code.
+
+881
+01:09:06,400 --> 01:09:09,250
+So the most interesting question like what goes on exactly the collector,
+
+882
+01:09:09,370 --> 01:09:12,430
+let's first look at the case where there's no virtual memory,
+
+883
+01:09:12,640 --> 01:09:14,350
+where we're not using these tricks.
+
+884
+01:09:15,120 --> 01:09:17,640
+And so we just have to look at two APIs,
+
+885
+01:09:17,970 --> 01:09:20,640
+one is new and read pointer.
+
+886
+01:09:21,240 --> 01:09:27,000
+So use a new, forget the mutex, that is for the VM based solution,
+
+887
+01:09:27,800 --> 01:09:32,330
+basically, I forget that we're assuming that we're actually not scanning,
+
+888
+01:09:32,330 --> 01:09:33,770
+we're not collecting for a while,
+
+889
+01:09:33,980 --> 01:09:39,600
+were basically, we check if there's enough space left,
+
+890
+01:09:40,170 --> 01:09:44,250
+in the free space, if there's enough free space left,
+
+891
+01:09:44,250 --> 01:09:46,380
+you know we just bump up to point a little bit,
+
+892
+01:09:46,380 --> 01:09:48,510
+you know to allocate object and return it.
+
+893
+01:09:49,310 --> 01:09:53,000
+And if there's not enough space less left,
+
+894
+01:09:53,000 --> 01:09:55,880
+then we basically have to flip we have to do the garbage collection run.
+
+895
+01:09:56,710 --> 01:10:03,580
+And so we look at flip, you know flip basically switches the to from pointers around,
+
+896
+01:10:04,030 --> 01:10:10,600
+and basically forward which you know the two roots that this application has,
+
+897
+01:10:10,900 --> 01:10:15,640
+you know to the from the from space to space,
+
+898
+01:10:15,670 --> 01:10:16,900
+so let's look at forward.
+
+899
+01:10:25,000 --> 01:10:26,080
+So here's forward,
+
+900
+01:10:26,560 --> 01:10:32,520
+it looks if the forward object that is pointed to by o,
+
+901
+01:10:32,520 --> 01:10:34,410
+it looks always actually in the from space,
+
+902
+01:10:34,410 --> 01:10:38,190
+if it is in the from space and it has not been copied before,
+
+903
+01:10:38,810 --> 01:10:44,030
+then we're gonna copy it and now we're done.
+
+904
+01:10:44,030 --> 01:10:47,480
+So we moved the object from the from space to to space,
+
+905
+01:10:47,930 --> 01:10:51,380
+if we already copied it, then basically we can replace the pointer,
+
+906
+01:10:51,470 --> 01:10:58,900
+you know we have the new pointer is actually the pointer to the already moved object and return that.
+
+907
+01:10:59,990 --> 01:11:00,740
+Okay?
+
+908
+01:11:01,630 --> 01:11:02,650
+So that's forwarding.
+
+909
+01:11:04,060 --> 01:11:11,470
+And so, then the read pointer, you know we actually ever, read pointer to basically go through,
+
+910
+01:11:17,770 --> 01:11:20,020
+let's see what the read pointer with the garbage collecter,
+
+911
+01:11:20,020 --> 01:11:22,930
+just read pointer, it's like right here,
+
+912
+01:11:24,360 --> 01:11:27,150
+if we're not using if we're not using VM,
+
+913
+01:11:27,390 --> 01:11:30,810
+basically what it does, it does a forward operation,
+
+914
+01:11:30,810 --> 01:11:33,510
+in the forward operation is checking if the from space,
+
+915
+01:11:33,510 --> 01:11:37,440
+if not in the from space, then, do nothing,
+
+916
+01:11:37,440 --> 01:11:40,020
+if it is in the from space, then do this copy again.
+
+917
+01:11:40,590 --> 01:11:42,750
+So here we see this sort of the expensive check,
+
+918
+01:11:42,750 --> 01:11:45,630
+is really checking if the object actually sits in the from space.
+
+919
+01:11:48,520 --> 01:11:56,750
+Any questions, before I jump into sort of the version that actually use the VM tricks.
+
+920
+01:11:58,480 --> 01:12:01,810
+Okay, let's look at actually what the VM tricks.
+
+921
+01:12:02,480 --> 01:12:06,950
+So the setup is a little bit, is here,
+
+922
+01:12:07,220 --> 01:12:14,330
+basically you know there's a call called shm_open that allows you to create a shared memory object,
+
+923
+01:12:14,360 --> 01:12:16,460
+it's a Linux call or Unix call,
+
+924
+01:12:17,010 --> 01:12:19,740
+and it almost behaves like a file, but it's not,
+
+925
+01:12:20,610 --> 01:12:22,890
+it behaves like a file, but it is not a file,
+
+926
+01:12:22,890 --> 01:12:26,100
+it just sits in memory, there's no disk space associated with it or anything,
+
+927
+01:12:26,100 --> 01:12:27,960
+it's like an in-memory file system, if you will.
+
+928
+01:12:28,820 --> 01:12:32,000
+And, basically you know what we're doing is
+
+929
+01:12:32,000 --> 01:12:34,310
+we allocate one of the shared memory objects,
+
+930
+01:12:34,610 --> 01:12:40,520
+we truncate the shared memory object to be the size of the sum of the two in the from space,
+
+931
+01:12:40,520 --> 01:12:42,440
+so we have a space,
+
+932
+01:12:42,940 --> 01:12:49,060
+and then we map it once in the, for mutator,
+
+933
+01:12:49,060 --> 01:12:51,070
+and we map it once you know for the collector.
+
+934
+01:12:52,150 --> 01:12:56,380
+So this is basically you know the sort of sequence of operations here,
+
+935
+01:12:56,380 --> 01:12:59,140
+you know the shm_open, the ftruncate and the two mmaps
+
+936
+01:12:59,410 --> 01:13:02,500
+are basically sort of equivalent of the map2 calls.
+
+937
+01:13:04,580 --> 01:13:06,950
+And so we look at you know.
+
+938
+01:13:07,620 --> 01:13:11,280
+Let's go back up to our implementation,
+
+939
+01:13:11,640 --> 01:13:15,780
+the read pointer in the VM case does nothing,
+
+940
+01:13:15,780 --> 01:13:18,780
+you know there's no check whatsoever would return a pointer straight.
+
+941
+01:13:19,480 --> 01:13:22,480
+And then you know of course we used [] pointer,
+
+942
+01:13:22,480 --> 01:13:23,650
+we're gonna get a page fault,
+
+943
+01:13:23,680 --> 01:13:27,010
+like as before in the [sig roots] table application,
+
+944
+01:13:27,400 --> 01:13:29,320
+maybe here's the page fault handler.
+
+945
+01:13:30,090 --> 01:13:33,850
+So it is, if it's a page on
+
+946
+01:13:33,850 --> 01:13:36,790
+and actually let me run a little bit here.
+
+947
+01:13:39,450 --> 01:13:44,280
+If you know the object was moved somewhere earlier and sitting in the unscanned area,
+
+948
+01:13:44,280 --> 01:13:48,330
+we're getting a page fault and basically the scan page, you know function runs.
+
+949
+01:13:49,010 --> 01:13:56,930
+And but you know the the scan page function runs actually with you know the address ranges of the collector
+
+950
+01:13:57,290 --> 01:13:58,430
+and so it actually can work,
+
+951
+01:13:58,430 --> 01:14:03,680
+because otherwise a mutator correct, the application cannot touch those pages,
+
+952
+01:14:03,680 --> 01:14:05,960
+because then we take a result in a page fault.
+
+953
+01:14:07,880 --> 01:14:11,660
+And once you know we can, you know once we've scanned all the pages,
+
+954
+01:14:11,750 --> 01:14:20,460
+then you know the, the collector actually makes the page actually accessible to the user application.
+
+955
+01:14:24,740 --> 01:14:26,570
+It may be helpful to look at flip again,
+
+956
+01:14:26,780 --> 01:14:30,710
+just to see what happens, actually flip what happens,
+
+957
+01:14:31,070 --> 01:14:34,370
+we switch from the from space is full,
+
+958
+01:14:34,550 --> 01:14:39,980
+we make basically mark the whole to space as non accessible to the application,
+
+959
+01:14:40,460 --> 01:14:46,320
+and then we move to collector moves actually the root head and the root last you know to the two space
+
+960
+01:14:46,320 --> 01:14:50,820
+that the application cannot access or at least not directly,
+
+961
+01:14:50,820 --> 01:14:55,020
+and you know will result whenever the application accesses root head, root last,
+
+962
+01:14:55,140 --> 01:14:57,780
+it will actually result in a page fault,
+
+963
+01:14:58,050 --> 01:15:01,650
+and then the collector can copy things over and then protect the one page.
+
+964
+01:15:03,750 --> 01:15:04,530
+Does that make sense?
+
+965
+01:15:17,240 --> 01:15:19,460
+Okay note in the handler correct,
+
+966
+01:15:19,460 --> 01:15:21,890
+it's actually crucial that first the pages scanned,
+
+967
+01:15:21,890 --> 01:15:26,390
+before you make you know the page accessible to the application,
+
+968
+01:15:26,390 --> 01:15:33,470
+because if you were to make it accessible before you scan that,
+
+969
+01:15:33,470 --> 01:15:35,900
+you know, and if there were multiple application threads,
+
+970
+01:15:35,990 --> 01:15:41,390
+then those applications might be looking at objects on the in the unscanned area,
+
+971
+01:15:41,510 --> 01:15:43,010
+of course that we need to forbid that,
+
+972
+01:15:43,160 --> 01:15:45,770
+that's over this code basically for scans
+
+973
+01:15:45,830 --> 01:15:49,230
+and then raises the protection level,
+
+974
+01:15:49,230 --> 01:15:51,390
+so the application can access the pages.
+
+975
+01:15:56,150 --> 01:16:01,730
+Any questions about the collector and tricks to use virtual memory.
+
+976
+01:16:07,210 --> 01:16:07,990
+Okay.
+
+977
+01:16:09,080 --> 01:16:11,510
+In that case I want to wrap up a couple points,
+
+978
+01:16:11,510 --> 01:16:18,440
+I wanna make one point basically before wrapping up.
+
+979
+01:16:22,430 --> 01:16:25,370
+You know, one question to ask you should you use the VM for this.
+
+980
+01:16:30,760 --> 01:16:33,220
+It really is it does those tricks payoff
+
+981
+01:16:33,370 --> 01:16:38,920
+and because many of the for example garbage collectors and many garbage collectors out there
+
+982
+01:16:38,920 --> 01:16:42,040
+that actually don't use virtual memory at all,
+
+983
+01:16:42,070 --> 01:16:43,750
+but use basic instrument,
+
+984
+01:16:43,750 --> 01:16:49,120
+you know the compiler is actually very aware of the code generated an instrument you know the code correctly.
+
+985
+01:16:49,540 --> 01:16:52,750
+And as all kinds of other tricks to reduce the performance overhead.
+
+986
+01:16:53,450 --> 01:16:55,880
+So the observation is that in most cases,
+
+987
+01:16:56,460 --> 01:17:02,020
+it can be, and most cases could have been implemented with extra instructions.
+
+988
+01:17:14,240 --> 01:17:20,420
+And that is, you know if you were basically a compiler or runtime, or for a programming language,
+
+989
+01:17:20,420 --> 01:17:22,280
+then maybe that's not so bad,
+
+990
+01:17:22,910 --> 01:17:24,800
+because the compiler can do the instrumentation,
+
+991
+01:17:25,160 --> 01:17:30,770
+but if you know there's not a runtime applications not compiler application or a programming language settings,
+
+992
+01:17:30,980 --> 01:17:33,020
+then, that might be painful.
+
+993
+01:17:33,380 --> 01:17:38,570
+So it turns out that for some of these applications where there's no compiler involved at all,
+
+994
+01:17:38,570 --> 01:17:44,920
+for example like check pointing or you know do shared virtual memory,
+
+995
+01:17:45,190 --> 01:17:49,870
+those actually you know really needs these kind of primitives.
+
+996
+01:17:50,350 --> 01:17:55,900
+And so in practice, you know it is the case that you know enough application programmers I find these primitive worthwhile,
+
+997
+01:17:55,900 --> 01:17:58,120
+but basically today's operating systems support them.
+
+998
+01:18:05,610 --> 01:18:06,240
+Okay?
+
+999
+01:18:08,880 --> 01:18:10,890
+Some people ask, a lot of people actually asking
+
+1000
+01:18:10,890 --> 01:18:17,890
+what has changed since, what has changed since 91.
+
+1001
+01:18:22,110 --> 01:18:26,490
+You know, one thing that has changed of course, like most Unix do support the primitives now.
+
+1002
+01:18:27,210 --> 01:18:29,910
+And in fact there are many changes since 91,
+
+1003
+01:18:29,910 --> 01:18:36,150
+yeah yeah, maybe hard to imagine, but basically there's a continuous development in the VM system,
+
+1004
+01:18:36,240 --> 01:18:39,570
+so if you look at like Linux,
+
+1005
+01:18:39,570 --> 01:18:46,920
+you know git log, you'll see you know there's a there's continued developing the all aspects of the kernel,
+
+1006
+01:18:47,040 --> 01:18:50,760
+but including a continuous development of the VM system.
+
+1007
+01:18:51,520 --> 01:18:57,430
+And you know some of the bigger changes, what are some big changes in the last you know whatever ten years,
+
+1008
+01:18:59,600 --> 01:19:09,380
+there there's you know there's now five level page table to deal with really large a bigger addresses,
+
+1009
+01:19:09,380 --> 01:19:24,830
+there's address space identifiers to deal with TLB the cost of TLB flushes. More recently a year ago or something like that something is called was introduced called KPTI kernel page table isolation,
+
+1010
+01:19:25,130 --> 01:19:32,450
+which you know is there because of the meltdown attacks and we'll talk about later in the semester.
+
+1011
+01:19:33,020 --> 01:19:39,200
+So, you know the virtual memory system is absolutely not a static system
+
+1012
+01:19:39,200 --> 01:19:42,650
+almost after no aspect of any kernel kernel is static,
+
+1013
+01:19:42,740 --> 01:19:48,320
+there's a traumatic amount of changes almost every couple months, in different aspects of the kernel
+
+1014
+01:19:49,010 --> 01:19:52,520
+and so in systems in once in a while actually completely rewritten.
+
+1015
+01:19:53,040 --> 01:19:55,710
+So it's always in flux.
+
+1016
+01:19:57,000 --> 01:19:58,560
+Okay, let me stop with that
+
+1017
+01:19:58,590 --> 01:20:03,210
+and you know anybody has more questions now, please feel free to ask them
+
+1018
+01:20:03,210 --> 01:20:05,070
+or if you have to go, feel free to go.
+
+1019
+01:20:11,430 --> 01:20:14,970
+Could I ask about one of the first slides,
+
+1020
+01:20:15,000 --> 01:20:18,490
+where of, sorry I'm trying to see it,
+
+1021
+01:20:18,700 --> 01:20:22,660
+it's VM implementation like two slides after this one.
+
+1022
+01:20:23,500 --> 01:20:26,110
+Yes, that one.
+
+1023
+01:20:26,530 --> 01:20:30,880
+What do you mean exactly by continuous range for addresses.
+
+1024
+01:20:31,060 --> 01:20:34,510
+Oh, yeah continuous range of virtual addresses,
+
+1025
+01:20:35,340 --> 01:20:40,380
+so you know the may you know VMA copies arrange 1000 to 2000,
+
+1026
+01:20:41,540 --> 01:20:46,130
+and if you had another address range like 2100 or something like that,
+
+1027
+01:20:46,130 --> 01:20:47,930
+that would be has its own VMA,
+
+1028
+01:20:51,460 --> 01:20:54,490
+so every VMA covers a continuous range of addresses,
+
+1029
+01:20:54,880 --> 01:20:56,110
+there are no holes in it.
+
+1030
+01:20:57,440 --> 01:20:58,040
+Okay.
+
+1031
+01:20:58,670 --> 01:20:59,750
+That makes it easier,
+
+1032
+01:20:59,750 --> 01:21:04,310
+as you will see in the, as you will see mmap lab,
+
+1033
+01:21:04,310 --> 01:21:06,110
+that will make it much easier to reason about things,
+
+1034
+01:21:09,040 --> 01:21:12,040
+addressing in the range of VMA may has no hole in it.
+
+1035
+01:21:14,460 --> 01:21:24,830
+Okay, okay, so those are for, this particular use case, for mmap, right.
+
+1036
+01:21:26,560 --> 01:21:27,430
+Yeah.
+
+1037
+01:21:27,640 --> 01:21:28,540
+Okay thank you.
+
+1038
+01:21:28,960 --> 01:21:31,300
+So basically you can think about it for every mmap call,
+
+1039
+01:21:31,300 --> 01:21:33,850
+there's one VMA if mmaps don't overlap.
+
+1040
+01:21:35,910 --> 01:21:39,870
+Oh, okay, okay I think I think I understand, thank you.
+
+1041
+01:21:43,850 --> 01:21:52,970
+To ask, so for for the high on the to and from like garbage collection,
+
+1042
+01:21:52,970 --> 01:21:55,970
+when do you stop and start again,
+
+1043
+01:21:56,030 --> 01:21:59,990
+like I guess collector runs can run all the time, if its concurrent.
+
+1044
+01:22:00,170 --> 01:22:03,290
+Yeah, that's one of the cool things about this VM solution,
+
+1045
+01:22:03,290 --> 01:22:04,760
+the collector can run all the time,
+
+1046
+01:22:05,420 --> 01:22:10,430
+and it can stop once basically it has there's no more unscanned objects.
+
+1047
+01:22:11,900 --> 01:22:15,350
+Okay, so you have but you have to go through, that means you.
+
+1048
+01:22:16,320 --> 01:22:21,240
+So so you'll go through all of the stuff like all of the objects in the from section
+
+1049
+01:22:21,240 --> 01:22:24,750
+and all you're either gonna collect them or copy them over
+
+1050
+01:22:24,810 --> 01:22:26,370
+how do you know you've gone through all of them.
+
+1051
+01:22:27,340 --> 01:22:31,150
+You, at some point you you trace the object grabbed down, correct,
+
+1052
+01:22:31,540 --> 01:22:34,660
+and at some point you're not adding any objects anymore,
+
+1053
+01:22:34,660 --> 01:22:36,280
+because you already copied them in the past.
+
+1054
+01:22:36,920 --> 01:22:38,270
+Okay okay, that makes sense.
+
+1055
+01:22:38,270 --> 01:22:41,540
+You don't add any more, basically your unscanned area is not growing,
+
+1056
+01:22:41,540 --> 01:22:43,610
+so if your unscanned area is not growing anymore, you don't.
+
+1057
+01:22:44,640 --> 01:22:48,630
+Okay, okay, and then when you copy it over you unmap it,
+
+1058
+01:22:48,630 --> 01:22:53,910
+so if someone tries to access the old pointer is going to be invalid, right.
+
+1059
+01:22:54,150 --> 01:22:55,500
+Okay, that makes sense, thanks.
+
+1060
+01:22:55,860 --> 01:22:57,990
+Alright, I'll see you guys later.
+
+1061
+01:23:01,060 --> 01:23:02,140
+Thank you.
+
+1062
+01:23:02,470 --> 01:23:03,040
+You're welcome.
+
+1063
+01:23:12,120 --> 01:23:14,880
+Okay, I think that may be it for today.
+
