@@ -1,0 +1,4596 @@
+1
+00:00:07,470 --> 00:00:10,890
+Alright, can you guys hear me?
+
+2
+00:00:13,190 --> 00:00:13,820
+Yes.
+
+3
+00:00:14,750 --> 00:00:15,200
+Thank you.
+
+4
+00:00:15,770 --> 00:00:18,800
+Alright, today I want to talk about talk mostly about micro kernels,
+
+5
+00:00:19,550 --> 00:00:28,210
+but first a little bit of context to sort of help explain why people explored micro kernels in the first place,
+
+6
+00:00:28,570 --> 00:00:38,980
+this people got the micro kernels by trying to think about more broadly about what kernels should actually do,
+
+7
+00:00:39,010 --> 00:00:40,720
+like we've you know with xv6,
+
+8
+00:00:40,720 --> 00:00:43,660
+is sort of does the things that Unix does
+
+9
+00:00:43,660 --> 00:00:50,150
+and we kind of take that set of abstractions and system calls and keep sort of facilities,
+
+10
+00:00:50,150 --> 00:00:54,950
+inside the kernels kind of for granted is the target of what we're trying to design,
+
+11
+00:00:54,950 --> 00:01:00,370
+but it's totally worth wondering gosh, what should a kernel do in the first place,
+
+12
+00:01:00,370 --> 00:01:04,880
+maybe maybe the particular kind of stuff that xv6 or Linux does,
+
+13
+00:01:04,910 --> 00:01:07,130
+it's not really the best answer,
+
+14
+00:01:07,160 --> 00:01:08,060
+or maybe it is
+
+15
+00:01:08,330 --> 00:01:12,260
+and of course we're on somewhat treacherous ground here,
+
+16
+00:01:12,260 --> 00:01:17,990
+because now we're we're what kernels are is kind of a development platform for programmers
+
+17
+00:01:18,170 --> 00:01:24,890
+as we know programmers different people have very different sort of subjective preferences
+
+18
+00:01:24,890 --> 00:01:28,100
+about what kind of infrastructure they like to program on.
+
+19
+00:01:28,100 --> 00:01:32,380
+So we can't necessarily expect a single best answer,
+
+20
+00:01:33,270 --> 00:01:35,430
+but we can expect to maybe learn something,
+
+21
+00:01:35,610 --> 00:01:39,510
+and maybe make some progress by trying to think about what answers might be.
+
+22
+00:01:40,620 --> 00:01:46,500
+So first of all, let me try to crystallize what the traditional approaches
+
+23
+00:01:46,500 --> 00:01:50,550
+to what kind of kernel interfaces we ought to be using
+
+24
+00:01:50,760 --> 00:02:00,410
+and Linux and Unix and xv6 are all examples of, of what I personally call a traditional design approach,
+
+25
+00:02:00,440 --> 00:02:04,550
+but another word for it, that kind of summarizes,
+
+26
+00:02:05,160 --> 00:02:07,740
+but this approach has ended up like is monolithic.
+
+27
+00:02:13,510 --> 00:02:19,970
+Monolithic and, what that means is that the kernel is a single big program
+
+28
+00:02:19,970 --> 00:02:23,450
+that does all kinds of things, all within the same program.
+
+29
+00:02:25,470 --> 00:02:30,990
+And indeed this really reflects the way people thought about what kernels ought to be doing
+
+30
+00:02:31,050 --> 00:02:40,470
+a real hallmark of kernels like Linux is that they have, they provide powerful abstractions,
+
+31
+00:02:40,560 --> 00:02:45,990
+you know they choose things like file systems and which is really a complicated item,
+
+32
+00:02:46,480 --> 00:02:52,570
+and they present file systems and files and directories and file descriptors as their interface
+
+33
+00:02:52,570 --> 00:02:58,450
+rather than for example presenting disk hardware as their interface to applications,
+
+34
+00:02:58,480 --> 00:03:05,950
+so, and using presenting powerful abstractions instead of very low-level abstractions has some big advantages,
+
+35
+00:03:06,220 --> 00:03:11,410
+monolithic kernels often have a sort of big abstractions,
+
+36
+00:03:17,150 --> 00:03:19,890
+like, file, the file system.
+
+37
+00:03:21,180 --> 00:03:26,310
+One advantage of big abstract is that they're often portable of files and directories,
+
+38
+00:03:26,310 --> 00:03:29,940
+you can implement files and directories on all kinds of storage
+
+39
+00:03:30,810 --> 00:03:37,500
+and file, you can use files and directories [after] having to worry about what brand of disk drive is running on
+
+40
+00:03:37,500 --> 00:03:39,780
+or maybe it's an ssd instead of a hard drive,
+
+41
+00:03:39,780 --> 00:03:41,340
+or maybe it's a network file system
+
+42
+00:03:41,340 --> 00:03:42,450
+and all its the same interface,
+
+43
+00:03:42,450 --> 00:03:46,320
+because the file system interface is pretty high level pretty abstract.
+
+44
+00:03:46,530 --> 00:03:51,880
+So, an advantage of this is that the way to get portability,
+
+45
+00:03:52,520 --> 00:03:56,000
+write an application and have it run on all kinds of different hardware
+
+46
+00:03:56,000 --> 00:03:58,880
+without having to modify the application.
+
+47
+00:04:00,150 --> 00:04:07,500
+Another example of this is that Unix Linux provides an address space abstraction
+
+48
+00:04:07,500 --> 00:04:12,810
+rather than providing something that's likes rather than providing direct access to the MMU hardware
+
+49
+00:04:13,260 --> 00:04:18,840
+and that's useful to, for portability and sort of hide complexity from applications.
+
+50
+00:04:20,440 --> 00:04:24,970
+So another big advantage of these powerful abstractions,
+
+51
+00:04:24,970 --> 00:04:27,730
+they tend to hide complexity from applications.
+
+52
+00:04:30,690 --> 00:04:36,180
+The, so for example the file descriptor interface that xv6 provides,
+
+53
+00:04:36,180 --> 00:04:41,010
+its very simple interface, but you just read and write on file descriptors couldn't get much simpler,
+
+54
+00:04:41,100 --> 00:04:43,470
+but behind it is very complicated code
+
+55
+00:04:43,470 --> 00:04:48,150
+for actually reading and writing a disk, the file system on disk.
+
+56
+00:04:50,670 --> 00:04:53,760
+And that's nice for programmers, but it makes for a big complex kernel,
+
+57
+00:04:54,930 --> 00:04:59,340
+these big abstractions also help the kernel manage and share resources,
+
+58
+00:04:59,340 --> 00:05:02,520
+we've delegated to the kernel things like memory management,
+
+59
+00:05:02,520 --> 00:05:04,680
+the kernel keeps track of what memories free,
+
+60
+00:05:04,800 --> 00:05:09,270
+we similarly the kernel keeps track of what parts of the disk are free,
+
+61
+00:05:09,270 --> 00:05:11,070
+in what parts of the disk current current use.
+
+62
+00:05:11,160 --> 00:05:12,780
+So programs, don't get to think about it,
+
+63
+00:05:13,200 --> 00:05:15,660
+and that again, it simplifies programs,
+
+64
+00:05:15,660 --> 00:05:18,360
+it also helps with robustness and security even,
+
+65
+00:05:19,140 --> 00:05:22,950
+because if programs are allowed to decide what parts of the disk are free or not,
+
+66
+00:05:22,980 --> 00:05:28,470
+then maybe one program could use a part of the disk that's already being used by another program.
+
+67
+00:05:30,210 --> 00:05:34,290
+So the fact that the kernel is in charge of resource management,
+
+68
+00:05:36,980 --> 00:05:39,230
+helps with sharing and helps with security,
+
+69
+00:05:39,500 --> 00:05:45,530
+but again it's a force that a sort of causes the kernel to be big.
+
+70
+00:05:49,380 --> 00:05:54,900
+So anyway, so having the kernel being charge of all these sort of juicy abstractions,
+
+71
+00:05:54,900 --> 00:05:58,160
+that even if they have simple interfaces,
+
+72
+00:05:58,190 --> 00:06:05,000
+have a lot of complexity inside, have let kernels to be big and complex items.
+
+73
+00:06:05,840 --> 00:06:09,350
+And another aspect of this monolithic design approaches,
+
+74
+00:06:09,350 --> 00:06:11,780
+that because it's all one program,
+
+75
+00:06:11,840 --> 00:06:17,210
+all the different kernel substances, like the file system and the memory allocator and scheduler and virtual memories,
+
+76
+00:06:17,210 --> 00:06:19,430
+they're all part of one big integrated program,
+
+77
+00:06:19,580 --> 00:06:22,430
+it means that they can peer into each others data structures,
+
+78
+00:06:22,430 --> 00:06:28,460
+and so that's just tended to make it much easier to implement facilities,
+
+79
+00:06:28,460 --> 00:06:31,040
+that are sort of parts of more than one
+
+80
+00:06:31,400 --> 00:06:35,510
+or what you might think of as more than one kind of module or subsystem,
+
+81
+00:06:35,510 --> 00:06:38,840
+so for example a system call like exec,
+
+82
+00:06:39,620 --> 00:06:41,930
+exec has its fingers deeply into file system,
+
+83
+00:06:41,930 --> 00:06:46,250
+because it's reading binary images of the disk in order to load the memory,
+
+84
+00:06:46,310 --> 00:06:51,590
+it also has its fingers into the memory allocation and virtual memory paging system,
+
+85
+00:06:51,650 --> 00:06:54,380
+because it needs to set up the address space of the new process,
+
+86
+00:06:54,440 --> 00:06:55,310
+but it's really easy,
+
+87
+00:06:55,310 --> 00:06:58,310
+there's no problem with doing that in xv6 or Linux,
+
+88
+00:06:58,310 --> 00:07:02,960
+because both [] the file system is right there, in the same kernel program
+
+89
+00:07:02,960 --> 00:07:05,900
+and the virtual memory system is also right there as part of the same program
+
+90
+00:07:07,010 --> 00:07:12,770
+and if you somehow there was a rigid split between the file system and the virtual memory system,
+
+91
+00:07:12,860 --> 00:07:15,230
+would be much harder to implement something like exec,
+
+92
+00:07:15,230 --> 00:07:18,080
+that has sort of fingers in both of these [pies].
+
+93
+00:07:18,320 --> 00:07:23,060
+But in a monolithic system just one big program, it's much easier.
+
+94
+00:07:24,090 --> 00:07:31,290
+Another thing that makes implementing software inside a monolithic kernel like xv6 or Linux easy is that
+
+95
+00:07:31,320 --> 00:07:38,910
+all the code runs with full hardware privileges, all xv6 runs in supervisor mode for example,
+
+96
+00:07:39,120 --> 00:07:42,570
+which means there's no limits there's no irritating,
+
+97
+00:07:42,870 --> 00:07:46,950
+oh, you can't you know me to write that memory here, because you don't have enough privilege,
+
+98
+00:07:47,160 --> 00:07:50,980
+all the kernel code runs with sort of maximum privilege.
+
+99
+00:07:52,710 --> 00:07:56,430
+And you know the same is true of operating systems like Linux.
+
+100
+00:07:57,770 --> 00:08:05,030
+So, this design strategy, it's very convenient for kernel developers
+
+101
+00:08:05,090 --> 00:08:08,810
+and it's made it easy to build these big abstractions
+
+102
+00:08:08,810 --> 00:08:12,770
+which are convenient for application developers,
+
+103
+00:08:12,800 --> 00:08:20,780
+however, there's also a certain amount to criticize with the monolithic, traditional monolithic approach.
+
+104
+00:08:23,300 --> 00:08:32,080
+And this is starting to be part of the motivation for looking at other architectures, like micro kernels,
+
+105
+00:08:32,500 --> 00:08:37,200
+so you might ask why not monolithic kernels.
+
+106
+00:08:43,290 --> 00:08:47,640
+So one is just that they're big and complex,
+
+107
+00:08:47,850 --> 00:08:52,620
+so anything that's Linux is depending on how you count,
+
+108
+00:08:52,620 --> 00:08:58,260
+Linux somewhere between many hundreds of thousands and a few million lines of code
+
+109
+00:08:58,470 --> 00:09:02,850
+and people really do take advantage of the fact that one part of Linux
+
+110
+00:09:02,850 --> 00:09:06,090
+can sort of look at the data of another and that makes the programming easier,
+
+111
+00:09:06,120 --> 00:09:11,670
+but it also makes there'd be a lot of interconnections and interrelationships between code
+
+112
+00:09:11,670 --> 00:09:15,870
+and so it can be a bit challenging sometimes to look at the Linux kernel code
+
+113
+00:09:15,870 --> 00:09:16,830
+and figure out what it's up to
+
+114
+00:09:17,460 --> 00:09:24,120
+and anytime you get big programs especially ones that are a complex structure,
+
+115
+00:09:24,120 --> 00:09:30,090
+you get bugs, and operating system kernels are no exceptions
+
+116
+00:09:30,090 --> 00:09:32,430
+and over the years they've had all kinds of bugs,
+
+117
+00:09:33,030 --> 00:09:37,320
+including bugs that are exploitable for security.
+
+118
+00:09:40,050 --> 00:09:47,640
+So, so this is sort of trouble set of relationships,
+
+119
+00:09:47,670 --> 00:09:49,260
+if you allow a big model of the kernel,
+
+120
+00:09:49,440 --> 00:09:54,600
+you almost certainly can't avoid bugs and exploitable security problems
+
+121
+00:09:54,990 --> 00:09:57,840
+and that's a real I mean there really is a problem.
+
+122
+00:10:00,490 --> 00:10:06,560
+Another reason why people are, maybe not entirely happy with monolithic kernels is that
+
+123
+00:10:06,710 --> 00:10:12,380
+they tend to just grow with all desirable features over time
+
+124
+00:10:12,530 --> 00:10:15,710
+and so you know Linux is used for all kinds of different things,
+
+125
+00:10:15,710 --> 00:10:24,650
+from telephone handsets to a desktop workstations and laptops to tablets to servers on the Internet to routers
+
+126
+00:10:25,790 --> 00:10:29,900
+and that's caused Linux, it's fantastic that Linux can support all those things,
+
+127
+00:10:29,960 --> 00:10:31,940
+but it has caused it to be very general,
+
+128
+00:10:32,000 --> 00:10:34,940
+it has support in there for many many different things
+
+129
+00:10:34,970 --> 00:10:43,730
+and any one application like me running my web servers unlikely to need for example Linux is very sophisticated sound card support,
+
+130
+00:10:44,030 --> 00:10:50,050
+so there's just a huge amount of stuff, that's there for, to allow Linux to be general purpose,
+
+131
+00:10:50,230 --> 00:10:58,540
+which is good, but there's a worry that general purpose is going to tend to mean slow,
+
+132
+00:10:58,990 --> 00:11:01,900
+that you know may be good for all kinds of different things,
+
+133
+00:11:01,900 --> 00:11:05,350
+but maybe not optimum for anything in particular.
+
+134
+00:11:06,160 --> 00:11:07,900
+so it's very hard to,
+
+135
+00:11:08,500 --> 00:11:10,750
+you know when you're trying to make something really fast,
+
+136
+00:11:10,750 --> 00:11:16,630
+it's great to have it just only do one or two things you can focus on optimizing a single code path,
+
+137
+00:11:17,440 --> 00:11:20,470
+but if your software needs to do any one of a thousand different things,
+
+138
+00:11:20,470 --> 00:11:22,750
+it's much harder to have focused optimization.
+
+139
+00:11:25,090 --> 00:11:27,580
+So this is, Linux is not necessarily slow,
+
+140
+00:11:27,580 --> 00:11:33,520
+but it's you know you might wonder if it's really as fast as it could possibly be for any given situation.
+
+141
+00:11:35,210 --> 00:11:36,380
+So if you think about it,
+
+142
+00:11:36,380 --> 00:11:40,970
+how do you think if you think about almost anything in Linux or xv6,
+
+143
+00:11:41,510 --> 00:11:44,420
+you know you may wonder whether it really needs to do everything it does,
+
+144
+00:11:44,420 --> 00:11:49,070
+so, for example if you write a single byte over a pipe from one process to another,
+
+145
+00:11:49,430 --> 00:11:51,770
+but there's a lot of instructions that get executed,
+
+146
+00:11:51,950 --> 00:11:54,740
+even xv6 which is a simple kernel, right,
+
+147
+00:11:54,740 --> 00:12:01,730
+there's buffering, you know there's locking, there's could be a sleep and a wakeup during a pipe read and write,
+
+148
+00:12:01,730 --> 00:12:05,450
+there's maybe a scheduler in may called the scheduler context swhich,
+
+149
+00:12:05,660 --> 00:12:11,940
+has a lot of stuff that's maybe not necessarily the absolute minimum
+
+150
+00:12:11,940 --> 00:12:15,360
+that would be required to move a byte from one process to another.
+
+151
+00:12:17,940 --> 00:12:21,240
+Another potential problem with these big kernels is that,
+
+152
+00:12:21,330 --> 00:12:26,560
+they, because they're so big and they sort of intentionally bite off,
+
+153
+00:12:26,590 --> 00:12:32,830
+some very sophisticated abstractions, they tend to have a lot of design decisions, kind of baked into the kernel.
+
+154
+00:12:34,700 --> 00:12:42,770
+So, you know in ways, that you can't, even if you disagree with them, you can't really you know [tough luck] applications just have to live with it,
+
+155
+00:12:43,010 --> 00:12:49,970
+so, you know as a as opposed to you, in some fantasy world,
+
+156
+00:12:49,970 --> 00:12:52,880
+maybe applications could make a lot more of the decisions,
+
+157
+00:12:52,880 --> 00:13:03,930
+so you know some examples of things where you may just you may be bummed out by the way the API designed,
+
+158
+00:13:04,020 --> 00:13:09,660
+for example in a Unix you can wait for a process your own children if you fork,
+
+159
+00:13:09,660 --> 00:13:12,210
+you can wait for your children, but you can't wait for some other process
+
+160
+00:13:12,210 --> 00:13:15,780
+and maybe you want to wait for a grandchild or an unrelated process,
+
+161
+00:13:15,780 --> 00:13:18,450
+but that's just not an option, it's just not the way things work,
+
+162
+00:13:18,630 --> 00:13:20,250
+even if it would be convenient for you,
+
+163
+00:13:21,360 --> 00:13:26,520
+maybe you want to change the way another processes address space is set up,
+
+164
+00:13:26,550 --> 00:13:30,840
+you know maybe call and map on behalf of another process that you're controlling,
+
+165
+00:13:30,840 --> 00:13:33,110
+but again, that's just not an option,
+
+166
+00:13:33,110 --> 00:13:38,180
+you can map change your own address space, but not changes other process address space,
+
+167
+00:13:38,330 --> 00:13:43,160
+maybe a database and you have B-tree indexes on the disk
+
+168
+00:13:43,550 --> 00:13:47,630
+and you may know a lot about it the fastest way to layout B-tree on a disk,
+
+169
+00:13:47,900 --> 00:13:50,300
+but if you're reading and writing files with the file system,
+
+170
+00:13:50,360 --> 00:13:58,790
+the file system has no idea that you're actually writing a B-tree or how a B-tree ought to be laid out on a disk for fastest access.
+
+171
+00:13:59,190 --> 00:14:01,230
+And so if your database you're going to be kind of bummed,
+
+172
+00:14:01,230 --> 00:14:04,470
+you know maybe you're happy that you have this file system at your disposal,
+
+173
+00:14:04,560 --> 00:14:06,360
+but it doesn't really do what you want to do.
+
+174
+00:14:07,340 --> 00:14:12,260
+That's the sense in which a design decisions are often baked into big kernels.
+
+175
+00:14:13,290 --> 00:14:17,880
+And finally, a specific sort of issue that,
+
+176
+00:14:20,920 --> 00:14:24,880
+so it came up in a big way in the 1990s probably,
+
+177
+00:14:25,000 --> 00:14:27,130
+a notion of extensibility,
+
+178
+00:14:29,950 --> 00:14:34,000
+that it might be desirable for programs to be able to change the kernel on the fly
+
+179
+00:14:34,030 --> 00:14:35,800
+to be able to download new code in the kernel
+
+180
+00:14:35,800 --> 00:14:37,420
+or change the way it operates or something,
+
+181
+00:14:37,720 --> 00:14:44,470
+in order to do things like have databases able to control the layout of data on the disk.
+
+182
+00:14:45,320 --> 00:14:56,830
+At least in decades past, monolithic kernels tended not to, to have any particular features that help with this kind of extensive ability,
+
+183
+00:14:56,830 --> 00:14:58,840
+you're just stuck with whatever the kernel did.
+
+184
+00:15:01,490 --> 00:15:02,780
+Okay.
+
+185
+00:15:03,430 --> 00:15:07,290
+So, these were sort of problems in the back of people's minds,
+
+186
+00:15:07,290 --> 00:15:11,080
+that let them to think about other kinds of,
+
+187
+00:15:11,290 --> 00:15:14,800
+other ways of designing other architectures for operating systems
+
+188
+00:15:15,040 --> 00:15:18,710
+and and there were a number of, a number of ideas,
+
+189
+00:15:18,710 --> 00:15:20,570
+some quite radically different that people pursued,
+
+190
+00:15:20,780 --> 00:15:25,640
+we're going to talk about one of them, particularly popular one today
+
+191
+00:15:25,880 --> 00:15:27,440
+and that's the idea of micro kernels.
+
+192
+00:15:31,330 --> 00:15:34,120
+Micro kernels, although many of the ideas
+
+193
+00:15:34,120 --> 00:15:38,180
+or go back to the beginning of computer history,
+
+194
+00:15:39,020 --> 00:15:43,160
+they became a sort of hot research topic,
+
+195
+00:15:43,160 --> 00:15:46,100
+starting in maybe the mid to late 1980s.
+
+196
+00:15:46,550 --> 00:15:49,580
+And the big idea,
+
+197
+00:15:52,710 --> 00:15:58,650
+so micro kernel this this word by the way refers to a sort of general approach, a concept,
+
+198
+00:15:58,650 --> 00:16:00,840
+it doesn't refer to any specific artifact,
+
+199
+00:16:00,840 --> 00:16:09,030
+there were many people who designed and built operating systems that followed the general sort of plan for micro kernels,
+
+200
+00:16:09,030 --> 00:16:13,950
+but you know each of these projects ended up designing and operating systems may be quite different from the others,
+
+201
+00:16:14,070 --> 00:16:18,790
+so the key idea was the tiny kernel,
+
+202
+00:16:22,540 --> 00:16:29,140
+that supported just IPC or inter process communication,
+
+203
+00:16:29,320 --> 00:16:33,970
+and some sort of notion of a threads or tasks.
+
+204
+00:16:35,620 --> 00:16:40,600
+So you have a kernel that provides you a notion of sort of process like abstraction
+
+205
+00:16:40,600 --> 00:16:44,830
+and away for processes to communicate with each other, with this inter process communication
+
+206
+00:16:44,890 --> 00:16:46,450
+and nothing else
+
+207
+00:16:46,480 --> 00:16:48,220
+and everything else you might want to do,
+
+208
+00:16:48,220 --> 00:16:50,230
+like a file system you'd implement,
+
+209
+00:16:50,320 --> 00:16:54,790
+as a process as a task as a user level code, not in the kernel at all.
+
+210
+00:16:55,850 --> 00:16:57,080
+So picture for that,
+
+211
+00:17:01,100 --> 00:17:05,030
+maybe now we're going to use u for micro kernel,
+
+212
+00:17:05,090 --> 00:17:06,530
+and the micro kernel down here
+
+213
+00:17:06,530 --> 00:17:08,870
+and we got user space processes up here
+
+214
+00:17:08,870 --> 00:17:11,990
+and we might have all the kind of usual processes run,
+
+215
+00:17:11,990 --> 00:17:16,380
+maybe we're gonna run vi, my favorite text editor,
+
+216
+00:17:16,380 --> 00:17:21,320
+and my my compiler, my windows system.
+
+217
+00:17:25,340 --> 00:17:28,910
+But also up here as usual processes, we're going to have the file system,
+
+218
+00:17:29,650 --> 00:17:32,620
+just as a server process in user space,
+
+219
+00:17:32,620 --> 00:17:38,070
+maybe we're going to have a disk driver, they know how to talk to my disk hardware,
+
+220
+00:17:38,310 --> 00:17:47,790
+maybe we have a network stack that, knows how to talk talk TCP to my network interface card,
+
+221
+00:17:48,360 --> 00:17:54,690
+maybe we'll have a user level process, that's in charge of doing fancy paging tricks,
+
+222
+00:17:54,720 --> 00:17:59,910
+like memory mapped files or maybe implements copy-on-write fork or something.
+
+223
+00:18:01,560 --> 00:18:07,200
+And when my text editor needs to read a file, it needs to talk the file system
+
+224
+00:18:07,200 --> 00:18:21,230
+and so, it's gonna send a a message via IPC inter process communication, to the file system server,
+
+225
+00:18:21,530 --> 00:18:24,590
+which has all the file system code, it's about files and directories
+
+226
+00:18:24,590 --> 00:18:28,040
+and file system server code may need to talk to the disk,
+
+227
+00:18:28,040 --> 00:18:31,070
+so it might send another sort of disk read or write,
+
+228
+00:18:31,070 --> 00:18:35,840
+so another IPC to the disk driver which somehow talks this hardware,
+
+229
+00:18:36,350 --> 00:18:42,220
+this driver may return you know a disk block to the file server after it does its thing,
+
+230
+00:18:42,220 --> 00:18:47,020
+maybe the file server finally returns the data you ask for again by inter process communication messages,
+
+231
+00:18:47,350 --> 00:18:49,270
+back to my text editor.
+
+232
+00:18:50,240 --> 00:18:53,870
+But you know the the critical thing to notice here is that
+
+233
+00:18:54,650 --> 00:19:03,180
+the only stuff going down here in the kernel is support for these processes or tasks or threads, whatever they might be
+
+234
+00:19:03,210 --> 00:19:08,400
+and support for the inter process communication message passing and nothing else,
+
+235
+00:19:08,400 --> 00:19:09,780
+there's no file system down here,
+
+236
+00:19:09,780 --> 00:19:13,380
+there's no device drivers necessarily down here in the kernel,
+
+237
+00:19:13,380 --> 00:19:20,970
+there's no network stack all that stuff is up here as more or less ordinary user level processes.
+
+238
+00:19:21,790 --> 00:19:30,250
+So they lead you to a very small kernel with a relatively little code optimize,
+
+239
+00:19:30,250 --> 00:19:33,460
+like you can optimize IPC and there's not much else going on.
+
+240
+00:19:36,590 --> 00:19:39,920
+And so this is the kind of picture, we're going to talk about for the rest of the lecture
+
+241
+00:19:39,920 --> 00:19:42,710
+and just give you a taste of where this ended up,
+
+242
+00:19:42,740 --> 00:19:47,300
+there are actually still a micro kernels in use today,
+
+243
+00:19:47,300 --> 00:19:52,730
+and indeed the L4 micro kernel which is the topic of today's paper turns out to be used,
+
+244
+00:19:52,970 --> 00:19:56,810
+there's many instances many many instances of L4 running,
+
+245
+00:19:56,810 --> 00:20:02,630
+because it's used in a lot of cellphones in the little micro controllers that control the cell phone radios
+
+246
+00:20:02,900 --> 00:20:06,680
+and it's also apparently used in recent iPhones
+
+247
+00:20:06,830 --> 00:20:13,580
+as the operating system that runs on a special dedicated enclave processor in the iPhone
+
+248
+00:20:13,580 --> 00:20:16,580
+that hides the secret cryptographic keys.
+
+249
+00:20:17,270 --> 00:20:24,770
+So there's a bunch of embedded where these micro kernels have won out in little embedded specialized computer systems,
+
+250
+00:20:24,890 --> 00:20:32,320
+not not laptops, but a computer dedicated to single specialized tasks
+
+251
+00:20:32,350 --> 00:20:34,600
+where you may not need the complexity of Linux,
+
+252
+00:20:34,600 --> 00:20:36,220
+but you do need some operating system.
+
+253
+00:20:37,680 --> 00:20:43,200
+And the other thing, that's the other sort of final result from micro kernels is that,
+
+254
+00:20:43,260 --> 00:20:49,530
+the idea of user level services with with other programs talking to them with IPC,
+
+255
+00:20:49,710 --> 00:20:52,860
+that also has made its way into a lot of operating systems,
+
+256
+00:20:52,860 --> 00:20:55,350
+like Mac OS, which running right now to talk to you,
+
+257
+00:20:55,560 --> 00:21:00,840
+you know it's a sort of as well as being a kind of ordinary monolithic kernel,
+
+258
+00:21:00,870 --> 00:21:09,440
+it also has good support for a user level services and IPC between Unix processes to talk to the service,
+
+259
+00:21:09,440 --> 00:21:16,470
+so, that idea also, it was a successful idea and widely adopted.
+
+260
+00:21:17,550 --> 00:21:20,160
+Okay, so this is the basic architecture,
+
+261
+00:21:20,490 --> 00:21:26,550
+I'm going to go on and talk about some ways and reasons why this might be attractive,
+
+262
+00:21:26,610 --> 00:21:29,520
+but first are there any just kind of high-level questions about,
+
+263
+00:21:31,730 --> 00:21:33,200
+what it is, I mean by micro kernel.
+
+264
+00:21:38,950 --> 00:21:40,330
+Okay.
+
+265
+00:21:42,700 --> 00:21:54,600
+So, what is it that people are hoping for, when they started building micro micro kernels,
+
+266
+00:21:54,600 --> 00:21:59,670
+so, one big motivation, although you wouldn't necessarily see it written down much,
+
+267
+00:21:59,670 --> 00:22:01,860
+it's just a sense of aesthetics right,
+
+268
+00:22:01,890 --> 00:22:11,460
+I think just a lot of people feel that huge complicated a single programs like like Linux kernel are just not very elegant,
+
+269
+00:22:11,640 --> 00:22:23,120
+that surely we can build something that's much more much much smaller much more focused design, isn't such a huge grab bag of random different features,
+
+270
+00:22:23,780 --> 00:22:27,780
+so I think there was a strong sort of aesthetic feeling.
+
+271
+00:22:28,680 --> 00:22:30,720
+Surely we can do better than big kernels.
+
+272
+00:22:31,360 --> 00:22:36,220
+But others are more specific things that you might be able to quantify
+
+273
+00:22:36,220 --> 00:22:42,610
+or something a kernel that's small might be more secure.
+
+274
+00:22:44,930 --> 00:22:48,110
+Write a few lines of code, you have probably fewer bugs,
+
+275
+00:22:48,110 --> 00:22:54,200
+you have less chance of somebody be able to exploit one of those bugs to break security,
+
+276
+00:22:54,620 --> 00:22:59,280
+and then the extreme of that,
+
+277
+00:22:59,930 --> 00:23:04,580
+you could imagine operating system that's actually provable provably, correct.
+
+278
+00:23:06,950 --> 00:23:08,810
+Where somebody can sit down and write a proof
+
+279
+00:23:08,810 --> 00:23:11,090
+that the operating system has no bugs
+
+280
+00:23:11,090 --> 00:23:13,130
+or does exactly what it's supposed to do and nothing else
+
+281
+00:23:13,910 --> 00:23:23,100
+and indeed there is a, at least one, verified proved correct proved secure operating system named seL4,
+
+282
+00:23:23,100 --> 00:23:27,330
+which is one of the many descendants of the L4 micro kernel,
+
+283
+00:23:30,000 --> 00:23:31,440
+today's paper,
+
+284
+00:23:31,500 --> 00:23:36,510
+but you really you know people know how to verify small to medium sized programs,
+
+285
+00:23:36,510 --> 00:23:40,110
+but they don't know how to verify huge programs unless the fact that micro kernels are small,
+
+286
+00:23:40,320 --> 00:23:43,350
+sort of critical ingredient and be able to prove their correct.
+
+287
+00:23:45,530 --> 00:23:48,320
+Another reason why you might like small is that
+
+288
+00:23:48,320 --> 00:23:56,080
+small amount of code is often a lot easier to optimize than, than a huge program.
+
+289
+00:23:57,720 --> 00:24:00,390
+Another reason why small might result in fast is that
+
+290
+00:24:00,510 --> 00:24:04,820
+you don't have to pay for a lot of features you don't use,
+
+291
+00:24:04,850 --> 00:24:09,170
+your micro kernel does hardly anything then you're not paying for a lot of features, you're not using.
+
+292
+00:24:11,220 --> 00:24:14,180
+Another reason for small is that,
+
+293
+00:24:14,480 --> 00:24:18,320
+small kernel probably bakes in far fewer design decisions,
+
+294
+00:24:18,320 --> 00:24:21,200
+forces fewer design decisions on application writers
+
+295
+00:24:22,580 --> 00:24:27,890
+and so it leaves them more maybe leaves them more flexible flexibility to make their own design decisions.
+
+296
+00:24:30,800 --> 00:24:36,880
+By the way, these are all these are not necessary consequences of the micro kernel approach,
+
+297
+00:24:36,970 --> 00:24:40,870
+these are things that people hoped for and tried to achieve by using micro kernels.
+
+298
+00:24:41,200 --> 00:24:46,030
+And another set of reasons why micro kernels seemed attractive has to do with the fact that
+
+299
+00:24:46,030 --> 00:24:48,070
+a lot of the code was at user level,
+
+300
+00:24:49,110 --> 00:24:52,270
+that is a lot of features and functions
+
+301
+00:24:52,270 --> 00:24:57,260
+that we sort of grown used to being inside the kernel were actual user level services,
+
+302
+00:24:57,440 --> 00:25:00,950
+so they hope that by a sort of breaking the kernel part
+
+303
+00:25:00,950 --> 00:25:08,810
+and running the different parts like a user level services, like a file service, profiles file service server,
+
+304
+00:25:09,050 --> 00:25:14,380
+that might cause the the code to be more modular,
+
+305
+00:25:14,860 --> 00:25:23,920
+might sort of encourage operating system designers to split up all these functions into many separate services,
+
+306
+00:25:23,920 --> 00:25:25,300
+that might that might be a good thing.
+
+307
+00:25:26,330 --> 00:25:31,190
+User level code is also possibly easier to modify,
+
+308
+00:25:31,190 --> 00:25:35,600
+its user level it's usually easier to tweak it or replace it or modify it
+
+309
+00:25:35,600 --> 00:25:38,060
+than doing the same stuff in the kernel,
+
+310
+00:25:38,060 --> 00:25:40,310
+so maybe it's easier to customize.
+
+311
+00:25:43,610 --> 00:25:50,240
+Putting the operating systems at user level that also might make them more robust,
+
+312
+00:25:50,240 --> 00:25:53,270
+you can, you can if the kernel something goes wrong with the kernel,
+
+313
+00:25:55,170 --> 00:25:58,020
+you know, usually you have to panic and reboot,
+
+314
+00:25:58,020 --> 00:26:02,940
+because, you know you can't necessarily trust what's in the kernel anymore,
+
+315
+00:26:02,940 --> 00:26:07,050
+if it's had some bug that maybe causes it to overwrite a random part of its data
+
+316
+00:26:07,530 --> 00:26:10,140
+whereas if you have a bunch of user level services
+
+317
+00:26:10,140 --> 00:26:15,180
+and one of them malfunctions and devised by zero or dereferences a wild pointer,
+
+318
+00:26:15,300 --> 00:26:19,740
+maybe only that one server will crash and leaving the rest of the operating system intact,
+
+319
+00:26:19,740 --> 00:26:22,260
+then maybe you can restart it, just that one server
+
+320
+00:26:22,260 --> 00:26:30,180
+so maybe user level moving OS functionality, a user process might lead to more robustness,
+
+321
+00:26:30,300 --> 00:26:39,110
+this is surprise, particularly evident for drivers, there most bugs in the kernel or actually hardware device drivers,
+
+322
+00:26:39,230 --> 00:26:41,810
+if we can manage to move the device drivers out of the kernel,
+
+323
+00:26:41,930 --> 00:26:45,230
+then we might have many fewer bugs crashes in the kernel.
+
+324
+00:26:46,840 --> 00:26:49,840
+And the final advantage, the people were thinking about back then is that
+
+325
+00:26:50,080 --> 00:26:54,940
+you could emulate or run multiple operating system personalities on top of a micro kernel,
+
+326
+00:26:55,180 --> 00:26:58,330
+so even though micro kernel does does hardly anything for you directly,
+
+327
+00:26:58,360 --> 00:27:01,600
+you might be able to run a Unix server or something on top of it
+
+328
+00:27:01,900 --> 00:27:06,110
+maybe more than one on the same machine.
+
+329
+00:27:08,760 --> 00:27:15,810
+Of course, that's what today's papers about, running a Unix running Linux as a service on a micro kernel,
+
+330
+00:27:16,320 --> 00:27:25,970
+these are all the set of things that people were hoping to be able to get some traction on by looking into micro kernel designs.
+
+331
+00:27:27,010 --> 00:27:32,100
+Course there's some sort of puzzles, you have to think through.
+
+332
+00:27:33,020 --> 00:27:34,070
+Some challenges.
+
+333
+00:27:37,810 --> 00:27:41,920
+One challenge, if you want to design your own micro kernel is
+
+334
+00:27:42,160 --> 00:27:47,950
+actually figuring out you want the API you want the micro kernel system call interface to be as simple as possible,
+
+335
+00:27:48,160 --> 00:27:49,960
+because the whole point was to keep it small
+
+336
+00:27:50,290 --> 00:27:55,660
+and what is the actual smallest set of useful system calls you can get away with.
+
+337
+00:27:56,140 --> 00:27:58,030
+You know what does it look like.
+
+338
+00:27:59,240 --> 00:28:00,950
+That's not particularly clear.
+
+339
+00:28:02,720 --> 00:28:08,370
+Look at the minimum system call, API.
+
+340
+00:28:12,190 --> 00:28:15,850
+You need these this minimum system call API, it's great, it's simple,
+
+341
+00:28:15,880 --> 00:28:22,210
+but you actually have to be able to build some pretty sophisticated features out of your minimum system call API,
+
+342
+00:28:22,210 --> 00:28:24,520
+because even if the kernel doesn't do much,
+
+343
+00:28:24,520 --> 00:28:26,770
+you know in the end, you've got to be able to run programs,
+
+344
+00:28:26,770 --> 00:28:30,430
+you got maybe you're trying to run Unix on top of a micro kernel,
+
+345
+00:28:30,430 --> 00:28:37,060
+to be able do things like fork mmap, so as part of the system call interface,
+
+346
+00:28:37,090 --> 00:28:40,110
+simple low-level system call interface,
+
+347
+00:28:40,260 --> 00:28:47,150
+it has to be powerful enough to support all the stuff people need to do,
+
+348
+00:28:47,150 --> 00:28:57,320
+like exec and fork and [heck] maybe even copy-on-write fork or memory mapping on disk files,
+
+349
+00:28:57,320 --> 00:29:00,740
+but all in a kernel that has no idea about files or file system
+
+350
+00:29:01,310 --> 00:29:05,030
+needs to support exec, but with kernel that knows nothing about files.
+
+351
+00:29:06,440 --> 00:29:12,050
+We need the rest of the, the operating system,
+
+352
+00:29:12,050 --> 00:29:15,640
+somehow ensure that micro kernel maybe very simple,
+
+353
+00:29:15,640 --> 00:29:21,340
+but you know now we're requiring the development of some set of user level servers,
+
+354
+00:29:21,340 --> 00:29:23,790
+that implement the rest of the operating system,
+
+355
+00:29:24,270 --> 00:29:29,640
+so we need, that has to get done at least and may require some solving design puzzles,
+
+356
+00:29:30,870 --> 00:29:38,280
+and finally the you know this arrangement requires a lot of chitchat over inter processor communication over IPC,
+
+357
+00:29:38,640 --> 00:29:47,300
+so there's going to be great pressure to make the you know IPC very fast,
+
+358
+00:29:47,300 --> 00:29:52,080
+so to wonder whether IPC can be made fast enough,
+
+359
+00:29:53,420 --> 00:29:56,390
+to keep micro kernels competitive.
+
+360
+00:29:57,700 --> 00:30:02,830
+Alright, and just in general, actually the not just IPC speed,
+
+361
+00:30:02,830 --> 00:30:09,160
+but in general a lot of reason to believe that monolithic kernels derived some performance
+
+362
+00:30:09,160 --> 00:30:15,460
+out of the fact that they're integrated that the file system code can talk to the virtual memory code and memory allocation code,
+
+363
+00:30:15,730 --> 00:30:18,880
+it's all sort of one big happy giant program.
+
+364
+00:30:19,710 --> 00:30:23,640
+And if you require all those things to be split out into separate servers
+
+365
+00:30:23,640 --> 00:30:26,550
+or may be split between the kernel and user level,
+
+366
+00:30:26,550 --> 00:30:30,330
+there may be fewer opportunities for optimization by way of integration
+
+367
+00:30:30,540 --> 00:30:34,230
+than that may or may not, end up hurting performance.
+
+368
+00:30:37,200 --> 00:30:46,310
+Alright. So these are sort of crosscutting, hoped for wins and sort of challenges that all,
+
+369
+00:30:46,610 --> 00:30:49,670
+the many micro kernel projects faced.
+
+370
+00:30:53,000 --> 00:30:58,220
+Because of today's paper, I'm gonna tell you a bunch of about L4 specifically
+
+371
+00:30:58,220 --> 00:31:05,440
+which is the micro kernel the the authors of today's paper developed and used.
+
+372
+00:31:07,630 --> 00:31:13,020
+L4 is not, it's certainly not the earliest micro kernel ever made,
+
+373
+00:31:13,020 --> 00:31:19,770
+but it's one of the sort of early micro kernels that came out of all the work in this starting in the 1980s
+
+374
+00:31:20,130 --> 00:31:23,790
+and it's fairly representative as far as how it works.
+
+375
+00:31:25,140 --> 00:31:32,550
+There's been, it's a bit of a moving target was the subject of intense development and evolution for many years
+
+376
+00:31:32,550 --> 00:31:34,050
+and it's still going strong,
+
+377
+00:31:34,620 --> 00:31:39,780
+if you look at on Wikipedia, you'll see that there's maybe fifteen or twenty different variants of L4
+
+378
+00:31:39,780 --> 00:31:42,030
+that have come and gone and some are still here
+
+379
+00:31:42,780 --> 00:31:45,120
+starting I think in the late 1980s
+
+380
+00:31:45,750 --> 00:31:51,080
+and I know what I'm gonna try to explain to you is my understanding of how L4 worked,
+
+381
+00:31:51,200 --> 00:31:54,980
+at about the time a today's paper came out.
+
+382
+00:31:58,890 --> 00:32:04,810
+Alright, so, just at a high level,
+
+383
+00:32:04,840 --> 00:32:12,460
+the L4 was certainly micro, in the sense that it was actually is a small kernel,
+
+384
+00:32:12,520 --> 00:32:17,020
+it has only seven system calls some of them a little bit complex,
+
+385
+00:32:17,020 --> 00:32:18,880
+but still it only has seven system calls,
+
+386
+00:32:18,910 --> 00:32:22,960
+whereas today's Linux the last time I counted had in the mid three hundreds
+
+387
+00:32:23,830 --> 00:32:26,440
+and even xv6 which is an extremely simple kernel,
+
+388
+00:32:26,440 --> 00:32:28,570
+even xv6 has 21 system calls,
+
+389
+00:32:29,230 --> 00:32:34,110
+so L4 it's only seven,
+
+390
+00:32:34,440 --> 00:32:36,150
+so by that metric is simple,
+
+391
+00:32:36,150 --> 00:32:37,320
+it's also not very big,
+
+392
+00:32:37,530 --> 00:32:44,790
+I think, as the time this paper was written at about 13 000 lines of code,
+
+393
+00:32:45,600 --> 00:32:48,300
+just not too much xv6 is smaller than that,
+
+394
+00:32:49,890 --> 00:32:52,860
+I think xv6 maybe six or 7000 lines of code in the kernel,
+
+395
+00:32:53,010 --> 00:32:55,410
+but still xv6 is very simple as kernels go,
+
+396
+00:32:55,980 --> 00:32:57,810
+L4 not much more complex than that,
+
+397
+00:32:57,810 --> 00:33:04,500
+and this is you know a tenth or twentieth or thirtieth as big as as Linux, is pretty small.
+
+398
+00:33:05,520 --> 00:33:09,090
+It had only a few basic abstractions.
+
+399
+00:33:10,950 --> 00:33:18,810
+It had a notion of what they called tasks or address spaces.
+
+400
+00:33:22,170 --> 00:33:25,740
+And these more or less correspond to what we would call a process in Unix,
+
+401
+00:33:25,740 --> 00:33:30,210
+it's a, it's a bunch of memories map starting at zero
+
+402
+00:33:30,210 --> 00:33:36,310
+and and you're able to execute in here, just like in the process,
+
+403
+00:33:36,310 --> 00:33:43,880
+when different from xv6 is that there can be multiple threads per task.
+
+404
+00:33:45,040 --> 00:33:52,450
+And L4 was in charge of scheduling multiple threads of execution within each task.
+
+405
+00:33:54,260 --> 00:34:01,280
+And part of the reason for this is just it's very convenient to have threads as a programming structuring program structuring tool
+
+406
+00:34:01,460 --> 00:34:08,570
+and it was also I don't know if they actually supported multi core multiprocessor machines,
+
+407
+00:34:08,600 --> 00:34:09,680
+at the time the paper was written,
+
+408
+00:34:09,680 --> 00:34:13,940
+but, they may well have and threads,
+
+409
+00:34:13,940 --> 00:34:18,950
+of course just what you need to be able to harness multiple cores executing the same program,
+
+410
+00:34:19,130 --> 00:34:23,320
+so there's are threads supported by L4 kernel.
+
+411
+00:34:26,650 --> 00:34:32,680
+So so, L4 supported tasks, it knew about tasks, it knew about threads
+
+412
+00:34:32,830 --> 00:34:36,190
+and it also knew about address spaces,
+
+413
+00:34:36,190 --> 00:34:42,040
+in the sense that you could, you could ask tell L4 look, here's how we want pages mapped into address space.
+
+414
+00:34:43,110 --> 00:34:49,980
+And the other main thing that L4 knew about is inter process communication,
+
+415
+00:34:49,980 --> 00:34:53,220
+so that was every thread has an identifier
+
+416
+00:34:53,400 --> 00:34:59,190
+and one thread could say look I want to send a message, it just some bytes to another thread,
+
+417
+00:34:59,190 --> 00:35:05,540
+and here's this identifier, please, please send a message to that other thread.
+
+418
+00:35:07,860 --> 00:35:14,360
+So these are really the only task threads address spaces
+
+419
+00:35:14,690 --> 00:35:16,760
+and IPC were really the only abstractions,
+
+420
+00:35:16,880 --> 00:35:21,380
+the system calls, I don't know if I can be able to list them all,
+
+421
+00:35:21,380 --> 00:35:28,920
+but Um the system calls were there was a thread,
+
+422
+00:35:29,160 --> 00:35:38,670
+thread create system call which also you gave it a address space id has to create a new thread
+
+423
+00:35:38,670 --> 00:35:41,580
+and if the address space are tasked in already exist,
+
+424
+00:35:41,580 --> 00:35:43,140
+it would create a new task for you,
+
+425
+00:35:43,320 --> 00:35:45,780
+sort of combine thread and task creation.
+
+426
+00:35:48,030 --> 00:35:57,210
+There's send and receive, various flavors of send and receive IPC system calls.
+
+427
+00:35:59,580 --> 00:36:05,430
+There's a way to map pages into your or other address space,
+
+428
+00:36:05,430 --> 00:36:11,220
+so, you, you could ask the L4 to change the way your address space was set up
+
+429
+00:36:11,220 --> 00:36:13,530
+the way your page table maps were set up,
+
+430
+00:36:13,560 --> 00:36:17,820
+but you could also ask L4 if you had the right permissions to go
+
+431
+00:36:17,820 --> 00:36:21,480
+and change the way another task's address space was set up.
+
+432
+00:36:21,860 --> 00:36:28,970
+So, this was actually done through the IPC,
+
+433
+00:36:28,970 --> 00:36:30,680
+would spent through the IPC interface,
+
+434
+00:36:30,680 --> 00:36:35,900
+you would send a special IPC message that the kernel knew about to the target thread,
+
+435
+00:36:35,900 --> 00:36:39,590
+and the kernel would modify the target threads address space.
+
+436
+00:36:41,050 --> 00:36:43,030
+And this is if you are creating a new thread,
+
+437
+00:36:43,030 --> 00:36:45,580
+this is actually new threads are created with no memory at all,
+
+438
+00:36:46,720 --> 00:36:47,710
+so if you want to create a thread,
+
+439
+00:36:47,710 --> 00:36:52,660
+you first call the thread create system call to create a new thread and task and address space,
+
+440
+00:36:52,720 --> 00:36:54,100
+and then you send it,
+
+441
+00:36:54,370 --> 00:37:00,070
+if you make one of these magic IPCs to send some of your own memory maps of your own memory
+
+442
+00:37:00,070 --> 00:37:02,260
+that you've prepared with instructions or data
+
+443
+00:37:02,800 --> 00:37:07,540
+to map that memory into the new, and so a new task address space,
+
+444
+00:37:07,930 --> 00:37:14,800
+and then you send a special start IPC to this new task with the program counter and stack pointer, you want it to start executing with,
+
+445
+00:37:15,100 --> 00:37:19,480
+that will start executing and that memory you've setup at the program counter you ask startup.
+
+446
+00:37:21,740 --> 00:37:24,140
+There's a way not through system calls,
+
+447
+00:37:24,320 --> 00:37:25,700
+in fact I don't know how it worked,
+
+448
+00:37:25,700 --> 00:37:36,820
+but privileged tasks could map device hardware, you know device control registers into their own address spaces.
+
+449
+00:37:39,980 --> 00:37:44,060
+So, L4 didn't really know much about devices like disks or network interface cards,
+
+450
+00:37:44,060 --> 00:37:48,830
+but user level software could get directly at.
+
+451
+00:37:51,160 --> 00:37:55,720
+User level software that implemented device drivers that user level could get directly at device hardware.
+
+452
+00:37:56,610 --> 00:38:03,430
+There was a way to you could tell L4 to turn an interrupt,
+
+453
+00:38:05,870 --> 00:38:07,370
+any interrupt from any device,
+
+454
+00:38:07,520 --> 00:38:13,520
+L4 didn't really know which device just turned, given interrupt into an IPC message.
+
+455
+00:38:14,070 --> 00:38:20,070
+So a device driver task could not just read write the device hardware,
+
+456
+00:38:20,070 --> 00:38:22,620
+but also tell L4 well anytime that device interrupts,
+
+457
+00:38:22,680 --> 00:38:26,670
+please send me an IPC message notifying me the interrupt.
+
+458
+00:38:27,820 --> 00:38:37,390
+And finally one task tell the kernel to give it notifications of another task page faults,
+
+459
+00:38:38,470 --> 00:38:44,830
+so if this test page fault, L4 would turn that into an IPC message
+
+460
+00:38:45,730 --> 00:38:49,120
+and send it to another designated pager task.
+
+461
+00:38:49,930 --> 00:38:52,990
+Send the notification the page fault to a designated page task,
+
+462
+00:38:52,990 --> 00:38:57,250
+so every task has an associated pager task that handled its page faults,
+
+463
+00:38:57,460 --> 00:39:01,600
+and that's the way you know you get hooks into the page faults,
+
+464
+00:39:01,600 --> 00:39:05,590
+in order to implement things like copy-on-write fork or lazy allocation.
+
+465
+00:39:09,060 --> 00:39:11,550
+And that's it for the kernel, there's nothing else in L4,
+
+466
+00:39:11,550 --> 00:39:12,900
+there's no file system,
+
+467
+00:39:13,230 --> 00:39:16,530
+L4 didn't itself had support for things like fork exec,
+
+468
+00:39:16,830 --> 00:39:21,510
+didn't have any communication beyond these very simple IPC,
+
+469
+00:39:21,990 --> 00:39:25,290
+like did not pipes, did not device drivers, no networking support nothing,
+
+470
+00:39:26,250 --> 00:39:27,750
+everything else if you wanted it,
+
+471
+00:39:28,200 --> 00:39:31,890
+you need to supply as a user level services.
+
+472
+00:39:37,080 --> 00:39:46,400
+Okay, so, one thing that are, L4 does supply is switching among threads,
+
+473
+00:39:46,520 --> 00:39:54,710
+L4 would actually do the scheduling and context switches in order to multiplex a single CPU among multiple threads
+
+474
+00:39:54,710 --> 00:39:57,770
+and the way it did it you would find completely unsurprising,
+
+475
+00:39:58,160 --> 00:40:03,860
+L4 basically had saved registers for every task for every thread,
+
+476
+00:40:04,580 --> 00:40:10,070
+when it executed a thread, the executing thread would jump into user space, switch page tables,
+
+477
+00:40:10,070 --> 00:40:12,860
+so that thread and that thread will execute for a while in user space,
+
+478
+00:40:13,070 --> 00:40:15,170
+then maybe the timer interrupt would go off
+
+479
+00:40:15,170 --> 00:40:17,270
+and that was actually a device L4 knew about,
+
+480
+00:40:17,600 --> 00:40:19,910
+the timer interrupt might go off after a while,
+
+481
+00:40:20,280 --> 00:40:26,010
+interrupting the L4, L4 would save this tasks, user registers in a per task,
+
+482
+00:40:26,340 --> 00:40:29,280
+an array of tasks thread structures,
+
+483
+00:40:29,520 --> 00:40:32,900
+would save this threads registers away,
+
+484
+00:40:33,320 --> 00:40:37,460
+pick a new task to run in a loop, much like the scheduling loop in xv6,
+
+485
+00:40:37,850 --> 00:40:43,820
+restore this tasks registers out from its previously saved registers,
+
+486
+00:40:44,030 --> 00:40:47,930
+switch page tables, and then jump into this task and execute it for a while,
+
+487
+00:40:48,950 --> 00:40:54,620
+until the timer interrupt went off or until this task either yielded,
+
+488
+00:40:54,800 --> 00:40:58,040
+I think there's also probably a yield system call or something like it.
+
+489
+00:40:59,230 --> 00:41:05,020
+A task can yield a CPU or a task could wait to receive an IPC in that case.
+
+490
+00:41:06,090 --> 00:41:12,540
+L4, we jump back into L4 and L4 see this registers switch to a new task and that task,
+
+491
+00:41:12,600 --> 00:41:19,170
+so that thread switching part of L4 is very, that would be very familiar.
+
+492
+00:41:25,350 --> 00:41:27,060
+The, um.
+
+493
+00:41:30,130 --> 00:41:34,390
+I I mentioned this before I just want to because it comes up.
+
+494
+00:41:34,970 --> 00:41:40,910
+I wanna write here, this notion of a pager,
+
+495
+00:41:40,910 --> 00:41:49,760
+the repeat if a process is a page fault, traps into the kernel
+
+496
+00:41:49,850 --> 00:41:54,710
+and the kernel turns that page fault into an IPC message to a designated pager task
+
+497
+00:41:54,860 --> 00:42:04,400
+and tells it the address, tells this pager task which thread faulted and the address it faulted on on.
+
+498
+00:42:05,050 --> 00:42:09,310
+And then the pager task if it wants to say, implement lazy allocation,
+
+499
+00:42:09,610 --> 00:42:13,660
+maybe this thread wrote or write some memory that was allocated yet,
+
+500
+00:42:13,660 --> 00:42:17,170
+but I think but it sort of asked to be lazily allocated,
+
+501
+00:42:17,410 --> 00:42:21,670
+its pager task would then be in charge of allocating some memory from L4,
+
+502
+00:42:22,570 --> 00:42:25,930
+sending one of these special IPCs,
+
+503
+00:42:26,140 --> 00:42:32,110
+cause that caused memory to be mapped into this task,
+
+504
+00:42:32,110 --> 00:42:36,670
+and then sending an IPC to resume execution inside this thread.
+
+505
+00:42:38,320 --> 00:42:40,060
+So there was this notion of pager task
+
+506
+00:42:40,060 --> 00:42:45,040
+to implement all this all the stuff that xv6 or Linux implements in page fault handlers,
+
+507
+00:42:45,040 --> 00:42:48,790
+like you could implement copy-on-write fork with this, if you liked,
+
+508
+00:42:48,790 --> 00:42:50,950
+or memory mapped files,
+
+509
+00:42:50,950 --> 00:42:53,500
+all using one of these pager task.
+
+510
+00:42:53,500 --> 00:42:58,850
+They were sort of powerful user level way,
+
+511
+00:42:59,270 --> 00:43:02,480
+play tricks with a driven by page faults
+
+512
+00:43:03,710 --> 00:43:13,280
+and so this is an example, one of many examples in which micro kernel like L4 might have been quite a bit more flexible for user programs than a conventional kernel,
+
+513
+00:43:13,550 --> 00:43:16,490
+like if you think Linux ought to do some extra thing,
+
+514
+00:43:16,490 --> 00:43:22,400
+like maybe you know some you know if Linux didn't already have copy-on-write fork
+
+515
+00:43:22,400 --> 00:43:24,230
+and you wanted to have copy-on-write fork,
+
+516
+00:43:24,440 --> 00:43:27,680
+you really can't implement that in Linux without modifying the kernel
+
+517
+00:43:28,040 --> 00:43:32,690
+and there's no way to write portable code, portable user level code for Linux
+
+518
+00:43:32,690 --> 00:43:34,790
+that could implement something like copy-on-write fork.
+
+519
+00:43:38,020 --> 00:43:39,940
+That's not quite true, but it would be very difficult,
+
+520
+00:43:39,970 --> 00:43:43,330
+whereas L4 its relatively straightforward,
+
+521
+00:43:43,330 --> 00:43:46,870
+L4 is completely set up for you to be able to write user level code
+
+522
+00:43:46,900 --> 00:43:51,340
+that gets the page faults that are required to drive copy-on-write fork,
+
+523
+00:43:51,810 --> 00:43:55,170
+all in user space without having to mess with the kernel.
+
+524
+00:43:58,030 --> 00:44:03,840
+Okay, so any questions so far about how L4 works.
+
+525
+00:44:05,590 --> 00:44:10,540
+Oh, sorry, can you just clarify the difference between a thread and a task.
+
+526
+00:44:10,540 --> 00:44:19,290
+Yes, a task corresponds to it's like a process in xv6,
+
+527
+00:44:19,290 --> 00:44:24,660
+it has a bunch of memory and address space and you can execute user code in,
+
+528
+00:44:24,660 --> 00:44:35,410
+xv6 if you have a process in xv6, it can only there can only be one thread of control, on a single you know executing inside a process in xv6,
+
+529
+00:44:35,440 --> 00:44:42,350
+but in modern operating systems and L4, in a single process, in a single address space,
+
+530
+00:44:42,350 --> 00:44:52,280
+you could have if you have multiple cores, you can have multiple cores executing a single task for each,
+
+531
+00:44:52,340 --> 00:44:57,710
+typically always each set up with its own stack inside that task's address space.
+
+532
+00:44:58,480 --> 00:45:04,060
+And so if, that means you can for example, write a single program that can get parallel speedup,
+
+533
+00:45:04,060 --> 00:45:11,800
+improved performance from multi core hardware by running one thread on having multiple threads each running a different core,
+
+534
+00:45:12,040 --> 00:45:13,120
+thereby getting more work done.
+
+535
+00:45:15,400 --> 00:45:16,690
+Okay I see, thank you.
+
+536
+00:45:16,930 --> 00:45:17,590
+Yes.
+
+537
+00:45:21,950 --> 00:45:25,300
+Okay, so as you can see,
+
+538
+00:45:25,300 --> 00:45:29,560
+this is a design that relies heavily on IPC,
+
+539
+00:45:29,770 --> 00:45:31,720
+because you're going to want to talk to your file server,
+
+540
+00:45:31,720 --> 00:45:34,720
+a file server is going to want to talk to the device driver server,
+
+541
+00:45:34,900 --> 00:45:37,690
+you're gonna have IPC messages flying back and forth,
+
+542
+00:45:37,720 --> 00:45:41,380
+for every system call, for every page fault, for every device interrupt,
+
+543
+00:45:41,470 --> 00:45:43,600
+the IPC system just has to be fast,
+
+544
+00:45:44,260 --> 00:45:56,050
+however now we're starting to talk about a serious potential defect in a micro kernel story.
+
+545
+00:46:04,720 --> 00:46:10,150
+So first let me show you a straightforward, but very slow design,
+
+546
+00:46:10,880 --> 00:46:15,410
+for IPC patterned off of Unix pipes
+
+547
+00:46:15,410 --> 00:46:23,030
+and I'm bringing this up because some early micro kernels worked in sort of a similar way to what I'm about to show you,
+
+548
+00:46:23,090 --> 00:46:24,290
+which turned out to be slow.
+
+549
+00:46:25,430 --> 00:46:32,620
+Okay, so, let's suppose you have, you know you have two processes,
+
+550
+00:46:32,620 --> 00:46:36,850
+we got P1, P1 wants to send a message to P2.
+
+551
+00:46:39,710 --> 00:46:41,210
+So how should that actually work,
+
+552
+00:46:41,240 --> 00:46:45,530
+well, one possibility is to have a send system call,
+
+553
+00:46:46,320 --> 00:46:51,460
+and you give send system call the id of the thread you want to send a message to
+
+554
+00:46:51,460 --> 00:46:59,320
+and a pointer to the message to the bytes, may be that you actually want to send to that process,
+
+555
+00:46:59,320 --> 00:47:01,900
+so this system call are going to jump into the kernel,
+
+556
+00:47:02,110 --> 00:47:07,150
+you know maybe we design this patterned after pipes and xv6,
+
+557
+00:47:07,420 --> 00:47:11,500
+so you can imagine there being a buffer of messages waiting,
+
+558
+00:47:11,590 --> 00:47:13,720
+maybe P2 doing something else right now,
+
+559
+00:47:13,930 --> 00:47:16,210
+maybe it's a server it's serving somebody else's request,
+
+560
+00:47:16,210 --> 00:47:18,160
+so it's not ready to handle your request,
+
+561
+00:47:18,640 --> 00:47:24,890
+you can imagine, maybe a buffer of waiting messages in the kernel, like a pipe buffer,
+
+562
+00:47:25,130 --> 00:47:31,620
+when you call send, it appends your message to this buffer waiting for P2 to receive it,
+
+563
+00:47:32,070 --> 00:47:34,350
+now, in fact almost always,
+
+564
+00:47:36,060 --> 00:47:39,570
+in these systems you rarely just wanted to send a message,
+
+565
+00:47:39,840 --> 00:47:41,910
+you almost always wanted to get a response too,
+
+566
+00:47:41,910 --> 00:47:46,050
+you wanted an RPC, remote procedure call operation,
+
+567
+00:47:46,050 --> 00:47:52,140
+so in fact, P1 would probably follow this immediately by a receive to try to get the response back,
+
+568
+00:47:52,320 --> 00:47:56,410
+but in general, let's just imagine we're doing a one-way IPC for the moment,
+
+569
+00:47:56,410 --> 00:48:01,330
+so send would append your message to the in kernel buffer,
+
+570
+00:48:01,600 --> 00:48:05,770
+we have to copy the message bytes from user space into this buffer
+
+571
+00:48:05,860 --> 00:48:08,830
+and then return and process one can do something else,
+
+572
+00:48:08,830 --> 00:48:11,650
+like maybe prepared to receive the response,
+
+573
+00:48:12,430 --> 00:48:20,100
+after a while P2, it's gonna want to receive the next message just gonna make the received system call,
+
+574
+00:48:21,290 --> 00:48:26,180
+and that's gonna return the id of the sender,
+
+575
+00:48:26,800 --> 00:48:30,070
+and copy the message into P2's memory,
+
+576
+00:48:30,550 --> 00:48:34,780
+just gonna take the front message off the queue, copy into P2's memory,
+
+577
+00:48:36,550 --> 00:48:37,420
+and then return.
+
+578
+00:48:40,800 --> 00:48:42,330
+So, um.
+
+579
+00:48:46,890 --> 00:48:55,590
+This is called, there's some words for this, whose opposite you'll see saw in today's paper,
+
+580
+00:48:55,650 --> 00:48:59,520
+this is called an asynchronous scheme,
+
+581
+00:49:01,230 --> 00:49:04,320
+because P1 sends a message without having to wait for anything,
+
+582
+00:49:04,320 --> 00:49:06,390
+it just appends to queue and returns.
+
+583
+00:49:07,170 --> 00:49:18,880
+And it's called a buffered system, because the kernel copy this message into the buffer into its internal buffer on the send
+
+584
+00:49:18,880 --> 00:49:23,380
+and then later when the receive happens it copies the message out of the buffer to the target,
+
+585
+00:49:23,380 --> 00:49:25,210
+so this is asynchronous buffered.
+
+586
+00:49:27,040 --> 00:49:29,770
+If you're doing a full request response pair,
+
+587
+00:49:29,920 --> 00:49:31,240
+then P1 is going to call send,
+
+588
+00:49:31,240 --> 00:49:33,820
+send going to return P1 is then immediately,
+
+589
+00:49:33,880 --> 00:49:38,410
+let's assume we're going to assume that's really two sets of buffers one for each direction,
+
+590
+00:49:38,860 --> 00:49:48,400
+P1 immediately gonna call receive, receive gonna wait, need to wait for something to appear in the reply buffer,
+
+591
+00:49:48,640 --> 00:49:50,500
+so it's going to have to yield the CPU,
+
+592
+00:49:50,500 --> 00:49:53,830
+it's got to do something and call sleep in xv6 yield the CPU,
+
+593
+00:49:55,030 --> 00:50:01,990
+on a single CPU system, it may be only at this point that P1 gives up the CPU and now P2 can run.
+
+594
+00:50:02,630 --> 00:50:06,740
+And indeed the hardware in this era was almost always single core,
+
+595
+00:50:07,910 --> 00:50:11,180
+certainly this paper is running on single core hardware,
+
+596
+00:50:11,180 --> 00:50:17,510
+so P1 is gonna be [one] executing and P1 not executing until P1 finally gives up the CPU
+
+597
+00:50:17,510 --> 00:50:20,300
+and receive waiting for a message to appear here
+
+598
+00:50:20,480 --> 00:50:23,780
+and only then will P2 be scheduled maybe to call receive,
+
+599
+00:50:24,320 --> 00:50:34,120
+receive copy the message and then P2 make it's called to send, to append its reply.
+
+600
+00:50:36,110 --> 00:50:38,630
+And then the send system call return to P2
+
+601
+00:50:38,630 --> 00:50:41,150
+and at some point presumably P2 will give up to CPU,
+
+602
+00:50:41,180 --> 00:50:42,530
+maybe the timer will go off,
+
+603
+00:50:42,830 --> 00:50:45,890
+then P1 will resume execution in the kernel,
+
+604
+00:50:46,190 --> 00:50:49,370
+see there's a message there and return back to user space
+
+605
+00:50:50,330 --> 00:50:54,080
+and so that means that in this design is slow design.
+
+606
+00:50:54,990 --> 00:50:59,010
+There's in order to have a request and a response,
+
+607
+00:50:59,430 --> 00:51:06,510
+there's four system calls two sends, and two receives,
+
+608
+00:51:06,690 --> 00:51:11,080
+you know each user kernel crossings, each one of which is reasonably expensive,
+
+609
+00:51:11,380 --> 00:51:17,770
+there's a need to sleep, this receive has to sleep, waiting for data to appear,
+
+610
+00:51:18,040 --> 00:51:23,590
+and there's a full called the scheduler loop and a context switch from P1 to P2,
+
+611
+00:51:24,100 --> 00:51:25,180
+in order to make this.
+
+612
+00:51:25,180 --> 00:51:29,770
+And you know each of these kernel crossings and contexts which is potentially expensive,
+
+613
+00:51:29,770 --> 00:51:32,800
+because, you know every time you cross the kernel user boundary,
+
+614
+00:51:32,800 --> 00:51:37,360
+you switch page tables and that is,
+
+615
+00:51:37,930 --> 00:51:42,640
+it has a near certainty of disturbing the CPU caches,
+
+616
+00:51:42,640 --> 00:51:49,240
+like changing the page table, probably flushes the TLB, the virtual memory lookup cache,
+
+617
+00:51:49,240 --> 00:51:50,530
+which is going to slow things down.
+
+618
+00:51:52,220 --> 00:51:58,890
+So, this is a pretty slow way to go involves a lot of kernel crossings message,
+
+619
+00:51:58,890 --> 00:52:01,050
+copying of messages between user and kernel,
+
+620
+00:52:01,110 --> 00:52:03,810
+maybe allocation of buffers etc,
+
+621
+00:52:04,830 --> 00:52:11,250
+but it turns out that for the, for this stylized case in which you're sending a request and you want to get a response back,
+
+622
+00:52:11,370 --> 00:52:17,610
+you can strip this down to considerably simpler design
+
+623
+00:52:17,970 --> 00:52:20,310
+and in fact, this is the way it forward.
+
+624
+00:52:21,870 --> 00:52:24,840
+And this was laid out in a famous paper,
+
+625
+00:52:25,080 --> 00:52:30,450
+called improving IPC by kernel design published a few years before today's paper.
+
+626
+00:52:34,670 --> 00:52:36,890
+So it does a couple things differently,
+
+627
+00:52:36,950 --> 00:52:40,400
+for one thing, it's synchronous.
+
+628
+00:52:42,330 --> 00:52:51,300
+That is, there's none of this, there's no dropping something off
+
+629
+00:52:51,300 --> 00:52:56,190
+and returning and waiting, letting the other guy letting the other process pick up the data,
+
+630
+00:52:56,520 --> 00:53:02,730
+when it feels like, instead send waits for receive and receive waits for send,
+
+631
+00:53:02,730 --> 00:53:08,430
+so, [] P1 and I want to send and I call send,
+
+632
+00:53:11,280 --> 00:53:14,520
+it doesn't copy my message into a buffer,
+
+633
+00:53:14,520 --> 00:53:24,290
+it actually P1 will now immediately if the P1 send in the L4 kernel, waits for P2 to call receive
+
+634
+00:53:24,470 --> 00:53:28,460
+and if P2 is already in the kernel waiting in a call to receive,
+
+635
+00:53:28,670 --> 00:53:33,910
+well P2 is either already in the kernel, waiting in a call to receive
+
+636
+00:53:34,300 --> 00:53:39,340
+or P1 send and wait for it, wait for P2's next call to receive,
+
+637
+00:53:39,370 --> 00:53:46,190
+when both have arrived here, when P1 is, in the kernel and it's called a send,
+
+638
+00:53:46,190 --> 00:53:47,990
+P2's in the kernel is called to receive,
+
+639
+00:53:48,050 --> 00:53:49,670
+only then does anything happen,
+
+640
+00:53:49,790 --> 00:53:55,510
+and one reason this is fast is that,
+
+641
+00:53:55,810 --> 00:53:57,610
+if P2 is already received,
+
+642
+00:53:57,610 --> 00:54:01,910
+then P1, when it's executing send in the kernel,
+
+643
+00:54:01,940 --> 00:54:07,490
+can just without a context switch or a general purpose scheduling,
+
+644
+00:54:07,550 --> 00:54:11,880
+can just jump back into user space into P2,
+
+645
+00:54:11,910 --> 00:54:15,260
+as if it was returning from this receive, right,
+
+646
+00:54:15,260 --> 00:54:17,480
+and that's a much faster path through the kernel,
+
+647
+00:54:17,570 --> 00:54:25,160
+than you know saving registers, giving up the CPU calling the scheduler and finding a new process to run,
+
+648
+00:54:25,160 --> 00:54:29,750
+instead P1 send knows that there's a waiting receive,
+
+649
+00:54:29,870 --> 00:54:35,300
+and just sort of immediately jumps into P2,
+
+650
+00:54:35,930 --> 00:54:37,610
+as if it was returning from receive.
+
+651
+00:54:39,080 --> 00:54:43,460
+The scheme that they developed is also unbuffered.
+
+652
+00:54:47,540 --> 00:54:50,660
+And it could do that partially, because it's a synchronous,
+
+653
+00:54:52,220 --> 00:54:55,160
+when both the send and receive are in the kernel,
+
+654
+00:54:55,220 --> 00:54:59,870
+the message can be you know send sending some message,
+
+655
+00:55:00,780 --> 00:55:04,950
+the kernel can directly copy the message from user space to user space,
+
+656
+00:55:04,950 --> 00:55:08,250
+without having to first copy into the kernel, and then back out of the kernel,
+
+657
+00:55:08,430 --> 00:55:13,950
+because because since both sides wait for the other system call what happened,
+
+658
+00:55:14,040 --> 00:55:17,880
+that means that they've waited for both pointers to be known,
+
+659
+00:55:17,880 --> 00:55:21,970
+received specifies where it wants the message to be deposited,
+
+660
+00:55:22,060 --> 00:55:26,170
+so at this point, we know both addresses then kernel just do the copy directly,
+
+661
+00:55:26,200 --> 00:55:27,970
+instead of through the kernel.
+
+662
+00:55:29,160 --> 00:55:35,510
+For and if the message is super small,
+
+663
+00:55:35,510 --> 00:55:37,310
+like maybe only a few dozen bytes,
+
+664
+00:55:37,340 --> 00:55:42,200
+then, it can be passed in registers without any copy at all,
+
+665
+00:55:45,270 --> 00:55:46,830
+what you might call zero copy.
+
+666
+00:55:49,810 --> 00:55:53,740
+Remember the send only proceeds if the P2 is already in receive
+
+667
+00:55:53,740 --> 00:55:56,680
+and send basically jumps directly to P2,
+
+668
+00:55:56,770 --> 00:56:03,550
+well this code path through the kernel takes care to not disturb a bunch of registers
+
+669
+00:56:03,790 --> 00:56:11,680
+and that means that P1 can put its system call, if the message is short, it can put the message in certain designated registers,
+
+670
+00:56:11,680 --> 00:56:16,240
+the kernel guarantees to preserve those registers on its way up to P2
+
+671
+00:56:16,240 --> 00:56:23,440
+and that means that, when the kernel returns from the receive system call as a result of send,
+
+672
+00:56:23,680 --> 00:56:27,790
+the contents of those designated registers hold the message
+
+673
+00:56:28,120 --> 00:56:31,480
+and therefore never had to be copied at all from memory to memory,
+
+674
+00:56:31,900 --> 00:56:33,160
+never had to be moved at all,
+
+675
+00:56:33,160 --> 00:56:36,430
+they're just sitting right in the registers, where they can be accessed very quickly.
+
+676
+00:56:38,770 --> 00:56:41,470
+And this you know of course only works for small messages,
+
+677
+00:56:41,980 --> 00:56:49,200
+for very large messages, L4 could carry a page mapping in IPC message,
+
+678
+00:56:49,200 --> 00:56:51,150
+so for huge messages,
+
+679
+00:56:52,100 --> 00:56:57,320
+you know like the result of reading a block from a file or something,
+
+680
+00:56:59,840 --> 00:57:05,420
+you could just send the pages will be mapped into the target address space, again without any copy.
+
+681
+00:57:06,390 --> 00:57:08,850
+And so it's done through page mapping,
+
+682
+00:57:09,330 --> 00:57:17,290
+give away the page or access your [copy], access to this permission to share the page.
+
+683
+00:57:18,390 --> 00:57:22,380
+And so small messages are fast, huge messages are pretty fast,
+
+684
+00:57:22,380 --> 00:57:24,420
+you still have to adjust the page table to target,
+
+685
+00:57:24,420 --> 00:57:26,280
+but that's much faster than copying,
+
+686
+00:57:27,180 --> 00:57:34,920
+and final trick that L4 played was noticing that if you're doing an RPC with the request and response,
+
+687
+00:57:35,040 --> 00:57:42,380
+are very stylized peers of system calls
+
+688
+00:57:42,380 --> 00:57:48,650
+and you may as well combine system calls send and receive system calls in order to reduce kernel crossing,
+
+689
+00:57:48,650 --> 00:57:56,580
+so for the special case of RPC, which is almost always what people are doing, when they're using IPC,
+
+690
+00:57:56,580 --> 00:58:06,470
+there was a call, system call, and the call was basically combined send plus receive,
+
+691
+00:58:08,640 --> 00:58:10,680
+but without the return to user space,
+
+692
+00:58:10,680 --> 00:58:17,090
+and then re-entry into kernel space, that a pair of system calls take,
+
+693
+00:58:17,300 --> 00:58:27,270
+on the server side, there was a a single call that would send the reply from one system call
+
+694
+00:58:27,270 --> 00:58:33,850
+and then wait for the request message from anyone for the next system call.
+
+695
+00:58:34,690 --> 00:58:37,660
+And this is basically a send of one response,
+
+696
+00:58:37,660 --> 00:58:40,420
+but wait to receive the next request,
+
+697
+00:58:40,600 --> 00:58:43,270
+and this again cut in half the number of kernel crossings
+
+698
+00:58:44,500 --> 00:58:49,900
+and it turned out that, the sum of all of these optimizations,
+
+699
+00:58:49,930 --> 00:59:02,120
+now for the kind of short RPCs which are, you know one typical workload all this led to a 20x speedup.
+
+700
+00:59:02,990 --> 00:59:06,530
+This is what their paper reported 20x speedup over there previous system,
+
+701
+00:59:06,530 --> 00:59:10,880
+which was presumably a little bit more like what I showed in a previous design.
+
+702
+00:59:12,880 --> 00:59:14,320
+And so this was an impressive,
+
+703
+00:59:15,980 --> 00:59:19,910
+this paper came out a few years before the by some of the same authors,
+
+704
+00:59:19,910 --> 00:59:21,440
+but few years before the people were reading
+
+705
+00:59:21,440 --> 00:59:26,990
+and this caused people to view micro kernels a little bit more favorably.
+
+706
+00:59:27,780 --> 00:59:30,150
+The IPC could actually be quite fast.
+
+707
+00:59:32,240 --> 00:59:37,450
+Any questions about these IPC tricks that L4 plays.
+
+708
+00:59:39,340 --> 00:59:40,990
+Yeah I I think I missed this,
+
+709
+00:59:40,990 --> 00:59:46,720
+but, when is a process a sending there are receiving messages,
+
+710
+00:59:46,900 --> 00:59:48,700
+like when is it using that system call.
+
+711
+00:59:50,200 --> 00:59:53,830
+Okay, actually, so for RPCs, for request response,
+
+712
+00:59:53,860 --> 01:00:01,540
+in fact, in fact, the the processes use this pair of of system calls
+
+713
+01:00:01,570 --> 01:00:03,850
+rather than sending receive.
+
+714
+01:00:04,420 --> 01:00:07,330
+So yeah, call, you really get two arguments,
+
+715
+01:00:07,330 --> 01:00:11,200
+message you want to send and a place to put the response
+
+716
+01:00:11,320 --> 01:00:13,270
+and inside the kernel just combines these two,
+
+717
+01:00:13,570 --> 01:00:15,370
+you could view this is a bit of a hack,
+
+718
+01:00:15,370 --> 01:00:19,510
+but because IPC is so frequent,
+
+719
+01:00:20,160 --> 01:00:24,590
+it's worse a little bit of hacker in order to make it fast.
+
+720
+01:00:25,340 --> 01:00:28,070
+And in the diagram up there, in the box,
+
+721
+01:00:28,070 --> 01:00:32,390
+where, you have P2 sending that are running the received system call,
+
+722
+01:00:32,510 --> 01:00:35,480
+why, what prompted P2 to.
+
+723
+01:00:37,280 --> 01:00:42,050
+Okay it in a in my RPC world, we got, we have clients,
+
+724
+01:00:43,840 --> 01:00:46,240
+and they're sending requests to servers,
+
+725
+01:00:49,940 --> 01:00:51,710
+and the server is going to do something in reply,
+
+726
+01:00:51,710 --> 01:00:53,690
+so since P2 is the server,
+
+727
+01:00:53,690 --> 01:00:56,180
+we imagine that P2 is sitting in a while loop,
+
+728
+01:00:56,210 --> 01:00:59,930
+in which in which it's going to receive the next message from any client
+
+729
+01:00:59,990 --> 01:01:01,580
+do a little bit of work to process it,
+
+730
+01:01:01,580 --> 01:01:03,350
+you know look up some data in a database or something,
+
+731
+01:01:03,350 --> 01:01:06,590
+and then send a reply and go back to the top of the loop and wait again,
+
+732
+01:01:06,800 --> 01:01:17,090
+so to first approximation, we expect P2 spends all its time waiting for the next message from anyone, that can request from anyone.
+
+733
+01:01:19,170 --> 01:01:26,200
+And this design really, it does kind of rely on P2 always
+
+734
+01:01:26,380 --> 01:01:33,460
+and when it's at rest, basically sitting in the kernel in a receive system call waiting for the next request,
+
+735
+01:01:33,460 --> 01:01:40,030
+so that the next request can directly basically return from that system call.
+
+736
+01:01:40,560 --> 01:01:44,550
+And that's the fast path, that's super efficient in this design.
+
+737
+01:01:48,560 --> 01:01:50,000
+Sorry, just to follow up on that,
+
+738
+01:01:50,540 --> 01:01:55,340
+that means that, you said that it goes from P1 and returns to P2,
+
+739
+01:01:55,950 --> 01:02:00,300
+so like to come back, you would need to send a response, so.
+
+740
+01:02:00,870 --> 01:02:05,100
+That's right, we expect P2 to send a response,
+
+741
+01:02:05,540 --> 01:02:10,250
+and that sending of the response actually follows basically the same code path in reverse,
+
+742
+01:02:10,250 --> 01:02:12,050
+that when P2 sends a response,
+
+743
+01:02:14,240 --> 01:02:17,660
+that that effectively causes P1 to return from,
+
+744
+01:02:18,320 --> 01:02:21,020
+I mean, P1 was actually making this call system call,
+
+745
+01:02:21,230 --> 01:02:25,460
+so the delivery of P2's response causes the call
+
+746
+01:02:25,490 --> 01:02:28,310
+the return from this from this system called back into P1.
+
+747
+01:02:29,530 --> 01:02:31,660
+Okay, I see, thank you.
+
+748
+01:02:31,960 --> 01:02:34,150
+This is a little bit different from the usual setup,
+
+749
+01:02:34,150 --> 01:02:37,420
+where you think you jump into the kernel and system call
+
+750
+01:02:37,420 --> 01:02:41,410
+and you execute that system call and it returns sort of all working on behalf of P1
+
+751
+01:02:41,470 --> 01:02:43,480
+which is the way pipe read write work,
+
+752
+01:02:43,600 --> 01:02:46,180
+here, you know P1 is entering the kernel,
+
+753
+01:02:46,750 --> 01:02:51,380
+P1 entering the kernel, and you know that the return goes to P2,
+
+754
+01:02:53,540 --> 01:02:55,880
+kind of odd, but very fast.
+
+755
+01:03:02,540 --> 01:03:11,540
+Okay, so this was a big big sort of contribution to people taking micro kernels,
+
+756
+01:03:13,780 --> 01:03:20,620
+people's willingness to take micro kernel seriously as potential replacement for a monolithic kernels,
+
+757
+01:03:20,620 --> 01:03:25,420
+however you know that you still have to still leave open the question even if RPC is fast,
+
+758
+01:03:25,420 --> 01:03:27,520
+like where you get the rest of the operating system,
+
+759
+01:03:28,720 --> 01:03:31,390
+like this kernel only has a few percent of all the stuff,
+
+760
+01:03:31,390 --> 01:03:35,290
+like file systems and network stacks, we expect to be in a full operating system.
+
+761
+01:03:35,700 --> 01:03:36,900
+What do we do about the rest
+
+762
+01:03:37,740 --> 01:03:44,670
+and this question is usually being asked in the context of some university research project with relatively limited resources,
+
+763
+01:03:46,890 --> 01:03:50,550
+we need to get all those user level services from somewhere.
+
+764
+01:03:51,060 --> 01:03:56,430
+Actually there are specialized applications for which that's not too much of a problem,
+
+765
+01:03:56,430 --> 01:04:01,110
+if we're running you know some sort of device you know controller,
+
+766
+01:04:01,110 --> 01:04:05,980
+or maybe the you know ignition control system for your car,
+
+767
+01:04:05,980 --> 01:04:09,430
+that is only running a few thousand lines of code anyway,
+
+768
+01:04:09,430 --> 01:04:11,650
+maybe just need a file system,
+
+769
+01:04:12,340 --> 01:04:14,830
+then we can get away with very little stuff at user level
+
+770
+01:04:14,830 --> 01:04:18,520
+and micro kernels totally makes sense for that kind of application,
+
+771
+01:04:18,850 --> 01:04:23,330
+but but the people, you know when these projects really they had ambitions,
+
+772
+01:04:23,330 --> 01:04:27,320
+that oh gosh going to totally replace existing operating systems
+
+773
+01:04:27,320 --> 01:04:32,330
+and they hoped that they could build something that people would want to run on their on their workstations
+
+774
+01:04:32,330 --> 01:04:33,890
+and run on their servers and everywhere,
+
+775
+01:04:33,890 --> 01:04:36,590
+just replace big monolithic kernels altogether
+
+776
+01:04:37,100 --> 01:04:41,660
+and but for that you know you need a real you need all the stuff that an operating system does.
+
+777
+01:04:43,280 --> 01:04:53,540
+One possibility, the most maybe, sort of philosophically consistent possibility would be to re-implement everything you need,
+
+778
+01:04:53,540 --> 01:04:59,150
+but in a sort of micro kernel way as lots and lots of different user level processes,
+
+779
+01:04:59,420 --> 01:05:01,070
+but that's just,
+
+780
+01:05:01,830 --> 01:05:04,890
+actually, people, there were projects did that,
+
+781
+01:05:04,890 --> 01:05:06,870
+but it's a vast amount of work
+
+782
+01:05:07,710 --> 01:05:11,160
+and more specifically, people really want to run,
+
+783
+01:05:11,190 --> 01:05:13,570
+you know, in order for me to use a laptop,
+
+784
+01:05:13,600 --> 01:05:18,460
+it just has to run Emacs and it has to run my favorite C compiler,
+
+785
+01:05:18,520 --> 01:05:21,490
+otherwise I'm just definitely not going to switch to your operating system.
+
+786
+01:05:22,040 --> 01:05:26,390
+And what that meant is that micro kernels in order for to gain any kind of adoption,
+
+787
+01:05:26,390 --> 01:05:29,090
+they had to be able to support existing applications,
+
+788
+01:05:29,330 --> 01:05:33,050
+they had to be able to be compatible provide identical
+
+789
+01:05:33,320 --> 01:05:39,740
+or at least the system call at the higher level service API level,
+
+790
+01:05:39,740 --> 01:05:44,390
+they had to be totally compatible with some exist on operating system like Unix like Linux,
+
+791
+01:05:44,480 --> 01:05:47,180
+in order for anybody to be willing to switch.
+
+792
+01:05:47,920 --> 01:05:51,280
+So these projects face a more specific problem of
+
+793
+01:05:51,280 --> 01:05:52,480
+how they were going to get,
+
+794
+01:05:52,540 --> 01:06:00,070
+how are they going to attain compatibility with existing applications written for Linux or maybe Windows or something,
+
+795
+01:06:00,070 --> 01:06:02,830
+but for this project, it was Linux
+
+796
+01:06:03,970 --> 01:06:08,760
+and rather than write their own totally new set of user level servers,
+
+797
+01:06:08,760 --> 01:06:12,510
+that mimic Linux, they decided to take a far easier path
+
+798
+01:06:12,540 --> 01:06:22,920
+and many projects did this of simply directly running an existing monolithic kernel as on top of their micro kernel,
+
+799
+01:06:23,930 --> 01:06:25,700
+instead of re-implementing some new thing
+
+800
+01:06:25,850 --> 01:06:28,700
+and says that's exactly what today's paper is about.
+
+801
+01:06:31,340 --> 01:06:38,370
+It has, indeed, you know L4 micro kernel down at the bottom,
+
+802
+01:06:42,860 --> 01:06:46,190
+but also as like a pretty big server,
+
+803
+01:06:46,460 --> 01:06:53,710
+they run a pretty full Linux kernel as a user level process.
+
+804
+01:06:54,420 --> 01:06:57,210
+And so, that may sound a little surprising,
+
+805
+01:06:57,210 --> 01:07:00,000
+the kernel is not a user level process right, the kernel is the kernel,
+
+806
+01:07:00,930 --> 01:07:02,580
+you think of it as running on the hardware,
+
+807
+01:07:02,580 --> 01:07:08,610
+but in fact you know Linux kernel as you can see from, running xv6 in QEMU,
+
+808
+01:07:08,610 --> 01:07:10,530
+which is running in user space after all,
+
+809
+01:07:11,190 --> 01:07:12,870
+a kernel is just a program
+
+810
+01:07:12,900 --> 01:07:18,900
+and so with some modifications, it can be made to run at user level
+
+811
+01:07:19,200 --> 01:07:21,030
+and so they had to modify Linux
+
+812
+01:07:21,030 --> 01:07:24,480
+and they took a lot of the low-level stuff in Linux,
+
+813
+01:07:24,480 --> 01:07:25,890
+for example of the code in Linux,
+
+814
+01:07:25,890 --> 01:07:31,290
+that expects to be able to directly modify page tables or read and write processor registers,
+
+815
+01:07:31,440 --> 01:07:33,720
+there were some low-level stuff they had to modify,
+
+816
+01:07:34,230 --> 01:07:36,210
+some parts of Linux had to change,
+
+817
+01:07:36,580 --> 01:07:41,270
+in order to convert them to basically make system calls
+
+818
+01:07:41,270 --> 01:07:45,740
+or send IPC messages through L4 instead of directly get at hardware,
+
+819
+01:07:45,980 --> 01:07:50,930
+but for the most part they were able to directly run without change, almost all of Linux,
+
+820
+01:07:50,930 --> 01:07:53,330
+so that means they got as part of Linux,
+
+821
+01:07:53,390 --> 01:07:59,210
+you know file system and network support and all kinds of device drivers.
+
+822
+01:08:00,810 --> 01:08:02,610
+Who knows what that comes with Linux.
+
+823
+01:08:03,380 --> 01:08:06,760
+Without having to write their own version of this.
+
+824
+01:08:08,230 --> 01:08:12,850
+Now, in fact, the way this was set up was that Linux,
+
+825
+01:08:12,850 --> 01:08:17,740
+the Linux kernel ran as one L4 task,
+
+826
+01:08:18,610 --> 01:08:23,110
+but each Linux process ran as a separate L4 task,
+
+827
+01:08:23,110 --> 01:08:25,350
+when you log into this Linux
+
+828
+01:08:25,350 --> 01:08:28,650
+and you ask it to run a shell for you, a terminal window or something,
+
+829
+01:08:28,770 --> 01:08:31,740
+it's going to fire up an L4 task.
+
+830
+01:08:32,260 --> 01:08:35,470
+That's going to run that Linux program at user level,
+
+831
+01:08:36,760 --> 01:08:38,410
+so there were one task for Linux
+
+832
+01:08:38,410 --> 01:08:44,670
+and one task for each Linux process that you fire up under Linux
+
+833
+01:08:44,670 --> 01:08:53,580
+and Linux instead of directly modifying the page table the VI, VI process uses,
+
+834
+01:08:53,670 --> 01:09:01,080
+Linux is going to ask send the right IPC L4 to cause L4 to change VI's page table.
+
+835
+01:09:05,060 --> 01:09:08,980
+Any questions about that, about the basic scheme here.
+
+836
+01:09:14,120 --> 01:09:18,350
+Another thing to, another thing that was changed,
+
+837
+01:09:18,650 --> 01:09:20,030
+many small things were changed,
+
+838
+01:09:20,030 --> 01:09:26,030
+but, a specific thing of interest is that when VI wants to make a system call.
+
+839
+01:09:26,030 --> 01:09:29,190
+So, If VI doesn't know it's running on L4,
+
+840
+01:09:29,670 --> 01:09:35,010
+[] in this scheme, it's really all these programs,
+
+841
+01:09:35,010 --> 01:09:36,660
+just think of themselves as running on Linux,
+
+842
+01:09:36,690 --> 01:09:42,420
+when VI wants to make a system call, you know L4 does not support,
+
+843
+01:09:42,660 --> 01:09:45,840
+its not making L4 system call, it's making Linux system call,
+
+844
+01:09:46,050 --> 01:09:54,330
+so VI system calls like fork, there's a little library, basically that was linked into these.
+
+845
+01:09:56,010 --> 01:10:04,920
+Linux processes that would return calls to things like fork or exec or pipe read or write into IPC messages,
+
+846
+01:10:05,070 --> 01:10:09,330
+that it would send to the Linux task
+
+847
+01:10:09,450 --> 01:10:11,820
+and wait for the response to the Linux task,
+
+848
+01:10:11,820 --> 01:10:14,310
+then return as if the system call returned.
+
+849
+01:10:15,670 --> 01:10:21,830
+So so these little libraries return system calls into IPC messages to Linux
+
+850
+01:10:22,010 --> 01:10:23,090
+and what that meant is that,
+
+851
+01:10:23,210 --> 01:10:27,170
+if the Linux kernel task isn't doing anything, it isn't doing anything else,
+
+852
+01:10:27,290 --> 01:10:30,980
+it's sitting in a call to receive waiting for the next system call request,
+
+853
+01:10:31,130 --> 01:10:34,340
+IPC from any one of these processes.
+
+854
+01:10:39,040 --> 01:10:39,820
+And that led to it,
+
+855
+01:10:41,330 --> 01:10:48,500
+that that leads to a significant difference between how this Linux works and how ordinary Linux works,
+
+856
+01:10:49,280 --> 01:10:56,660
+in ordinary Linux, just like xv6, there's a basically a kernel thread that corresponds to every user level process
+
+857
+01:10:56,660 --> 01:10:59,170
+and when program makes a system call,
+
+858
+01:10:59,170 --> 01:11:03,110
+it, the kernel runs a thread on behalf of that system call,
+
+859
+01:11:03,470 --> 01:11:10,580
+and when in ordinary Linux, when Linux switches between kernel threads,
+
+860
+01:11:10,610 --> 01:11:14,210
+that basically implies a switch from one process to another.
+
+861
+01:11:14,830 --> 01:11:24,810
+So there's kind of one to one correspondence between what kernel thread Linux kernels running and what process is gonna run when Linux is done,
+
+862
+01:11:24,900 --> 01:11:26,610
+here that connection is broken,
+
+863
+01:11:26,670 --> 01:11:33,000
+they were indeed in this Linux server, a kernel thread corresponding to each.
+
+864
+01:11:34,230 --> 01:11:35,910
+I'm sorry, let me start again,
+
+865
+01:11:35,910 --> 01:11:41,710
+the Linux kernel server was running in a single L4 thread,
+
+866
+01:11:41,740 --> 01:11:47,500
+so there was only a single sort of thread of control executing in Linux at a time.
+
+867
+01:11:48,280 --> 01:12:00,920
+However, just as in xv6, this one thread of control would switch using a technique very much like xv6 context which,
+
+868
+01:12:01,550 --> 01:12:07,190
+could switch between a kernel thread corresponding to each user process,
+
+869
+01:12:07,220 --> 01:12:13,840
+however, which of these, the these kernel threads were implemented purely within Linux,
+
+870
+01:12:13,840 --> 01:12:15,790
+had nothing to do with L4 threads,
+
+871
+01:12:15,820 --> 01:12:17,380
+there's only one L4 thread here,
+
+872
+01:12:17,980 --> 01:12:22,420
+but which user process was running was determined by L4,
+
+873
+01:12:22,940 --> 01:12:31,400
+so in this setup Linux might be serving a request from executing the kernel thread for VI,
+
+874
+01:12:31,430 --> 01:12:33,080
+serving a VI system call,
+
+875
+01:12:33,380 --> 01:12:37,640
+at the same time that L4 is causing this shell to run in user space,
+
+876
+01:12:38,080 --> 01:12:41,760
+which is very unlike what happens in xv6 or Linux
+
+877
+01:12:41,760 --> 01:12:50,460
+where there's a direct correspondence between the sort of active kernel thread and the corresponding a user level thread.
+
+878
+01:12:50,460 --> 01:12:52,770
+Here L4 of running whatever it feels like
+
+879
+01:12:53,010 --> 01:12:56,790
+and these threads in the Linux kernel are really much more private
+
+880
+01:12:56,790 --> 01:13:03,390
+and are just about Linux being able to concurrently execute system calls in different stages of execution,
+
+881
+01:13:03,450 --> 01:13:08,020
+where maybe one process is waiting for the disk in its thread,
+
+882
+01:13:08,320 --> 01:13:14,560
+Linux can run a different processe's kernel thread to serve that process system call.
+
+883
+01:13:20,480 --> 01:13:34,570
+So, you might wonder why this design didn't directly use L4 threads to implement the various different kernel threads inside Linux,
+
+884
+01:13:35,110 --> 01:13:40,540
+why did Linux implement its own sort of internal threads package instead of using L4 threads
+
+885
+01:13:40,720 --> 01:13:47,460
+and the answer was that in those days, a, they didn't have access to multi-core hardware,
+
+886
+01:13:47,490 --> 01:13:49,170
+they were using single core hardware,
+
+887
+01:13:49,170 --> 01:13:56,040
+so there were no performance advantage to be able to execute multiple threads in the kernel at the same time,
+
+888
+01:13:56,040 --> 01:13:57,240
+because there was only one core,
+
+889
+01:13:58,530 --> 01:14:02,970
+so a second thread couldn't be executing, only one thread could execute at a time due to the hardware
+
+890
+01:14:03,480 --> 01:14:06,360
+and the other may be even more powerful reason is that
+
+891
+01:14:06,360 --> 01:14:12,280
+in those days, the version of Linux they were using, did not did not have the support,
+
+892
+01:14:12,430 --> 01:14:18,280
+that's required to have multiple threads multiple cores executing inside the kernel at the same time,
+
+893
+01:14:18,490 --> 01:14:21,370
+they were using a uni-processor Linux,
+
+894
+01:14:21,400 --> 01:14:25,600
+said old enough Linux it expected only one core, the kernel at a time.
+
+895
+01:14:27,420 --> 01:14:30,840
+It didn't have things like the spin locks the xv6 has,
+
+896
+01:14:30,870 --> 01:14:36,880
+that would allow it to correctly execute multiple multiple cores inside the kernel,
+
+897
+01:14:36,940 --> 01:14:43,450
+so there would have been no performance advantage in having multiple L4 threads active inside the kernel,
+
+898
+01:14:44,290 --> 01:14:48,790
+but it would have required adding in you know for no performance,
+
+899
+01:14:48,790 --> 01:14:53,890
+when adding in all the spin locks and other stuff that's required to support concurrency,
+
+900
+01:14:53,980 --> 01:14:55,830
+so they didn't do it.
+
+901
+01:14:57,570 --> 01:15:00,960
+A drawback of this arrangement is that
+
+902
+01:15:01,740 --> 01:15:05,670
+in ordinary Linux, in native Linux like you would run directly on your laptop,
+
+903
+01:15:05,730 --> 01:15:12,990
+Linux has a lot of sophisticated scheduling machinery that can do things like impose priorities on different processes
+
+904
+01:15:12,990 --> 01:15:15,240
+or ensure various kinds of fairness.
+
+905
+01:15:17,080 --> 01:15:19,690
+And that was fine, because in on your laptop,
+
+906
+01:15:19,690 --> 01:15:24,520
+because Linux is in control of what process is running on each core,
+
+907
+01:15:24,550 --> 01:15:26,890
+but in this setup Linux is not controlling that at all,
+
+908
+01:15:27,280 --> 01:15:31,380
+and Linux is no control over what, what process is running,
+
+909
+01:15:31,500 --> 01:15:35,190
+because it L4 that does this scheduling, not Linux,
+
+910
+01:15:35,370 --> 01:15:37,740
+now these processes are scheduled by L4,
+
+911
+01:15:37,740 --> 01:15:42,660
+so they kind of lost the ability to have Linux be in charge of a schedule.
+
+912
+01:15:44,640 --> 01:15:46,110
+You know, it's a bit of a defect of this,
+
+913
+01:15:46,110 --> 01:15:53,850
+although I'm sure later versions of L4 had someway for Linux or something like it
+
+914
+01:15:53,850 --> 01:15:55,260
+to be able to tell the L4 schedule,
+
+915
+01:15:55,260 --> 01:15:59,490
+look, please give this process higher priority or whatever,
+
+916
+01:16:00,540 --> 01:16:01,500
+so it's a bit awkward.
+
+917
+01:16:06,950 --> 01:16:08,630
+Alright.
+
+918
+01:16:11,390 --> 01:16:16,510
+So, so they went to all this work to get this going.
+
+919
+01:16:17,780 --> 01:16:21,260
+And, you should ask yourself
+
+920
+01:16:21,260 --> 01:16:27,920
+you know what is the, what's the takeaway lesson from from this paper about micro kernels.
+
+921
+01:16:29,970 --> 01:16:35,490
+Now, one things, so for us, you know this paper has a lot of interesting tidbits about how micro kernels work,
+
+922
+01:16:35,490 --> 01:16:39,930
+about how Linux works and how you set up how you can design a system like this,
+
+923
+01:16:39,930 --> 01:16:41,700
+which may be interesting,
+
+924
+01:16:42,600 --> 01:16:48,810
+but a larger world people want to want to draw some lessons they need to be able to,
+
+925
+01:16:49,790 --> 01:16:51,380
+I present some lessons in this paper,
+
+926
+01:16:51,680 --> 01:16:57,530
+the paper is not really answering the question are micro kernel is a good idea,
+
+927
+01:16:57,980 --> 01:16:59,720
+that's not really what's going on here,
+
+928
+01:17:00,530 --> 01:17:11,510
+the paper what the paper is part of argument about whether micro kernels have enough performance to, to be worth using
+
+929
+01:17:11,780 --> 01:17:18,710
+and the reason is that in in, maybe five years five or ten years before this paper came out,
+
+930
+01:17:19,550 --> 01:17:22,820
+there was a famous set of measurements on one of the predecessor micro kernels
+
+931
+01:17:22,820 --> 01:17:28,430
+and earlier micro kernel called Mach, basically running in very much this configuration,
+
+932
+01:17:29,000 --> 01:17:32,230
+but it's different, you know, totally different design internally,
+
+933
+01:17:32,230 --> 01:17:34,060
+but kind of the same architecture,
+
+934
+01:17:35,020 --> 01:17:39,780
+this, the name of this earlier micro kernel project is Mach,
+
+935
+01:17:40,230 --> 01:17:47,220
+there was measurements on Mach, that showed that Mach was dramatically slower than just ordinary Unix,
+
+936
+01:17:47,700 --> 01:17:49,770
+when it was run in this configuration
+
+937
+01:17:49,770 --> 01:17:54,900
+and you know there are a lot of reasons for that having to do with the IPC system,
+
+938
+01:17:54,900 --> 01:17:56,970
+not being as optimized as you might hope,
+
+939
+01:17:57,090 --> 01:17:59,730
+they're being just sort of more context switches
+
+940
+01:17:59,730 --> 01:18:05,510
+and you know we use our kernel crossings and cache misses and whatever,
+
+941
+01:18:05,510 --> 01:18:08,540
+there's a whole lot of reasons why Mach was slow,
+
+942
+01:18:08,540 --> 01:18:14,420
+but many people saw those benchmark results showing that Mach was much slower than native operating systems
+
+943
+01:18:14,420 --> 01:18:18,920
+and decided that micro kernels were just hopeless, hopelessly inefficient,
+
+944
+01:18:19,040 --> 01:18:21,680
+we're unlikely ever to be fast enough to be competitive
+
+945
+01:18:21,680 --> 01:18:25,520
+and you know we should just all use monolithic kernels.
+
+946
+01:18:26,320 --> 01:18:31,690
+Today's papers like an answer, basically, to that argument,
+
+947
+01:18:31,690 --> 01:18:34,540
+it's sort of the rebuttal to that argument
+
+948
+01:18:34,570 --> 01:18:38,230
+and the point of this paper is to show that you can build this architecture,
+
+949
+01:18:38,230 --> 01:18:41,500
+and if you pay attention to optimizing performance,
+
+950
+01:18:41,620 --> 01:18:48,580
+you can get a competitive performance with native operating systems just directly running Unix,
+
+951
+01:18:49,000 --> 01:18:54,140
+and therefore, you can't dismiss micro kernels simply on the basis of performance,
+
+952
+01:18:54,380 --> 01:18:56,210
+you may not want them for other reasons,
+
+953
+01:18:56,210 --> 01:19:00,470
+but you can't use performance as the reason to reject,
+
+954
+01:19:01,010 --> 01:19:07,330
+part of, a huge part of the ingredients in making that argument is that
+
+955
+01:19:07,330 --> 01:19:11,320
+they made the IPC much faster with the techniques that I outlined a few minutes ago
+
+956
+01:19:11,500 --> 01:19:17,100
+and you can see this I think in a, in a very simple benchmark table two,
+
+957
+01:19:17,100 --> 01:19:18,750
+if you have a copy of the paper with you,
+
+958
+01:19:18,960 --> 01:19:25,800
+table two as measurements of just native Linux running in the ordinary way on hardware
+
+959
+01:19:26,070 --> 01:19:30,600
+and on native Linux, they show that you know on their hardware and their version of Linux,
+
+960
+01:19:30,780 --> 01:19:37,020
+that a single simple system call get pid took 1.7 micro seconds,
+
+961
+01:19:37,900 --> 01:19:45,040
+and they also show that the sort of equivalent thing in there L4 setup,
+
+962
+01:19:45,160 --> 01:19:48,280
+where you have to send an IPC request and get an IPC response
+
+963
+01:19:48,310 --> 01:19:50,710
+just for this get process id system call,
+
+964
+01:19:51,040 --> 01:19:58,360
+that that that took four microseconds under L4 Linux,
+
+965
+01:19:58,360 --> 01:20:02,710
+which is to say twice as long, but there's twice as much work going on,
+
+966
+01:20:02,710 --> 01:20:05,710
+because you're doing two sets of user kernel crossings
+
+967
+01:20:05,710 --> 01:20:09,280
+instead of just a single simple system call,
+
+968
+01:20:09,370 --> 01:20:15,130
+that is they could claim that they appeared the expense of these IPC base system calls
+
+969
+01:20:15,160 --> 01:20:20,950
+down to basically the minimum that is twice the cost of system call native Linux
+
+970
+01:20:21,010 --> 01:20:24,400
+and therefore they were doing roughly as good as you could possibly expect.
+
+971
+01:20:26,400 --> 01:20:30,990
+Now, of course that's still their systems are still half as fast as native Linux.
+
+972
+01:20:33,220 --> 01:20:38,620
+And you know it's not clear unless you did some measurements whether system calls taking twice
+
+973
+01:20:38,620 --> 01:20:42,670
+or simple system calls taking twice as long as a disaster or not a problem
+
+974
+01:20:43,150 --> 01:20:47,500
+and in order to show that you know it might be a disaster, if you do a lot of system calls
+
+975
+01:20:47,500 --> 01:20:51,820
+or might be not a problem, if you do relatively few system calls
+
+976
+01:20:51,820 --> 01:20:57,510
+or there's a lot of work per system calls, maybe a system calls are more complicated than get pid.
+
+977
+01:20:57,870 --> 01:21:03,540
+And the answer to that in the paper is the figure A benchmark,
+
+978
+01:21:04,040 --> 01:21:06,470
+using this benchmark called AIM,
+
+979
+01:21:06,740 --> 01:21:10,910
+which is just a more, it's a benchmark that has all kinds of different system calls,
+
+980
+01:21:10,910 --> 01:21:16,370
+it reads and writes files and creates processes does all the things with the kernel that processes do,
+
+981
+01:21:16,820 --> 01:21:23,450
+and they basically showed in figure A that their setup running a much more full application that does,
+
+982
+01:21:24,420 --> 01:21:26,010
+much more than just get pid,
+
+983
+01:21:26,310 --> 01:21:29,730
+runs only a few percent slower than native Linux,
+
+984
+01:21:29,940 --> 01:21:34,620
+and therefore, hopefully you could expect that whatever it is you wanted to run on a computer,
+
+985
+01:21:34,800 --> 01:21:38,250
+would run almost as fast under L4 plus Linux,
+
+986
+01:21:38,250 --> 01:21:42,210
+as it does under a straight operating system, under native operating system
+
+987
+01:21:42,480 --> 01:21:50,630
+and therefore you know they were basically to a first approximation as fast as just running straight Linux
+
+988
+01:21:50,630 --> 01:21:53,630
+and therefore you should take them seriously.
+
+989
+01:21:55,530 --> 01:21:58,140
+Okay, so that was an impressive result by the way,
+
+990
+01:21:58,200 --> 01:22:02,250
+this is like someone unexpected and cool,
+
+991
+01:22:02,940 --> 01:22:07,830
+just fast forwarding twenty years, where this ended up,
+
+992
+01:22:07,830 --> 01:22:12,480
+as I mentioned before people actually use L4 in a bunch of embedded situations,
+
+993
+01:22:12,480 --> 01:22:18,210
+particularly its used a lot, there are many instances of L4 running in in smartphones,
+
+994
+01:22:18,630 --> 01:22:21,510
+hidden from view but nevertheless.
+
+995
+01:22:22,160 --> 01:22:25,130
+And all running various kinds of custom software not not running,
+
+996
+01:22:25,430 --> 01:22:30,410
+they don't have to have compatibility with Unix, in these situations,
+
+997
+01:22:30,740 --> 01:22:37,340
+micro kernels in other more general situations like workstations or servers never really caught on
+
+998
+01:22:37,340 --> 01:22:40,850
+and it's not because there's necessarily anything wrong with that design,
+
+999
+01:22:40,970 --> 01:22:46,010
+it's just they would have in order to displace some existing software,
+
+1000
+01:22:46,160 --> 01:22:48,980
+your new thing has to be you know like better,
+
+1001
+01:22:48,980 --> 01:22:51,080
+so people will be motivated to switch.
+
+1002
+01:22:51,520 --> 01:22:55,090
+Then, these micro kernels were perfectly good, naturally elegant,
+
+1003
+01:22:55,840 --> 01:23:00,190
+but it was hard to put for people to put their finger on why it was so much better,
+
+1004
+01:23:00,190 --> 01:23:05,830
+that they should go to the trouble of switching from Linux or whatever they were running fits,
+
+1005
+01:23:05,830 --> 01:23:09,790
+so it never really caught on not necessarily for good reasons,
+
+1006
+01:23:09,790 --> 01:23:12,910
+but because they were like dramatically better.
+
+1007
+01:23:13,590 --> 01:23:18,360
+On the other hand, many ideas from this architecture had a lasting impact,
+
+1008
+01:23:18,600 --> 01:23:26,550
+the the people have to work out much more interesting and flexible ways of using virtual memory
+
+1009
+01:23:26,550 --> 01:23:30,210
+in order to support operating systems on their micro kernels
+
+1010
+01:23:30,390 --> 01:23:38,550
+and those more sophisticated interfaces made their way through things like mmap into mainstream operating systems like Linux,
+
+1011
+01:23:39,090 --> 01:23:42,870
+this idea of running an operating system kind of on top,
+
+1012
+01:23:43,320 --> 01:23:48,150
+as a as a server on top of a lower level operating system,
+
+1013
+01:23:48,270 --> 01:23:52,500
+is extremely popular today in the form of virtual machine monitors,
+
+1014
+01:23:52,500 --> 01:23:57,120
+which use all over the place and sort of cloud hosting services.
+
+1015
+01:23:57,610 --> 01:24:03,710
+The desire for extensibility, you could modify a user level service,
+
+1016
+01:24:03,770 --> 01:24:08,270
+the way that played out in things like Linux was loadable kernel modules
+
+1017
+01:24:08,270 --> 01:24:12,830
+which allow you to load modify the way the Linux kernel works on the fly
+
+1018
+01:24:13,910 --> 01:24:18,650
+and of course the sort of client server, good support for this client server architecture,
+
+1019
+01:24:19,180 --> 01:24:21,400
+also made its way into kernels like Mac OS,
+
+1020
+01:24:21,400 --> 01:24:24,040
+which has good IPC and good client server.
+
+1021
+01:24:25,700 --> 01:24:27,320
+And that's all I have to say for this lecture,
+
+1022
+01:24:27,350 --> 01:24:31,700
+I'm happy to stick around for questions, thank you.
+
+1023
+01:24:36,690 --> 01:24:37,290
+Thank you.
+
+1024
+01:24:37,950 --> 01:24:38,400
+You're welcome.
+
+1025
+01:24:40,150 --> 01:24:47,600
+Oh, I wanted to ask so the paper we're talking about virtual, about page tables,
+
+1026
+01:24:48,100 --> 01:24:52,990
+at I think 4.2 and it was saying how,
+
+1027
+01:24:54,960 --> 01:24:58,020
+I think it was kind of what what you mentioned before,
+
+1028
+01:24:58,050 --> 01:25:02,250
+where you said that there is a wrong way to do that,
+
+1029
+01:25:02,580 --> 01:25:05,340
+I think might be kind of similar to that,
+
+1030
+01:25:05,370 --> 01:25:13,630
+but if you do this, this thing that you explain this in your picture now,
+
+1031
+01:25:14,280 --> 01:25:20,430
+would it be I guess how how would the page tables work in this case.
+
+1032
+01:25:20,550 --> 01:25:26,370
+Well, are you, you may be referring to section 4.3 the dual space mistake.
+
+1033
+01:25:26,610 --> 01:25:27,150
+Oh yes sorry 4.3.
+
+1034
+01:25:28,380 --> 01:25:30,660
+Yeah that's a bit of a complicated story,
+
+1035
+01:25:30,660 --> 01:25:38,920
+but the let's see, part of the background is the way that Linux worked in those days,
+
+1036
+01:25:38,920 --> 01:25:44,380
+and indeed until recently is that the when you're running at user level,
+
+1037
+01:25:44,860 --> 01:25:49,870
+the page table, this active has both the processes pages user level pages mapped in
+
+1038
+01:25:49,960 --> 01:25:54,890
+and all of the kernel mapped into that one page table, on x86 anyway,
+
+1039
+01:25:54,920 --> 01:25:59,600
+so when you made system call, and jumped into the kernel,
+
+1040
+01:26:00,140 --> 01:26:02,510
+the kernel was already mapped into the page table
+
+1041
+01:26:02,750 --> 01:26:05,090
+and therefore no page table switch was required
+
+1042
+01:26:05,480 --> 01:26:08,930
+when you make a system call, its that much more expensive and much more cheaper,
+
+1043
+01:26:09,290 --> 01:26:10,820
+because there was no page table switch,
+
+1044
+01:26:10,820 --> 01:26:14,120
+if you're calling xv6, you know the trampoline code switches page tables,
+
+1045
+01:26:14,120 --> 01:26:17,060
+which is an expensive thing to do,
+
+1046
+01:26:17,060 --> 01:26:22,190
+because it flushs the TLB cache of virtual to physical mappings.
+
+1047
+01:26:22,810 --> 01:26:27,760
+Anyway, so for efficiency Linux used to map kernel and user space in the same page table
+
+1048
+01:26:28,030 --> 01:26:30,630
+had fast system calls as a result,
+
+1049
+01:26:30,660 --> 01:26:37,210
+so they for reasons that aren't very clear,
+
+1050
+01:26:37,210 --> 01:26:42,360
+decided to do this same thing to setup the mapping in the Unix server.
+
+1051
+01:26:43,950 --> 01:26:51,180
+Well, what they wanted was that when VI, when a process send a system call over here,
+
+1052
+01:26:51,270 --> 01:26:53,790
+they wanted to have the page table that was active,
+
+1053
+01:26:53,790 --> 01:26:58,430
+well, in the Linux server while processing that system call,
+
+1054
+01:26:58,520 --> 01:27:04,730
+include all the virtual memory mappings, mappings for the process that sent the system call.
+
+1055
+01:27:06,980 --> 01:27:15,030
+And that, at least would make it simpler to look up virtual addresses past a system call arguments like pass to read,
+
+1056
+01:27:15,720 --> 01:27:18,180
+the reason why this worked out poorly,
+
+1057
+01:27:18,180 --> 01:27:24,870
+there are a bunch of reasons, one is that, L4 which doesn't know anything about any of this stuff,
+
+1058
+01:27:25,020 --> 01:27:27,150
+L4 just knows there's two processes
+
+1059
+01:27:27,150 --> 01:27:30,270
+and so when you send an IPC from one process to another,
+
+1060
+01:27:30,270 --> 01:27:33,570
+L4 just switches page tables, it always just switches page tables,
+
+1061
+01:27:33,570 --> 01:27:36,000
+this guy the page table, VI, the page table,
+
+1062
+01:27:36,630 --> 01:27:40,620
+L4 associates a page table with Linux kernel, just always switches page tables,
+
+1063
+01:27:40,710 --> 01:27:46,000
+so you couldn't even do the L4 due to the different way system calls are implemented
+
+1064
+01:27:46,000 --> 01:27:51,670
+and the fact that L4 was involved, there was no way to preserve the page table during a system call,
+
+1065
+01:27:52,230 --> 01:27:53,310
+that just wasn't possible,
+
+1066
+01:27:53,850 --> 01:27:58,650
+because L4 always switched page tables when it switched from one process to another,
+
+1067
+01:27:58,680 --> 01:28:03,000
+so they were never going to get the efficiency win of not having to switch page tables,
+
+1068
+01:28:03,030 --> 01:28:08,060
+when that once a crossing from from user to kernel.
+
+1069
+01:28:08,860 --> 01:28:16,830
+But I think they wanted the convenience of being able to directly use user supplied virtual addresses.
+
+1070
+01:28:17,630 --> 01:28:26,860
+But that meant that mappings they needed to be active depended on which process they were executing a system call on behalf of,
+
+1071
+01:28:27,160 --> 01:28:30,010
+so there couldn't be any one page table for Linux,
+
+1072
+01:28:31,330 --> 01:28:36,510
+page table Linux sort of one is used depends on what process sent system call RPC,
+
+1073
+01:28:36,540 --> 01:28:39,630
+but L4 did not know how to play that game,
+
+1074
+01:28:39,840 --> 01:28:44,520
+L4 associated a single page table with each process with each task,
+
+1075
+01:28:44,760 --> 01:28:47,910
+and so in order and it would just switch to that page table,
+
+1076
+01:28:47,910 --> 01:28:55,730
+so tough luck, Linux didn't have any way to cause the page table to differ depending on who it's sent to the system call,
+
+1077
+01:28:56,210 --> 01:29:06,330
+in order to deal with that, apparently they made a bunch of shared memory copies of the kernel, one for each process
+
+1078
+01:29:06,360 --> 01:29:08,700
+and so each of these shared memory copies of the kernel,
+
+1079
+01:29:09,290 --> 01:29:12,860
+had exact had all of the kernel memory mapped into it,
+
+1080
+01:29:12,860 --> 01:29:15,560
+so they were all the same kernel data structures,
+
+1081
+01:29:15,590 --> 01:29:22,780
+but each process had a dedicated kernel task associated with it
+
+1082
+01:29:22,780 --> 01:29:26,260
+and therefore that basically allowed them to trick L4
+
+1083
+01:29:26,260 --> 01:29:28,150
+and to switch into the appropriate page table
+
+1084
+01:29:28,150 --> 01:29:34,060
+that included that process plus the kernel depending on which process synthesis system call request.
+
+1085
+01:29:34,720 --> 01:29:37,780
+And you know I think that kind of worked,
+
+1086
+01:29:37,780 --> 01:29:41,230
+but I don't forget what they said they worked was slow or something,
+
+1087
+01:29:41,590 --> 01:29:44,080
+because there were a lot of tasks.
+
+1088
+01:29:46,810 --> 01:29:48,280
+Anyway, it's a complicated story,
+
+1089
+01:29:48,280 --> 01:29:50,200
+and I think it didn't work out very well for this.
+
+1090
+01:29:50,560 --> 01:30:00,170
+Okay okay I see, I think I think that explains well why this thing is harder to do than, well, what we do xv6, okay.
+
+1091
+01:30:00,880 --> 01:30:07,130
+Yeah yeah, this, because there's not, you have this picture xv6 or even standard Linux is much simpler than this,
+
+1092
+01:30:07,610 --> 01:30:10,430
+you're just jumping directly into the kernel
+
+1093
+01:30:10,430 --> 01:30:13,940
+and the kernel has control over direct control over all the paging hardware,
+
+1094
+01:30:14,090 --> 01:30:16,070
+which doesn't have when it runs L4.
+
+1095
+01:30:17,120 --> 01:30:19,820
+Right, okay I see, thank you, thank you.
+
+1096
+01:30:21,190 --> 01:30:31,180
+We're gonna ask, why, it seems like some some tasks are more appropriate to be put outside the kernel than others,
+
+1097
+01:30:31,270 --> 01:30:36,910
+but this L4 like the approach with micro kernels always seems to be either everything or nothing,
+
+1098
+01:30:36,940 --> 01:30:41,350
+like either you have a monolithic kernel doing everything or nothing,
+
+1099
+01:30:41,350 --> 01:30:47,020
+just like I feel like paging and some other things could be very efficient inside the kernel,
+
+1100
+01:30:47,020 --> 01:30:51,850
+and then maybe like file systems that things that need to be swappable could be outside,
+
+1101
+01:30:52,420 --> 01:30:56,740
+and then even like you can maybe even have a kernel that has some functionality,
+
+1102
+01:30:56,740 --> 01:30:59,980
+but you can opt to not use it and provide your own,
+
+1103
+01:31:00,540 --> 01:31:02,280
+is there any thing.
+
+1104
+01:31:02,280 --> 01:31:10,440
+You say is absolutely, well taken and indeed there were a lot of micro kernel or micro kernel related projects
+
+1105
+01:31:11,130 --> 01:31:13,950
+and many of them built various kinds of hybrids,
+
+1106
+01:31:14,190 --> 01:31:16,740
+like there's actually a couple different versions of Mach
+
+1107
+01:31:16,740 --> 01:31:19,810
+and some of them sort of hybrid kernels,
+
+1108
+01:31:19,810 --> 01:31:22,570
+which yeah there was this micro kernel that knew about IPC,
+
+1109
+01:31:22,570 --> 01:31:27,480
+but also in the kernel was a complete Unix,
+
+1110
+01:31:27,630 --> 01:31:32,440
+so for instance Mach 2.5 was this hybrid with it.
+
+1111
+01:31:33,480 --> 01:31:36,690
+But micro kernel and Unix all sort of in the same kernel
+
+1112
+01:31:36,990 --> 01:31:40,200
+and you can make system calls either and some stuff was built in,
+
+1113
+01:31:40,680 --> 01:31:42,540
+the sort of micro kernel way,
+
+1114
+01:31:42,540 --> 01:31:45,900
+but some things they were just used the kernel that was in Mach,
+
+1115
+01:31:46,170 --> 01:31:47,880
+that was built into the Mach kernel,
+
+1116
+01:31:48,000 --> 01:31:56,160
+the Unix kernel was built into the Mach kernel, a modern MAC OS also built in a way that like the way you describe,
+
+1117
+01:31:56,160 --> 01:32:02,430
+you know Mac OS has a complete operating system with a file system and everything inside it,
+
+1118
+01:32:02,430 --> 01:32:07,020
+but it also has good support for IPC and sort of like threads,
+
+1119
+01:32:07,020 --> 01:32:12,300
+all the stuff you would want to build micro kernel style services.
+
+1120
+01:32:13,570 --> 01:32:17,980
+Is Google's Fuchsia, I'm aware of also implements some of these ideas now as well.
+
+1121
+01:32:18,490 --> 01:32:19,390
+I'll bet yeah.
+
+1122
+01:32:22,180 --> 01:32:32,360
+So anyway, there's no one way, there were people who were sort of hoping that a pure, a very pure scheme could be made to work.
+
+1123
+01:32:36,860 --> 01:32:38,510
+It's not the only possible way forward.
+
+1124
+01:32:41,030 --> 01:32:45,050
+Alright, thanks, got around my next lecture, but I'll see you guys.
+
+1125
+01:32:45,950 --> 01:32:46,400
+See you later.
+
+1126
+01:32:48,790 --> 01:32:49,300
+Thank you.
+
+1127
+01:32:49,940 --> 01:32:50,480
+You're welcome.
+
+1128
+01:32:52,460 --> 01:32:53,900
+Oh I I didn't have a,
+
+1129
+01:32:53,960 --> 01:32:57,110
+I have just a remark, I I think it's fascinating,
+
+1130
+01:32:57,110 --> 01:33:02,490
+that it it's like 5% slower, but it does so much more work,
+
+1131
+01:33:02,580 --> 01:33:03,990
+yeah was fascinated with that.
+
+1132
+01:33:06,120 --> 01:33:09,330
+You mean that even though it's doing much more work is only slightly slower,
+
+1133
+01:33:09,960 --> 01:33:15,210
+really have a really sweat blood over the IPC performance
+
+1134
+01:33:15,690 --> 01:33:18,480
+and it's another thing to remember, of course is that,
+
+1135
+01:33:19,310 --> 01:33:24,410
+if you start doing, if you're doing a significant amount of work per system call,
+
+1136
+01:33:25,380 --> 01:33:28,590
+you know, looking at files and directories or something,
+
+1137
+01:33:28,650 --> 01:33:33,780
+then the cost of the system call, the IPC itself starts to be less important.
+
+1138
+01:33:34,890 --> 01:33:40,770
+So the combination of faster system calls plus real programs do things other than making system calls.
+
+1139
+01:33:41,750 --> 01:33:45,170
+But you would also like switch page tables and.
+
+1140
+01:33:45,260 --> 01:33:45,740
+Yeah.
+
+1141
+01:33:45,890 --> 01:33:46,910
+The others have.
+
+1142
+01:33:47,330 --> 01:33:49,370
+Yeah, although the paper, I did not talk about it,
+
+1143
+01:33:49,370 --> 01:33:54,980
+but the paper had some clever tricks for avoiding the cost of switching page tables,
+
+1144
+01:33:55,010 --> 01:33:59,720
+I don't know if you remember for some of its on page six,
+
+1145
+01:33:59,720 --> 01:34:03,320
+we're talking about supporting tagged TLBs a small spaces,
+
+1146
+01:34:03,560 --> 01:34:07,940
+they have some clever ideas for not swhich page tables,
+
+1147
+01:34:08,600 --> 01:34:10,820
+which I had not heard of before I read this paper.
+
+1148
+01:34:12,340 --> 01:34:15,430
+This is pretty cool, thank you so much, bye.
+
+1149
+01:34:16,020 --> 01:34:16,470
+Goodbye.
+
