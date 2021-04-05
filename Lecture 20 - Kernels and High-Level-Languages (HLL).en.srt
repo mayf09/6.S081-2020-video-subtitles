@@ -1,0 +1,5384 @@
+1
+00:00:02,110 --> 00:00:03,880
+Alright, why don't we get started,
+
+2
+00:00:03,970 --> 00:00:07,330
+you know people want to turn on the camera again
+
+3
+00:00:07,330 --> 00:00:11,830
+or well it be great used to create sort of class atmosphere,
+
+4
+00:00:12,430 --> 00:00:14,140
+it's the best we can.
+
+5
+00:00:14,620 --> 00:00:16,750
+Okay, so this is,
+
+6
+00:00:17,440 --> 00:00:19,090
+we're going to talk today about this paper,
+
+7
+00:00:19,120 --> 00:00:22,750
+you know the benefits and cost of writing a UNIX kernel in a high-level language.
+
+8
+00:00:24,070 --> 00:00:30,280
+You know, this is basically paper that was partly written, because of S.081 or 6.828.
+
+9
+00:00:30,840 --> 00:00:35,670
+And there's a paper that you know we've written you know Robert and I
+
+10
+00:00:35,670 --> 00:00:39,300
+and but the main person was a main lead was Cody Cutler,
+
+11
+00:00:39,300 --> 00:00:42,960
+who was a TA this class many many times.
+
+12
+00:00:43,600 --> 00:00:45,340
+It's always a little bit,
+
+13
+00:00:45,340 --> 00:00:49,180
+you know I don't really enjoy actually particularly talking about papers that we worked on ourselves,
+
+14
+00:00:49,180 --> 00:00:53,890
+but you know this paper came about basically 6.081 and 6.828
+
+15
+00:00:53,890 --> 00:00:59,440
+and so I'm gonna use some slides this time instead of actually writing on a whiteboard.
+
+16
+00:01:00,850 --> 00:01:04,720
+And so really the source of this paper is this question
+
+17
+00:01:04,720 --> 00:01:07,960
+in what language should you write a kernel.
+
+18
+00:01:08,520 --> 00:01:12,540
+And this is a question that many, many of you asked
+
+19
+00:01:12,570 --> 00:01:19,350
+where your students in the past 6.828 graduate asked many many many times,
+
+20
+00:01:19,380 --> 00:01:23,490
+apparently you know, because you know you have bugs in the operating system or your kernel
+
+21
+00:01:23,490 --> 00:01:25,980
+and you're like well, if I had written this other language,
+
+22
+00:01:25,980 --> 00:01:28,410
+then you know maybe I would not have those bugs.
+
+23
+00:01:29,140 --> 00:01:32,560
+So this is a question that often comes about
+
+24
+00:01:32,560 --> 00:01:36,850
+and it turns out you know in the operating system community at large,
+
+25
+00:01:36,850 --> 00:01:39,430
+you know this is a hotly debated question,
+
+26
+00:01:39,520 --> 00:01:44,260
+but not that many facts you could actually make a sort of any informed discussion.
+
+27
+00:01:45,200 --> 00:01:48,170
+And what we'll see at this at the end of this lecture during this lecture,
+
+28
+00:01:48,170 --> 00:01:49,580
+or you as you read the paper,
+
+29
+00:01:49,700 --> 00:01:55,010
+I know we don't really have a crisp answer to this question,
+
+30
+00:01:55,160 --> 00:01:59,150
+but we have sort of this paper contributes you know a bunch of data,
+
+31
+00:01:59,150 --> 00:02:02,870
+that you know allows you to have a little bit more of an in-depth discussion
+
+32
+00:02:03,140 --> 00:02:07,250
+about what is a good programming language for the kernel.
+
+33
+00:02:08,130 --> 00:02:11,220
+So that was really the original of this paper,
+
+34
+00:02:11,220 --> 00:02:21,300
+and and so we're, and the source you know of this paper is basically you guys.
+
+35
+00:02:21,860 --> 00:02:25,430
+So, try to answer this question,
+
+36
+00:02:25,610 --> 00:02:35,570
+we wrote a new kernel, and we did it in the language with automatic memory management that means with guard to collect,
+
+37
+00:02:35,570 --> 00:02:40,040
+so you don't actually have to call free, you know and avoid a class bugs,
+
+38
+00:02:40,040 --> 00:02:43,310
+so that's one of the properties at a high level language typically has
+
+39
+00:02:43,550 --> 00:02:46,220
+and so we wanted to have picked a language that has that
+
+40
+00:02:46,460 --> 00:02:50,720
+and we followed basically traditional monolithic unit organizations,
+
+41
+00:02:50,720 --> 00:02:52,280
+we could do a fair comparison.
+
+42
+00:02:52,910 --> 00:03:04,070
+And in fact some way you could think about what we built is something like xv6, much much more, more features in a more high performance.
+
+43
+00:03:05,140 --> 00:03:12,430
+I mean, as you know xv6 has all kinds of chronic algorithms or linear search, type algorithms
+
+44
+00:03:12,430 --> 00:03:14,920
+and of course if you want to achieve high performance,
+
+45
+00:03:14,920 --> 00:03:15,790
+you can't have those.
+
+46
+00:03:17,360 --> 00:03:23,930
+And so that was the original, this paper in the original, why we built a [biscuit] trying to answer that question
+
+47
+00:03:23,930 --> 00:03:25,100
+or at least shed some light.
+
+48
+00:03:25,650 --> 00:03:28,440
+First going to talk a little bit about sort of more general background,
+
+49
+00:03:28,440 --> 00:03:31,770
+I give a lot of questions over email,
+
+50
+00:03:31,770 --> 00:03:34,530
+we're trying to get a little bit more context
+
+51
+00:03:34,830 --> 00:03:38,400
+and then I will dive into a [biscuit] in more more detail,
+
+52
+00:03:38,610 --> 00:03:42,330
+feel free to jump in with questions in any particular point of time,
+
+53
+00:03:42,540 --> 00:03:47,470
+here as you know this paper was motivated by questions you asked,
+
+54
+00:03:47,470 --> 00:03:50,380
+and so you know please please ask keep asking questions.
+
+55
+00:03:52,980 --> 00:04:00,480
+So, as you can just do sort of the setting of this paper is a lot of kernels are written in C,
+
+56
+00:04:00,480 --> 00:04:02,100
+and you know xv6 is written in C,
+
+57
+00:04:02,100 --> 00:04:09,180
+you're programming in C, but most popular kernels that you see on your desktop or your phone are written in C,
+
+58
+00:04:09,180 --> 00:04:14,130
+Windows Linux Linux to all the various forms of bsds.
+
+59
+00:04:14,850 --> 00:04:21,420
+And, and the reason the written or written in C is that,
+
+60
+00:04:21,990 --> 00:04:25,680
+C provides a lot of control as you've seen in the labs,
+
+61
+00:04:25,770 --> 00:04:28,710
+yeah complete control for memory allocation and freeing,
+
+62
+00:04:28,980 --> 00:04:31,290
+there's almost no implicit code,
+
+63
+00:04:31,290 --> 00:04:34,140
+you know you can almost imagine when you're reading the C code,
+
+64
+00:04:34,140 --> 00:04:36,540
+what the corresponding RISC-V instructions are.
+
+65
+00:04:37,000 --> 00:04:39,730
+You have direct's memory, you can read or write,
+
+66
+00:04:39,730 --> 00:04:44,140
+you know the PTE bits you know or the register of a devices,
+
+67
+00:04:44,410 --> 00:04:48,640
+and you know C itself becomes very few dependencies,
+
+68
+00:04:48,640 --> 00:04:51,280
+you know there's no large runtime that you actually have to have,
+
+69
+00:04:51,400 --> 00:04:52,750
+to be able to run a C program,
+
+70
+00:04:52,750 --> 00:04:55,870
+you can almost run almost immediately on bare hareware.
+
+71
+00:04:56,260 --> 00:04:58,540
+And you've seen that once xv6 boots,
+
+72
+00:04:58,540 --> 00:05:01,900
+you know it's basically a few lines of assembly and then basically you're running C code.
+
+73
+00:05:02,780 --> 00:05:06,860
+But there are all the good virtues of C
+
+74
+00:05:06,860 --> 00:05:08,660
+and one reason that we like C a lot.
+
+75
+00:05:09,230 --> 00:05:11,810
+But C also has some downsides,
+
+76
+00:05:12,080 --> 00:05:16,190
+you know it has been proven over the last few decades,
+
+77
+00:05:16,340 --> 00:05:19,340
+that writing security C code is difficult,
+
+78
+00:05:19,340 --> 00:05:26,030
+you know there are types of bugs that can, you can often be exploited
+
+79
+00:05:26,030 --> 00:05:30,950
+whether it is buffer overruns, which are probably the most well-known one you're writing behind the past.
+
+80
+00:05:31,450 --> 00:05:35,980
+An array bound or you're writing, you know blow your stack,
+
+81
+00:05:36,340 --> 00:05:42,640
+use after free bugs you know where you know the free of memory, but it's still in use.
+
+82
+00:05:43,140 --> 00:05:47,460
+And so when somebody [scribbles] on it and you know scribble something bad on it,
+
+83
+00:05:47,580 --> 00:05:52,440
+and generally you know when threads are sharing memory
+
+84
+00:05:52,440 --> 00:05:55,770
+is typically difficult to decide you know what actually memory can be freed.
+
+85
+00:05:56,940 --> 00:05:59,670
+Some of these bugs, you know don't really show up that,
+
+86
+00:05:59,940 --> 00:06:03,660
+you know some of the bug manifest himself explicitly xv6,
+
+87
+00:06:03,660 --> 00:06:09,360
+some less so you know, you know xv6 very little dynamic memory allocation,
+
+88
+00:06:09,360 --> 00:06:11,820
+you're almost after being sort of pre allocated right up front.
+
+89
+00:06:12,260 --> 00:06:16,580
+A buffer overruns usually have free bugs you do show up.
+
+90
+00:06:17,440 --> 00:06:22,540
+So, in fact again if you look at CVEs,
+
+91
+00:06:22,630 --> 00:06:25,360
+you know these are yeah you know there's a website
+
+92
+00:06:25,360 --> 00:06:32,110
+where there's an organization that keeps control that checks and keeps a record of all of the security exploits
+
+93
+00:06:32,350 --> 00:06:36,730
+and investigate that you'll find that in 2017 when we were doing this paper,
+
+94
+00:06:36,730 --> 00:06:43,090
+that there were 40 Linux kernel bugs that can actually lead to
+
+95
+00:06:43,090 --> 00:06:47,950
+an attacker running take complete control over the machine.
+
+96
+00:06:48,570 --> 00:06:50,220
+Clearly you know those are serious bugs
+
+97
+00:06:50,220 --> 00:06:52,740
+and those bugs came out of buffer overruns
+
+98
+00:06:52,890 --> 00:06:55,860
+and other types of memory safety bugs.
+
+99
+00:06:56,720 --> 00:06:59,990
+So you know it's sort of too bad,
+
+100
+00:07:00,020 --> 00:07:01,850
+you know that if you write code in C,
+
+101
+00:07:01,850 --> 00:07:08,060
+you know that actually is hard even for people that do that professionally and to actually get this right.
+
+102
+00:07:08,730 --> 00:07:11,580
+And of course you know, I'm sure you've seen this in the lab,
+
+103
+00:07:11,580 --> 00:07:16,590
+you know probably certainly I remember from some of the the piazza questions,
+
+104
+00:07:16,590 --> 00:07:19,200
+you know the number if you run into huge after free bugs,
+
+105
+00:07:19,200 --> 00:07:21,690
+you know in particular in the copy-on-write lab,
+
+106
+00:07:21,930 --> 00:07:23,760
+they showed up a bunch of times.
+
+107
+00:07:25,530 --> 00:07:29,250
+So yeah, so, one reason that a high-level language would be attractive,
+
+108
+00:07:29,340 --> 00:07:33,240
+is that a high-level language that provides memory safety,
+
+109
+00:07:33,360 --> 00:07:38,670
+and so all these bugs that CVE exploits that I mentioned on the previous slide
+
+110
+00:07:38,790 --> 00:07:41,490
+would not be would not be possible,
+
+111
+00:07:41,520 --> 00:07:45,660
+you could use you know they if they happen they either would result in a panic,
+
+112
+00:07:45,690 --> 00:07:50,450
+you know, because you know the runtime which I say like oh you're writing passed away, you can't do that,
+
+113
+00:07:50,660 --> 00:07:55,100
+or you know you just couldn't manifest itself at all,
+
+114
+00:07:55,130 --> 00:07:58,010
+because the language would [allow] you to write that kind of code.
+
+115
+00:08:00,800 --> 00:08:03,560
+So there are of course other benefits to a high-level language,
+
+116
+00:08:03,650 --> 00:08:09,710
+you know which often is also mentioned you know by you know students in this class,
+
+117
+00:08:09,740 --> 00:08:12,350
+when they're doing labs in addition to type safety,
+
+118
+00:08:12,350 --> 00:08:14,990
+you know there's automatic memory management of regards collector,
+
+119
+00:08:15,320 --> 00:08:16,850
+so freeing is easy,
+
+120
+00:08:16,850 --> 00:08:19,850
+you don't have to think about it, the garbage collector does all the work for you,
+
+121
+00:08:19,970 --> 00:08:23,690
+it's good for concurrency you know it has good abstractions,
+
+122
+00:08:23,720 --> 00:08:29,090
+you know it's like go its interfaces or some other classes or some other form of
+
+123
+00:08:29,270 --> 00:08:33,710
+you know forces you or encourage you to actually write modular code.
+
+124
+00:08:36,620 --> 00:08:38,720
+The downsides and you might be wondering like,
+
+125
+00:08:38,720 --> 00:08:41,360
+oh if there's so many upsides to high-level languages,
+
+126
+00:08:41,360 --> 00:08:47,540
+you know why not, you know why is xv6 not written in you know Java Go python or whatever,
+
+127
+00:08:47,900 --> 00:08:53,000
+and the reason is you know the or Linux, you know the reason is there's poor performance,
+
+128
+00:08:53,000 --> 00:08:56,600
+you know there's a cost to actually a high-level language,
+
+129
+00:08:56,600 --> 00:08:59,780
+sometimes this is referred to as the high-level language tax.
+
+130
+00:09:00,240 --> 00:09:05,460
+And you know these are basically you know if you do an array bounds, array index,
+
+131
+00:09:05,460 --> 00:09:07,230
+you know you have to check the bounds,
+
+132
+00:09:07,230 --> 00:09:09,060
+you know you have to check no pointers.
+
+133
+00:09:10,060 --> 00:09:14,020
+After they have more expensive cast,
+
+134
+00:09:14,260 --> 00:09:17,260
+and you know garbage collection itself is also not free,
+
+135
+00:09:17,290 --> 00:09:20,260
+you know there's gonna be some cycles spent tracking down
+
+136
+00:09:20,260 --> 00:09:23,740
+which objects are free, which are allocated, then you know that's a cost.
+
+137
+00:09:26,640 --> 00:09:28,620
+So that's you know from the performance side
+
+138
+00:09:28,650 --> 00:09:30,840
+and a lot of the paper focuses on this,
+
+139
+00:09:30,930 --> 00:09:37,740
+and then in principle you know often I mean it's perceived as a sort of compatibility with Linux kernel programming.
+
+140
+00:09:38,360 --> 00:09:40,730
+You know no direct memory access,
+
+141
+00:09:40,730 --> 00:09:44,930
+you know, because the principal could know a violate type safety,
+
+142
+00:09:45,380 --> 00:09:49,430
+no handwritten assembly and you need some handwritten assembly in the kernel,
+
+143
+00:09:49,430 --> 00:09:51,920
+whereas the context switch between two threads
+
+144
+00:09:51,920 --> 00:09:54,650
+or to get off the ground when the machine boots.
+
+145
+00:09:55,320 --> 00:10:03,910
+In you know often, you know the language may have a particular plan
+
+146
+00:10:03,910 --> 00:10:11,770
+for concurrency or parallelism that might not line up with the plan that the kernel needs worker concurrency parallelism,
+
+147
+00:10:11,770 --> 00:10:15,730
+we've seen for example and a scheduling lecture,
+
+148
+00:10:15,730 --> 00:10:19,570
+you know one thread passes a lock to another thread,
+
+149
+00:10:19,570 --> 00:10:23,350
+where you know there's a couple you know there's patterns of concurrency management
+
+150
+00:10:23,350 --> 00:10:27,690
+that are sort of unusual and user programs, but they do show up in, in kernels.
+
+151
+00:10:28,580 --> 00:10:35,440
+So, so the goal basically of this, you know paper
+
+152
+00:10:35,440 --> 00:10:38,560
+was to sort of measure the high-level language trade-offs,
+
+153
+00:10:38,710 --> 00:10:41,440
+explore the total effects of using high-level language instead of C,
+
+154
+00:10:41,470 --> 00:10:46,870
+you know both in terms of a safety program ability, but also for performance cost.
+
+155
+00:10:47,200 --> 00:10:49,870
+And of course if you'd like to do this, this kind of experiment,
+
+156
+00:10:49,870 --> 00:10:52,390
+you know you need to do that sort of a production grade kernel,
+
+157
+00:10:52,390 --> 00:10:56,440
+you can't do that on xv6, because it's so slow that basically you probably won't learn anything,
+
+158
+00:10:56,470 --> 00:11:01,780
+you know it's a program that was written slow in C, you're in slowing in Go,
+
+159
+00:11:01,780 --> 00:11:05,230
+you know doesn't really tell you much about you know the C versus Go question,
+
+160
+00:11:05,230 --> 00:11:06,940
+it just says like well xv6 slow.
+
+161
+00:11:07,560 --> 00:11:12,570
+And so you want to do that in a more high performance you know oriented kernel
+
+162
+00:11:12,690 --> 00:11:15,060
+or the kernel was designed for high performance.
+
+163
+00:11:17,600 --> 00:11:19,700
+And so you're you know one of the things that are surprising,
+
+164
+00:11:19,700 --> 00:11:24,260
+because like many of you ask this predecessor task this
+
+165
+00:11:24,260 --> 00:11:29,300
+and I would imagine well this question must be answered in the literature,
+
+166
+00:11:29,480 --> 00:11:31,430
+and you know it turns out that actually isn't,
+
+167
+00:11:31,490 --> 00:11:40,040
+it is there's quite a number of studies that look into the question of a high-level language trade-offs in the context of user programs.
+
+168
+00:11:40,510 --> 00:11:46,510
+And but you know as you know the kernel is quite a bit different from user programs,
+
+169
+00:11:46,990 --> 00:11:49,990
+for example memory management, careful manager is really important,
+
+170
+00:11:50,440 --> 00:11:52,720
+this different types of concurrency may be slightly different,
+
+171
+00:11:52,870 --> 00:11:55,570
+so we want to do it in the context of a kernel.
+
+172
+00:11:56,310 --> 00:12:00,300
+And we don't actually really find any sort of papers really answer this question.
+
+173
+00:12:00,880 --> 00:12:07,540
+The closer you could come to is there you know there are many kernels written in high-level language,
+
+174
+00:12:07,540 --> 00:12:09,640
+you know there's a long history of doing that,
+
+175
+00:12:09,640 --> 00:12:13,840
+they're dating back even to sort of the early list machines,
+
+176
+00:12:14,080 --> 00:12:19,450
+and you know but many of the sort of a recent versions of these kernels
+
+177
+00:12:19,810 --> 00:12:26,650
+are not really written with the idea of evaluating this high-level language tax question.
+
+178
+00:12:27,000 --> 00:12:32,790
+But really to explore new OS designs and new OS architectures,
+
+179
+00:12:33,090 --> 00:12:39,450
+and so none of them really measured directly, you know sort of a head to head comparison,
+
+180
+00:12:39,660 --> 00:12:41,970
+and keep the structure the same,
+
+181
+00:12:42,210 --> 00:12:47,490
+so you can really focus on this issue of the language as opposed to some other issues.
+
+182
+00:12:49,220 --> 00:12:53,960
+In fact we used to read you know some of these papers actually in the past.
+
+183
+00:12:59,350 --> 00:13:04,060
+So, you know there's one reason may be that there's not a lot of work
+
+184
+00:13:04,150 --> 00:13:07,840
+that actually answers a ton of papers or answer this question is
+
+185
+00:13:07,840 --> 00:13:09,340
+it's actually tricky to do it,
+
+186
+00:13:09,460 --> 00:13:12,580
+basically if you really do it right,
+
+187
+00:13:12,610 --> 00:13:15,100
+you know you want to compare with a production grade C kernel,
+
+188
+00:13:15,160 --> 00:13:19,510
+that means something like Linux or something that Windows whatever,
+
+189
+00:13:19,750 --> 00:13:23,350
+but then you have to build a production creates a kernel
+
+190
+00:13:23,350 --> 00:13:28,570
+and you know clearly for a small team that is very hard to do.
+
+191
+00:13:28,870 --> 00:13:31,570
+You know there's lots of lots of [] kernel developers,
+
+192
+00:13:31,570 --> 00:13:36,580
+make many many changes you know week by week day by day
+
+193
+00:13:36,580 --> 00:13:43,450
+and so it's going to be hard to, you know to do the same thing and build an equivalent you know type of thing,
+
+194
+00:13:43,450 --> 00:13:48,460
+so you have to settle for something slightly less than.
+
+195
+00:13:51,660 --> 00:13:54,690
+So the best we could do or the best we could come up to do
+
+196
+00:13:54,690 --> 00:13:57,840
+is build a high-level build a kernel on the high-level language,
+
+197
+00:13:57,870 --> 00:14:00,360
+you know keep most of the important aspects of same as Linux,
+
+198
+00:14:00,840 --> 00:14:06,300
+optimized performance, roughly optimized performance though it's roughly similar to Linux,
+
+199
+00:14:06,300 --> 00:14:09,210
+you know even though maybe it's not identically exactly identical features,
+
+200
+00:14:09,210 --> 00:14:10,950
+but it gets into the same ballpark
+
+201
+00:14:11,310 --> 00:14:13,710
+and then measured high-level language trade-offs.
+
+202
+00:14:14,520 --> 00:14:18,300
+And of course you know the risk you know this approach is that
+
+203
+00:14:18,300 --> 00:14:21,990
+you know the kernel that we built you know actually is slightly different than Linux,
+
+204
+00:14:21,990 --> 00:14:23,880
+you know it's not gonna be exactly like Linux
+
+205
+00:14:23,880 --> 00:14:28,440
+and so you've gotta be very careful when drawing any conclusions.
+
+206
+00:14:28,900 --> 00:14:36,640
+And you know and this is one reason why you can still get a really crystal clear answer that is the question that basically this paper proposes,
+
+207
+00:14:36,820 --> 00:14:42,070
+but we can hopefully get a little bit more deeper insight than basically saying almost nothing about it.
+
+208
+00:14:44,560 --> 00:14:47,860
+This makes sense, so far, any questions?
+
+209
+00:14:48,690 --> 00:14:51,030
+That's sort of the context of this paper,
+
+210
+00:14:51,030 --> 00:14:54,120
+and you know why we're so often did it.
+
+211
+00:14:55,990 --> 00:14:58,700
+Okay so, if there's no questions,
+
+212
+00:14:58,700 --> 00:15:02,510
+I'd like to talk a little bit more about the methodology.
+
+213
+00:15:03,290 --> 00:15:12,170
+Yeah, so, so basically you know the sort of setup is here on the left side, you know we have our, is gonna be Biscuit.
+
+214
+00:15:12,860 --> 00:15:21,590
+You know, we're gonna, in our particular case we wrote for this paper the kernel in Go,
+
+215
+00:15:21,590 --> 00:15:26,900
+it provides roughly a similar subset of the system calls Linux provides,
+
+216
+00:15:26,900 --> 00:15:28,370
+but you know the way to,
+
+217
+00:15:28,370 --> 00:15:32,150
+but they have same arguments you know the same calling inventions.
+
+218
+00:15:32,850 --> 00:15:36,360
+And we run basically the same applications on top of that interface,
+
+219
+00:15:36,630 --> 00:15:40,680
+so you know one of the applications and Nginx which is a web server,
+
+220
+00:15:41,390 --> 00:15:49,240
+and so the idea is that you know we're on the same application both on Biscuit and Linux,
+
+221
+00:15:49,270 --> 00:15:54,730
+you know the application will generate the same system call trace with exactly the same arguments
+
+222
+00:15:55,030 --> 00:16:02,350
+and both Biscuit and Linux you perform all the necessary operations that are invoked by those system calls
+
+223
+00:16:02,590 --> 00:16:09,070
+and then we can sort of look at you know the difference is basically between you know the high-level language kernel and Linux
+
+224
+00:16:09,070 --> 00:16:12,940
+and sort of talk about like you know what are the trade-offs.
+
+225
+00:16:13,670 --> 00:16:16,760
+And so after the core of the methodology
+
+226
+00:16:16,760 --> 00:16:20,750
+and again because Linux and Biscuit are not going to be exactly identical,
+
+227
+00:16:20,990 --> 00:16:23,870
+you know there's gonna be some differences,
+
+228
+00:16:23,870 --> 00:16:30,140
+but you know we spend a lot of time, in this trying to you know, make comparison as far as possible,
+
+229
+00:16:32,970 --> 00:16:35,670
+wherever possible we could think of making it.
+
+230
+00:16:37,090 --> 00:16:41,200
+So a lot of you ask this question which high-level language you use,
+
+231
+00:16:41,230 --> 00:16:47,290
+you know for this kind of work and you know we pick Go and for a couple of reasons,
+
+232
+00:16:47,320 --> 00:16:50,260
+it is a statically compiled language,
+
+233
+00:16:50,260 --> 00:16:53,680
+so unlike python, there's no interpreter,
+
+234
+00:16:53,800 --> 00:16:57,280
+and the reason that we like static compiled,
+
+235
+00:16:57,280 --> 00:16:59,710
+because we've basically compiles actually high performance code,
+
+236
+00:16:59,770 --> 00:17:01,810
+in fact the particular go compiler is pretty good.
+
+237
+00:17:02,740 --> 00:17:06,430
+So basically you know sort of high performance language,
+
+238
+00:17:06,460 --> 00:17:10,390
+furthermore Go design is actually intended for assistance programming
+
+239
+00:17:10,510 --> 00:17:12,730
+you know kernels or foreign assistance programming,
+
+240
+00:17:12,730 --> 00:17:14,230
+so that needs a good match.
+
+241
+00:17:14,780 --> 00:17:19,400
+As an example, you know aspect of why it's a good system programming,
+
+242
+00:17:19,400 --> 00:17:22,460
+it's actually easy to call assembly or other foreign code.
+
+243
+00:17:23,010 --> 00:17:26,250
+It has good support for some concurrency quite flexible,
+
+244
+00:17:26,550 --> 00:17:29,190
+and then another reason that we wanted to use it,
+
+245
+00:17:29,190 --> 00:17:31,470
+because it has a garbage collector to,
+
+246
+00:17:31,470 --> 00:17:33,660
+one of the things that you think about a high-level language
+
+247
+00:17:33,660 --> 00:17:37,110
+and one of the virtues of a high-level languages that you don't have to do memory management
+
+248
+00:17:37,380 --> 00:17:40,860
+and garbage collectors typically in a central role in the,
+
+249
+00:17:42,910 --> 00:17:46,420
+yeah, provides a central role in a sort of memory management story.
+
+250
+00:17:48,830 --> 00:17:52,820
+By the time we started this paper, or we started this project,
+
+251
+00:17:53,030 --> 00:17:58,370
+Rust was not very popular or Rust was not very stable and mature at that point
+
+252
+00:17:58,370 --> 00:18:03,110
+and the actually could write a real kernel in a retrospect [no],
+
+253
+00:18:03,110 --> 00:18:06,200
+you do it again, you know you may write it in Rust,
+
+254
+00:18:06,230 --> 00:18:09,020
+because also designs persistence programming,
+
+255
+00:18:09,080 --> 00:18:13,760
+it has a small runtime produces good code,
+
+256
+00:18:13,940 --> 00:18:20,660
+although one thing that actually might still make it very instinct to go for Go is that
+
+257
+00:18:20,720 --> 00:18:28,040
+Rust takes the starting assumption that that if you want to perform systems programs,
+
+258
+00:18:28,040 --> 00:18:30,170
+then you can't do that with a garbage collector.
+
+259
+00:18:30,680 --> 00:18:36,880
+And in fact a loop Rust type system is set up in a very clever way and a very interesting way,
+
+260
+00:18:37,060 --> 00:18:39,490
+so that actually the garbage collector is not necessary.
+
+261
+00:18:40,080 --> 00:18:43,440
+And in some ways we were interested in answering this question,
+
+262
+00:18:43,440 --> 00:18:47,610
+what is the cost of garbage collection in a high-level language, you know on kernel programming
+
+263
+00:18:47,790 --> 00:18:52,440
+and it is really impossible to use or what does that cost,
+
+264
+00:18:52,710 --> 00:18:54,990
+in some ways you know Rust sidestep that question
+
+265
+00:18:54,990 --> 00:18:57,450
+and just like you know use a language without garbage collection,
+
+266
+00:18:57,450 --> 00:18:59,340
+you have to think about this particular cost.
+
+267
+00:19:01,860 --> 00:19:07,070
+Any questions about this in terms of the programming language we decided to use.
+
+268
+00:19:11,050 --> 00:19:13,330
+Lots of email questions related to this topic.
+
+269
+00:19:14,850 --> 00:19:19,380
+This is a theoretical question that maybe doesn't have an immediate answer,
+
+270
+00:19:19,440 --> 00:19:24,930
+but if the Linux kernel were to be written and Rust not Go,
+
+271
+00:19:25,260 --> 00:19:31,230
+and like optimized in the same capacity, would it be able to achieve higher performance.
+
+272
+00:19:32,490 --> 00:19:35,880
+Than, than the Go concurrency?
+
+273
+00:19:36,450 --> 00:19:39,210
+Than C like a Linux C kernel.
+
+274
+00:19:39,630 --> 00:19:41,520
+I doubt it will be,
+
+275
+00:19:41,520 --> 00:19:45,750
+okay hard to know, just speculation correct, because we haven't done this experiment,
+
+276
+00:19:46,050 --> 00:19:50,490
+in my senses, you know we'd be not higher performance than C,
+
+277
+00:19:50,580 --> 00:19:53,580
+but you know probably roughly the same ballpark.
+
+278
+00:19:54,580 --> 00:19:59,770
+Because C so low-level, you can assume whatever you do in Rust, you could also have done in C.
+
+279
+00:20:04,810 --> 00:20:05,500
+Does that make sense?
+
+280
+00:20:07,060 --> 00:20:08,020
+Yes, thank you.
+
+281
+00:20:11,010 --> 00:20:12,390
+Okay.
+
+282
+00:20:13,270 --> 00:20:14,980
+Okay, so let's move on them,
+
+283
+00:20:15,610 --> 00:20:17,800
+unless there are any other further questions about this
+
+284
+00:20:17,860 --> 00:20:22,180
+and again feel free to interrupt and you know there's a bit of a discussion based lecture
+
+285
+00:20:22,900 --> 00:20:27,820
+and so it was intended to stimulate intellectual interests,
+
+286
+00:20:27,820 --> 00:20:31,180
+so you jump in if you have anything to think about this topic.
+
+287
+00:20:34,900 --> 00:20:38,140
+So actually before you know maybe the question I want to ask,
+
+288
+00:20:38,170 --> 00:20:41,680
+maybe I'll come back to that at the end of the lecture closer to the end of the lecture.
+
+289
+00:20:42,280 --> 00:20:49,180
+Partly you know the whole reason we ought to use high-level languages to avoid sort of class of bugs
+
+290
+00:20:49,300 --> 00:20:51,250
+and one question you should ask yourself,
+
+291
+00:20:51,310 --> 00:20:57,730
+where bugs you know in the labs that you had, that would have been avoided if you had a high level language.
+
+292
+00:20:58,460 --> 00:21:00,830
+You know, so you know think back,
+
+293
+00:21:00,830 --> 00:21:06,080
+you know I'm sure you can come up with some bugs that you cost you a lot of time and a lot of pain,
+
+294
+00:21:06,230 --> 00:21:09,140
+and you could ask yourself those kind of bugs,
+
+295
+00:21:09,140 --> 00:21:14,180
+you know if we if the xv6 where we run into labs
+
+296
+00:21:14,180 --> 00:21:18,920
+would be done in another high-level programming language would have life would be a lot easier,
+
+297
+00:21:18,950 --> 00:21:21,350
+when you have a lot more spare time to do other things.
+
+298
+00:21:22,470 --> 00:21:24,570
+So let's keep that question in your head
+
+299
+00:21:24,570 --> 00:21:27,930
+and you know hopefully return to that at the end of the lecture.
+
+300
+00:21:28,820 --> 00:21:30,920
+But if you have opinions right away, that's fine too.
+
+301
+00:21:32,350 --> 00:21:35,140
+Okay, so let me talk a little bit about Biscuit,
+
+302
+00:21:35,290 --> 00:21:43,720
+and you know sort of works in sort of surprises where the things that we ran into while building discuss things
+
+303
+00:21:43,720 --> 00:21:46,450
+that we anticipated in some things that we actually did not anticipate.
+
+304
+00:21:48,360 --> 00:21:55,170
+So the user programs there's a classic kernel, a monolithic kernel in the same way to Linux or xv6's
+
+305
+00:21:55,320 --> 00:21:57,750
+and so there's user space and kernel space,
+
+306
+00:21:57,960 --> 00:22:03,210
+user space programs are you know, whatever your compiler GCC
+
+307
+00:22:03,210 --> 00:22:06,660
+or in our speaking of paper, yeah it's mostly a web server,
+
+308
+00:22:06,660 --> 00:22:08,850
+and some other benchmarks.
+
+309
+00:22:09,250 --> 00:22:12,820
+And the user programs are actually all written in C,
+
+310
+00:22:12,820 --> 00:22:14,650
+although it could be principal in any language,
+
+311
+00:22:14,650 --> 00:22:18,550
+you know since they're just a benchmark, we took C versions,
+
+312
+00:22:18,940 --> 00:22:21,310
+and most of the programs are multi thread,
+
+313
+00:22:21,310 --> 00:22:26,140
+so unlike in xv6 where basically there's one thread per user program,
+
+314
+00:22:26,200 --> 00:22:30,850
+in Biscuit actually support multiple user level threads.
+
+315
+00:22:31,780 --> 00:22:36,850
+And basically for every user level thread, there's corresponding kernel thread,
+
+316
+00:22:36,880 --> 00:22:45,070
+means kernel and the kernel threads are actually implemented by Go itself and Go calls these Go routines.
+
+317
+00:22:47,970 --> 00:22:50,730
+You can think about Go routines just as ordinary threads
+
+318
+00:22:50,760 --> 00:22:56,280
+in the same way that xv6 has and the kernel has threads,
+
+319
+00:22:57,540 --> 00:22:59,070
+the Go routines are similar,
+
+320
+00:22:59,190 --> 00:23:04,380
+the main difference, it correctly is that in xv6 you know the threads are implemented by the kernel itself
+
+321
+00:23:04,530 --> 00:23:09,090
+and in this case you know Go runtime basically provides the Go runtime schedules,
+
+322
+00:23:09,090 --> 00:23:13,770
+then Go run them as support for things like sleep wakeup or condition variables,
+
+323
+00:23:13,770 --> 00:23:18,420
+there's lots of different sleep wake up but there's some condition variable synchronization mechanism
+
+324
+00:23:18,720 --> 00:23:20,730
+and there's a whole bunch of other you know things primitive
+
+325
+00:23:20,730 --> 00:23:23,790
+and Go run them just provided by the Go language itself,
+
+326
+00:23:23,790 --> 00:23:26,280
+and you have not been implemented by Biscuit itself,
+
+327
+00:23:26,280 --> 00:23:27,840
+we just get them from the Go runtime.
+
+328
+00:23:29,440 --> 00:23:33,470
+The, Go runtime itself runs directly on the bare hardware.
+
+329
+00:23:36,400 --> 00:23:40,390
+Yeah, I'll talk a little bit about that more in the lecture,
+
+330
+00:23:40,510 --> 00:23:43,180
+but like so you think about this is the machine boots,
+
+331
+00:23:43,180 --> 00:23:45,310
+you know the first thing it actually boots to Go runtime,
+
+332
+00:23:46,000 --> 00:23:51,850
+does it cause a lot of complications, because go runtime that normally runs in user space or user level program
+
+333
+00:23:51,850 --> 00:23:55,390
+and assumes that the kernel there's a kernel there, we can ask some services,
+
+334
+00:23:55,390 --> 00:23:59,190
+for example needs to allocate memory to, for its heap.
+
+335
+00:23:59,710 --> 00:24:02,590
+And so there's a little bit of, all talk a little bit about,
+
+336
+00:24:02,590 --> 00:24:06,670
+that there's a little bit of shim code, the Biscuit has,
+
+337
+00:24:06,760 --> 00:24:11,920
+to basically trick you know go runtime into believing that it runs on top of the operating system,
+
+338
+00:24:11,920 --> 00:24:13,330
+even though it's running on bare hardware.
+
+339
+00:24:14,050 --> 00:24:15,340
+I basically get the boot,
+
+340
+00:24:16,360 --> 00:24:20,830
+and then the kernel itself, you know it's very similar, you think xv6,
+
+341
+00:24:20,890 --> 00:24:25,690
+think there's a model except it's a little bit more elaborate and more high performance,
+
+342
+00:24:25,690 --> 00:24:27,190
+it has some virtual memory system,
+
+343
+00:24:27,190 --> 00:24:31,030
+you know that for example implements mmap, lab you're doing this week,
+
+344
+00:24:31,060 --> 00:24:34,480
+it has a file still look there's more high performed file system,
+
+345
+00:24:34,870 --> 00:24:36,250
+it has a couple of drivers,
+
+346
+00:24:36,250 --> 00:24:40,630
+you know it has a disk drive or its network driver, it has a network stack,
+
+347
+00:24:41,180 --> 00:24:42,710
+so it will be more complete,
+
+348
+00:24:42,710 --> 00:24:46,670
+and when you can see that is has like 58 system calls,
+
+349
+00:24:46,670 --> 00:24:49,460
+you know like I can't remember how much xv6 has,
+
+350
+00:24:49,460 --> 00:24:52,250
+but startling the order of 18 19 or something like that.
+
+351
+00:24:52,860 --> 00:25:00,030
+And the total number of launch code is 28000 you know xv6 is like not in I think below 10,000,
+
+352
+00:25:00,030 --> 00:25:02,280
+so you know there's more features.
+
+353
+00:25:04,580 --> 00:25:06,650
+Any questions about this high-level overview.
+
+354
+00:25:08,470 --> 00:25:11,590
+Oh, sorry I wanted to ask about the the interface,
+
+355
+00:25:11,620 --> 00:25:14,890
+so the interface is just like xv6 right,
+
+356
+00:25:14,890 --> 00:25:21,040
+so the processes they have to put something in some register
+
+357
+00:25:21,040 --> 00:25:25,060
+and then they call the ecall or whatever it is.
+
+358
+00:25:25,060 --> 00:25:26,980
+Yeah, yeah I'll talk a little bit more about this,
+
+359
+00:25:26,980 --> 00:25:29,020
+but it's exactly the same there's no difference.
+
+360
+00:25:29,530 --> 00:25:30,970
+Okay I see, thank you.
+
+361
+00:25:32,860 --> 00:25:36,070
+So some of the features you know already mentioned them a little bit,
+
+362
+00:25:36,070 --> 00:25:39,400
+maybe worth a talking about its multi core,
+
+363
+00:25:39,760 --> 00:25:44,140
+Go with good support for concurrency and so you know Biscuit's multi-core
+
+364
+00:25:44,260 --> 00:25:49,180
+in the same way that xv6 sort of has limited support for multi-core,
+
+365
+00:25:49,270 --> 00:25:55,030
+in this we have a little bit more fine-grained synchronization or coordination than actually in xv6.
+
+366
+00:25:55,500 --> 00:26:01,920
+It has threads you know user level threads, backed up by kernel threads,
+
+367
+00:26:01,920 --> 00:26:03,570
+which xv6 doesn't have,
+
+368
+00:26:03,900 --> 00:26:06,150
+there's journal file system a much higher performance,
+
+369
+00:26:06,150 --> 00:26:09,240
+you think you know you're called the ext3 paper
+
+370
+00:26:09,450 --> 00:26:13,230
+sort of like you know the ext3 a generally file system.
+
+371
+00:26:14,000 --> 00:26:19,400
+It has, you know quite reasonable, sophisticated memory system, using DMAs,
+
+372
+00:26:19,490 --> 00:26:22,760
+and you know I could support mmap and all that stuff.
+
+373
+00:26:23,270 --> 00:26:25,160
+It has a complete TCP/IP stack,
+
+374
+00:26:25,160 --> 00:26:29,330
+you know good enough to actually talk to other network servers across the Internet
+
+375
+00:26:29,480 --> 00:26:33,230
+and it has two drivers with high performance drivers,
+
+376
+00:26:33,230 --> 00:26:34,730
+so like a ten gigabit NIC,
+
+377
+00:26:35,000 --> 00:26:40,130
+in the next lap, you can actually implement a little driver for a very very simple NIC,
+
+378
+00:26:40,130 --> 00:26:43,340
+this is a much more high performance and sophisticated driver.
+
+379
+00:26:43,770 --> 00:26:49,500
+And in a pretty sophisticated this driver, more sophisticated than the VIRTIO_disk driver,
+
+380
+00:26:49,680 --> 00:26:56,140
+that you've sort of seen or you might have looked at in the labs.
+
+381
+00:27:06,680 --> 00:27:11,360
+So in terms of, a user programs as I mentioned before,
+
+382
+00:27:11,360 --> 00:27:16,970
+every user program runs its own page table, user kernel memory isolated by hardware,
+
+383
+00:27:16,970 --> 00:27:19,580
+so you use a kernel bit basically,
+
+384
+00:27:20,780 --> 00:27:25,250
+and every user thread has a corresponding kernel thread,
+
+385
+00:27:25,250 --> 00:27:31,460
+so for example when a user thread makes a system call, it will continue running on the corresponding kernel thread,
+
+386
+00:27:31,640 --> 00:27:33,080
+and if the system call blocks,
+
+387
+00:27:33,080 --> 00:27:37,910
+then another user thread in the same address space and the user address space might actually be scheduled by the kernel.
+
+388
+00:27:38,990 --> 00:27:45,350
+And as mentioned early kernel threads are provided by the Go runtime and so they just Go routines.
+
+389
+00:27:46,070 --> 00:27:51,170
+So you're right ever user level, if you ever written a user level application in Go
+
+390
+00:27:51,170 --> 00:27:55,490
+and using Go and used to Go call to create a thread,
+
+391
+00:27:55,640 --> 00:27:59,630
+you know that those those Go routines are the ones that were actually being used by the Biscuit kernel.
+
+392
+00:28:02,410 --> 00:28:03,790
+So talking about system calls,
+
+393
+00:28:03,790 --> 00:28:07,360
+you know this question is just asked,
+
+394
+00:28:07,660 --> 00:28:12,190
+so it works exactly as roughly you know as in xv6
+
+395
+00:28:12,190 --> 00:28:17,470
+you know the user [input] arguments in registers using a little library,
+
+396
+00:28:17,470 --> 00:28:21,400
+you know that provides system call interface,
+
+397
+00:28:21,400 --> 00:28:24,040
+then the user threads executed SYSENTER call,
+
+398
+00:28:24,040 --> 00:28:29,050
+you know this Biscuit runs on an x86 processor not on the RISC-V processor,
+
+399
+00:28:29,050 --> 00:28:35,470
+so the assembly instructions for actually injuring their system kernel are slightly different than on the RISC-V on the RISC-V.
+
+400
+00:28:36,280 --> 00:28:40,270
+Yeah, but you know roughly similar similar to RISC-V
+
+401
+00:28:40,270 --> 00:28:45,930
+and then control passes to the kernel thread, that was running that user thread
+
+402
+00:28:46,350 --> 00:28:48,720
+and then the kernel thread executes a system call,
+
+403
+00:28:48,720 --> 00:28:50,580
+and then returns here in SYSEXIT.
+
+404
+00:28:51,180 --> 00:28:55,170
+So roughly similar frame, you know it's a trapframe that's being built and all that kind of stuff.
+
+405
+00:28:57,910 --> 00:28:58,630
+Okay.
+
+406
+00:29:01,040 --> 00:29:02,390
+Any questions so far,
+
+407
+00:29:02,950 --> 00:29:05,860
+before I dive into sort of a more sort of things
+
+408
+00:29:05,860 --> 00:29:13,250
+that were unexpected or expected, but we're a little bit more challenging than were different than I think it would go the xv6.
+
+409
+00:29:13,920 --> 00:29:14,790
+I have a question,
+
+410
+00:29:14,790 --> 00:29:17,630
+I guess. I think,
+
+411
+00:29:18,270 --> 00:29:24,630
+Go wants you to use channels more than mutual locks,
+
+412
+00:29:24,630 --> 00:29:27,630
+I guess, so would you like would there be
+
+413
+00:29:27,630 --> 00:29:31,380
+like, with the design of somethings in xv6 be
+
+414
+00:29:31,380 --> 00:29:35,130
+like you'd use as channels instead of holding a lock for something.
+
+415
+00:29:35,550 --> 00:29:38,070
+Yeah,, there's a great a great question,
+
+416
+00:29:38,070 --> 00:29:40,590
+so we I'll come back to it a little bit at the end,
+
+417
+00:29:40,680 --> 00:29:46,920
+further down and we have some slides about what features of Go did we use in Biscuit,
+
+418
+00:29:46,920 --> 00:29:51,030
+but you know the the index we didn't have any of using channels that much,
+
+419
+00:29:51,060 --> 00:29:53,760
+we mostly use locks and condition variables.
+
+420
+00:29:54,250 --> 00:29:56,950
+So in some sense closer to or a way xv6 looks
+
+421
+00:29:56,950 --> 00:30:00,640
+than actually a one you would do then you would do with channels,
+
+422
+00:30:00,730 --> 00:30:06,220
+we did experiment actually with designs of the file system that were much more channel heavy,
+
+423
+00:30:06,460 --> 00:30:10,510
+and it didn't work out great, yeah we got that performance,
+
+424
+00:30:10,720 --> 00:30:17,770
+so yeah we switched back to sort of more a sort of simple style of synchronization is xv6 does or Linux uses.
+
+425
+00:30:21,740 --> 00:30:27,830
+Okay, so you know a couple sort of a little puzzles or implementation challenges as we went through,
+
+426
+00:30:28,070 --> 00:30:31,820
+one gotta get to runtime to work on the bare-metal
+
+427
+00:30:31,940 --> 00:30:38,060
+and you know that required you know wanted to make of course like zero modifications to the runtime where as little as possible,
+
+428
+00:30:38,060 --> 00:30:40,820
+so that you know Go come out with a new version of the runtime,
+
+429
+00:30:40,820 --> 00:30:41,630
+we could just use it.
+
+430
+00:30:42,180 --> 00:30:48,540
+In fact, you know through years, you know that we worked on this where the code worked on this,
+
+431
+00:30:48,540 --> 00:30:51,600
+we upgraded the runtime many you know number of times.
+
+432
+00:30:52,210 --> 00:30:53,950
+And that was turned out to be a good thing,
+
+433
+00:30:53,950 --> 00:30:57,640
+and it turned out, they were not to be too difficult to actually to get to work on the bare-metal.
+
+434
+00:30:58,170 --> 00:31:04,890
+You know Go in general is designed pretty carefully to sort of be mostly OS agnostic,
+
+435
+00:31:04,890 --> 00:31:07,050
+because they want to be able to run into many operating system,
+
+436
+00:31:07,050 --> 00:31:09,210
+so it doesn't rely on a ton of OS features.
+
+437
+00:31:09,970 --> 00:31:13,570
+And we're basically emulated the features that actually needed
+
+438
+00:31:13,750 --> 00:31:18,490
+and mostly those are the features that actually just get off the Go runtime to get started
+
+439
+00:31:18,850 --> 00:31:20,650
+and once it started it runs just happily.
+
+440
+00:31:24,470 --> 00:31:28,670
+We have sort of range that Go routine run different applications,
+
+441
+00:31:28,700 --> 00:31:34,220
+normally in Go program correct, you know one single application,
+
+442
+00:31:34,490 --> 00:31:40,220
+and here now we're using Go routine directly around different user, different user applications.
+
+443
+00:31:40,670 --> 00:31:44,900
+And but the user applications to run with different page tables.
+
+444
+00:31:45,490 --> 00:31:49,240
+And the little you know [wrinkle] here is that
+
+445
+00:31:49,240 --> 00:31:53,230
+you know the we don't control or Biscuit doesn't control the scheduler,
+
+446
+00:31:53,260 --> 00:31:55,630
+because we're using the Go runtime unmodified,
+
+447
+00:31:55,630 --> 00:31:57,370
+so we're using the Go runtime scheduler,
+
+448
+00:31:57,520 --> 00:32:00,010
+and so in the scheduler, we can't switch page tables.
+
+449
+00:32:00,460 --> 00:32:04,990
+So what xv6 in basically what Biscuit does is very simple
+
+450
+00:32:04,990 --> 00:32:11,050
+to xv6 it actually switches page tables when it changes from current user space or the other way around.
+
+451
+00:32:12,030 --> 00:32:16,860
+So when entry and exit of the kernel switch page tables.
+
+452
+00:32:17,360 --> 00:32:24,050
+And that means like in xv6 and then when you need to copy data from user space to kernel space or the other way around,
+
+453
+00:32:24,140 --> 00:32:27,500
+you have to do that sort of using those copyin and copyout functions,
+
+454
+00:32:27,500 --> 00:32:30,890
+that we also have an xv6 basically you do the page table walking software.
+
+455
+00:32:33,550 --> 00:32:38,150
+Another issue of challenge where little challenge was device interrupts,
+
+456
+00:32:38,600 --> 00:32:41,360
+and Go running normally runs in user mode,
+
+457
+00:32:41,420 --> 00:32:44,810
+it doesn't really get interrupts from the hardware,
+
+458
+00:32:45,200 --> 00:32:47,450
+but we're using it on the bare-metal
+
+459
+00:32:47,450 --> 00:32:48,980
+and so we're going to get interruption,
+
+460
+00:32:49,040 --> 00:32:53,840
+time clock interrupts, interrupts from the network driver, interrupted the disk driver etc,
+
+461
+00:32:54,050 --> 00:32:55,850
+you know from the UART.
+
+462
+00:32:56,290 --> 00:32:58,150
+And so we need to deal with that
+
+463
+00:32:58,150 --> 00:33:05,500
+and and there's also no notion in Go you know for switching off interrupts while holding a lock,
+
+464
+00:33:05,890 --> 00:33:08,500
+because just show up user applications
+
+465
+00:33:08,800 --> 00:33:14,290
+and so we have a little bit careful how to actually write a device interrupt
+
+466
+00:33:14,290 --> 00:33:18,520
+and basically the way we did it is, we do almost nothing in the device interrupt,
+
+467
+00:33:18,700 --> 00:33:22,450
+we don't take any locks out, basically we don't allocate any memory,
+
+468
+00:33:22,750 --> 00:33:26,050
+the only thing we do is basically sending a flag somewhere
+
+469
+00:33:26,050 --> 00:33:31,900
+that [wasn't] interrupted and then wake up a really functional Go routine to actually deal with the interrupt.
+
+470
+00:33:35,000 --> 00:33:38,240
+And that Go routine, of course you can use all the Go features that it wants.
+
+471
+00:33:39,160 --> 00:33:41,620
+Because it does run in the context of an interrupt handler,
+
+472
+00:33:41,620 --> 00:33:44,080
+just it runs in the context of normal normal Go routine.
+
+473
+00:33:45,410 --> 00:33:48,830
+Then one thing that surprises, it was a bit of surprise,
+
+474
+00:33:48,860 --> 00:33:51,500
+you know the first three things were completely anticipated that
+
+475
+00:33:51,500 --> 00:33:54,350
+we would have to deal with when a building Biscuit,
+
+476
+00:33:54,350 --> 00:33:57,440
+the hardest one that actually had suprised us,
+
+477
+00:33:57,770 --> 00:34:02,120
+and we learned a lot about it, was this puzzle of heap exhaustion.
+
+478
+00:34:02,760 --> 00:34:05,610
+So I'm going to talk mostly for a little while about heap exhaustion
+
+479
+00:34:05,610 --> 00:34:09,030
+and you know what it is you know how it comes about and how we solved it,
+
+480
+00:34:09,030 --> 00:34:12,750
+but maybe before diving into that any any questions so far.
+
+481
+00:34:18,810 --> 00:34:20,460
+So crystal clear.
+
+482
+00:34:24,540 --> 00:34:26,700
+Okay, so let's talk a little bit about heap exhaustion,
+
+483
+00:34:26,700 --> 00:34:28,650
+I'm not going to go with full depth was in the paper,
+
+484
+00:34:28,650 --> 00:34:31,650
+but at least it gives you a flavor of what the problem is.
+
+485
+00:34:32,810 --> 00:34:33,470
+Um.
+
+486
+00:34:34,230 --> 00:34:35,190
+Yeah.
+
+487
+00:34:40,940 --> 00:34:46,430
+So in the heap exhaustion you know let's say the blue box here is the kernel again.
+
+488
+00:34:49,450 --> 00:34:51,310
+And you know the kernel has a heap,
+
+489
+00:34:51,340 --> 00:34:54,610
+from which delegates dynamically memory,
+
+490
+00:34:54,610 --> 00:34:59,620
+in xv6, we don't have such a heap, because we don't have a memory allocator in the kernel, everything statically allocated,
+
+491
+00:34:59,650 --> 00:35:06,250
+but any other kernel will have a heap, so you can call malloc, you have free in the kernel.
+
+492
+00:35:08,120 --> 00:35:10,640
+And you know the things that actually get allocated on the heap,
+
+493
+00:35:10,640 --> 00:35:17,600
+for example you know socket objects or file descriptor objects or process objects
+
+494
+00:35:17,900 --> 00:35:23,600
+struct proc you know struct fd all the structures that we basically statically allocated in xv6,
+
+495
+00:35:23,720 --> 00:35:25,880
+normal kernels, they dynamically allocate them,
+
+496
+00:35:26,360 --> 00:35:30,830
+so when you open the new file descriptor there will be a file descriptor object allocated in the heap.
+
+497
+00:35:32,230 --> 00:35:35,560
+And so, then the problem is if you're running many applications,
+
+498
+00:35:35,560 --> 00:35:38,680
+you know they might open many file descriptors, may you have many sockets
+
+499
+00:35:38,770 --> 00:35:41,380
+and they sort of start filling the heap basically slowly
+
+500
+00:35:41,530 --> 00:35:45,490
+and so the issue is that at some points like the heap full,
+
+501
+00:35:45,880 --> 00:35:49,420
+there's no space anymore for allocating a new object
+
+502
+00:35:49,420 --> 00:35:53,080
+or when an application asks for example opens a new file descriptor
+
+503
+00:35:53,080 --> 00:35:56,290
+and there's like no new process like there's new fork
+
+504
+00:35:56,440 --> 00:35:58,690
+and the kernel wants to allocate a struct proc
+
+505
+00:35:58,690 --> 00:36:00,790
+and heap usually there's no space anymore.
+
+506
+00:36:01,660 --> 00:36:03,580
+And what did you do that,
+
+507
+00:36:03,760 --> 00:36:08,470
+you know what is you know how do you deal with that particular case,
+
+508
+00:36:08,770 --> 00:36:13,210
+and this is typically you know this is maybe in common cases show up that often,
+
+509
+00:36:13,300 --> 00:36:15,820
+but like if you're pushing machine hard,
+
+510
+00:36:15,820 --> 00:36:19,420
+you have a couple heavy consumer processes running user level processes,
+
+511
+00:36:19,450 --> 00:36:24,250
+you might end in this situation where basically in all the available memory is in use
+
+512
+00:36:24,310 --> 00:36:26,320
+and your heap is just full.
+
+513
+00:36:27,120 --> 00:36:29,880
+And no processes calling free yet,
+
+514
+00:36:29,880 --> 00:36:34,920
+you know because they're all running and trying to allocate more resources for their for their particular jobs.
+
+515
+00:36:39,790 --> 00:36:45,070
+So all kernel face this problem when its like C kernel or Biscuit or anything
+
+516
+00:36:45,070 --> 00:36:47,470
+and any kernel mostly solve this particular problem.
+
+517
+00:36:48,290 --> 00:36:54,410
+The reason they they sort of showed up for us as a serious issue in Biscuit
+
+518
+00:36:54,410 --> 00:37:03,610
+was because in many kernels the, you can return an error on malloc,
+
+519
+00:37:03,670 --> 00:37:06,040
+in fact the xv6 does that, correctly, once in a while,
+
+520
+00:37:06,040 --> 00:37:10,870
+but you know in a Go runtime, when you call new to allocate a Go object,
+
+521
+00:37:11,080 --> 00:37:13,990
+now there's no error condition, new succeeds.
+
+522
+00:37:14,400 --> 00:37:16,200
+And so there's no way to fail it.
+
+523
+00:37:16,740 --> 00:37:22,050
+So let's talk a little bit about possible ways to solve this problem.
+
+524
+00:37:22,770 --> 00:37:26,790
+The you know we've seen it actually xv6 once in a while
+
+525
+00:37:26,790 --> 00:37:29,850
+like if you remember the bcache,
+
+526
+00:37:29,850 --> 00:37:37,950
+if xv6 can't find a new block you know to a free block to use for storage a disk block in,
+
+527
+00:37:38,040 --> 00:37:39,630
+actually sometimes just panics.
+
+528
+00:37:40,060 --> 00:37:46,180
+You know this clearly is a completely undesirable a solution and it's not a real solution,
+
+529
+00:37:46,180 --> 00:37:48,280
+so why we call it a strawman solution.
+
+530
+00:37:49,010 --> 00:37:55,730
+The other strawman solution is to, when you call let's say you allocate a new piece of memory,
+
+531
+00:37:55,730 --> 00:37:59,300
+you know you go to call alloc, new to actually allocate it,
+
+532
+00:37:59,600 --> 00:38:02,120
+you could actually you know wait for memory allocator.
+
+533
+00:38:02,820 --> 00:38:06,150
+I'm going to be one proposal to do, turns out not to be a good proposal
+
+534
+00:38:06,570 --> 00:38:10,500
+and the reason it's not a good proposal is that you may deadlock,
+
+535
+00:38:10,530 --> 00:38:15,550
+you know, assume the following scenario, yo're holding some, let's say the kernel has one big kernel lock,
+
+536
+00:38:15,820 --> 00:38:20,470
+and you call malloc you wait into the memory allocator,
+
+537
+00:38:20,770 --> 00:38:22,840
+then basically no other process can run.
+
+538
+00:38:23,530 --> 00:38:26,470
+And you would have a deadlock type in your next process,
+
+539
+00:38:26,470 --> 00:38:29,980
+that would actually try to run for example to free some memory,
+
+540
+00:38:29,980 --> 00:38:31,720
+you know couldn't run actually deadlock.
+
+541
+00:38:32,490 --> 00:38:36,090
+Of course, this is if you have a big kernel lock, there's an obvious problem,
+
+542
+00:38:36,090 --> 00:38:40,590
+you know, but even if you have a very small, a fine-grained locking,
+
+543
+00:38:40,650 --> 00:38:48,030
+it is easy to run in a situation where basically the person or the process, that's waiting in the allocator is holding some lock,
+
+544
+00:38:48,030 --> 00:38:50,220
+that somebody else needs to actually free the memory.
+
+545
+00:38:50,840 --> 00:38:53,420
+And that can get you basically this deadlock situation.
+
+546
+00:38:54,710 --> 00:39:03,440
+And so we're going strawman free is to basically fail, or when you there's no memory anymore,
+
+547
+00:39:03,440 --> 00:39:06,590
+alloc returns like no pointer, you check with no pointer,
+
+548
+00:39:06,590 --> 00:39:09,200
+it's no point you fail use a [bailout].
+
+549
+00:39:09,840 --> 00:39:14,070
+But bailing out is actually not that straightforward,
+
+550
+00:39:14,070 --> 00:39:17,790
+you know the process might actually have allocated memory already,
+
+551
+00:39:17,820 --> 00:39:19,110
+you need to get rid of that,
+
+552
+00:39:19,230 --> 00:39:21,900
+you may have done some partial disk operations,
+
+553
+00:39:21,900 --> 00:39:26,340
+like for example if you do a multi steps you know partial operation maybe have done some of it, but not all of it,
+
+554
+00:39:26,340 --> 00:39:27,420
+you have to bail out of that.
+
+555
+00:39:27,880 --> 00:39:31,570
+And so, it turns out to actually get very very hard to get right.
+
+556
+00:39:32,340 --> 00:39:37,170
+In, sort of interesting, you know when digging into this
+
+557
+00:39:37,260 --> 00:39:40,020
+and trying to think about how to solve this problem,
+
+558
+00:39:40,140 --> 00:39:43,020
+Linux uses both of these solutions.
+
+559
+00:39:43,500 --> 00:39:47,550
+And you know both actually have trouble or problems,
+
+560
+00:39:47,730 --> 00:39:52,530
+and indeed kernel developers actually have difficulty to actually get this all straight,
+
+561
+00:39:52,560 --> 00:39:56,370
+if you're very interested in this and we want to see some interesting discussion about this,
+
+562
+00:39:56,880 --> 00:40:02,730
+google for "too small to fail" and there's a little article that talks about some of these complications,
+
+563
+00:40:02,730 --> 00:40:06,990
+you know a free memory or waiting in the allocator,
+
+564
+00:40:06,990 --> 00:40:09,660
+and the problem that can cause.
+
+565
+00:40:10,650 --> 00:40:15,210
+Now it turns out, for us, you know so strawman 2 be the solution
+
+566
+00:40:15,210 --> 00:40:17,820
+that you could imagine doing, but then for us just as mentioned earlier,
+
+567
+00:40:18,420 --> 00:40:23,070
+this was not possible because new just cannot return cannot fail,
+
+568
+00:40:23,100 --> 00:40:27,300
+it just always succeeds, so we've got a range in some way that this cannot happen.
+
+569
+00:40:28,590 --> 00:40:31,710
+Plus neither of these two solutions actually particular ideal,
+
+570
+00:40:31,710 --> 00:40:35,160
+so we wanted to come up with something that was potentially better.
+
+571
+00:40:36,780 --> 00:40:40,260
+Any questions so far about the setup around heap exhaustion,
+
+572
+00:40:40,260 --> 00:40:42,720
+before I talk about like how the way Biscuit does it.
+
+573
+00:40:48,420 --> 00:40:49,500
+This problem makes sense?
+
+574
+00:40:58,960 --> 00:41:02,170
+I'll interpret the signings as yes then keep going,
+
+575
+00:41:02,170 --> 00:41:03,910
+but figure to interrupt anytime.
+
+576
+00:41:06,800 --> 00:41:08,810
+Okay, so what is the Biscuit solution,
+
+577
+00:41:08,840 --> 00:41:13,790
+yeah as a high level of the Biscuit solution is like almost straight forward.
+
+578
+00:41:14,420 --> 00:41:19,670
+What basically does like when you execute a system call like say you read fork,
+
+579
+00:41:20,420 --> 00:41:25,910
+before jumping actually into the fork system call right at the beginning of the fork system call,
+
+580
+00:41:25,910 --> 00:41:28,970
+if you feel like in a system called dispatcher a index to xv6,
+
+581
+00:41:28,970 --> 00:41:31,520
+then first thing it does actually calls reserve.
+
+582
+00:41:32,630 --> 00:41:37,700
+And it basically reserves enough memory, to be able to execute the system call.
+
+583
+00:41:38,380 --> 00:41:42,430
+So there's a free memory in enough
+
+584
+00:41:42,430 --> 00:41:45,730
+that actually whatever on memory that actually the system call needs,
+
+585
+00:41:45,910 --> 00:41:49,570
+the reservation will be big enough that actually and will succeed.
+
+586
+00:41:50,430 --> 00:41:55,560
+So, so once the system call goes off and actually successful in reserving memory,
+
+587
+00:41:55,560 --> 00:41:57,390
+it will actually run all the way through
+
+588
+00:41:57,420 --> 00:42:01,950
+and we were never with the problems that there won't be enough memory or heap exhaustion.
+
+589
+00:42:03,340 --> 00:42:06,790
+And if there's not enough memory at the point you want to do the reservation,
+
+590
+00:42:06,820 --> 00:42:08,290
+then basically just wait here.
+
+591
+00:42:09,940 --> 00:42:13,660
+But at the beginning of the system call, the system call doesn't hold any locks,
+
+592
+00:42:13,660 --> 00:42:15,040
+doesn't hold any resources yet,
+
+593
+00:42:15,040 --> 00:42:21,190
+so it actually is perfectly fine, you know wait there's no risk of deadlock.
+
+594
+00:42:22,160 --> 00:42:26,540
+And while it's waiting you know it can of course be doing it can call,
+
+595
+00:42:26,540 --> 00:42:33,620
+kernel can actually evict cache, you know try to reduce the basically make free up heap space,
+
+596
+00:42:33,800 --> 00:42:38,390
+maybe as you've seen maybe kill a process,
+
+597
+00:42:38,390 --> 00:42:41,000
+that to force you know memories actually be freed.
+
+598
+00:42:41,590 --> 00:42:43,990
+And then once you know memory is available
+
+599
+00:42:43,990 --> 00:42:47,020
+and the kernel decides well you know I can meet a reservation,
+
+600
+00:42:47,020 --> 00:42:50,020
+then it will let the system call basically goes off and runs
+
+601
+00:42:50,170 --> 00:42:52,570
+and basically executes whatever it needs to be done
+
+602
+00:42:52,900 --> 00:42:55,060
+and then at the very end when the system goes down,
+
+603
+00:42:55,060 --> 00:42:59,410
+it's like okay I'm done and all the memory that was reserve basically comes back to the pool,
+
+604
+00:42:59,620 --> 00:43:02,380
+available for subsequent system calls.
+
+605
+00:43:03,770 --> 00:43:07,310
+And there's a couple of nice properties about these particular solutions,
+
+606
+00:43:07,310 --> 00:43:09,980
+there's no checks necessary in the kernel itself,
+
+607
+00:43:10,010 --> 00:43:14,390
+like you never have to check whether memory memory allocation can fail,
+
+608
+00:43:14,570 --> 00:43:16,190
+which is particularly in our case good,
+
+609
+00:43:16,190 --> 00:43:18,110
+because you know go, they can't fail.
+
+610
+00:43:18,620 --> 00:43:20,960
+There's no error handling code and necessary at all,
+
+611
+00:43:21,080 --> 00:43:26,300
+and there's no risk for deadlock, because you're avoiding in the very beginning without when you actually hold no locks.
+
+612
+00:43:27,010 --> 00:43:29,830
+Of course, you know there's all wonderful well,
+
+613
+00:43:29,980 --> 00:43:33,640
+the only thing is like how there's a challenge, of course, how you do the reservation,
+
+614
+00:43:33,880 --> 00:43:42,710
+how do you compute you know, how much memory a system call might need to to execute it.
+
+615
+00:43:43,590 --> 00:43:45,300
+And so now we have a puzzle.
+
+616
+00:43:47,780 --> 00:43:52,460
+In you know it's important that the mount you reserve,
+
+617
+00:43:52,460 --> 00:43:55,940
+one one you could do is you can reserve half memory or something like that,
+
+618
+00:43:55,940 --> 00:43:58,640
+some ridiculous amount of memory for every system call,
+
+619
+00:43:58,670 --> 00:44:01,850
+but that means you limit the number of system calls you can execute concurrently,
+
+620
+00:44:01,850 --> 00:44:03,950
+so you want to sort of do a pretty good job
+
+621
+00:44:03,980 --> 00:44:09,970
+and actually computing abound of the amount of memory that the system call might need.
+
+622
+00:44:11,050 --> 00:44:22,240
+So, the way, we ended up doing this gonna end turned out like sort of high-level language helped us here,
+
+623
+00:44:22,390 --> 00:44:25,450
+turned out like Go is actually pretty easy to static analyze,
+
+624
+00:44:25,450 --> 00:44:30,040
+in fact Go runtime and Go infrastructure ecosystem
+
+625
+00:44:30,040 --> 00:44:33,580
+comes comes with a whole bunch of packages to analyze Go code.
+
+626
+00:44:34,100 --> 00:44:42,920
+And we use those packages basically to compute the amount of memory, that the system call nead,
+
+627
+00:44:42,950 --> 00:44:47,240
+so you can think about the, let's say you have to read system call, right,
+
+628
+00:44:47,240 --> 00:44:50,810
+you know you know we could look at the call graph of the system call
+
+629
+00:44:50,810 --> 00:44:54,440
+or calls the function f calls the function g calls the function h blah blah blah,
+
+630
+00:44:54,440 --> 00:44:59,060
+might continue a whole bunch and you know at the end of system call it binds to stack again
+
+631
+00:44:59,060 --> 00:45:01,880
+and then goes back to return to user space.
+
+632
+00:45:02,520 --> 00:45:08,370
+And basically what we can do is like you know allocate you know or figure out what the maximum depth,
+
+633
+00:45:08,940 --> 00:45:16,100
+you know of this this call graph is, at any particular time,
+
+634
+00:45:16,130 --> 00:45:17,930
+and then basically for that maximum depth,
+
+635
+00:45:17,930 --> 00:45:21,770
+you know compute how much you know live memory, each of these functions need,
+
+636
+00:45:21,770 --> 00:45:25,640
+so if this function calls new, you know that [] allocates memory,
+
+637
+00:45:25,670 --> 00:45:28,910
+you know we know what kind of objects, there are, there's a high level language,
+
+638
+00:45:28,910 --> 00:45:30,770
+so we can compute the size of that object is,
+
+639
+00:45:30,770 --> 00:45:33,590
+we can just add them up and it gives us some number s,
+
+640
+00:45:33,620 --> 00:45:36,650
+that says like the total amount of memory or the maximum amount of memory,
+
+641
+00:45:36,650 --> 00:45:42,290
+that can be live at any particular point of time for a call graph.
+
+642
+00:45:43,290 --> 00:45:45,420
+And the reason is you know it's slightly tricky,
+
+643
+00:45:45,420 --> 00:45:46,590
+it's not as simple as this,
+
+644
+00:45:46,590 --> 00:45:53,470
+because for example a function h might allocate some memory, and then pass back to g
+
+645
+00:45:53,530 --> 00:46:00,820
+and so you know h finishes and but you know g actually you know gets the memory that h is allocated
+
+646
+00:46:01,120 --> 00:46:08,390
+and this is called escaping, the memory escapes from you know from h to g
+
+647
+00:46:08,390 --> 00:46:12,770
+it turns out, there are standard algorithms were doing sort of this escape analysis
+
+648
+00:46:12,770 --> 00:46:15,560
+to see determine which variables escape to the callers
+
+649
+00:46:16,010 --> 00:46:20,690
+and in that case, you know basically whatever memory was allocated by h and that's still alive,
+
+650
+00:46:20,690 --> 00:46:22,880
+we have to add to whatever g is.
+
+651
+00:46:23,760 --> 00:46:25,890
+So you know we have to be added into s.
+
+652
+00:46:27,040 --> 00:46:28,510
+A quick question about this,
+
+653
+00:46:29,440 --> 00:46:32,470
+so let's assume more in some function,
+
+654
+00:46:32,800 --> 00:46:36,490
+depending on different workloads that the function is expected to have,
+
+655
+00:46:36,790 --> 00:46:40,150
+there might be different memories memory amounts allocated,
+
+656
+00:46:40,360 --> 00:46:44,590
+so what is there like a worst-case, what memory allocation process.
+
+657
+00:46:44,620 --> 00:46:47,170
+Yeah that's basically it's sort of conservative scheme correctly
+
+658
+00:46:47,170 --> 00:46:56,200
+and we we computed, the tool computes, basically a worst possible depth of function calls.
+
+659
+00:46:56,830 --> 00:47:00,820
+And you know for that the worst-case analysis,
+
+660
+00:47:00,820 --> 00:47:03,940
+how much memory that reaches system call might need,
+
+661
+00:47:03,970 --> 00:47:06,760
+in practice, it might need, there system call might need a lot less,
+
+662
+00:47:06,940 --> 00:47:10,210
+but you know for you know to be conservative,
+
+663
+00:47:10,210 --> 00:47:13,240
+we have to allocate the work we plan for the worst case.
+
+664
+00:47:14,000 --> 00:47:18,050
+And so we've come to a couple of important points here,
+
+665
+00:47:18,050 --> 00:47:21,830
+because, you know some system calls for example executive for loop,
+
+666
+00:47:21,830 --> 00:47:25,020
+that's depended on argument to the system call, right,
+
+667
+00:47:25,020 --> 00:47:27,600
+so you can't actually statically figure out what the bound is
+
+668
+00:47:27,990 --> 00:47:31,260
+and so a number of cases we annotated the code
+
+669
+00:47:31,260 --> 00:47:33,900
+to say well this is the maximum bounds of this loop
+
+670
+00:47:34,200 --> 00:47:36,210
+and you can assume it's no more than that
+
+671
+00:47:36,210 --> 00:47:38,700
+and use that to actually compute this number s.
+
+672
+00:47:39,990 --> 00:47:43,620
+Similarly you know, for example if you have a recursive function,
+
+673
+00:47:43,980 --> 00:47:46,290
+you know who knows how deep the recursion is, right
+
+674
+00:47:46,470 --> 00:47:50,730
+and that might also be a dependent on a dynamic variable or an argument to a system call.
+
+675
+00:47:51,220 --> 00:47:57,490
+In fact, you know we you know we treat Biscuit in some places basically avoid recursive function pass,
+
+676
+00:47:57,820 --> 00:48:01,990
+so actually it was possible to do this, you know do this kind of analysis.
+
+677
+00:48:02,770 --> 00:48:04,510
+So this kind of analysis, not for free,
+
+678
+00:48:04,510 --> 00:48:05,620
+it's not completely automatic,
+
+679
+00:48:05,800 --> 00:48:08,980
+it takes a couple days of work you know for this case,
+
+680
+00:48:08,980 --> 00:48:16,240
+you know cody to go through look at all these loops, and and annotate.
+
+681
+00:48:16,840 --> 00:48:20,560
+You know there are a couple others Go specific issues that you have to deal with
+
+682
+00:48:20,560 --> 00:48:22,960
+like slices, you know they might double in size,
+
+683
+00:48:22,960 --> 00:48:29,500
+if you add an element to slice and so we imitate the slices which maximum capacity,
+
+684
+00:48:29,800 --> 00:48:32,830
+but I use all sort of [doable], for a couple days work
+
+685
+00:48:32,860 --> 00:48:37,660
+and you know using this tool, then you can get a number out there is reasonable good.
+
+686
+00:48:38,080 --> 00:48:44,830
+In terms of computing and a maximum amount of memory that a particular system call needs.
+
+687
+00:48:46,150 --> 00:48:50,890
+And so this is basically how you know we basically Biscuit solves this particular problem.
+
+688
+00:48:54,100 --> 00:48:57,910
+Oh sorry, what else are people using this tool for,
+
+689
+00:48:58,000 --> 00:49:01,570
+like they're not they're not building a kernel, what are they using it for.
+
+690
+00:49:01,600 --> 00:49:03,280
+Over static analysis package.
+
+691
+00:49:03,910 --> 00:49:04,300
+Yeah.
+
+692
+00:49:04,330 --> 00:49:08,260
+Go compiler journal uses it for all kinds of optimizations,
+
+693
+00:49:08,260 --> 00:49:12,490
+you know to and do static analysis,
+
+694
+00:49:12,760 --> 00:49:17,380
+Go go to figure out the best way to for the best way to compile it.
+
+695
+00:49:18,270 --> 00:49:20,490
+I see, I see, okay, thank you.
+
+696
+00:49:20,880 --> 00:49:23,640
+So this is one of the cool things about just a package,
+
+697
+00:49:23,640 --> 00:49:26,250
+you know the compiler happens to you, you know what we could do.
+
+698
+00:49:27,500 --> 00:49:31,790
+We'll see later on we also use it for a couple other features.
+
+699
+00:49:32,710 --> 00:49:34,570
+It's very convenient to have.
+
+700
+00:49:37,640 --> 00:49:39,020
+Okay.
+
+701
+00:49:40,580 --> 00:49:50,600
+Okay, terms of the implementation, you know basically basically very similar to other kernels or like you know xv6 except more high performance.
+
+702
+00:49:51,070 --> 00:49:58,090
+You know what we adopted many of the authorizations or cleverness that the Linux kernel has,
+
+703
+00:49:58,090 --> 00:50:00,400
+at least the system calls that we were trying to implement,
+
+704
+00:50:00,920 --> 00:50:05,840
+you know use large pages for kernel text, to avoid TLB cost,
+
+705
+00:50:06,350 --> 00:50:13,460
+we have per-CPU NIC transmit queues to avoid synchronization between port,
+
+706
+00:50:13,790 --> 00:50:17,990
+we have RCU, I will talk a little bit more about, the directory cache,
+
+707
+00:50:17,990 --> 00:50:22,550
+which is basically lock free or read lock free directory cache,
+
+708
+00:50:22,550 --> 00:50:25,280
+at the end of the semester, we'll talk about RCU in more detail,
+
+709
+00:50:25,280 --> 00:50:36,200
+but you know, this could have some to, you know a sort of the usual type of optimization that actually you need to get high performance.
+
+710
+00:50:36,720 --> 00:50:40,020
+And the main lesson I think we learned is that
+
+711
+00:50:40,320 --> 00:50:43,410
+Go was not standing in the way of implementing these optimizations,
+
+712
+00:50:44,160 --> 00:50:48,600
+so there's opposition community that were implemented in C and Linux,
+
+713
+00:50:48,600 --> 00:50:52,680
+you know we've basically implemented same optimization, but ever implemented in Go
+
+714
+00:50:52,890 --> 00:50:56,410
+and so the language itself is not a hurdle or a problem,
+
+715
+00:50:56,560 --> 00:51:00,040
+in fact completely conducive to actually implementing these optimizations.
+
+716
+00:51:01,460 --> 00:51:05,720
+There's a lot of work to implement these optimizations, but irrespective of the language.
+
+717
+00:51:09,810 --> 00:51:15,990
+OK, so that brings me sort of to the valuation which is really what the, the motivation of the whole paper was,
+
+718
+00:51:15,990 --> 00:51:21,420
+which is like trying to handle on the benefits and the costs of high-level language,
+
+719
+00:51:21,420 --> 00:51:24,670
+so basically, the elevation sort of split in two parts,
+
+720
+00:51:24,670 --> 00:51:27,070
+first talking about the benefits and then talking about the costs.
+
+721
+00:51:29,370 --> 00:51:31,320
+So, so three questions,
+
+722
+00:51:31,320 --> 00:51:35,280
+you know first of all, you know there's a question like didn't do cheat,
+
+723
+00:51:35,280 --> 00:51:40,890
+you know maybe we avoided all the expensive high-level language features, that Go offers.
+
+724
+00:51:40,950 --> 00:51:45,180
+Does the, second question of course does the high-level simplify the Biscuit code.
+
+725
+00:51:45,180 --> 00:51:50,400
+And would to prevent some of these exploits that you know I mentioned early on in the lecture.
+
+726
+00:51:51,300 --> 00:51:54,750
+So first, this method use high-level language features,
+
+727
+00:51:54,990 --> 00:52:00,540
+we just wanted to see whether we were similar in terms of other big Go projects, in terms of language features,
+
+728
+00:52:00,540 --> 00:52:07,410
+so that we could say, like all the kernel seems to be doing roughly the same advantage of the same features in similar ways.
+
+729
+00:52:07,860 --> 00:52:10,980
+So we use actually the same static analysis tool or package
+
+730
+00:52:10,980 --> 00:52:17,430
+to basically analyze a whole bunch of two big pieces of Go software that on github,
+
+731
+00:52:17,490 --> 00:52:19,110
+you know there are millions lines of code,
+
+732
+00:52:19,110 --> 00:52:21,690
+one is you know Go run them itself and all its packages
+
+733
+00:52:21,960 --> 00:52:23,790
+and the system called Moby.
+
+734
+00:52:24,550 --> 00:52:29,110
+And then we just basically product for numerous high-level language features,
+
+735
+00:52:29,110 --> 00:52:31,270
+how many times they were used for thousand lines,
+
+736
+00:52:31,360 --> 00:52:33,550
+so this graph shows that are usually around,
+
+737
+00:52:34,410 --> 00:52:39,540
+x-axis are the language features basically allocations correspond to calling new
+
+738
+00:52:39,570 --> 00:52:44,550
+and so this corresponds to the memory that it will be dynamically allocated by the garbage collector,
+
+739
+00:52:44,910 --> 00:52:49,080
+maps are like hash tables, slices or dynamic arrays,
+
+740
+00:52:49,080 --> 00:52:53,280
+you know, here's the channels synchronization as you can see, we use them very literally,
+
+741
+00:52:53,280 --> 00:52:55,410
+but so does the Go runtime in the Moby.
+
+742
+00:52:56,160 --> 00:53:04,260
+Clearly the feature that we like most, it was multi function return, being able to return multiple values.
+
+743
+00:53:04,800 --> 00:53:08,550
+You know we use closures, we didn't use finalizer,
+
+744
+00:53:08,580 --> 00:53:10,710
+use defer a little bit,
+
+745
+00:53:10,710 --> 00:53:13,410
+you know there's a bunch of Go routines that we do create,
+
+746
+00:53:13,410 --> 00:53:21,760
+we use interfaces. you know type assertions to convert from one type to another, in the type [state manner],
+
+747
+00:53:21,970 --> 00:53:24,310
+importing many packages,
+
+748
+00:53:24,340 --> 00:53:29,230
+so kernel selves build out of any packages are not like one big single program.
+
+749
+00:53:29,880 --> 00:53:34,830
+So if you look at this, you know some features you know Biscuit could use less than Golang and Moby
+
+750
+00:53:34,830 --> 00:53:38,760
+and sometimes you know this could lose some features more or roughly in the [yard],
+
+751
+00:53:39,970 --> 00:53:43,480
+not not in any sort of distinctly different way.
+
+752
+00:53:44,090 --> 00:53:49,730
+So the main conclusion from this is you know basically uses the high-level features actually Go offer
+
+753
+00:53:49,730 --> 00:53:55,190
+and doesn't sidestep them to basically get good forms.
+
+754
+00:53:56,950 --> 00:53:58,270
+Okay.
+
+755
+00:53:58,850 --> 00:54:00,500
+I have a question,
+
+756
+00:54:01,430 --> 00:54:05,450
+how did you, how are you able to count all this,
+
+757
+00:54:05,450 --> 00:54:08,150
+did you use the static analysis tool.
+
+758
+00:54:08,960 --> 00:54:12,140
+Yeah basically use static package, static analysis package
+
+759
+00:54:12,140 --> 00:54:14,810
+and then wrote a little program that uses static analysis packages
+
+760
+00:54:14,810 --> 00:54:18,680
+to go over every statement in these programs and look at what kind of type of statement is.
+
+761
+00:54:19,800 --> 00:54:23,970
+And then, you get the argument to see how the arguments are being used
+
+762
+00:54:23,970 --> 00:54:26,100
+and that gives you a sense about how,
+
+763
+00:54:27,080 --> 00:54:29,120
+allows you to count these features.
+
+764
+00:54:37,600 --> 00:54:41,290
+Okay, so the next thing is a little subjective,
+
+765
+00:54:41,380 --> 00:54:45,940
+the high-level language simplified Biscuit code.
+
+766
+00:54:46,730 --> 00:54:51,950
+Yeah, I think it generally did and once you argued with one or two examples explicitly,
+
+767
+00:54:51,950 --> 00:54:56,180
+but you're now having GC allocation is actually very nice
+
+768
+00:54:56,180 --> 00:54:58,550
+and maybe I can make the point if you think of xv6
+
+769
+00:54:58,550 --> 00:55:03,170
+or you do an exec, on point of exec, there's a lot of data structures that need to be freed
+
+770
+00:55:03,170 --> 00:55:09,290
+or return to the kernel and so that later process can use,
+
+771
+00:55:09,290 --> 00:55:10,820
+using garbage collector is really easy,
+
+772
+00:55:10,820 --> 00:55:12,650
+you know the garbage collector takes care of all of it,
+
+773
+00:55:12,680 --> 00:55:14,300
+you know you don't really have to do much.
+
+774
+00:55:14,700 --> 00:55:16,800
+So if you allocate you know for an address page,
+
+775
+00:55:16,800 --> 00:55:21,390
+you know the VMA correspondent in address space will be automatically freed by the garbage collector too.
+
+776
+00:55:22,420 --> 00:55:24,400
+Yeah, so you know just that as simple,
+
+777
+00:55:24,700 --> 00:55:29,680
+as we mentioned earlier, the multi return values were really nice in terms of programming style,
+
+778
+00:55:29,890 --> 00:55:31,000
+closures were nice,
+
+779
+00:55:31,000 --> 00:55:36,250
+maps were great, you know, you don't have to many [tape] places xv6,
+
+780
+00:55:36,250 --> 00:55:39,970
+for example you look up something in a linear fashion,
+
+781
+00:55:39,970 --> 00:55:43,930
+but if you have hash tables or maps as a first class object or abstraction,
+
+782
+00:55:43,930 --> 00:55:45,250
+the programmer, you would never do that.
+
+783
+00:55:47,450 --> 00:55:51,110
+You use map and the runtime will take care of doing everything efficiently.
+
+784
+00:55:51,960 --> 00:55:56,400
+So, in in fact I think qualitatively, it feels you get simpler code.
+
+785
+00:55:57,450 --> 00:56:02,280
+But as clearly qualitatively, you just give a little bit more of a concrete example where I really,
+
+786
+00:56:02,370 --> 00:56:06,630
+where sort of high-level language, particular garbage collector shines is
+
+787
+00:56:06,630 --> 00:56:08,700
+when there's a lot of concurrency between,
+
+788
+00:56:09,120 --> 00:56:12,660
+when there's concurrency threads and threads actually share a particular shared data item.
+
+789
+00:56:13,330 --> 00:56:19,600
+And so for example, here's a simple case, you know or you can boil down this question to,
+
+790
+00:56:19,600 --> 00:56:25,150
+let's say allocate somehow dynamically an object like a buffer,
+
+791
+00:56:25,210 --> 00:56:28,300
+you fork a thread you know and that process that buffer
+
+792
+00:56:28,300 --> 00:56:31,780
+and there's another thread that also process buffer and do something of this buffer.
+
+793
+00:56:32,330 --> 00:56:34,790
+Now when both threads are done, you know the buffer needs to be free,
+
+794
+00:56:34,880 --> 00:56:39,530
+so they can be used for a later later kernel operations.
+
+795
+00:56:40,200 --> 00:56:43,200
+And the question is like who should do this, who's in charge,
+
+796
+00:56:43,770 --> 00:56:49,980
+and there's a little bit difficult to coordinate in C,
+
+797
+00:56:49,980 --> 00:56:54,000
+because you have to have some way of deciding that actually the buffer is actually not being used,
+
+798
+00:56:54,090 --> 00:56:56,460
+if you use a garbage collector, there's nothing to decide,
+
+799
+00:56:56,490 --> 00:57:02,310
+basically both threads run when the done of the buffer, no thread is pointing to that buffer anymore,
+
+800
+00:57:02,310 --> 00:57:06,090
+the garbage collector, you will trace you know starting from the threads stacks
+
+801
+00:57:06,330 --> 00:57:09,870
+and will never you know and will not account buffer any of the thread stacks
+
+802
+00:57:09,870 --> 00:57:13,230
+and therefore the garbage collector free the memory at some point later.
+
+803
+00:57:13,720 --> 00:57:17,800
+And so in a garbage collected language, you don't have to think about this problem at all.
+
+804
+00:57:19,990 --> 00:57:25,360
+So you know one way you could try to solve this problem, in the [] like C,
+
+805
+00:57:25,360 --> 00:57:28,990
+so you maybe put reference counts on the objects, the reference count,
+
+806
+00:57:28,990 --> 00:57:33,550
+of course have to be protected by locks, perhaps were some atomic operations
+
+807
+00:57:33,850 --> 00:57:38,470
+and then when the ref's count reaches zero, then you can dereference it.
+
+808
+00:57:40,640 --> 00:57:43,970
+And it turns out like you know locks in reference counts are actually slightly expensive,
+
+809
+00:57:44,000 --> 00:57:50,060
+if you wanna high performance, you know concurrency and scale up to the [] of cores
+
+810
+00:57:50,060 --> 00:57:51,980
+and then actually can be a bottleneck,
+
+811
+00:57:52,010 --> 00:57:55,070
+then we'll see that later in a couple weeks we read a paper
+
+812
+00:57:55,070 --> 00:57:57,170
+that actually talks about this very explicitly.
+
+813
+00:57:57,890 --> 00:58:03,470
+And so people tend to, want to do high performance, get good parallelism, people tend to avoid them.
+
+814
+00:58:04,020 --> 00:58:09,120
+And in fact, in particular scenario, we try to avoid them is like a in read lock,
+
+815
+00:58:09,180 --> 00:58:12,120
+you would like to make at least reading sort of lock free,
+
+816
+00:58:12,150 --> 00:58:13,530
+so you don't have to pay the cost.
+
+817
+00:58:14,080 --> 00:58:17,020
+And so, for example, here's a code fragment, that we do that,
+
+818
+00:58:17,020 --> 00:58:21,490
+here we have a get function, basically you reach the head of a queue
+
+819
+00:58:21,790 --> 00:58:24,670
+and returns the whatever is at the head of the queue,
+
+820
+00:58:25,310 --> 00:58:27,920
+does it basically in a lock free manner,
+
+821
+00:58:27,920 --> 00:58:32,990
+use atomic_load to actually read the head, but it doesn't actually take a walk out,
+
+822
+00:58:33,510 --> 00:58:35,730
+then, the writer does blocks out.
+
+823
+00:58:35,730 --> 00:58:40,310
+So this is like lock free, the writers not lock free.
+
+824
+00:58:41,280 --> 00:58:43,980
+And this is a very common style in the Linux kernel,
+
+825
+00:58:43,980 --> 00:58:46,290
+and so the writer actually they takes the lock,
+
+826
+00:58:46,320 --> 00:58:50,520
+you know whatever looks at the head, maybe is the pop function
+
+827
+00:58:50,520 --> 00:58:52,500
+and pops of the head from the queue,
+
+828
+00:58:52,950 --> 00:58:55,290
+and then you know principle, you could reuse it,
+
+829
+00:58:55,850 --> 00:58:58,420
+and then unlocks, when are you free the head.
+
+830
+00:58:58,720 --> 00:59:04,240
+Now again in, you see, there's a little bit difficult,
+
+831
+00:59:04,270 --> 00:59:05,860
+when do you actually free the head,
+
+832
+00:59:05,980 --> 00:59:11,680
+because it could be the case that some other concurrent thread that just, you just before you did this atomic_store,
+
+833
+00:59:11,980 --> 00:59:16,210
+you know this guy actually came through and I basically got a pointer to that particular object,
+
+834
+00:59:16,210 --> 00:59:18,520
+so once you're done with this atomic_store,
+
+835
+00:59:18,610 --> 00:59:23,500
+you can't actually free the pointer, because there could be another thread actually has a pointer to it,
+
+836
+00:59:23,530 --> 00:59:26,860
+and if you freeze it right here, you could actually have a use-after-free bug.
+
+837
+00:59:27,900 --> 00:59:32,490
+And so, and so you know we'll see in a couple lectures,
+
+838
+00:59:33,050 --> 00:59:39,020
+there is currently a very clever solution for this which is called read copy update or RCU
+
+839
+00:59:39,320 --> 00:59:44,420
+amazingly what it does is a differs freeing of memory until really knows it's safe.
+
+840
+00:59:45,050 --> 00:59:48,500
+And it has a very clever scheme to actually decide how when it's safe,
+
+841
+00:59:48,650 --> 00:59:51,470
+but that scheme does come with all kinds of comes with restrictions
+
+842
+00:59:51,470 --> 00:59:54,140
+and programmers actually have to obey some set of rules,
+
+843
+00:59:54,500 --> 00:59:59,180
+that you must follow for sort of RCU critical sections as they're called.
+
+844
+00:59:59,700 --> 01:00:02,910
+For example, you can't call just you can't call,
+
+845
+01:00:02,910 --> 01:00:06,240
+you can't go to sleep in an RCU critical section or schedule.
+
+846
+01:00:06,930 --> 01:00:11,430
+And so turns out, you know, alrough the Linux kernel uses extremely successful,
+
+847
+01:00:11,430 --> 01:00:16,050
+you know a bit error prone and requires careful program to get it right.
+
+848
+01:00:16,860 --> 01:00:20,190
+And in the case of the garbage collector language, like you know Go,
+
+849
+01:00:20,190 --> 01:00:27,450
+this is a non issue, because the garbage collector will actually determine when actually something is not in use anymore and then only then free it.
+
+850
+01:00:28,210 --> 01:00:31,150
+And so there's nothing really, you know there's no restrictions on the programmer,
+
+851
+01:00:31,210 --> 01:00:33,910
+just taken care of by the garbage collector.
+
+852
+01:00:36,020 --> 01:00:42,800
+So that's sort of an example of you know we're sort of more may be qualitatively or more explicit,
+
+853
+01:00:42,800 --> 01:00:45,110
+you can see through the advantage of a garbage collected language.
+
+854
+01:00:45,920 --> 01:00:48,800
+Okay, terms of the CVEs you know I sort of mentioned this already,
+
+855
+01:00:49,100 --> 01:00:53,120
+we went through all the CVEs and inspected them manually,
+
+856
+01:00:53,420 --> 01:00:56,480
+and then try to decide whether to actually Go and fix the problem.
+
+857
+01:00:56,980 --> 01:00:59,020
+There for 11, them we couldn't figure out,
+
+858
+01:00:59,110 --> 01:01:03,130
+you know we looked at the fix, the patch that addresses this,
+
+859
+01:01:03,130 --> 01:01:06,610
+we couldn't really figure out what the outcome in Go would like
+
+860
+01:01:06,610 --> 01:01:08,680
+or how would manifest or how we change,
+
+861
+01:01:09,400 --> 01:01:11,080
+we could see how the implement it to fix,
+
+862
+01:01:11,080 --> 01:01:13,870
+but couldn't decide whether it actually Go would avoided the problem or not.
+
+863
+01:01:14,650 --> 01:01:17,560
+A number of logic bugs in the CVEs
+
+864
+01:01:17,560 --> 01:01:20,860
+and so presumably Go you would make the same logic bugs in C
+
+865
+01:01:20,860 --> 01:01:23,350
+and you know the outcome would be the same.
+
+866
+01:01:23,880 --> 01:01:27,120
+But then there were about forty memory safety bugs,
+
+867
+01:01:27,150 --> 01:01:29,580
+use-after-free or double-free or out-of-bounds
+
+868
+01:01:29,970 --> 01:01:34,770
+and in eight of these disappear, because the garbage collector takes care of them
+
+869
+01:01:34,770 --> 01:01:37,080
+as described in the last couple slides.
+
+870
+01:01:37,500 --> 01:01:40,800
+nd in 42 cases, we Go would have generated panic,
+
+871
+01:01:40,800 --> 01:01:43,440
+because for example would Go outside of an array bound,
+
+872
+01:01:44,090 --> 01:01:47,810
+and of course panic is not good, you know the kernel crashes,
+
+873
+01:01:47,990 --> 01:01:50,090
+but it's probably better than a security exploit.
+
+874
+01:01:50,880 --> 01:01:54,900
+And so yeah, so 40 cases, you know basically the high-level language helped us.
+
+875
+01:01:59,920 --> 01:02:03,070
+Okay, so that's the quality of the benefits,
+
+876
+01:02:03,100 --> 01:02:10,240
+so now I want to talk a little bit about the performance cost the high-level language [text].
+
+877
+01:02:10,820 --> 01:02:13,760
+Before doing that, let me ask if there's any more questions.
+
+878
+01:02:20,990 --> 01:02:25,880
+Okay, I'm going to go through them, I'm not sure we'll make it through all six,
+
+879
+01:02:25,910 --> 01:02:28,520
+because we reserve a couple minutes at least at the end,
+
+880
+01:02:28,520 --> 01:02:32,600
+it's going to come back to the starting point of the lecture, today's question.
+
+881
+01:02:35,900 --> 01:02:38,150
+So to set up in terms of experiments,
+
+882
+01:02:38,180 --> 01:02:42,260
+you know the basic runs on raw hardware,
+
+883
+01:02:42,770 --> 01:02:46,400
+so these experiments are on little physical machines, not on top of QEMU,
+
+884
+01:02:46,820 --> 01:02:54,560
+is a 4 core, 2.8Ghz Intel processor, 16 GB RAM, but Hyperthreads disabled,
+
+885
+01:02:54,590 --> 01:02:58,850
+we use three applications, a webserver, a key/value store and a mail-server benchmark.
+
+886
+01:02:59,220 --> 01:03:02,970
+None of these applications stress the kernel intensively
+
+887
+01:03:03,030 --> 01:03:08,280
+and so they run execute system calls and the kernel must do a lot of work.
+
+888
+01:03:09,050 --> 01:03:12,590
+And you can see that, because most of the time in these applications is spent in the kernel.
+
+889
+01:03:15,060 --> 01:03:24,330
+So first question is like is Linux even or is Biscuit even in the [neighborhood] of production quality the kernel or industrial quality kernel,
+
+890
+01:03:24,660 --> 01:03:27,870
+and so what we did, we compare the absolute through Biscuit and Linux,
+
+891
+01:03:27,900 --> 01:03:32,850
+for Linux, we used 4.9 Linux, a little bit out of date now,
+
+892
+01:03:32,850 --> 01:03:35,580
+because papers of course are a couple years old again.
+
+893
+01:03:36,140 --> 01:03:39,230
+But of course when we Linux we have to disable all kinds of features
+
+894
+01:03:39,230 --> 01:03:42,770
+that Biscuit [uses] or doesn't provide I mean,
+
+895
+01:03:42,770 --> 01:03:46,130
+so like page-table isolation, retpoline, you know all kinds of,
+
+896
+01:03:46,130 --> 01:03:50,750
+you know a long list of features that actually Biscuit doesn't provide nor xv6 provides
+
+897
+01:03:51,170 --> 01:03:54,230
+and we disable them Linux to make the comparison as fair as possible.
+
+898
+01:03:54,880 --> 01:03:57,340
+And of course you know some features are hard to disable,
+
+899
+01:03:57,340 --> 01:03:59,800
+you know we were not able to disabled,
+
+900
+01:03:59,920 --> 01:04:02,110
+but you know we tried to get as close as possible.
+
+901
+01:04:02,820 --> 01:04:05,130
+And then we measured basically the throughput.
+
+902
+01:04:05,740 --> 01:04:10,990
+And as you can see the Biscuit is almost always slower,
+
+903
+01:04:11,110 --> 01:04:12,820
+which always slower than Linux,
+
+904
+01:04:13,330 --> 01:04:17,380
+CMailbench, you know it's about to get whatever 10%,
+
+905
+01:04:17,380 --> 01:04:19,330
+on NGINX a little bit more,
+
+906
+01:04:19,450 --> 01:04:21,280
+Redis is a little bit of 10 50 percent.
+
+907
+01:04:21,820 --> 01:04:24,700
+But you should use these numbers very [grain salt], right,
+
+908
+01:04:24,700 --> 01:04:30,610
+because, you know they're not identical, and it's not apples to apples comparison,
+
+909
+01:04:30,700 --> 01:04:35,560
+but they like to sort of first order you know they're roughly the same ballpark at least,
+
+910
+01:04:35,560 --> 01:04:38,500
+you know they're not like 2x 3x 4x or 10x off
+
+911
+01:04:38,680 --> 01:04:43,450
+and so you know maybe it's worthwhile to actually be able to do actually,
+
+912
+01:04:43,860 --> 01:04:45,600
+you know to draw some conclusions out of it.
+
+913
+01:04:51,820 --> 01:04:53,050
+So then we sort of looked at,
+
+914
+01:04:53,050 --> 01:04:59,800
+like you know we look basically profile the code and try to bucket you know the cycles that were spent by the code
+
+915
+01:04:59,800 --> 01:05:03,970
+and particularly we're looking at now which cycles were actually in the garbage collector,
+
+916
+01:05:03,970 --> 01:05:07,570
+which cycles were actually in the prologue function calls
+
+917
+01:05:07,570 --> 01:05:11,110
+and prologues in Go does a bunch of work,
+
+918
+01:05:11,110 --> 01:05:14,710
+you know to ensure that the stack is large enough, so you know run of the stack.
+
+919
+01:05:15,130 --> 01:05:20,560
+Write barrier cycles, this is actually when garbage collector mode,
+
+920
+01:05:20,560 --> 01:05:28,860
+you know the garbage collector turns on write barriers, to basically track pointers between different spaces.
+
+921
+01:05:29,310 --> 01:05:40,330
+And the safety cycles, which are safety cycles are the cycles spent on array bound checks and things like that, no point of checks.
+
+922
+01:05:42,500 --> 01:05:46,280
+And so if you look at these applications, you know here the numbers,
+
+923
+01:05:46,400 --> 01:05:50,660
+so 3% of the execution time was actually spent in sort of GC cycles,
+
+924
+01:05:50,660 --> 01:05:54,200
+we and I'll talk a little bit about why that's low,
+
+925
+01:05:54,200 --> 01:05:59,660
+but you know in this case that the garbage collector running, while running these applications,
+
+926
+01:05:59,660 --> 01:06:01,790
+so it's not the case that we measured the applications,
+
+927
+01:06:01,790 --> 01:06:08,040
+we give so much memory that you know just run without after running the garbage collector,
+
+928
+01:06:08,460 --> 01:06:11,910
+surprisingly actually the prologue cycles turned out to be the highest,
+
+929
+01:06:12,030 --> 01:06:14,640
+and this is basically you know the way the scheme
+
+930
+01:06:14,640 --> 01:06:21,390
+that we're using that time for a checking whether the kernel stack or the stack of a thread needed to or Go routine needed to be grown or not,
+
+931
+01:06:21,970 --> 01:06:25,660
+and this is something that actually the Go design that point in a [thought],
+
+932
+01:06:25,660 --> 01:06:27,340
+that it's probably easier to get lower,
+
+933
+01:06:27,790 --> 01:06:33,700
+very little time, actually the various you know 2-3% you know in the safety cycles.
+
+934
+01:06:34,570 --> 01:06:42,280
+And so in some sense, you know there's good news, you not at, you know tax is not gigantic,
+
+935
+01:06:42,280 --> 01:06:43,960
+of course this number could be much higher,
+
+936
+01:06:43,990 --> 01:06:49,420
+because this is completely dependent on how many, how big you know the heap is
+
+937
+01:06:49,420 --> 01:06:52,210
+or live the live number of, live objects is,
+
+938
+01:06:52,210 --> 01:06:56,860
+because the garbage collector will have to trace all the live objects to actually determine which objects are not live.
+
+939
+01:06:57,520 --> 01:07:02,680
+And so if there's a lot of live objects, you know the garbage collector will have to trace more objects,
+
+940
+01:07:02,740 --> 01:07:06,700
+and so this completely sort of linear with the number of live objects.
+
+941
+01:07:07,290 --> 01:07:08,790
+So we did some other experiments.
+
+942
+01:07:09,380 --> 01:07:15,620
+Let me zoom out a little bit, where we basically allocate a ton of live data, 2 million vnodes,
+
+943
+01:07:15,620 --> 01:07:17,450
+think about this as 2 million inodes
+
+944
+01:07:17,840 --> 01:07:20,600
+and a free the amount of heap RAM
+
+945
+01:07:20,630 --> 01:07:25,130
+or change the amount of heap RAM the garbage collector has, you know for free memory,
+
+946
+01:07:25,340 --> 01:07:28,580
+and then impact and then measure the cost.
+
+947
+01:07:29,140 --> 01:07:30,670
+So this is the table here,
+
+948
+01:07:30,880 --> 01:07:33,280
+we have like 640 megabytes is like data
+
+949
+01:07:33,610 --> 01:07:36,370
+and there's running with different memory sizes
+
+950
+01:07:36,640 --> 01:07:40,090
+and one sizes case, there are 320 megabytes of data,
+
+951
+01:07:40,090 --> 01:07:41,860
+so the ratio of live to phase two,
+
+952
+01:07:42,190 --> 01:07:48,580
+you see that in that case Go does do a great imitation of [shears] overhead for garbage collector,
+
+953
+01:07:48,580 --> 01:07:50,620
+because the garbage collector needs to run a lot,
+
+954
+01:07:50,650 --> 01:07:52,150
+because it doesn't have much heap RAM.
+
+955
+01:07:52,900 --> 01:07:56,590
+But you know if you're basically if free memories about twice,
+
+956
+01:07:56,590 --> 01:08:00,160
+you know you could buy enough memory, that free memory twice you know that the live memory,
+
+957
+01:08:00,280 --> 01:08:05,230
+then the garbage collection overhead is not actually that creates in the 9% range.
+
+958
+01:08:05,890 --> 01:08:11,020
+So basically to keep the GC overhead, like a rough layout [], around below 10%,
+
+959
+01:08:11,140 --> 01:08:15,670
+you need about three times the heap size in terms of physical memory.
+
+960
+01:08:19,920 --> 01:08:20,970
+Any questions about this?
+
+961
+01:08:23,500 --> 01:08:27,520
+I had a question about the write barriers,
+
+962
+01:08:27,520 --> 01:08:33,790
+what are those, do you, is it like you said some permissions.
+
+963
+01:08:34,270 --> 01:08:44,200
+You know, so if you remember to lecture for a little while ago, the kind [appellant] paper paper where we talked about the [two and from] spaces.
+
+964
+01:08:44,700 --> 01:08:50,940
+And garbage collector runs, then you have to check whether the pointers in the [from] space right,
+
+965
+01:08:50,940 --> 01:08:52,770
+because it's in the [from] space you have to copy it.
+
+966
+01:08:53,420 --> 01:08:56,870
+And basically that the write barrier are very similar,
+
+967
+01:08:57,830 --> 01:08:59,270
+and it's the same sort of type idea,
+
+968
+01:08:59,270 --> 01:09:06,200
+where you need to check every pointer to see you actually actually point in space that actually you need a garbage collector.
+
+969
+01:09:07,300 --> 01:09:07,540
+Okay.
+
+970
+01:09:07,540 --> 01:09:08,470
+That's write barrier.
+
+971
+01:09:11,730 --> 01:09:15,210
+Sorry, so like the free memory,
+
+972
+01:09:15,210 --> 01:09:17,490
+what is what is it exactly like how does it work
+
+973
+01:09:17,490 --> 01:09:19,320
+that the live is more than free.
+
+974
+01:09:19,740 --> 01:09:23,340
+Oh yeah, yeah, okay so you buy some amount of memory,
+
+975
+01:09:23,780 --> 01:09:26,900
+and live memory is actually memory that was used by these vnodes,
+
+976
+01:09:27,200 --> 01:09:29,750
+and then there was another 320 megabyte was just free.
+
+977
+01:09:30,540 --> 01:09:33,840
+And so when this application allocated more vnodes,
+
+978
+01:09:33,840 --> 01:09:39,210
+the first came out of the free memory, until the free memory full [] then concurrently the garbage collector is running.
+
+979
+01:09:40,350 --> 01:09:44,130
+And, and so we're running like three configuration,
+
+980
+01:09:44,130 --> 01:09:49,260
+in one configuration, basically the amount of free memory twice as the live memory,
+
+981
+01:09:49,920 --> 01:09:52,620
+and so that means that the garbage collector has a lot of heap RAM
+
+982
+01:09:53,010 --> 01:09:56,070
+to do sort of concurrently while running with the application.
+
+983
+01:09:56,730 --> 01:09:59,970
+And if there's a lot of heap RAM, in this case, we're free memory,
+
+984
+01:09:59,970 --> 01:10:02,220
+then you know the garbage collection overheads are not that high,
+
+985
+01:10:03,310 --> 01:10:06,130
+over there around 10% instead of 34%.
+
+986
+01:10:07,520 --> 01:10:09,080
+Okay I see I see, thank you.
+
+987
+01:10:09,260 --> 01:10:13,280
+Think about it like there's a little bit of [slack] you know for the garbage collector to do its work.
+
+988
+01:10:14,460 --> 01:10:18,240
+Right, I I thought that it's like total 320, that was confused.
+
+989
+01:10:18,270 --> 01:10:20,970
+No no, the total is 320 plus 640
+
+990
+01:10:21,180 --> 01:10:23,940
+and my last line is 640 plus 1280.
+
+991
+01:10:24,650 --> 01:10:26,300
+Okay, thank you.
+
+992
+01:10:29,930 --> 01:10:31,610
+I'm gonna skip this,
+
+993
+01:10:31,700 --> 01:10:36,290
+actually, let me talk a little bit of pauses,
+
+994
+01:10:36,290 --> 01:10:40,200
+you know this is, the Go garbage collector is a concurrent garbage collector
+
+995
+01:10:40,200 --> 01:10:45,510
+and short pauses, you stop the world for a very short period of time,
+
+996
+01:10:45,510 --> 01:10:46,860
+basically to enable write barriers
+
+997
+01:10:46,860 --> 01:10:51,570
+and then basically the application keep on running while the garbage collector doesn't work
+
+998
+01:10:51,690 --> 01:10:55,860
+and it's incremental as like the one that we discussed a couple weeks ago
+
+999
+01:10:55,860 --> 01:10:59,940
+where basically every call to new does a little bit of garbage collection work.
+
+1000
+01:11:00,800 --> 01:11:03,020
+And so every time you do a little bit of garbage collection working,
+
+1001
+01:11:03,020 --> 01:11:05,390
+there's some some delay that's been cost, right.
+
+1002
+01:11:06,110 --> 01:11:09,560
+And so we measured you know the,
+
+1003
+01:11:09,560 --> 01:11:12,920
+it took one application and looked at the maximum pause time,
+
+1004
+01:11:13,070 --> 01:11:18,050
+so the maximum time an application can be stopped and of course the garbage collector needs to do some work.
+
+1005
+01:11:19,140 --> 01:11:24,840
+And it turned out to be the max single pause 150 microseconds,
+
+1006
+01:11:25,200 --> 01:11:28,800
+that's in the case of the webserver that was using the TCP stack
+
+1007
+01:11:28,800 --> 01:11:33,120
+and basically, a large part of the TCP connection table needed to be marked,
+
+1008
+01:11:33,150 --> 01:11:36,930
+before you know continuing, that took 115 microseconds.
+
+1009
+01:11:37,660 --> 01:11:46,420
+The maximum total pause time for a single Nginx one http request is the sum of the number of single pauses
+
+1010
+01:11:46,420 --> 01:11:51,670
+and the maximum pause time in total for a single request was 582 microseconds,
+
+1011
+01:11:51,910 --> 01:11:54,430
+so easily when the request comes into the machine,
+
+1012
+01:11:54,490 --> 01:12:00,850
+during you know there was total delay of 582 microseconds execute that request.
+
+1013
+01:12:03,100 --> 01:12:06,100
+And it just happened very, very seldom,
+
+1014
+01:12:06,190 --> 01:12:11,620
+you know only you know point 3% requested times actually had a delay of more than 100 microseconds.
+
+1015
+01:12:12,380 --> 01:12:17,690
+And so you know that's not good, if you're trying to achieve like an SLA
+
+1016
+01:12:17,690 --> 01:12:24,850
+or yeah we're basically the longest period of time and request takes you know it's small,
+
+1017
+01:12:25,360 --> 01:12:29,980
+but you know the you look at you know, google papers about like tail at scale,
+
+1018
+01:12:29,980 --> 01:12:33,280
+like how long the longest request takes,
+
+1019
+01:12:33,280 --> 01:12:37,480
+you know they're talking about the order of tens of milliseconds milliseconds or 10 milliseconds,
+
+1020
+01:12:37,690 --> 01:12:47,050
+and so probably the programs that these particular programs that actually have a pause with maximum life to pause for 582 microseconds,
+
+1021
+01:12:47,050 --> 01:12:48,250
+sort of within the budget.
+
+1022
+01:12:48,860 --> 01:12:51,290
+You know it's not ideal, but it's not crazy
+
+1023
+01:12:51,380 --> 01:12:53,810
+and so basically says that actually the,
+
+1024
+01:12:55,110 --> 01:13:01,170
+really, what this basically says that the Go designers, you know did actually terribly good job of actually implementing their garbage collector,
+
+1025
+01:13:02,070 --> 01:13:03,420
+or impressively good job.
+
+1026
+01:13:04,160 --> 01:13:07,250
+And this is one of those things, that we've noticed while doing this project,
+
+1027
+01:13:07,250 --> 01:13:09,200
+every time we upgraded the Go runtime,
+
+1028
+01:13:09,320 --> 01:13:11,870
+the next round time, it came with a better garbage collector
+
+1029
+01:13:11,870 --> 01:13:13,490
+and actually these numbers got better and better.
+
+1030
+01:13:17,910 --> 01:13:22,050
+Okay, one more through technical detail that I want to go over,
+
+1031
+01:13:22,050 --> 01:13:26,730
+so far you know like the first comparison between Linux and Biscuit,
+
+1032
+01:13:26,730 --> 01:13:27,930
+you know it's not really fair,
+
+1033
+01:13:27,930 --> 01:13:32,490
+because Biscuit and Linux implement slightly different futures,
+
+1034
+01:13:32,760 --> 01:13:38,550
+so we did one more experiment where we basically tried to code up two kernel paths completely identical,
+
+1035
+01:13:38,730 --> 01:13:43,650
+evolving in Linux and in like in C and Go
+
+1036
+01:13:43,770 --> 01:13:48,660
+and so we looked at the code path and to verify it,
+
+1037
+01:13:48,660 --> 01:13:51,180
+basically you know it implements exactly the same thing
+
+1038
+01:13:51,180 --> 01:13:55,410
+and we look at the assembling structures, you know to really see what what the differences are,
+
+1039
+01:13:55,500 --> 01:13:59,070
+there gonna be some differences, because Go is going to pay the safety checks,
+
+1040
+01:13:59,340 --> 01:14:02,640
+but just in terms of basic operation,
+
+1041
+01:14:02,640 --> 01:14:05,790
+that at least two code paths are identical in terms of functionality.
+
+1042
+01:14:07,380 --> 01:14:09,960
+And we did that for two code paths,
+
+1043
+01:14:09,960 --> 01:14:13,650
+you know it's difficult to do, because painstaking job,
+
+1044
+01:14:13,650 --> 01:14:15,840
+we did for two, or [coded] actually for two.
+
+1045
+01:14:16,410 --> 01:14:17,490
+And then we compare them,
+
+1046
+01:14:18,040 --> 01:14:21,970
+and so here's results from one of them, this is pipe ping-pong,
+
+1047
+01:14:22,000 --> 01:14:24,970
+you know sort of test, you know your ping-pong, you byte across a pipe
+
+1048
+01:14:25,180 --> 01:14:27,430
+and we just looked at the code path through the kernel
+
+1049
+01:14:27,430 --> 01:14:30,880
+to actually get a byte from one end to the pipe to the other end of the pipe.
+
+1050
+01:14:31,790 --> 01:14:39,100
+You know, short amount code in Go is like this 1.2k lines code
+
+1051
+01:14:39,100 --> 01:14:42,070
+and C it's 1.8k lines of code,
+
+1052
+01:14:42,400 --> 01:14:44,140
+and there's no allocation, no GC,
+
+1053
+01:14:44,140 --> 01:14:46,660
+so those things are just a differ,
+
+1054
+01:14:46,720 --> 01:14:51,400
+we also looked at run time, like where's the most time spent, in both code paths,
+
+1055
+01:14:51,400 --> 01:14:54,360
+you know that, same top-10 instructions showed up,
+
+1056
+01:14:54,360 --> 01:14:59,040
+so we have some confidence that the code paths really are closer, closer, you can get,
+
+1057
+01:14:59,620 --> 01:15:00,850
+to make them similar.
+
+1058
+01:15:01,390 --> 01:15:04,570
+And then we looked at basically the amount of operations you can do per second
+
+1059
+01:15:04,630 --> 01:15:11,650
+and as you see here, basically you know Go a little slower than the C implementation
+
+1060
+01:15:12,010 --> 01:15:15,610
+and you know the ratio is about 1.15% slower.
+
+1061
+01:15:16,260 --> 01:15:21,180
+And, that's you know you look at the prologue/safety-checks,
+
+1062
+01:15:21,180 --> 01:15:24,150
+you know these are all the instructions that C code does not have to execute,
+
+1063
+01:15:24,270 --> 01:15:29,310
+it turned out to be 16% more a assembly instructions
+
+1064
+01:15:29,370 --> 01:15:32,280
+and so that's sort of roughly sort of makes sense.
+
+1065
+01:15:32,830 --> 01:15:36,070
+So you know the main conclusion is gonna Go is slower,
+
+1066
+01:15:36,280 --> 01:15:39,610
+but pretty competitive, you know not not ridiculously slower.
+
+1067
+01:15:40,570 --> 01:15:45,610
+And that seems in line with the early results of where we did these Linux to Biscuit comparison directly.
+
+1068
+01:15:47,790 --> 01:15:50,920
+Okay, so let me zoom a little bit further,
+
+1069
+01:15:50,950 --> 01:15:52,720
+let me skip this,
+
+1070
+01:15:52,750 --> 01:15:54,370
+because I want to talk a little bit about,
+
+1071
+01:15:54,460 --> 01:15:57,220
+this sort of the question that we asked in the beginning,
+
+1072
+01:15:57,220 --> 01:15:59,740
+where should one use high-level language for a new kernel.
+
+1073
+01:16:00,830 --> 01:16:05,750
+And, maybe you're like me, instead of answering I have some thoughts about this here in this slide,
+
+1074
+01:16:05,750 --> 01:16:07,370
+you know there were some conclusion that we draw
+
+1075
+01:16:07,370 --> 01:16:10,400
+and you know it's not a crisp conclusion, some considerations,
+
+1076
+01:16:10,760 --> 01:16:13,490
+so maybe to take a step back and ask yourself the question,
+
+1077
+01:16:13,490 --> 01:16:15,940
+like what would you have preferred,
+
+1078
+01:16:15,940 --> 01:16:23,020
+you know, would you have preferred to write you know xv6 and the labs in C or would you prefer to use a high-level language for example like Go.
+
+1079
+01:16:23,660 --> 01:16:28,190
+And particularly answer this question, what what kind of bugs would you have avoided
+
+1080
+01:16:28,220 --> 01:16:33,320
+and maybe you have some time during this lecture to think about like what bugs you had,
+
+1081
+01:16:33,770 --> 01:16:36,860
+and I would love to hear you know what your experience,
+
+1082
+01:16:38,160 --> 01:16:43,050
+how do you think switching to a high level language would have changed your experience.
+
+1083
+01:16:45,090 --> 01:16:47,460
+Or if you have any thoughts on this question at all.
+
+1084
+01:16:51,460 --> 01:16:55,010
+Let me, [boss] you for a little bit,
+
+1085
+01:16:55,010 --> 01:16:57,560
+so you can think about this and maybe chime in.
+
+1086
+01:16:59,120 --> 01:17:01,130
+I have had a couple of times when I did,
+
+1087
+01:17:01,130 --> 01:17:06,980
+the thing where I create an object in a function and then return a pointer to it
+
+1088
+01:17:06,980 --> 01:17:08,540
+and then I do stuff with a pointer
+
+1089
+01:17:08,840 --> 01:17:11,120
+and then I realized that the object is gone.
+
+1090
+01:17:11,450 --> 01:17:15,670
+Yeah, so this is a classic example of sort of use-after-free case, correct.
+
+1091
+01:17:17,810 --> 01:17:22,010
+Yeah, the second time I realize it faster than the first time.
+
+1092
+01:17:22,440 --> 01:17:23,490
+Yeah, it's definitely true,
+
+1093
+01:17:23,490 --> 01:17:25,320
+when you see a couple of times in those bugs,
+
+1094
+01:17:25,320 --> 01:17:26,340
+here you get better at them.
+
+1095
+01:17:26,990 --> 01:17:29,180
+Any other thoughts on this,
+
+1096
+01:17:29,180 --> 01:17:31,340
+you know what the experience that people have had.
+
+1097
+01:17:33,110 --> 01:17:37,090
+Think about your worst bugs, bugs that took most time.
+
+1098
+01:17:38,820 --> 01:17:40,830
+Would high-level language would have help.
+
+1099
+01:17:43,320 --> 01:17:47,640
+I think it definitely like like some of the bugs were absolutely terrible to deal with,
+
+1100
+01:17:47,700 --> 01:17:55,170
+but at the same time like in in this context, I definitely appreciated having to work with such a low-level language C,
+
+1101
+01:17:55,260 --> 01:18:02,670
+because it helped me to really gain a very, a deep understanding of what's actually going on inside the operating system,
+
+1102
+01:18:02,670 --> 01:18:04,260
+like how it's working with memory,
+
+1103
+01:18:04,260 --> 01:18:09,630
+like it it it's definitely refreshing to to like not have all of that abstracted away
+
+1104
+01:18:09,630 --> 01:18:12,540
+and to actually see exactly what's going on.
+
+1105
+01:18:15,560 --> 01:18:16,430
+Yeah, it makes a lot of sense,
+
+1106
+01:18:16,430 --> 01:18:19,170
+any other, any other people have opinions on this.
+
+1107
+01:18:20,070 --> 01:18:32,660
+I think also made a lot of bugs in which I was writing after the end of string or something like that,
+
+1108
+01:18:32,720 --> 01:18:36,650
+but then I wasn't getting any useful feedback about it
+
+1109
+01:18:36,650 --> 01:18:40,610
+and then very strange things happened, that I couldn't explain,
+
+1110
+01:18:41,150 --> 01:18:42,890
+so yeah, I.
+
+1111
+01:18:42,920 --> 01:18:44,900
+Better show up in lab one,
+
+1112
+01:18:46,130 --> 01:18:47,900
+where there's a bunch of strange operations
+
+1113
+01:18:47,900 --> 01:18:50,210
+like when you parsing directories and things like that.
+
+1114
+01:18:51,410 --> 01:18:53,000
+It showed up in multiple apps.
+
+1115
+01:18:53,390 --> 01:18:56,180
+Okay, so I'm not surprised.
+
+1116
+01:18:56,570 --> 01:19:01,280
+Okay, that's a great example, like you know that it's very nice to actually have real string objects.
+
+1117
+01:19:03,870 --> 01:19:05,040
+Something on my end is that
+
+1118
+01:19:05,040 --> 01:19:09,390
+I I found myself lacking whenever I needed something like a map,
+
+1119
+01:19:09,690 --> 01:19:14,640
+and I just I I [cringed] every time I needed to do for loop over something and then find.
+
+1120
+01:19:15,160 --> 01:19:15,700
+Yeah.
+
+1121
+01:19:15,700 --> 01:19:20,020
+However I will say like coming from a high-level programming background,
+
+1122
+01:19:20,500 --> 01:19:23,650
+this was my first real exposure to something like C,
+
+1123
+01:19:23,710 --> 01:19:25,210
+so going off of Noah's point,
+
+1124
+01:19:25,210 --> 01:19:31,840
+it kind of helped me to understand really what it means that this code that I'm writing is actually running on the CPU
+
+1125
+01:19:31,840 --> 01:19:34,000
+and everything is from the perspective of the CPU.
+
+1126
+01:19:34,360 --> 01:19:42,460
+Yep, any other thoughts.
+
+1127
+01:19:46,580 --> 01:19:54,590
+Oh, I actually remember it was specifically, the difference between safe string copy or just string copy,
+
+1128
+01:19:54,830 --> 01:19:58,850
+one of them was putting, was using the null terminator,
+
+1129
+01:19:58,850 --> 01:20:00,200
+and that was.
+
+1130
+01:20:00,200 --> 01:20:04,270
+Yeah, a common C bug,
+
+1131
+01:20:04,390 --> 01:20:07,720
+well so you know first thing you know, thanks for the input,
+
+1132
+01:20:07,870 --> 01:20:13,300
+of course we're not going to change xv6 to Go or any high-level language exactly,
+
+1133
+01:20:13,300 --> 01:20:16,990
+for the reasons that you have a number of you like Noah, Amir mentioned,
+
+1134
+01:20:18,140 --> 01:20:20,180
+Go still hides too much
+
+1135
+01:20:20,210 --> 01:20:22,460
+and they're in this particular class whole purpose is
+
+1136
+01:20:22,460 --> 01:20:27,470
+really trying to understand everything between the CPU and the system call interface
+
+1137
+01:20:27,560 --> 01:20:30,890
+and for example Go of course hides threads,
+
+1138
+01:20:31,040 --> 01:20:33,410
+and you know I mean we don't want to hide that,
+
+1139
+01:20:33,410 --> 01:20:35,660
+we want to explain to you actually how threads are implemented
+
+1140
+01:20:35,900 --> 01:20:39,710
+and so, we would not want to hide this from you.
+
+1141
+01:20:40,190 --> 01:20:45,440
+So certainly future years, you know of xv6 or class will keep on using C,
+
+1142
+01:20:45,770 --> 01:20:53,700
+but if you implement a new kernel and goal is not you know educating students about kernels,
+
+1143
+01:20:53,700 --> 01:20:57,900
+but goals are I'd like to say safe, you know high performance kernel,
+
+1144
+01:20:58,050 --> 01:21:03,000
+you know there's sort of you know somethings you conclude from this study they've done and what we've done right.
+
+1145
+01:21:03,500 --> 01:21:06,830
+Yeah, memory or performance is really paramount,
+
+1146
+01:21:06,860 --> 01:21:10,730
+you know you can't sacrifice 15%, then you should probably use C,
+
+1147
+01:21:10,820 --> 01:21:14,390
+if you want to minimize memory use, you probably use C too.
+
+1148
+01:21:15,180 --> 01:21:17,130
+If safety is important or security is important
+
+1149
+01:21:17,130 --> 01:21:18,900
+and probably the high-level language is the way to go.
+
+1150
+01:21:19,600 --> 01:21:24,550
+And probably in many cases performances merely important as opposed to absolute paramount
+
+1151
+01:21:24,820 --> 01:21:29,140
+and in many case I think I am using high-level languages perfectly reasonable thing to do for kernel.
+
+1152
+01:21:30,220 --> 01:21:35,500
+Probably one thing I've learned, probably you know [cody Robin] and I learned from this whole project is
+
+1153
+01:21:35,500 --> 01:21:38,050
+like whatever programming language is a programming language,
+
+1154
+01:21:38,050 --> 01:21:41,380
+and you can use it to build kernels, you can build user applications,
+
+1155
+01:21:41,500 --> 01:21:44,530
+there's not really standing anything in really in a way.
+
+1156
+01:21:50,800 --> 01:21:53,170
+Okay, you know I think it's time to wrap up,
+
+1157
+01:21:53,170 --> 01:21:56,320
+you know if you have any more questions,
+
+1158
+01:21:56,320 --> 01:21:59,620
+you know free to hang around and ask them,
+
+1159
+01:21:59,620 --> 01:22:01,150
+if you have to go somewhere else,
+
+1160
+01:22:01,510 --> 01:22:04,540
+good luck with finishing the mmap lab
+
+1161
+01:22:04,540 --> 01:22:08,110
+and for those of you when we have to are leaving campus for Thanksgiving,
+
+1162
+01:22:08,320 --> 01:22:13,630
+safe travels and hope to see you after Thanksgiving in Monday's lecture after Thanksgiving.
+
+1163
+01:22:17,650 --> 01:22:18,130
+Thank you.
+
+1164
+01:22:20,250 --> 01:22:22,800
+I was curious, how did you implement it,
+
+1165
+01:22:22,830 --> 01:22:25,380
+it said you are doing that, just on the hardware,
+
+1166
+01:22:25,440 --> 01:22:29,100
+so like when you start out, how do you start out.
+
+1167
+01:22:30,010 --> 01:22:32,290
+You know there's basically little shim code,
+
+1168
+01:22:32,380 --> 01:22:34,840
+that sets up enough of the hardware,
+
+1169
+01:22:34,840 --> 01:22:37,390
+so that when Biscuit you know asks for,
+
+1170
+01:22:37,390 --> 01:22:42,940
+when the Go runtime ask for memory for the heap, that we can actually respond.
+
+1171
+01:22:44,240 --> 01:22:50,270
+That was one of the main things that actually Go runtime actually relies on.
+
+1172
+01:22:51,460 --> 01:22:57,490
+Right, I guess I was like you said that you didn't use a virtual machine for that, so.
+
+1173
+01:22:57,490 --> 01:23:02,830
+We did, of course we developed most of development on QEMU
+
+1174
+01:23:02,830 --> 01:23:06,280
+and of course again we actually have to get it running on the hardware,
+
+1175
+01:23:06,370 --> 01:23:08,140
+that also costs there's a bunch of problems,
+
+1176
+01:23:08,140 --> 01:23:11,380
+because the boot loaders are different there's a bunch of boot code that you actually need to write,
+
+1177
+01:23:11,380 --> 01:23:15,220
+you don't have to write if you run it on QEMU, and that kind of stuff,
+
+1178
+01:23:15,220 --> 01:23:17,680
+but most of the development is all done on QEMU,
+
+1179
+01:23:17,680 --> 01:23:21,460
+in fact if you want to actually show you running Biscuit on QEMU
+
+1180
+01:23:21,640 --> 01:23:23,260
+and it looks very simple to xv6
+
+1181
+01:23:23,260 --> 01:23:28,120
+you know the only thing it does like show prompt, there's no window system, nothing like that.
+
+1182
+01:23:29,800 --> 01:23:30,760
+Okay I see,
+
+1183
+01:23:31,000 --> 01:23:34,720
+so like what happens if you if you make a mistake in the boot code.
+
+1184
+01:23:35,660 --> 01:23:36,500
+It doesn't boot,
+
+1185
+01:23:36,530 --> 01:23:39,620
+you know basically nothing happens, you know it's completely nothing.
+
+1186
+01:23:40,370 --> 01:23:41,720
+How do you know.
+
+1187
+01:23:42,460 --> 01:23:49,060
+You, you, you will know, because you know okay what will happen is because you don't see print statement,
+
+1188
+01:23:49,060 --> 01:23:54,820
+like xv6 for the first thing we print is like you know xv6 hello or something or xv6 booting,
+
+1189
+01:23:55,180 --> 01:23:58,930
+you won't see anything like that, and so you'll see nothing,
+
+1190
+01:23:59,080 --> 01:24:04,000
+and then you'll have to track down and guess what the problem might be.
+
+1191
+01:24:05,640 --> 01:24:08,130
+Okay, so you do it by looking.
+
+1192
+01:24:08,660 --> 01:24:12,410
+Okay, little bit, you can write a synchronously to the UART,
+
+1193
+01:24:12,440 --> 01:24:17,750
+you know you could like, you know characters you see put them in random places in the code
+
+1194
+01:24:17,750 --> 01:24:18,830
+and hope that you see something.
+
+1195
+01:24:21,440 --> 01:24:23,090
+This is interesting, thank you.
+
+1196
+01:24:23,420 --> 01:24:23,660
+You know.
+
+1197
+01:24:23,660 --> 01:24:25,610
+I wanted to ask,
+
+1198
+01:24:26,000 --> 01:24:30,050
+when you so I know like you implemented the Go,
+
+1199
+01:24:30,050 --> 01:24:34,730
+some of the calls that Go runtime would make, that you cannot make,
+
+1200
+01:24:34,730 --> 01:24:36,680
+because you're implementing the kernel itself,
+
+1201
+01:24:37,130 --> 01:24:41,480
+is there any like did you just implement just all of that in assembly
+
+1202
+01:24:41,510 --> 01:24:45,200
+or did you say okay like some of this we can still do in Go,
+
+1203
+01:24:45,200 --> 01:24:49,520
+like we can bring Go a bit closer, and then do assembly only what's necessary,
+
+1204
+01:24:49,640 --> 01:24:53,720
+what did you say like once the Go runtime ends like that's assembly.
+
+1205
+01:24:54,230 --> 01:25:00,990
+You the that's where the fifteen hundred lines of assembly came from, in a in Biscuit,
+
+1206
+01:25:01,170 --> 01:25:06,420
+you know that is basically the code to sort of get everything ready to be actually able to run the Go runtime.
+
+1207
+01:25:08,450 --> 01:25:11,030
+Now some of that would have implemented C, but we didn't want to do that,
+
+1208
+01:25:11,030 --> 01:25:13,160
+because we didn't want to use any C, so we're in assembly.
+
+1209
+01:25:13,900 --> 01:25:17,110
+And many of it actually required assembly, because it's in the booting part.
+
+1210
+01:25:18,250 --> 01:25:20,980
+Right, but I guess some of the part, that's not the boot,
+
+1211
+01:25:20,980 --> 01:25:26,410
+so I I you know I know that some just you cannot avoid some boot code and assembly,
+
+1212
+01:25:26,410 --> 01:25:30,400
+but could you, could you have transformed some of the assembly to Go,
+
+1213
+01:25:30,400 --> 01:25:32,170
+or did you go to the [absolutely].
+
+1214
+01:25:32,170 --> 01:25:38,050
+We did a bunch of Go, that basically runs very early on,
+
+1215
+01:25:38,480 --> 01:25:41,060
+you know some of the Go goes quite careful,
+
+1216
+01:25:41,120 --> 01:25:42,860
+it doesn't do any memory allocations,
+
+1217
+01:25:46,820 --> 01:25:49,490
+and we tried to write as much as possible you know,
+
+1218
+01:25:49,520 --> 01:25:54,320
+I I can like I have to look at the code exactly you know to be able to answer your question,
+
+1219
+01:25:54,320 --> 01:25:57,050
+specifically you can look at the git repo,
+
+1220
+01:25:57,050 --> 01:26:00,790
+but, yeah, we tried to write everything in Go.
+
+1221
+01:26:03,580 --> 01:26:06,520
+And then one like kind of unrelated small question I had,
+
+1222
+01:26:06,880 --> 01:26:13,180
+what does Go do with its Go routines that makes it possible to run like hundred thousands of them,
+
+1223
+01:26:14,040 --> 01:26:17,520
+because you cannot just spin up a hundred thousand pthreads right.
+
+1224
+01:26:18,210 --> 01:26:26,760
+Yeah, it depends, a lot longer and so the main issue is that you need to allocate stack,
+
+1225
+01:26:27,320 --> 01:26:31,280
+and the Go runtime actually allocates stack incrementally
+
+1226
+01:26:31,490 --> 01:26:36,350
+and so grows them dynamically as you run your Go Go routine,
+
+1227
+01:26:36,500 --> 01:26:38,870
+this where's prologue code is for,
+
+1228
+01:26:38,960 --> 01:26:44,000
+when you make a function call, you see if there's enough space to actually make the function call,
+
+1229
+01:26:44,000 --> 01:26:46,520
+and if not, it will grow dynamically for you.
+
+1230
+01:26:47,390 --> 01:26:50,390
+And often in [effect] implementations,
+
+1231
+01:26:50,570 --> 01:26:55,370
+allocating threads a little bit more heavyweight,
+
+1232
+01:26:55,370 --> 01:27:02,810
+because actually for example Linux basically corresponds corresponding kernel threads is actually allocated to,
+
+1233
+01:27:03,680 --> 01:27:05,930
+and, they tend to be more heavyweight than.
+
+1234
+01:27:08,790 --> 01:27:09,390
+I see,
+
+1235
+01:27:10,090 --> 01:27:14,830
+is the is the scheduling of all the Go routines done completely in user space,
+
+1236
+01:27:14,860 --> 01:27:17,860
+or does it help itself with some of kernel [].
+
+1237
+01:27:18,400 --> 01:27:20,950
+It is mostly done in user space.
+
+1238
+01:27:25,930 --> 01:27:32,790
+So the Go runtime allocates a bunch of kernel threads, you know they call them I think mthreats
+
+1239
+01:27:32,790 --> 01:27:36,000
+and on top of that it implements the Go routines.
+
+1240
+01:27:37,370 --> 01:27:43,520
+So it's so it has, like a couple kernel threads that it shares to all Go routines based on which ones running.
+
+1241
+01:27:43,880 --> 01:27:44,270
+Yes.
+
+1242
+01:27:44,920 --> 01:27:46,240
+Oh, that makes sense, yeah.
+
+1243
+01:27:47,580 --> 01:27:51,600
+Is there a like any C C plus plus equivalent
+
+1244
+01:27:51,750 --> 01:27:56,130
+like, could you could you do something like that to save to save some memory.
+
+1245
+01:27:56,340 --> 01:27:59,010
+Yeah people have done, you able manage like high performance,
+
+1246
+01:27:59,010 --> 01:28:02,310
+you know so C libraries are thread libraries,
+
+1247
+01:28:02,310 --> 01:28:05,730
+that way you can create thousands of you know threads for millions of threads,
+
+1248
+01:28:05,730 --> 01:28:08,070
+you know to a similar style.
+
+1249
+01:28:14,160 --> 01:28:17,100
+Okay, you guys have a good break, I must head out.
+
+1250
+01:28:17,130 --> 01:28:17,730
+You too.
+
+1251
+01:28:18,060 --> 01:28:24,000
+See you next week or two weeks.
+
+1252
+01:28:24,490 --> 01:28:25,750
+Yeah, oh.
+
+1253
+01:28:26,660 --> 01:28:27,410
+Oh, go ahead.
+
+1254
+01:28:29,220 --> 01:28:34,620
+I'm sorry, so I have a maybe basic question about the shims
+
+1255
+01:28:34,620 --> 01:28:41,580
+and I guess I think also maybe I'm just not familiar with kind of specifically what like a runtime is
+
+1256
+01:28:41,790 --> 01:28:48,510
+and I guess like my confusion comes from the fact that like from a mental model of how xv6 and C works,
+
+1257
+01:28:48,510 --> 01:28:51,540
+is that C compiles C is a compiled language
+
+1258
+01:28:51,840 --> 01:28:54,690
+and so it goes directly to assembly or machine code,
+
+1259
+01:28:54,930 --> 01:28:58,110
+and so it kind of just runs on the CPU
+
+1260
+01:28:58,230 --> 01:29:04,320
+and so I guess, like there is no need for a shim for like xv6 OS,
+
+1261
+01:29:04,740 --> 01:29:08,220
+but I guess my understanding is Go is also a compiled language,
+
+1262
+01:29:08,220 --> 01:29:10,050
+so it also goes to the assembly,
+
+1263
+01:29:10,170 --> 01:29:13,410
+so why is there a need for like a shim in this case,
+
+1264
+01:29:13,410 --> 01:29:16,800
+why, why is there maybe is a shim for like xv6,
+
+1265
+01:29:16,800 --> 01:29:18,420
+or you know what, what is different here
+
+1266
+01:29:18,420 --> 01:29:22,590
+and why are there why are there things that can't just be done on the CPU.
+
+1267
+01:29:23,070 --> 01:29:24,630
+Yeah yeah, a great question,
+
+1268
+01:29:24,660 --> 01:29:27,270
+so I think the answer to your question is that
+
+1269
+01:29:27,270 --> 01:29:30,570
+the Go runtime provides all kinds of features
+
+1270
+01:29:30,570 --> 01:29:35,910
+that like you know you don't have right, in running when you're running C in xv6,
+
+1271
+01:29:36,210 --> 01:29:43,380
+so Go runtime provides threads, Go runtime provides scheduler, Go runtime provides hash tables,
+
+1272
+01:29:43,380 --> 01:29:47,130
+Go runtime provides garbage collector, that actually needs to run at runtime right,
+
+1273
+01:29:47,130 --> 01:29:49,410
+then there's no garbage collector in xv6.
+
+1274
+01:29:49,860 --> 01:29:51,780
+And we implement the threads
+
+1275
+01:29:52,200 --> 01:29:57,420
+and for example to support the garbage collector, it needs a heap, if we're to allocate memory from
+
+1276
+01:29:57,450 --> 01:30:02,940
+and so I ask the operating system underlying operating system, so please give me you know some memories that I can use it as a heap.
+
+1277
+01:30:03,610 --> 01:30:07,090
+And basically the shim layer implements exactly,
+
+1278
+01:30:07,090 --> 01:30:13,330
+so that kind of functionality that the Go runtime needs to do a job at runtime.
+
+1279
+01:30:23,120 --> 01:30:24,590
+I see.
+
+1280
+01:30:25,200 --> 01:30:30,930
+Yeah, you have a slightly makes sense, I actually a follow-up question is,
+
+1281
+01:30:32,550 --> 01:30:42,250
+maybe this is a dumb question, but like like can we just compile to runtime down to machine code, or.
+
+1282
+01:30:42,250 --> 01:30:44,290
+Runtime is compile to run.
+
+1283
+01:30:44,290 --> 01:30:44,740
+Okay.
+
+1284
+01:30:44,860 --> 01:30:47,350
+It goes like you know the runtime itself is also compiled,
+
+1285
+01:30:47,350 --> 01:30:51,460
+but it's like you're part of the program that needs to run always running run Go code.
+
+1286
+01:30:52,190 --> 01:30:55,190
+It has to be there, like even like C has a small runtime,
+
+1287
+01:30:55,190 --> 01:30:59,210
+if you think about you know we have like printf is part of should live to C runtime,
+
+1288
+01:30:59,600 --> 01:31:02,180
+string operations are part of the C runtime right,
+
+1289
+01:31:02,480 --> 01:31:03,650
+there compile too,
+
+1290
+01:31:03,650 --> 01:31:07,280
+but there's a bunch of small number of functions that the C runtime has,
+
+1291
+01:31:07,430 --> 01:31:10,760
+but their runtime is so small compared to the Go runtime,
+
+1292
+01:31:10,760 --> 01:31:12,890
+that you have to support many more features,
+
+1293
+01:31:13,160 --> 01:31:16,010
+because of the programs you Go programs rely on them.
+
+1294
+01:31:17,320 --> 01:31:18,850
+I see I see,
+
+1295
+01:31:18,850 --> 01:31:20,800
+and I guess the last question would maybe be like,
+
+1296
+01:31:20,800 --> 01:31:23,530
+is it it kind of sounds like that in this case,
+
+1297
+01:31:23,530 --> 01:31:30,610
+the Go runtime or like the actually the shim in this case is almost taking on some of the functionality abnormally,
+
+1298
+01:31:30,820 --> 01:31:32,860
+like it's almost like it's like a mini,
+
+1299
+01:31:33,640 --> 01:31:36,880
+it's almost kind of like, it's like a mini OS layer,
+
+1300
+01:31:36,910 --> 01:31:43,030
+like in terms that it's just like another layer that's performing some low-level system functionality, like reasonable.
+
+1301
+01:31:44,260 --> 01:31:49,540
+Yeah you can, maybe one way to think about [xv6] it also has a very very minimal shim,
+
+1302
+01:31:49,660 --> 01:31:51,460
+you know maybe like when the boots correct,
+
+1303
+01:31:51,460 --> 01:31:53,590
+the first thing it does actually allocates some stacks,
+
+1304
+01:31:53,590 --> 01:31:56,350
+so that you can actually call the C main function.
+
+1305
+01:31:57,240 --> 01:32:00,960
+And you can think about that little fragment of code which is only a couple statements,
+
+1306
+01:32:00,960 --> 01:32:02,670
+the shim layer for xv6.
+
+1307
+01:32:03,710 --> 01:32:06,410
+And once you know you're through a couple of instructions,
+
+1308
+01:32:06,410 --> 01:32:08,120
+you're actually C code and everything is fine.
+
+1309
+01:32:08,790 --> 01:32:12,690
+And you know the shim layer to Go runtime is slightly bigger,
+
+1310
+01:32:12,690 --> 01:32:14,790
+because there's a bunch of more features that need to be set up,
+
+1311
+01:32:14,790 --> 01:32:16,950
+before they Go runtime actually happily execute.
+
+1312
+01:32:18,700 --> 01:32:22,150
+Okay, yeah that's helpful that makes sense, cool.
+
+1313
+01:32:23,150 --> 01:32:23,540
+Thank you.
+
+1314
+01:32:23,960 --> 01:32:24,590
+You're welcome.
+
+1315
+01:32:25,460 --> 01:32:26,180
+Happy Thanksgiving.
+
+1316
+01:32:26,420 --> 01:32:27,050
+Yeah, you too.
+
+1317
+01:32:28,240 --> 01:32:32,650
+Oh, I had a question about the ping pong program that I forgot to ask,
+
+1318
+01:32:32,680 --> 01:32:36,790
+so I remember we also did a ping pong program in one of the labs.
+
+1319
+01:32:38,070 --> 01:32:43,950
+It was not a hundred, those a thousand lines of code, why is.
+
+1320
+01:32:44,420 --> 01:32:50,210
+Because like one, I think you're referring to a lab where you do the ping pong with a byte across the pipe.
+
+1321
+01:32:50,860 --> 01:32:54,580
+Yeah, okay so that's the user side of the benchmark,
+
+1322
+01:32:54,610 --> 01:32:57,550
+the kernel side correctly is the other side of it
+
+1323
+01:32:57,550 --> 01:33:02,170
+and basically you know that what we did is implement the kernel passed in identical manner.
+
+1324
+01:33:04,530 --> 01:33:05,130
+Okay.
+
+1325
+01:33:05,190 --> 01:33:08,550
+So like you know you executing the startup, the system call,
+
+1326
+01:33:08,550 --> 01:33:10,890
+using variables in the stack frame,
+
+1327
+01:33:10,890 --> 01:33:13,200
+you know calling into looking up the pipe,
+
+1328
+01:33:13,200 --> 01:33:16,510
+you know then running maybe the scheduler to wake up,
+
+1329
+01:33:16,510 --> 01:33:20,020
+you know the receiver and that whole code path,
+
+1330
+01:33:20,020 --> 01:33:25,240
+you know on the kernel side we tried to implement it, identically in C and in Go.
+
+1331
+01:33:25,700 --> 01:33:26,690
+Okay.
+
+1332
+01:33:26,720 --> 01:33:31,010
+But the benchmark is basically the same as your benchmark that you implemented actually in lab one,
+
+1333
+01:33:31,100 --> 01:33:32,330
+the user level side of it.
+
+1334
+01:33:33,250 --> 01:33:35,020
+Right, right, okay that makes sense,
+
+1335
+01:33:35,050 --> 01:33:37,430
+so, so does that mean like,
+
+1336
+01:33:38,140 --> 01:33:44,080
+I mean I think that if you do that in xv6 would be significantly less than a thousand lines of code,
+
+1337
+01:33:44,080 --> 01:33:47,560
+if you like take all the kernel code.
+
+1338
+01:33:47,560 --> 01:33:50,470
+There's thousand thousand lines for assembly instructions correct,
+
+1339
+01:33:50,620 --> 01:33:54,370
+so you know I I don't know I will have to look at,
+
+1340
+01:33:54,370 --> 01:33:57,340
+but you know you're gonna use the trapframe code,
+
+1341
+01:33:57,340 --> 01:34:04,240
+you syscall dispatch, going to the the fd layer, correct, the file descriptors,
+
+1342
+01:34:04,510 --> 01:34:07,600
+then a little bit of pipe code,
+
+1343
+01:34:07,720 --> 01:34:10,810
+then copyin and copyout,
+
+1344
+01:34:11,020 --> 01:34:16,780
+then the scheduler and then basically all [] and then [bailing] out again or returning.
+
+1345
+01:34:17,750 --> 01:34:21,390
+Yeah, okay, that make sence.
+
+1346
+01:34:21,690 --> 01:34:26,640
+I don't know how to top my head on my client what code is, but you know.
+
