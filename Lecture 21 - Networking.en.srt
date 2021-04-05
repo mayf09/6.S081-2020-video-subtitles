@@ -1,0 +1,4408 @@
+1
+00:00:06,110 --> 00:00:11,710
+Alright, hello everyone, welcome back from Thanksgiving.
+
+2
+00:00:12,590 --> 00:00:14,150
+Can anyone hear me?
+
+3
+00:00:15,390 --> 00:00:16,200
+Yep good.
+
+4
+00:00:16,530 --> 00:00:22,380
+Good alright, today I want to talk about networking and how it relates to operating systems.
+
+5
+00:00:23,840 --> 00:00:37,780
+And a lot of this is a geared towards lab, last lab which you actually build some network interface driver,
+
+6
+00:00:37,810 --> 00:00:45,920
+some of this care for general understanding of how the network software typically setup in operating systems
+
+7
+00:00:46,220 --> 00:00:55,990
+and then we're going to talk about the today's paper on live lock which illustrates a interesting danger in network stack design.
+
+8
+00:00:56,460 --> 00:01:03,210
+So first let me set the general scene by drawing a few network pictures.
+
+9
+00:01:05,060 --> 00:01:15,640
+Network of course connects different hosts at there's kind of two ways, in which you can view the connections is occurring.
+
+10
+00:01:15,670 --> 00:01:23,740
+One is that in for nearby hosts, they are often connected to what you what's essentially a same network,
+
+11
+00:01:23,770 --> 00:01:25,930
+so there may be a single Ethernet,
+
+12
+00:01:27,030 --> 00:01:29,160
+and maybe this is a switch or a cable
+
+13
+00:01:29,340 --> 00:01:33,060
+and you might have a bunch of hosts connected to this, this Ethernet,
+
+14
+00:01:34,400 --> 00:01:41,840
+where hosts are maybe laptops or servers or as it will turn out routers,
+
+15
+00:01:42,470 --> 00:01:49,000
+and the way network software designed is
+
+16
+00:01:49,030 --> 00:01:58,060
+to kind of try to ignore as much as possible the details of exactly what this network is that directly attaches hosts might be a single cable,
+
+17
+00:01:58,060 --> 00:02:03,100
+which is probably the case, at the time today's paper was written,
+
+18
+00:02:03,280 --> 00:02:07,990
+this might be an Ethernet switch, this might be some sort of WiFi wireless Lan,
+
+19
+00:02:07,990 --> 00:02:11,920
+and these these things aren't wires at all, but rather radio links,
+
+20
+00:02:12,010 --> 00:02:19,220
+but, for the most part these these differences in sort of exactly what the local connectivity is
+
+21
+00:02:19,250 --> 00:02:24,470
+a kind of totally papered over at pretty low level, in the networking stack.
+
+22
+00:02:26,620 --> 00:02:30,100
+And so on each of these hosts there may be different applications,
+
+23
+00:02:30,100 --> 00:02:37,040
+maybe there's a web browser here and you know http Server over here
+
+24
+00:02:37,040 --> 00:02:40,490
+and they need to talk to each other across this network.
+
+25
+00:02:41,160 --> 00:02:46,560
+Now there's a limit to how big you can build a single local area network,
+
+26
+00:02:46,590 --> 00:02:52,330
+so, now for which the abbreviation is usually LAN local area network
+
+27
+00:02:53,260 --> 00:02:57,280
+and the way to think about it maybe is that a local area network
+
+28
+00:02:57,280 --> 00:03:03,400
+can be as large as a network in which it makes sense for all the host to be able to see all of each other's packets,
+
+29
+00:03:03,580 --> 00:03:10,450
+that is sometimes hosts need to want to broadcast to all of the local hosts,
+
+30
+00:03:10,690 --> 00:03:14,920
+you know that works fine with a dozen or twenty or fifty or maybe even a hundred hosts,
+
+31
+00:03:14,920 --> 00:03:21,490
+but you can't really easily build single networks where all the hosts can more or less directly talk to each other,
+
+32
+00:03:21,910 --> 00:03:25,240
+with more than, say a few hundred hosts.
+
+33
+00:03:26,890 --> 00:03:31,390
+And so to deal with the way the larger Internet is constructed is
+
+34
+00:03:31,390 --> 00:03:35,710
+that there's a number of these individual LANs,
+
+35
+00:03:36,070 --> 00:03:46,100
+may be one of MIT, you know, maybe one at Harvard, maybe one faraway at Stanford.
+
+36
+00:03:46,880 --> 00:03:52,670
+And, there's some sort of connectivity between them which you can think of as routers,
+
+37
+00:03:52,670 --> 00:03:57,230
+so there might be a router, that's plugged into the MIT local area network,
+
+38
+00:03:57,230 --> 00:04:05,260
+and also has perhaps a longer link to the to the Harvard network
+
+39
+00:04:05,320 --> 00:04:09,160
+and in fact there's a network of routers, which is essentially the backbone of the Internet
+
+40
+00:04:09,550 --> 00:04:13,000
+including long-distance router to router links,
+
+41
+00:04:13,090 --> 00:04:15,250
+so there might be a longer link across the country
+
+42
+00:04:15,250 --> 00:04:20,900
+and maybe this router is plugged into the some local area network at Stanford
+
+43
+00:04:20,990 --> 00:04:26,370
+and then we have host we have this sort of more elaborate task
+
+44
+00:04:26,370 --> 00:04:32,370
+in which we want to host at MIT to be able to talk to a sequence of routers to a host of Stanford
+
+45
+00:04:32,370 --> 00:04:33,750
+and this is called routing,
+
+46
+00:04:33,750 --> 00:04:40,530
+so we need to have a way for host at MIT to address to name individual host Stanford
+
+47
+00:04:40,770 --> 00:04:45,360
+and we need some way to sew that routers near MIT
+
+48
+00:04:45,510 --> 00:04:52,620
+can look at a packet sent by MIT and say oh that's a packet for for Harvard a packet for Stanford,
+
+49
+00:04:52,620 --> 00:04:55,980
+a packet that needs to go somewhere in Japan or who knows what.
+
+50
+00:04:57,480 --> 00:05:01,050
+So, from the point of view of network protocols,
+
+51
+00:05:01,080 --> 00:05:09,500
+this local this local communication is taken care of by Ethernet protocols,
+
+52
+00:05:09,650 --> 00:05:17,300
+and this long-distance communication is sort of layered on top of that and taken care of by IP or Internet protocols,
+
+53
+00:05:17,330 --> 00:05:21,600
+that know how to route over long distances to distant hosts.
+
+54
+00:05:23,560 --> 00:05:26,290
+Okay, this is what a network looks like in a nutshell,
+
+55
+00:05:26,620 --> 00:05:33,450
+I'm would now want to talk about the what's inside packets,
+
+56
+00:05:33,450 --> 00:05:36,990
+that move across an Ethernet or move across the larger Internet,
+
+57
+00:05:37,050 --> 00:05:43,150
+with an eye to eventually talking about the software that in hosts,
+
+58
+00:05:43,150 --> 00:05:47,500
+that has to process hosts and routers asked to process those packets,
+
+59
+00:05:48,220 --> 00:05:53,710
+so let me start with the lowest level and talk about what's inside an Ethernet packet,
+
+60
+00:05:54,160 --> 00:06:01,150
+so when two hosts that are quite nearby attached to the same cable or same WiFi network or same Ethernet want to talk to each other.
+
+61
+00:06:02,760 --> 00:06:10,320
+The sort of lowest level protocol, which allows two hosts on the same land to talk to each other as the Ethernet protocol
+
+62
+00:06:10,380 --> 00:06:22,060
+and you can think of one host host one, sending a frame over the over the Ethernet to host two,
+
+63
+00:06:22,700 --> 00:06:23,720
+what's called an Ethernet frame,
+
+64
+00:06:23,720 --> 00:06:25,760
+which is the Ethernet work for packet
+
+65
+00:06:25,760 --> 00:06:33,010
+and it's a series of bytes that are sent over the Ethernet from one host to another
+
+66
+00:06:33,010 --> 00:06:37,330
+and what the ethernet protocol does is have just enough information in it
+
+67
+00:06:37,600 --> 00:06:43,180
+to allow the two hosts to realize who's talking to each other
+
+68
+00:06:43,180 --> 00:06:47,950
+and cause the host to be able to recognize packets that are addressed to them.
+
+69
+00:06:48,550 --> 00:06:50,140
+And so what an Ethernet header looks,
+
+70
+00:06:50,140 --> 00:06:52,660
+so the way that Ethernet deals with this is
+
+71
+00:06:52,660 --> 00:07:00,590
+that every Ethernet packet has at the beginning, a header, that has three fields,
+
+72
+00:07:01,380 --> 00:07:03,930
+followed by some Ethernet payload,
+
+73
+00:07:06,790 --> 00:07:11,830
+and what's in the header is two Ethernet addresses,
+
+74
+00:07:11,830 --> 00:07:15,190
+we'll call them the destination address and the source address
+
+75
+00:07:15,280 --> 00:07:17,680
+and also the type of the packet,
+
+76
+00:07:17,920 --> 00:07:21,070
+each of these addresses is just a 48 bit number,
+
+77
+00:07:21,550 --> 00:07:25,840
+that uniquely identifies a particular network interface card really,
+
+78
+00:07:26,770 --> 00:07:32,200
+and this type field is going to indicate to the recipient host what it's supposed to do with that package
+
+79
+00:07:32,200 --> 00:07:40,210
+and what that really means is what higher level protocol should examine and process the payload of that Ethernet packet.
+
+80
+00:07:41,220 --> 00:07:47,160
+So, these, these are bits that go are typically set to go over the wire,
+
+81
+00:07:47,220 --> 00:07:51,480
+piece, 48 plus 48 plus 16 bits of header
+
+82
+00:07:51,600 --> 00:07:53,280
+and then however much payload
+
+83
+00:07:53,910 --> 00:07:56,040
+and not really visible to the software,
+
+84
+00:07:56,040 --> 00:07:59,160
+but, there's going to be something at the beginning of the packet,
+
+85
+00:07:59,340 --> 00:08:04,050
+that's recognized at a very low level by the hardware that signifies the start of a packet
+
+86
+00:08:05,070 --> 00:08:07,470
+and the receiving [house] needs to win the packet ends,
+
+87
+00:08:07,470 --> 00:08:11,850
+so there's going to be another special bit pattern at the end,
+
+88
+00:08:11,850 --> 00:08:13,290
+that signifies the end of the packet.
+
+89
+00:08:14,250 --> 00:08:17,730
+These two begin and end flags are never seen by the software,
+
+90
+00:08:17,730 --> 00:08:26,440
+but the rest, the rest of this Ethernet frame is delivered by the network interface card that Nic at H2 to the software.
+
+91
+00:08:27,160 --> 00:08:32,020
+If you've looked at the final lab for the course,
+
+92
+00:08:32,710 --> 00:08:35,770
+you'll see that the software we give you includes a bunch of new files,
+
+93
+00:08:35,770 --> 00:08:45,730
+including kernel slash net.h which contains a whole bunch of definitions of packet headers for different network protocols,
+
+94
+00:08:46,270 --> 00:08:50,170
+and so this is just text taken directly from this net.h file, we give you
+
+95
+00:08:50,440 --> 00:08:57,120
+and it includes description of the layout of the Ethernet header,
+
+96
+00:08:57,180 --> 00:09:01,530
+and this this software, we give you actually uses literally uses this struct definition,
+
+97
+00:09:01,650 --> 00:09:04,860
+in order to parse incoming Ethernet packets
+
+98
+00:09:05,130 --> 00:09:09,840
+is to pick apart the head to get the destination and type,
+
+99
+00:09:09,870 --> 00:09:12,570
+then also uses this structure to format packets,
+
+100
+00:09:12,870 --> 00:09:20,080
+so the host is really in charge of sort of setting up and parsing this header, that's used by Ethernet.
+
+101
+00:09:22,360 --> 00:09:26,100
+Any questions about Ethernet packets?
+
+102
+00:09:32,070 --> 00:09:33,540
+Yeah, I have a question.
+
+103
+00:09:33,570 --> 00:09:34,110
+Please.
+
+104
+00:09:34,140 --> 00:09:48,770
+Is is the bit pattern you mentioned that the hardware uses, to determine the start and end of a package similar to the eop in the lab, which is a end of packet.
+
+105
+00:09:49,740 --> 00:10:00,300
+No, no, the eop is a separate mechanism between the driver and the NIC to help them communicate.
+
+106
+00:10:00,770 --> 00:10:04,100
+This is, there's some electrical schemes,
+
+107
+00:10:04,100 --> 00:10:11,240
+some low level electrical or optical signaling scheme to transmit bits over Ethernet cables,
+
+108
+00:10:11,420 --> 00:10:21,470
+and these flags have to do with the, typically, electrical patterns that would not be legal inside a packet
+
+109
+00:10:22,310 --> 00:10:33,670
+and so no one scheme is to instead of just sending zero one bits over the wire, you can send you could send, sequences of two signals,
+
+110
+00:10:33,910 --> 00:10:43,030
+so there's four different symbols possible with sequences of two different, electrical voltage levels or something
+
+111
+00:10:43,030 --> 00:10:48,490
+and have two of the for possible symbols indicate zero or one bits in the body of the packet
+
+112
+00:10:48,610 --> 00:10:52,030
+and have the remaining to indicate beginning and end.
+
+113
+00:10:52,440 --> 00:10:54,660
+That was in fact a scheme that was used years ago,
+
+114
+00:10:54,720 --> 00:10:56,820
+scheme much like that was used years ago Ethernet,
+
+115
+00:10:56,910 --> 00:10:58,590
+I don't actually know how it works now.
+
+116
+00:11:02,010 --> 00:11:07,460
+Okay, something to know about these addresses is that
+
+117
+00:11:07,490 --> 00:11:09,620
+what these are 48 bit addresses,
+
+118
+00:11:09,680 --> 00:11:20,260
+the reason for the 48 bits is that they wanted to make sure that there was enough bits to be able to give a unique address to every different NIC ever manufactured,
+
+119
+00:11:20,710 --> 00:11:23,020
+so there's a vast number of possible addresses,
+
+120
+00:11:23,170 --> 00:11:31,150
+the internal structure of these 48 bit addresses is that the first half, the first 24 bits is a manufacturer number
+
+121
+00:11:31,180 --> 00:11:37,090
+and there's every manufacturer network interface cards, nics has its own manufacturer number,
+
+122
+00:11:37,090 --> 00:11:38,620
+so that's the first 24 bits
+
+123
+00:11:38,860 --> 00:11:44,740
+and the second 24 bits is just any number can be any unique number assigned by the manufacturers,
+
+124
+00:11:44,740 --> 00:11:47,680
+manufacturers typically assign them in just ascending orders,
+
+125
+00:11:47,680 --> 00:11:51,280
+if you buy you know half a dozen network interface cards,
+
+126
+00:11:51,640 --> 00:11:56,650
+the network interface card, each network interface card has programmed into its own address,
+
+127
+00:11:56,770 --> 00:12:02,980
+and if you look at the address you'll see that the high bits are the same for these six cards you bought from the same manufacturer,
+
+128
+00:12:03,010 --> 00:12:08,440
+but the low 24 bits are probably six sequential numbers.
+
+129
+00:12:09,060 --> 00:12:12,360
+So these addresses are unique,
+
+130
+00:12:12,810 --> 00:12:17,850
+but what they're not helpful in is locating the destination host,
+
+131
+00:12:17,880 --> 00:12:21,030
+so if you know the host you're talking about is on the same local area network,
+
+132
+00:12:21,030 --> 00:12:26,900
+as you you can use Ethernet address and it's on the same local area network,
+
+133
+00:12:26,900 --> 00:12:29,300
+so we'll be listening for package with his own address,
+
+134
+00:12:29,840 --> 00:12:32,450
+but if the hosts are trying to talk to us on the other side of the country,
+
+135
+00:12:32,570 --> 00:12:33,890
+you have to use a different scheme,
+
+136
+00:12:33,890 --> 00:12:36,650
+and that's what's IP is all about I'll talk about in a bit.
+
+137
+00:12:38,970 --> 00:12:42,810
+Okay, so this is what these packets look like,
+
+138
+00:12:42,840 --> 00:12:49,650
+you can actually look at Ethernet packets in action using the tcpdump program
+
+139
+00:12:49,650 --> 00:12:53,550
+and you're encouraged to do this, you probably need to do this as part of the lab
+
+140
+00:12:53,580 --> 00:13:01,370
+and this is actually the output of tcpdump from the lab,
+
+141
+00:13:01,640 --> 00:13:06,110
+and what tcpdump is telling us here was telling us a whole bunch of things,
+
+142
+00:13:06,110 --> 00:13:09,710
+this first part is the time at which the packet arrived.
+
+143
+00:13:10,600 --> 00:13:12,820
+If you like you can try this on your laptops,
+
+144
+00:13:12,820 --> 00:13:14,080
+if you install tcpdump,
+
+145
+00:13:14,350 --> 00:13:23,610
+and the rest of the first line is a sort of human readable interpretation of what kind of packet that is
+
+146
+00:13:23,880 --> 00:13:33,030
+and then these next three lines or the part here is a hex dump of the of the received packet
+
+147
+00:13:33,180 --> 00:13:34,830
+and you can see,
+
+148
+00:13:34,890 --> 00:13:38,730
+we can actually follow along with the Ethernet header,
+
+149
+00:13:38,820 --> 00:13:45,030
+there's these first 48 bits or six bytes is a broadcast address
+
+150
+00:13:45,030 --> 00:13:50,490
+all fs and all fs Ethernet address is broadcast to all the hosts on the local network.
+
+151
+00:13:51,240 --> 00:13:57,060
+The next 48 bits is the sending hosts Ethernet address
+
+152
+00:13:57,060 --> 00:14:08,300
+which you know we can't necessarily tell anything about although the high bits mean in fact, this was generated by xv6 we're under QEMU,
+
+153
+00:14:08,300 --> 00:14:10,010
+so no real NIC was involved,
+
+154
+00:14:10,070 --> 00:14:14,900
+so it's not actually a manufacturer number appears something that QEMU makes up.
+
+155
+00:14:15,650 --> 00:14:20,510
+And then the next 16 bits, the next two bytes is the type,
+
+156
+00:14:21,060 --> 00:14:22,530
+it's the Ethernet type of the packet,
+
+157
+00:14:22,530 --> 00:14:27,360
+in this case, it's a zero eight zero six which is a protocol called arp,
+
+158
+00:14:27,720 --> 00:14:29,070
+which I'll talk about in a moment.
+
+159
+00:14:30,790 --> 00:14:38,710
+And the rest of this stuff is, is the payload of an arp packet, we shall also talk about.
+
+160
+00:14:39,660 --> 00:14:42,300
+Any questions about what were we're looking at here.
+
+161
+00:14:44,740 --> 00:14:47,980
+This well worth trying out on your own computer, if you care about networks.
+
+162
+00:14:50,000 --> 00:14:55,130
+Okay, so the next protocol that's of relevance to the lab
+
+163
+00:14:55,130 --> 00:14:58,010
+and communication over Ethernet is called arp,
+
+164
+00:14:59,500 --> 00:15:03,010
+So at the Ethernet level, every host has a 48 Ethernet address,
+
+165
+00:15:03,550 --> 00:15:09,580
+but for communicating over the Internet, it turns out you need to use a 32 bit Internet address
+
+166
+00:15:09,580 --> 00:15:12,580
+and the reason why Internet addresses are different is that
+
+167
+00:15:13,000 --> 00:15:17,110
+Internet addresses have internal structure in a 32 bit,
+
+168
+00:15:17,500 --> 00:15:20,890
+the hosts 32 bit Internet address the high bits
+
+169
+00:15:20,950 --> 00:15:27,040
+are full of all kinds of hints about where in the entire Internet, this packet needs to go.
+
+170
+00:15:27,380 --> 00:15:31,130
+And so you can think of an Internet address as having a high bits a network number,
+
+171
+00:15:31,490 --> 00:15:32,810
+it's actually a little more complex than that,
+
+172
+00:15:32,810 --> 00:15:34,070
+but it's essentially a network number,
+
+173
+00:15:34,070 --> 00:15:36,800
+every network in the Internet has a distinct number
+
+174
+00:15:36,800 --> 00:15:40,340
+and routers look at these the high bits and the Internet address
+
+175
+00:15:40,370 --> 00:15:44,450
+to decide which router and the Internet, this packet needs to be forwarded to
+
+176
+00:15:44,900 --> 00:15:53,420
+and then the low bits in a 32 bit Internet Internet address IP address are the number of that of the host,
+
+177
+00:15:53,420 --> 00:15:56,540
+we want to talk to on its local network.
+
+178
+00:15:57,900 --> 00:16:01,290
+But when a packet finally arrives,
+
+179
+00:16:01,990 --> 00:16:05,140
+and when the Internet packet arrives at Ethernet,
+
+180
+00:16:05,230 --> 00:16:13,270
+we need some way to give in on 32 bit IP address, figure out the 48 bit ethernet address of that host.
+
+181
+00:16:14,510 --> 00:16:20,540
+And the way the Internet chooses to do that is to have a dynamic resolution protocol,
+
+182
+00:16:20,750 --> 00:16:25,670
+kind of request response protocol called ARP, for address resolution protocol
+
+183
+00:16:25,820 --> 00:16:30,980
+and the way to think about it is that when a IP packet arrives at a router
+
+184
+00:16:30,980 --> 00:16:33,460
+or its needs to be sent by a host
+
+185
+00:16:33,520 --> 00:16:37,180
+to a host that's known to be on the same LAN local area network,
+
+186
+00:16:37,360 --> 00:16:41,560
+the sender first broadcasts on that land,
+
+187
+00:16:41,710 --> 00:16:47,320
+an ARP packet that's a request that says whoever has whoever owns this IP address,
+
+188
+00:16:47,410 --> 00:16:50,530
+please respond with your 48 Ethernet address
+
+189
+00:16:50,590 --> 00:16:53,170
+and assuming that host exists is turned on,
+
+190
+00:16:53,710 --> 00:16:56,800
+it will respond with an ARP response packet.
+
+191
+00:16:57,510 --> 00:17:01,320
+And this is the format of the packet of an ARP package,
+
+192
+00:17:01,500 --> 00:17:05,370
+the way it actually shows up is inside an Ethernet packet
+
+193
+00:17:05,580 --> 00:17:07,920
+and so what you would actually see
+
+194
+00:17:08,220 --> 00:17:15,810
+and the network is first, the Ethernet header which has the 48 bit source field, a 48 bit destination field,
+
+195
+00:17:16,240 --> 00:17:18,190
+its destination source type,
+
+196
+00:17:18,370 --> 00:17:19,720
+so this is the Ethernet header.
+
+197
+00:17:20,850 --> 00:17:26,280
+And then, from the Ethernet point of view, the rest is payload,
+
+198
+00:17:26,280 --> 00:17:37,190
+but actually in the Ethernet payload is ARP packet, which has these fields, boom boom boom right after the Ethernet header.
+
+199
+00:17:37,340 --> 00:17:41,600
+And the way the receiving host knows on our packet is by looking at this type field,
+
+200
+00:17:41,690 --> 00:17:47,990
+and if it's zero eight zero six, that's the agreed on Ethernet protocol number for ARP
+
+201
+00:17:48,200 --> 00:17:54,930
+and then the receiving host software would know to hand this packet to its ARP critical processing code.
+
+202
+00:17:55,960 --> 00:17:59,080
+What's in these packets and there's a bunch of junk here
+
+203
+00:17:59,080 --> 00:18:03,760
+that basically amounts to saying I have an Internet address,
+
+204
+00:18:04,280 --> 00:18:06,530
+I want to turn it into an Ethernet address,
+
+205
+00:18:06,560 --> 00:18:09,320
+please respond if you own this Internet address,
+
+206
+00:18:09,740 --> 00:18:19,780
+and then, these fields hold the Internet and Ethernet addresses,
+
+207
+00:18:19,960 --> 00:18:22,090
+of whatever host is sending this ARP pack
+
+208
+00:18:22,090 --> 00:18:26,230
+and that's enough to figure out the [carper] whose to build dynamically tables,
+
+209
+00:18:27,280 --> 00:18:30,940
+that tell them the correspondence between Ethernet and IP addresses.
+
+210
+00:18:32,600 --> 00:18:39,350
+Again, we can use tcpdump in order to see these packets go by.
+
+211
+00:18:41,420 --> 00:18:43,700
+Highly likely to see them if you run tcpdump,
+
+212
+00:18:43,910 --> 00:18:50,570
+here's again, a tcpdump but taken from a lab,
+
+213
+00:18:51,170 --> 00:18:59,270
+it turns out that in the lab you know your xv6 will end up talking a simulated true,
+
+214
+00:18:59,270 --> 00:19:05,900
+but talking Ethernet protocol and sending IP packets through Ethernet through a simulated Ethernet protocol,
+
+215
+00:19:05,960 --> 00:19:08,660
+with whatever host you're running QEMU you want.
+
+216
+00:19:09,390 --> 00:19:16,440
+And so when you want you'll actually be able to see these ARP exchanges, between xv6 and your host
+
+217
+00:19:16,590 --> 00:19:25,290
+and so what we're seeing here is my host wants knows the IP address of my xv6
+
+218
+00:19:25,410 --> 00:19:31,140
+and wants to wants to figure out its Ethernet address on the land that QEMU simulates,
+
+219
+00:19:31,260 --> 00:19:35,350
+and this second packet is my xv6
+
+220
+00:19:35,560 --> 00:19:39,820
+and you can see the code that generates is my xv6 has seen this request,
+
+221
+00:19:40,030 --> 00:19:43,660
+realize that it's the owner of the IP address in the request
+
+222
+00:19:43,810 --> 00:19:45,340
+and is sending back the response,
+
+223
+00:19:45,820 --> 00:19:49,300
+tcpdump is nicely parsed out the fields in the ARP packet
+
+224
+00:19:49,300 --> 00:19:50,290
+and printed them here,
+
+225
+00:19:52,020 --> 00:19:56,250
+and I think this is the sender's IP address,
+
+226
+00:19:56,760 --> 00:19:59,010
+and this is the [], sorry,
+
+227
+00:20:00,340 --> 00:20:02,020
+this is the sender's IP address,
+
+228
+00:20:02,020 --> 00:20:06,010
+this is the IP address that the sender is interested in
+
+229
+00:20:06,400 --> 00:20:09,460
+and those would presumably going here and here
+
+230
+00:20:09,520 --> 00:20:21,620
+and this is a response with the Ethernet address of the owner of this IP address,
+
+231
+00:20:21,620 --> 00:20:28,310
+and this Ethernet address probably End up being in this field,
+
+232
+00:20:28,430 --> 00:20:32,210
+and if we're clever enough, we can pick apart these packets and see some of these fields,
+
+233
+00:20:32,420 --> 00:20:40,380
+as we know this part is the Ethernet header destination,
+
+234
+00:20:40,410 --> 00:20:46,300
+Ethernet address source Ethernet address and packet type, zero eight zero six.
+
+235
+00:20:47,020 --> 00:20:56,800
+Working backwards, this is the tip field, which is the IP address that the sender wants to find the Ethernet address for
+
+236
+00:20:56,860 --> 00:21:04,940
+and if you pick this apart there's one byte, for each of the four fields of the IP address,
+
+237
+00:21:04,970 --> 00:21:08,540
+sorry, it's really looking for ten zero to fifteen,
+
+238
+00:21:08,570 --> 00:21:12,590
+this is ten hex zero X two hex fifteen hex
+
+239
+00:21:13,970 --> 00:21:19,310
+and then there's the targets Ethernet address which is not known
+
+240
+00:21:19,520 --> 00:21:22,820
+and then the sender's IP address ten zero two two
+
+241
+00:21:22,940 --> 00:21:25,790
+and the senders Ethernet address
+
+242
+00:21:25,790 --> 00:21:27,890
+and a bunch of other junk here saying that
+
+243
+00:21:28,600 --> 00:21:31,750
+we're interested in Ethernet and IP address formats.
+
+244
+00:21:33,220 --> 00:21:36,160
+And there's this request, this response,
+
+245
+00:21:36,850 --> 00:21:38,050
+any questions about ARP.
+
+246
+00:21:39,440 --> 00:21:43,160
+Um, yeah question,
+
+247
+00:21:43,370 --> 00:21:59,660
+why is it necessary for the sender to include its IP address, if it if it's Ethernet addresses already included in the packet, like to respond to it, wouldn't it wouldn't the receiver only need using that address.
+
+248
+00:22:00,320 --> 00:22:02,330
+Yeah, I don't know why that all this stuff's in there,
+
+249
+00:22:02,480 --> 00:22:05,600
+I think if you wanted to, you could strip this down quite a bit,
+
+250
+00:22:05,630 --> 00:22:08,900
+you know like that, sent,
+
+251
+00:22:08,900 --> 00:22:17,840
+well okay, maybe the answer is that this protocol was designed to be usable on networks other than Ethernet
+
+252
+00:22:17,900 --> 00:22:20,990
+and so it was designed to be fairly self-contained,
+
+253
+00:22:21,630 --> 00:22:26,970
+so that it didn't depend on anything in the, didn't depend on anything else
+
+254
+00:22:27,060 --> 00:22:31,200
+and therefore the ARP header has a copy of the Ethernet addresses,
+
+255
+00:22:31,290 --> 00:22:34,110
+now, in fact if you know you're sending ARP over Ethernet,
+
+256
+00:22:34,170 --> 00:22:37,950
+the Ethernet packet also has all the Ethernet address, as you can see here,
+
+257
+00:22:38,220 --> 00:22:43,210
+so, it's redundant to be running ARP over Ethernet,
+
+258
+00:22:43,420 --> 00:22:46,720
+but maybe if you are running ARP over something else,
+
+259
+00:22:47,110 --> 00:22:49,900
+you'd need these fields, because maybe something else, packet format,
+
+260
+00:22:49,900 --> 00:22:53,140
+doesn't have the, doesn't already include these addresses.
+
+261
+00:22:53,350 --> 00:22:54,970
+I see, OK, thank you.
+
+262
+00:22:57,020 --> 00:23:00,650
+Oh sorry, what is that part on the right versions, are you.
+
+263
+00:23:01,310 --> 00:23:03,170
+Okay, this, this is not interesting yet,
+
+264
+00:23:03,170 --> 00:23:07,910
+but this is ASCII interpretation of these bytes.
+
+265
+00:23:08,650 --> 00:23:18,590
+So, well, it's a dot here corresponds to you know, a a bite that has no ascii equivalent,
+
+266
+00:23:18,740 --> 00:23:23,210
+and this I guess somewhere in here, 52 or 55 probably,
+
+267
+00:23:23,480 --> 00:23:28,670
+52 probably R and 55 is probably U in ascii,
+
+268
+00:23:28,910 --> 00:23:33,650
+so this would be more interesting when we start sending packets that have actual ascii text in them,
+
+269
+00:23:33,650 --> 00:23:36,350
+rather than binary fields.
+
+270
+00:23:36,380 --> 00:23:38,390
+Okay I see, thank you.
+
+271
+00:23:38,750 --> 00:23:39,260
+Yes.
+
+272
+00:23:40,970 --> 00:23:43,910
+Okay, and I'm showing you this, because you'll see these packets in the lab.
+
+273
+00:23:47,830 --> 00:23:52,980
+Okay, actually, there's something I wanted to.
+
+274
+00:23:57,100 --> 00:24:04,600
+Well, there's something I want to make sure that you are caught in this discussion
+
+275
+00:24:04,600 --> 00:24:13,870
+and that's the habit in formatting packets of nesting protocols and nesting headers,
+
+276
+00:24:13,870 --> 00:24:20,770
+so so what we just saw was a packet that Ethernet header, and Ethernet payload,
+
+277
+00:24:20,770 --> 00:24:24,490
+the first part of the Ethernet payload was you know an ARP,
+
+278
+00:24:25,040 --> 00:24:27,290
+and as it happens ARP no remaining payload,
+
+279
+00:24:27,680 --> 00:24:31,790
+but there are other what we'll see in a moment is much more complicated structures
+
+280
+00:24:31,790 --> 00:24:34,910
+in which we've been Ethernet packet that contains an IP packet
+
+281
+00:24:35,120 --> 00:24:38,300
+and inside the IP packet is a UDP packet
+
+282
+00:24:38,300 --> 00:24:42,080
+and so UDP is another protocol that you can run over IP,
+
+283
+00:24:42,140 --> 00:24:45,110
+so there's a UDP header, it also,
+
+284
+00:24:48,220 --> 00:24:50,830
+you know not necessarily have to understand these acronyms yet,
+
+285
+00:24:50,830 --> 00:24:55,900
+but as UDP header, a UDP packet also has a header and a payload
+
+286
+00:24:56,050 --> 00:25:00,190
+and there's times when used to carry another particle inside UDP,
+
+287
+00:25:00,190 --> 00:25:02,800
+so for example the domain name system,
+
+288
+00:25:03,280 --> 00:25:07,510
+has yet another format of packet define that fits inside UDP,
+
+289
+00:25:07,510 --> 00:25:12,790
+so what you see is that hosts are sending packets will build up a packet,
+
+290
+00:25:12,880 --> 00:25:16,150
+the DNS software will say I want to send a packet over UDP.
+
+291
+00:25:16,650 --> 00:25:19,230
+The UDP software will prepare the UDP header,
+
+292
+00:25:19,350 --> 00:25:23,700
+we send that over IP, the IP software will prepend an IP header,
+
+293
+00:25:23,790 --> 00:25:26,430
+the Ethernet software will prepend Ethernet header,
+
+294
+00:25:26,430 --> 00:25:30,900
+and gradually build up packets in in that software when it's sending.
+
+295
+00:25:30,900 --> 00:25:33,720
+And similarly when system receives packets,
+
+296
+00:25:33,960 --> 00:25:37,230
+it first gets the whole packet inspects the first header,
+
+297
+00:25:37,740 --> 00:25:40,410
+and notice Ethernet, because it receives it from Ethernet NIC,
+
+298
+00:25:40,980 --> 00:25:44,520
+checksum validity strips off this header to look at the next header,
+
+299
+00:25:44,820 --> 00:25:48,870
+there will be a type this you always either type field
+
+300
+00:25:48,870 --> 00:25:51,150
+or in this case, the protocol field,
+
+301
+00:25:52,210 --> 00:25:56,140
+that tells the software what to expect after the Ethernet header.
+
+302
+00:25:56,730 --> 00:25:59,880
+So there's a type field that indicates IP versus ARP,
+
+303
+00:26:00,120 --> 00:26:03,630
+so this the software will look at each header,
+
+304
+00:26:03,780 --> 00:26:07,890
+validate it strip it off revealing the next header,
+
+305
+00:26:08,360 --> 00:26:12,120
+you know, check that header or interpret it figure out what it means strip it off
+
+306
+00:26:12,150 --> 00:26:14,790
+revealing the next and hand it on to the next layer of software,
+
+307
+00:26:15,480 --> 00:26:26,140
+I'll talk a bit more about this, but this is a sort of universal way of looking at a nested packet headers.
+
+308
+00:26:31,370 --> 00:26:33,860
+Alright, so the Ethernet packet, the Ethernet header,
+
+309
+00:26:34,100 --> 00:26:42,640
+is enough to get a packet to a host on a local area network,
+
+310
+00:26:42,640 --> 00:26:46,120
+when especially when and if you want to send an IP packet locally,
+
+311
+00:26:46,450 --> 00:26:58,210
+you can use ARP, but IP is used much more generally IP that a sort of layer of the protocol that helps you deliver a packet anywhere in the Internet based on IP addresses.
+
+312
+00:26:59,150 --> 00:27:03,650
+And so this is the format of an IP packet again taken,
+
+313
+00:27:03,650 --> 00:27:07,040
+you can find it in net.h at the source we give you
+
+314
+00:27:07,370 --> 00:27:11,600
+and over Ethernet at least, the way you see, this is,
+
+315
+00:27:12,700 --> 00:27:19,210
+in an ethernet packet with a destination source and type of,
+
+316
+00:27:20,720 --> 00:27:23,900
+Ethernet type equals zero eight o o
+
+317
+00:27:24,140 --> 00:27:28,700
+and then the IP header, and then IP payload,
+
+318
+00:27:33,280 --> 00:27:38,020
+when you send a packet to a distant network, you're on the other side of the world,
+
+319
+00:27:38,050 --> 00:27:46,120
+the IP header gets passed along this Ethernet header gets stripped off after you leave the local Ethernet,
+
+320
+00:27:46,150 --> 00:27:50,930
+maybe a new one gets put on it for each hop that your packet is routed,
+
+321
+00:27:50,990 --> 00:27:53,450
+but the IP header stays basically the same,
+
+322
+00:27:53,780 --> 00:27:58,370
+the whole way from the ultimate the original source host your computer,
+
+323
+00:27:58,580 --> 00:28:00,290
+all the way to the destination host,
+
+324
+00:28:00,290 --> 00:28:03,360
+this header has global significance,
+
+325
+00:28:03,360 --> 00:28:09,860
+where as the Ethernet header is really only used for each, for a single local area network,
+
+326
+00:28:10,040 --> 00:28:14,600
+so there has to be enough information here to carry a packet all the way to the far side of the Internet
+
+327
+00:28:14,870 --> 00:28:24,390
+and the critical fields for our purposes really three very interesting fields in this packet format,
+
+328
+00:28:25,610 --> 00:28:30,740
+the destination field, which is the 32 bit IP address of the host,
+
+329
+00:28:31,040 --> 00:28:37,070
+that we want to send the packet to, in particular in its high bits, it's going to have network numbers in it that'll help routers
+
+330
+00:28:37,340 --> 00:28:44,270
+and when the packet is delivered, this p protocol field will tell the destination host what to do with the packet,
+
+331
+00:28:44,540 --> 00:28:47,750
+not what to do with it next after it strips off the IP header.
+
+332
+00:28:51,590 --> 00:28:56,240
+If you ever seen a MIT IP address,
+
+333
+00:28:57,350 --> 00:29:00,470
+you'll see well there's a couple different ones,
+
+334
+00:29:00,470 --> 00:29:07,060
+but for example if you see Internet address starting with 18,
+
+335
+00:29:07,270 --> 00:29:11,690
+this the things have actually changed in the last couple years,
+
+336
+00:29:11,690 --> 00:29:17,570
+but this for a long time was the network number of MIT
+
+337
+00:29:17,570 --> 00:29:22,460
+and so most hosted MIT would have IP addresses whose high byte was eighteen
+
+338
+00:29:22,670 --> 00:29:25,850
+and writers all over the world would have some table they'd look up eighteen
+
+339
+00:29:25,850 --> 00:29:29,630
+and say aha I know how to route, this packet one step closer to MIT.
+
+340
+00:29:34,490 --> 00:29:39,650
+So let me, let me show you again tcpdump output.
+
+341
+00:29:40,350 --> 00:29:48,120
+Again actually taken from the lab, that includes IP header.
+
+342
+00:29:49,710 --> 00:29:56,810
+Okay, so we can parse this packet, because it was sent over the Ethernet,
+
+343
+00:29:56,810 --> 00:29:58,610
+it starts with an Ethernet header.
+
+344
+00:30:06,240 --> 00:30:12,650
+It actually one I think it's kind of wrong with these tcpdump with these packets that are generated
+
+345
+00:30:12,650 --> 00:30:17,300
+and now that I'm seeing it I'm not sure what the problem is,
+
+346
+00:30:17,450 --> 00:30:24,730
+they should not start with all these Ethernet headers shouldn't start with all fs, broadcast address,
+
+347
+00:30:24,940 --> 00:30:26,920
+that cause the packet to go to every host
+
+348
+00:30:27,220 --> 00:30:32,560
+and you would not see that for a packet sent between two individual hosts as this one is on a real network,
+
+349
+00:30:32,740 --> 00:30:37,540
+there's something funny going on with my solution to the network lab with QEMU,
+
+350
+00:30:37,840 --> 00:30:43,230
+anyway we have the Ethernet destination address, Ethernet source address
+
+351
+00:30:43,470 --> 00:30:50,700
+and the Ethernet type in zero eight o o is means that the remaining bytes are IP packet.
+
+352
+00:30:52,360 --> 00:30:57,050
+The IP packet header length I think it's a twenty bytes,
+
+353
+00:30:58,320 --> 00:31:08,280
+hoping find the end two fifteen, so this must be the end of the IP header.
+
+354
+00:31:12,420 --> 00:31:15,360
+And working backwards, because these are the fields, we really care about,
+
+355
+00:31:15,660 --> 00:31:21,810
+the destination IP field is is ten ten zero two two,
+
+356
+00:31:23,970 --> 00:31:32,940
+which is I think that in QEMU's funny simulated network is the address of the real computer, I'm running QEMU on,
+
+357
+00:31:32,940 --> 00:31:39,270
+and then before that is this IP source address, which is ten zero two fifteen,
+
+358
+00:31:41,130 --> 00:31:47,570
+which is the sender which is QEMU's address for the, for xv6 basically running inside QEMU
+
+359
+00:31:47,840 --> 00:31:53,750
+and then this stuff before this, all this other stuff, there's a sixteen bit checksum,
+
+360
+00:31:54,380 --> 00:32:01,610
+which your software is supposed to check to realize that a packet has been corrupted and should be discarded that's this checksum,
+
+361
+00:32:01,730 --> 00:32:02,930
+theres one byte,
+
+362
+00:32:04,000 --> 00:32:05,560
+alright mess something up here.
+
+363
+00:32:07,670 --> 00:32:11,660
+Oh, this is this is sixteen sorry, this is sixteen bit checksum,
+
+364
+00:32:11,900 --> 00:32:17,330
+this eleven is the protocol number, which is particularly important,
+
+365
+00:32:17,390 --> 00:32:20,150
+eleven hex is sixteen plus one or seventeen,
+
+366
+00:32:20,820 --> 00:32:26,750
+so that means that this is a UDP packet, based on that protocol field.
+
+367
+00:32:28,160 --> 00:32:29,840
+And then all this other stuff we don't really care about,
+
+368
+00:32:29,840 --> 00:32:31,580
+as things like the length of the packet.
+
+369
+00:32:35,020 --> 00:32:37,780
+Any questions about IP headers?
+
+370
+00:32:43,560 --> 00:32:51,110
+Alright, again, the critical stuff is the IP header has the IP address of the source destination,
+
+371
+00:32:51,200 --> 00:32:56,570
+and this protocol field is going to tell the destination hosts networking stack,
+
+372
+00:32:56,570 --> 00:33:00,020
+that this packet should be processed by its UDP software,
+
+373
+00:33:01,390 --> 00:33:03,920
+which I'll talk about right now.
+
+374
+00:33:05,040 --> 00:33:08,310
+Okay, the, this this IP header.
+
+375
+00:33:09,420 --> 00:33:12,870
+It's enough to get a packet to any host on the Internet,
+
+376
+00:33:13,650 --> 00:33:15,150
+but we want to do better than that,
+
+377
+00:33:15,150 --> 00:33:18,900
+every host was running lots and lots of different programs that need to use the network,
+
+378
+00:33:18,900 --> 00:33:21,720
+they need to send and receive packets in the network
+
+379
+00:33:21,720 --> 00:33:26,340
+and so we need a way that's not in the, it's not included in the IP field,
+
+380
+00:33:26,400 --> 00:33:35,130
+in order to decide which application needs to, which application on the target host this package ought to be handed off to.
+
+381
+00:33:36,830 --> 00:33:41,540
+And there's a couple of protocols that do that job,
+
+382
+00:33:41,540 --> 00:33:45,500
+one of them is TCP quite complex,
+
+383
+00:33:46,630 --> 00:33:48,190
+and others UDP.
+
+384
+00:33:48,220 --> 00:33:51,160
+TCP is actually what's used mostly for things like the web
+
+385
+00:33:51,190 --> 00:33:57,270
+and TCP is a very complex protocol that not only helps your packet be delivered to the right application,
+
+386
+00:33:57,300 --> 00:34:04,410
+but also has a lot of things like sequence numbers in order to detect lost packets and re-transmit them,
+
+387
+00:34:04,440 --> 00:34:08,610
+make sure packets or data is delivered in order and without gaps,
+
+388
+00:34:08,610 --> 00:34:10,380
+if in case anything goes wrong,
+
+389
+00:34:10,680 --> 00:34:12,780
+UDP is a much simpler protocol,
+
+390
+00:34:12,900 --> 00:34:19,020
+that just delivers a sort of best effort delivery of a packet to a particular application,
+
+391
+00:34:19,020 --> 00:34:27,220
+but, without any error correction or basically without anything else,
+
+392
+00:34:27,280 --> 00:34:31,420
+for us, the critical fields are these two port numbers
+
+393
+00:34:31,570 --> 00:34:37,270
+and the game here is that when your application wants to send or receive packets,
+
+394
+00:34:37,330 --> 00:34:44,600
+it uses the what's called the sockets API, on Unix at any way,
+
+395
+00:34:45,370 --> 00:34:47,110
+and this is a set of system calls
+
+396
+00:34:47,140 --> 00:34:52,660
+where by a process can say look I'm interested in packets addressed to a particular port
+
+397
+00:34:52,660 --> 00:34:55,870
+and it'll say what port numbers interested,
+
+398
+00:34:55,870 --> 00:35:01,090
+sorry, packets with particular I want to receive packets with a particular destination port
+
+399
+00:35:01,300 --> 00:35:03,610
+and the operating system make a system call,
+
+400
+00:35:03,610 --> 00:35:08,200
+it set this up in the operating system will return a file descriptor,
+
+401
+00:35:08,380 --> 00:35:13,090
+and every time a packet arrives with the port, the application asks for,
+
+402
+00:35:13,420 --> 00:35:17,950
+that packet will appear on the file descriptor and the application can read it.
+
+403
+00:35:18,920 --> 00:35:24,770
+And the these ports are really two kinds of ports,
+
+404
+00:35:24,770 --> 00:35:27,500
+some are well-known port numbers,
+
+405
+00:35:27,500 --> 00:35:37,610
+like I think port 53 is the official well known universally agreed port number for a DNS name server,
+
+406
+00:35:37,610 --> 00:35:40,160
+so if you want to send a request to a DNS name server,
+
+407
+00:35:40,280 --> 00:35:44,030
+you can send into UDP packet addressed dport 53,
+
+408
+00:35:44,450 --> 00:35:52,770
+there's a bunch of other well-known ports for commonly available services with universally agreed on numbers
+
+409
+00:35:52,770 --> 00:35:58,260
+and then the remainings remainder of the sixteen bit port number space,
+
+410
+00:35:58,380 --> 00:36:03,060
+is used for the sort of anonymous client ends support,
+
+411
+00:36:03,060 --> 00:36:07,420
+so if I want to send a packet to a DNS server,
+
+412
+00:36:07,750 --> 00:36:14,350
+it's dport will be 53 alright, but its sport will be a more or less randomly chosen number for my end,
+
+413
+00:36:14,560 --> 00:36:19,750
+so that when that will be associated with my application's socket,
+
+414
+00:36:19,810 --> 00:36:22,990
+so that when the DNS server sends a reply, it will be addressed,
+
+415
+00:36:23,230 --> 00:36:31,690
+the DNS or will copy the request source port into the destination port field of the reply sent it back to my machine
+
+416
+00:36:31,930 --> 00:36:38,910
+and my machine will use this port number to figure out which application should get the reply.
+
+417
+00:36:41,270 --> 00:36:44,900
+Okay, so the main function here is to have these two port numbers,
+
+418
+00:36:44,960 --> 00:36:53,810
+in order to handout be able to hand off packets individual applications on this machine.
+
+419
+00:36:55,900 --> 00:36:57,520
+So, feel free to ask questions,
+
+420
+00:36:58,630 --> 00:37:04,410
+I have tcpdump output for UDP also,
+
+421
+00:37:05,070 --> 00:37:07,470
+again taken from the lab.
+
+422
+00:37:08,160 --> 00:37:12,340
+So again we have a Ethernet header,
+
+423
+00:37:12,880 --> 00:37:18,190
+and twenty by IP header which probably ends here,
+
+424
+00:37:18,460 --> 00:37:23,710
+eleven is IP protocol seventeen which is UDP,
+
+425
+00:37:23,710 --> 00:37:29,000
+so the receiving host will know to process it with its UDP software,
+
+426
+00:37:29,840 --> 00:37:38,900
+the next eight bytes, are the UDP header which is shown right here.
+
+427
+00:37:39,740 --> 00:37:43,200
+And so who knows what these port numbers are.
+
+428
+00:37:45,170 --> 00:37:51,290
+I mean now this, this is unfortunately a package is generated by the lab software
+
+429
+00:37:51,290 --> 00:37:58,270
+without any, any special numbers and see this is the port numbers that happened to choose,
+
+430
+00:37:58,930 --> 00:38:02,950
+this must be the length of the package, one b is twenty something
+
+431
+00:38:03,280 --> 00:38:08,260
+and this my this our software for. UDP xv6 is,
+
+432
+00:38:08,260 --> 00:38:11,470
+so lame that it, doesn't fill in the checksum field,
+
+433
+00:38:11,770 --> 00:38:12,790
+but this is the header.
+
+434
+00:38:13,610 --> 00:38:17,480
+And then after the UDP header is the payload of the UDP packet
+
+435
+00:38:17,630 --> 00:38:22,940
+and in this case, the application is sending ascii text and that ascii text is right here.
+
+436
+00:38:26,890 --> 00:38:33,010
+So this is a mask text place inside UDP packet, place inside an IP packet place inside an Ethernet packet,
+
+437
+00:38:35,390 --> 00:38:37,190
+sent over simulated Ethernet.
+
+438
+00:38:42,260 --> 00:38:44,240
+Sorry, I just had a question,
+
+439
+00:38:44,240 --> 00:38:47,810
+so when when you when you said when you send a package to someone,
+
+440
+00:38:47,840 --> 00:38:52,130
+you don't know their Ethernet I like address,
+
+441
+00:38:52,160 --> 00:38:54,500
+so do you just send it to your router,
+
+442
+00:38:54,620 --> 00:38:57,140
+then the router figures out from.
+
+443
+00:38:57,920 --> 00:39:03,420
+If if for most packets sent somewhere else on the Internet,
+
+444
+00:39:03,810 --> 00:39:10,340
+let's see, your host if you send a packet to a particular IP address,
+
+445
+00:39:10,430 --> 00:39:13,280
+your host software will look at the destination address
+
+446
+00:39:13,310 --> 00:39:18,410
+to figure out if the target host is on the same local area network as you are,
+
+447
+00:39:18,530 --> 00:39:24,010
+and if it is, it'll use ARP to translate the IP address into an Ethernet address,
+
+448
+00:39:24,010 --> 00:39:27,220
+and then send the packet over the Ethernet to the target host.
+
+449
+00:39:28,080 --> 00:39:32,280
+So that's what happens in the special case in which the target host is on the same network,
+
+450
+00:39:32,550 --> 00:39:37,050
+in the more general case, we're sending the packet to somewhere else on the Internet across the country,
+
+451
+00:39:37,980 --> 00:39:43,500
+you'll send the packet to a router on the same local area network,
+
+452
+00:39:43,500 --> 00:39:47,690
+that router will look at the destination IP address
+
+453
+00:39:47,840 --> 00:39:51,920
+to pick the next router to decide which router it's attached to it
+
+454
+00:39:51,920 --> 00:39:57,200
+for the packet to and packet go hop by hop through routers getting closer and closer to the target.
+
+455
+00:39:58,150 --> 00:39:59,080
+Does that answer your question?
+
+456
+00:39:59,720 --> 00:40:01,670
+OK, I see, yes, thank you so much.
+
+457
+00:40:01,730 --> 00:40:03,980
+Someone asked if there's a limit to the length of the packet,
+
+458
+00:40:04,160 --> 00:40:06,830
+and the answer is yes, there's a couple of different limits,
+
+459
+00:40:07,550 --> 00:40:17,450
+every network every underlying network technology like Ethernet, but there are other things that are like Ethernet has its own maximum packet length,
+
+460
+00:40:17,450 --> 00:40:23,090
+so, when today's paper was written the maximum packet length was on Ethernet was fifteen hundred bytes,
+
+461
+00:40:23,540 --> 00:40:29,450
+I think modern Ethernets allow packets up to around 9000 or 10 000 bytes,
+
+462
+00:40:30,320 --> 00:40:33,560
+but that's about the highest maximum packet size, I've heard of.
+
+463
+00:40:33,560 --> 00:40:40,310
+And the reason, there's a couple reasons why you wouldn't want sort of infinitely long single packets,
+
+464
+00:40:40,340 --> 00:40:45,590
+one of them is that the packets are you sending these packets over wires,
+
+465
+00:40:45,590 --> 00:40:49,100
+that could be quite long and subject to noise and interference
+
+466
+00:40:50,180 --> 00:40:54,200
+and so you do get corruption of bits when you're sending packets.
+
+467
+00:40:54,710 --> 00:41:00,290
+Basically, every network technology is some kind of checksum or error correcting code that goes along with every packet,
+
+468
+00:41:00,320 --> 00:41:07,940
+but checksums and error correcting codes are only capable of reliably detecting errors over a certain number of bits,
+
+469
+00:41:07,940 --> 00:41:13,880
+which and so as you increase the number of bits, the probability of an uncommon error goes up and up
+
+470
+00:41:14,240 --> 00:41:21,590
+and so that limits the for reasonable size checksum like 16 or 32 bits that limits the maximum size of a packet.
+
+471
+00:41:22,980 --> 00:41:27,120
+And the other limitation is that if you send huge packets,
+
+472
+00:41:27,120 --> 00:41:34,970
+that means that all the routers in host fall have to have huge packet buffers to be prepared to receive huge packets
+
+473
+00:41:35,540 --> 00:41:40,220
+and that starts to get an really expensive,
+
+474
+00:41:40,250 --> 00:41:46,830
+because it's difficult to have variable length buffers is most convenient to have just a single length of buffer
+
+475
+00:41:48,300 --> 00:41:52,020
+and that works best if the maximum packet length isn't. to enormous.
+
+476
+00:41:52,860 --> 00:41:55,170
+Anyway, so for you think for,
+
+477
+00:41:55,820 --> 00:42:01,190
+so Ethernet has fifteen hundred, 9000 bytes limit,
+
+478
+00:42:01,310 --> 00:42:06,350
+in addition you know for all these IP protocols have length fields which are sixteen bits,
+
+479
+00:42:06,350 --> 00:42:15,430
+so even if you are willing to have Ethernet have larger packet size IP itself has a kind of baked in maximum packet size is 64 kilobytes.
+
+480
+00:42:19,250 --> 00:42:20,750
+Okay.
+
+481
+00:42:25,310 --> 00:42:27,620
+okay, good so much for UDP.
+
+482
+00:42:28,410 --> 00:42:33,180
+And hopefully when you finish the lab, you'll see output very much like this.
+
+483
+00:42:34,750 --> 00:42:42,520
+In particular, the message from xv6 and a message or reply back from the host that you're running running QEMU.
+
+484
+00:42:44,800 --> 00:42:46,480
+In fact, actually at the end of the lab,
+
+485
+00:42:46,510 --> 00:42:54,550
+you'll use, yeah you'll run software which we provide which will actually send a DNS query to Google's DNS servers
+
+486
+00:42:55,180 --> 00:42:57,340
+and get the response back our software,
+
+487
+00:42:57,520 --> 00:43:04,680
+print response, but your software will live done the sort of Ethernet level device driver interactions.
+
+488
+00:43:07,750 --> 00:43:12,640
+Alright, so that's story for packet headers and protocols on the wire,
+
+489
+00:43:13,300 --> 00:43:18,850
+so corresponding to these packet formats is's,
+
+490
+00:43:18,880 --> 00:43:22,930
+let's call the stack of a network software that runs on the host,
+
+491
+00:43:22,960 --> 00:43:27,020
+so, if you think about what's sitting inside the host
+
+492
+00:43:28,070 --> 00:43:33,620
+and now from now on, I'm talking I mostly talk about sort of typical software arrangements,
+
+493
+00:43:33,620 --> 00:43:36,470
+there's all kinds of different ways, people structured network software,
+
+494
+00:43:36,800 --> 00:43:41,780
+and it's somewhat quite different from what I'm gonna talk about,
+
+495
+00:43:41,900 --> 00:43:47,930
+I'm going to talk about kind of what I think is at least as a sort of standard approach,
+
+496
+00:43:47,930 --> 00:43:50,900
+so let's assume we're running Linux, or maybe xv6,
+
+497
+00:43:51,110 --> 00:43:55,370
+now we have a bunch of applications, maybe a web browser,
+
+498
+00:43:56,070 --> 00:44:00,450
+it may be a DNS server,
+
+499
+00:44:01,940 --> 00:44:03,800
+who knows what bunch of applications,
+
+500
+00:44:04,070 --> 00:44:10,550
+they all use the sockets API to open up file descriptors in the sockets layer,
+
+501
+00:44:10,580 --> 00:44:13,490
+so there's going to be this, inside the kernel,
+
+502
+00:44:16,700 --> 00:44:18,650
+a layer of software called the sockets layer
+
+503
+00:44:18,800 --> 00:44:25,790
+that remember has tables that remembers the correspondence between file descriptors which the applications read or write
+
+504
+00:44:25,790 --> 00:44:36,820
+and UDP port numbers or TCP port numbers which is for the, the sort of endpoints of conversations that these file descriptors refer to,
+
+505
+00:44:36,850 --> 00:44:41,110
+so the socket layer has these tables of file descriptors on port numbers
+
+506
+00:44:41,110 --> 00:44:46,490
+and it also typically has a queue of packets that have arrived
+
+507
+00:44:46,490 --> 00:44:50,630
+and are waiting to be read by each socket or file descriptor.
+
+508
+00:44:54,580 --> 00:44:59,350
+And the software we provide you as a very primitive sockets layer.
+
+509
+00:45:00,200 --> 00:45:09,920
+Underneath that are gonna be the UDP and TCP protocol layers.
+
+510
+00:45:12,210 --> 00:45:15,420
+UDP has almost nothing going on,
+
+511
+00:45:15,420 --> 00:45:20,640
+it basically looks at incoming packets extracts the destination port number and hands the packet off to the socket layer
+
+512
+00:45:20,640 --> 00:45:25,740
+to so that payload is enqueued on the correct file descriptors incoming queue,
+
+513
+00:45:27,060 --> 00:45:29,190
+TCP actually is much more complex,
+
+514
+00:45:29,190 --> 00:45:31,620
+it keeps state for each TCP connection,
+
+515
+00:45:31,620 --> 00:45:37,350
+and it remembers all kinds of sequence numbers and packets that haven't been acknowledged and need to be retransmitted
+
+516
+00:45:37,590 --> 00:45:42,610
+to the huge amount of state and what's called protocol control block of TCP
+
+517
+00:45:43,060 --> 00:45:46,270
+and virtually no state in the UDP layer.
+
+518
+00:45:46,800 --> 00:45:49,650
+These are often called transport layers, UDP and TCP
+
+519
+00:45:51,030 --> 00:45:53,280
+and we provide you with a simple UDP layer,
+
+520
+00:45:53,280 --> 00:45:56,220
+but not a TCP layer,
+
+521
+00:45:56,760 --> 00:46:03,050
+underneath TCP and IP is a IP layer,
+
+522
+00:46:04,520 --> 00:46:09,560
+which is often fairly simple,
+
+523
+00:46:09,560 --> 00:46:11,570
+and kind of in parallel with the IP layer,
+
+524
+00:46:11,570 --> 00:46:17,110
+I'm not sure whether I should draw on the same level underneath it, is the ARP layer.
+
+525
+00:46:17,940 --> 00:46:21,090
+Under them both, we can think of as an Ethernet layer,
+
+526
+00:46:21,090 --> 00:46:24,360
+but it's really there's not typically a separate Ethernet layer,
+
+527
+00:46:24,390 --> 00:46:31,440
+typically there's one or more NIC drivers, at the lowest layer
+
+528
+00:46:31,440 --> 00:46:37,770
+and these talk to the actual NIC network interface hardware,
+
+529
+00:46:37,800 --> 00:46:42,600
+which itself has a connection of to the local area network,
+
+530
+00:46:42,600 --> 00:46:46,610
+or whatever kind of network attached.
+
+531
+00:46:47,710 --> 00:46:52,990
+And sort of at this level, what happens is the packet arrives of the network,
+
+532
+00:46:52,990 --> 00:46:55,900
+the NIC you know pulls it off the network,
+
+533
+00:46:56,890 --> 00:46:58,480
+hands it off to the driver
+
+534
+00:46:58,480 --> 00:47:03,160
+and the driver essentially pushes the network the packet up the networking stack,
+
+535
+00:47:03,310 --> 00:47:07,540
+at each layer in the stack the you know that layer's header,
+
+536
+00:47:08,140 --> 00:47:10,570
+you know the IP layer will look the IP header,
+
+537
+00:47:11,200 --> 00:47:14,050
+verify the headers stripped off hander UDP,
+
+538
+00:47:14,290 --> 00:47:19,720
+UDP will figure out what file descriptor queue the date on and add it to that queue,
+
+539
+00:47:19,960 --> 00:47:23,560
+now so packets come in and are parsed and headers are stripped on the way up,
+
+540
+00:47:23,770 --> 00:47:27,250
+and when an application sends a packet, the reverse thing happens,
+
+541
+00:47:27,250 --> 00:47:31,600
+as the packet moves down through the layers more and more headers are added on,
+
+542
+00:47:31,600 --> 00:47:36,160
+until you get to the bottom layer and then the packets handed the NIC for transmission.
+
+543
+00:47:41,910 --> 00:47:47,960
+So, of course the software, the way people think about and design network software
+
+544
+00:47:47,960 --> 00:47:53,990
+and the kernel is typically driven by the nesting of the protocols inside the packets.
+
+545
+00:47:56,060 --> 00:47:57,560
+Any questions about this structure?
+
+546
+00:48:03,420 --> 00:48:07,350
+It's actually one important thing that I kind of left out here, that sits on the side,
+
+547
+00:48:07,500 --> 00:48:13,100
+there's buffers, there's packet buffers all through this,
+
+548
+00:48:13,100 --> 00:48:17,090
+when a packet arrives, it's copied into a packet buffer
+
+549
+00:48:17,390 --> 00:48:20,840
+and the packet buffers are sent up and down the stack
+
+550
+00:48:20,840 --> 00:48:22,760
+and there's often quite a few packet buffers,
+
+551
+00:48:22,940 --> 00:48:26,090
+there's often queues between these layers, there's certainly a queue here,
+
+552
+00:48:26,360 --> 00:48:29,780
+packets waiting to be processed by applications,
+
+553
+00:48:30,020 --> 00:48:33,560
+now this will be a linked list of buffers,
+
+554
+00:48:33,650 --> 00:48:40,640
+and so there's a buffer allocator that's a buffer scheme and a buffer allocator, that's used throughout the stack,
+
+555
+00:48:40,910 --> 00:48:52,980
+and in the software, we give you a buffer scheme is called, MBUFs, so it's kind of MBUF scheme,
+
+556
+00:48:52,980 --> 00:48:56,220
+that's not a layer, but is used all throughout these layers.
+
+557
+00:48:59,400 --> 00:49:03,900
+Okay, this is the layering diagram of typical network stack.
+
+558
+00:49:04,490 --> 00:49:09,800
+For this paper, it's actually important to understand how the control flow works,
+
+559
+00:49:09,800 --> 00:49:13,700
+which is maybe a little bit different from what's in that diagram.
+
+560
+00:49:16,550 --> 00:49:19,190
+One thing to know about networks stacks,
+
+561
+00:49:19,190 --> 00:49:24,470
+there's typically multiple independent actors that process packets and take input,
+
+562
+00:49:24,590 --> 00:49:26,900
+think about those packets and produce output
+
+563
+00:49:26,990 --> 00:49:31,880
+and for various reasons, these different actors are decoupled,
+
+564
+00:49:31,880 --> 00:49:35,570
+so they can run concurrently and have packet queues connecting them.
+
+565
+00:49:36,180 --> 00:49:39,480
+So that's extremely important from the point of view, this paper,
+
+566
+00:49:39,600 --> 00:49:44,840
+so within the kernel, so again, we have a network interface card,
+
+567
+00:49:45,170 --> 00:49:46,400
+and then we have the kernel,
+
+568
+00:49:48,190 --> 00:49:57,130
+the classic arrangement here is for a NIC to somehow get packets.
+
+569
+00:49:58,090 --> 00:50:01,270
+For the NIC when it receives a packet to generate an interrupt
+
+570
+00:50:02,080 --> 00:50:08,820
+and there's this interrupt routine that gets triggered whenever there's an interrupt
+
+571
+00:50:08,820 --> 00:50:13,230
+and the job of the interrupt routine is to get the packet from the NIC.
+
+572
+00:50:14,990 --> 00:50:19,970
+And because we don't want to dedicate CPU time to completing the processing of the packet now,
+
+573
+00:50:20,840 --> 00:50:26,450
+the interrupt routine typically just appends the packet to a queue of packets,
+
+574
+00:50:26,600 --> 00:50:29,720
+for later processing, and then return,
+
+575
+00:50:29,750 --> 00:50:36,610
+so does the minimum work required to get the package from the NIC and put it in a queue
+
+576
+00:50:36,700 --> 00:50:41,380
+and the reason why we want to transfer in the sort of traditional network stack,
+
+577
+00:50:41,500 --> 00:50:45,580
+we want to quickly move the packet out of the NIC and into this software queue
+
+578
+00:50:45,580 --> 00:50:49,300
+is the next typically have a very limited amount of memory for queue in packets,
+
+579
+00:50:49,330 --> 00:50:53,560
+whereas in the main memory, the RAM of the computer, we might have gigabytes of memory,
+
+580
+00:50:53,800 --> 00:50:55,090
+so far more space here,
+
+581
+00:50:55,300 --> 00:51:00,460
+so the NIC so if there's a [burst] of packets and NIC may actually run out of space to queue them,
+
+582
+00:51:00,970 --> 00:51:05,340
+so we copy them this queue here to avoid the NIC running out of space.
+
+583
+00:51:06,720 --> 00:51:09,420
+And then separately perhaps in a separate thread,
+
+584
+00:51:09,450 --> 00:51:17,080
+there's what I call the IP processing thread.
+
+585
+00:51:18,700 --> 00:51:20,110
+And sometimes it's not a thread,
+
+586
+00:51:20,110 --> 00:51:22,390
+sometimes it's sort of different kind of entity,
+
+587
+00:51:22,420 --> 00:51:28,090
+but its basic job is to read packets of these incoming queues
+
+588
+00:51:28,090 --> 00:51:32,470
+and there may be multiple NICs, you know pending package to these queues,
+
+589
+00:51:32,620 --> 00:51:38,590
+so IP thread runs it looks at packets that are queued here and decides what to do with them,
+
+590
+00:51:38,650 --> 00:51:46,870
+one possibility is to send them up through UDP into the sockets layer
+
+591
+00:51:46,870 --> 00:51:49,300
+to be queued waiting for some application
+
+592
+00:51:49,450 --> 00:51:52,510
+and typically this will just be a function calls here
+
+593
+00:51:52,510 --> 00:51:54,550
+within the context of this thread.
+
+594
+00:51:56,880 --> 00:52:00,390
+Another possibility, and this is the possibility the paper cares most about is that
+
+595
+00:52:00,480 --> 00:52:02,040
+this host is actually a router
+
+596
+00:52:02,220 --> 00:52:06,660
+and it's packets are coming in one NIC and routed out one or more other NICs,
+
+597
+00:52:06,780 --> 00:52:12,740
+because it's very common to build routers out of ordinary operating systems like Linux,
+
+598
+00:52:12,740 --> 00:52:16,400
+if you buy a WiFi box now or a cable modem router or something,
+
+599
+00:52:17,000 --> 00:52:20,270
+it's extremely likely to be running Linux internally
+
+600
+00:52:20,330 --> 00:52:25,250
+and to use the standard Linux stack, which has a complete router implementation,
+
+601
+00:52:25,250 --> 00:52:30,860
+it's highly likely to be using that standard Linux stack in order to do its routing.
+
+602
+00:52:31,590 --> 00:52:34,500
+So if the IP thread looks at the destination IP address
+
+603
+00:52:34,500 --> 00:52:40,890
+and decides I should send this out I should forward this packet out you know out another network interface,
+
+604
+00:52:42,900 --> 00:52:48,000
+it'll add the packet to a queue of outgoing packets for this outgoing interface
+
+605
+00:52:48,060 --> 00:52:53,500
+and there's almost certainly, so this is a receive interrupt, RX for receive,
+
+606
+00:52:53,950 --> 00:53:03,720
+there's usually some sort of transmit interrupt scheme for the outgoing NIC.
+
+607
+00:53:04,770 --> 00:53:11,580
+That and Nick will interrupt whenever it's finished sending one packet and is ready to be handed more packets,
+
+608
+00:53:12,810 --> 00:53:15,210
+these outgoing interrupts may also be important.
+
+609
+00:53:16,390 --> 00:53:22,450
+And the point here is that there's a bunch of concurrent entities,
+
+610
+00:53:22,480 --> 00:53:26,350
+there's sort of separately scheduled in various different ways,
+
+611
+00:53:26,410 --> 00:53:31,660
+these interrupts are triggered by the NICs asking for interrupts when packets arrive or when packets have been sent,
+
+612
+00:53:31,930 --> 00:53:37,670
+this thread maybe, a kernel thread like we have in xv6,
+
+613
+00:53:37,700 --> 00:53:42,170
+in a unit processor as was the case with today's paper,
+
+614
+00:53:42,470 --> 00:53:46,640
+this thread can't run at the same time as interrupt, interrupt absolute priority,
+
+615
+00:53:46,670 --> 00:53:50,060
+on a multi-core machine, there may be more parallelism
+
+616
+00:53:50,270 --> 00:53:53,510
+and then it's important that applications to be able to read the packets,
+
+617
+00:53:53,720 --> 00:53:58,220
+the applications are yet another independently scheduled entities.
+
+618
+00:53:59,660 --> 00:54:04,220
+That we'd like to get their chance, executing on the CPU.
+
+619
+00:54:06,240 --> 00:54:14,280
+So these are all the players in the, and that's in the scheduling game essentially.
+
+620
+00:54:17,970 --> 00:54:23,000
+One thing that comes up a lot is a buffering,
+
+621
+00:54:23,030 --> 00:54:25,940
+so there's a three queues here,
+
+622
+00:54:25,970 --> 00:54:32,510
+by buffering, I mean these structures in which one independent it appends input packets
+
+623
+00:54:32,510 --> 00:54:36,470
+and some other entity polls packets of the front of the queue,
+
+624
+00:54:36,830 --> 00:54:39,740
+these queues are pervasive in networking systems.
+
+625
+00:54:41,490 --> 00:54:46,620
+One reason for them is to allow temporary to cope temporary bursts,
+
+626
+00:54:46,740 --> 00:54:50,520
+this IP thread, maybe can only process packets at however any per second,
+
+627
+00:54:50,760 --> 00:54:54,420
+but the NIC may be able to deliver packets much more quickly
+
+628
+00:54:54,600 --> 00:54:57,660
+and so there may be a little sort of temporary burst of packets,
+
+629
+00:54:57,690 --> 00:55:03,240
+we'd like to have somewhere to put them waiting for the IP thread to get around to processing
+
+630
+00:55:03,330 --> 00:55:05,460
+and so that's one use of queues,
+
+631
+00:55:06,160 --> 00:55:10,330
+on the output side, another use of queues as we'd like to,
+
+632
+00:55:10,840 --> 00:55:15,550
+especially if packets are bursting we'd like to be able to stack up a bunch of packets here,
+
+633
+00:55:15,700 --> 00:55:19,810
+ready for the NIC to send, to keep the NIC to, output NIC busy,
+
+634
+00:55:20,020 --> 00:55:28,150
+because depending on the speed of things, it may be quite important to be able to hunt to utilize 100% of the network here.
+
+635
+00:55:30,840 --> 00:55:36,120
+And the other reason for it, maybe the same reason stated differently for having queues is
+
+636
+00:55:36,120 --> 00:55:41,340
+to be able to structure software into independent parts that are scheduled separately
+
+637
+00:55:41,910 --> 00:55:44,400
+wouldn't necessarily want to have our IP thread
+
+638
+00:55:44,400 --> 00:55:49,380
+or the application know about the other things that have to go on like interrupt processing,
+
+639
+00:55:49,620 --> 00:55:54,300
+so the IP thread is sort of a traditional networking system,
+
+640
+00:55:54,600 --> 00:56:01,900
+it doesn't necessarily know when interrupts happen or when applications run,
+
+641
+00:56:01,900 --> 00:56:06,910
+although we'll see in this paper, that there may be advantages to having a little bit of knowledge there.
+
+642
+00:56:11,260 --> 00:56:14,680
+Questions about this scheduling control diagram?
+
+643
+00:56:19,620 --> 00:56:21,270
+Oh I have a question,
+
+644
+00:56:21,300 --> 00:56:26,580
+so can the same NIC not be used for both transmitting and receiving.
+
+645
+00:56:28,650 --> 00:56:31,170
+It can,so my laptop really only has one interface
+
+646
+00:56:31,170 --> 00:56:39,310
+and it connected to WiFi when it receives a packet this on my laptop, this NIC is actually a WiFi radio interface,
+
+647
+00:56:39,460 --> 00:56:42,550
+packets arrive and go out on the same NIC.
+
+648
+00:56:42,940 --> 00:56:47,850
+The two NIC situation, is certainly used for routers,
+
+649
+00:56:48,150 --> 00:56:56,100
+so your home WiFi I don't know, maybe I have WiFi and cable and there's a router box,
+
+650
+00:56:56,310 --> 00:57:01,500
+that has two NICs, one is the its connection to my cable modem,
+
+651
+00:57:01,500 --> 00:57:06,770
+which leaves the rest of the Internet and the other one is my WiFi Interface,
+
+652
+00:57:06,980 --> 00:57:13,460
+so that the little box, that the cable modem cable company sent me as a router with two network interfaces.
+
+653
+00:57:15,350 --> 00:57:19,340
+And there's actually a lot of servers have multiple interfaces also,
+
+654
+00:57:20,360 --> 00:57:24,560
+especially ones that are web servers that you want to talk to the outside world.
+
+655
+00:57:25,270 --> 00:57:30,670
+Well one interface sent your private sensitive database machine or something
+
+656
+00:57:31,030 --> 00:57:34,720
+on a totally separate network with another network interface,
+
+657
+00:57:35,110 --> 00:57:36,790
+this arrangement is pretty common.
+
+658
+00:57:37,330 --> 00:57:42,190
+So the criteria for having multiple NICs is just wanting to talk to different networks then.
+
+659
+00:57:42,880 --> 00:57:47,440
+Yeah, if you want to talk to different networks, then you have multiple things, yes.
+
+660
+00:57:52,070 --> 00:57:57,230
+Alright I wanna as a side, talk a little bit more about NICs,
+
+661
+00:57:57,230 --> 00:57:58,910
+what NICs do with packets when they arrive,
+
+662
+00:57:58,910 --> 00:58:02,750
+and this is a special relevance to the lab,
+
+663
+00:58:02,900 --> 00:58:09,350
+you you know what NIC looks like internally,
+
+664
+00:58:11,330 --> 00:58:16,790
+you know it's got a cable leading a radio leading to the from the outside world,
+
+665
+00:58:16,940 --> 00:58:22,430
+you know it looks at electrons as they come in and sort of turns them into packets.
+
+666
+00:58:23,020 --> 00:58:28,630
+And then there's the host, and there's the host some sort of driver software in it,
+
+667
+00:58:29,110 --> 00:58:36,730
+and one way or another, you know we need to get a packet that's decoded in the NIC into memory
+
+668
+00:58:36,730 --> 00:58:40,960
+where the IP software and the host can parse that packet
+
+669
+00:58:41,680 --> 00:58:44,680
+and so there's a lot of different schemes been designed over the years,
+
+670
+00:58:44,710 --> 00:58:49,760
+the paper scheme is that the NIC has a lot of internal memory,
+
+671
+00:58:49,760 --> 00:58:57,510
+and as packets arrive, the only, the only immediate thing that happens is that NIC puts you lays down the packets in its own buffer memory.
+
+672
+00:58:58,090 --> 00:58:58,690
+That's it.
+
+673
+00:58:59,880 --> 00:59:03,670
+And interrupts the host the host
+
+674
+00:59:03,700 --> 00:59:07,930
+and said that the NIC has an internal queue of packets and a bunch of memory
+
+675
+00:59:07,990 --> 00:59:11,620
+and then in the interrupt in the host driver,
+
+676
+00:59:11,710 --> 00:59:13,150
+the host driver has a loop in it,
+
+677
+00:59:13,180 --> 00:59:16,360
+the host driver will talk to them, they can say you know any packets buffered,
+
+678
+00:59:16,480 --> 00:59:21,850
+and if it does now the host has a loop that will just copy you know by byte or word by word,
+
+679
+00:59:22,260 --> 00:59:26,250
+copy this packet into the memory of the host
+
+680
+00:59:26,250 --> 00:59:29,400
+and appended to a queue inside the host,
+
+681
+00:59:29,610 --> 00:59:32,790
+so that's how the papers NIC works,
+
+682
+00:59:33,180 --> 00:59:38,330
+the drivers is responsible for doing the copy from NIC memory to host memory.
+
+683
+00:59:39,880 --> 00:59:42,340
+That made a lot of sense thirty years ago,
+
+684
+00:59:42,880 --> 00:59:46,900
+today though it turns out that loops in the CPU that copy,
+
+685
+00:59:47,080 --> 00:59:52,570
+that you know talk to external hardware or hardware sitting on buses are very very slow,
+
+686
+00:59:52,570 --> 00:59:58,240
+this sort of you know in the grand scheme of microprocessor design,
+
+687
+00:59:58,270 --> 01:00:04,150
+this distance here between the CPU and an external device,
+
+688
+01:00:04,180 --> 01:00:06,810
+even if it's on the same computer,
+
+689
+01:00:07,050 --> 01:00:11,580
+this is a very long distance and each conversation today takes a long time
+
+690
+01:00:11,610 --> 01:00:13,230
+to reach back for chit chat
+
+691
+01:00:13,230 --> 01:00:17,300
+and so you don't want to have a lot of byte interaction,
+
+692
+01:00:17,780 --> 01:00:21,800
+so people don't design high-speed interfaces like this anymore.
+
+693
+01:00:24,420 --> 01:00:28,650
+So a much more modern arrangement looks like this,
+
+694
+01:00:28,740 --> 01:00:36,530
+so now I'm gonna talk about an arrangement which a shows up in the E1000 NIC,
+
+695
+01:00:38,230 --> 01:00:45,860
+which you'll use in the lab or simulation of it. So, now the way the E1000 NIC works,
+
+696
+01:00:47,110 --> 01:00:49,240
+so has this wire and it's looking at the electrons,
+
+697
+01:00:49,240 --> 01:00:51,580
+but as the packets arrive,
+
+698
+01:00:51,610 --> 01:00:59,480
+the NIC writes them, NIC doesn't really have significant internal buffering, although it has a little bit,
+
+699
+01:01:00,440 --> 01:01:02,990
+it actually copies the packets directly into host memory
+
+700
+01:01:02,990 --> 01:01:09,050
+where they'll be sitting there in host memory waiting for the driver to pick them up sort of already copied,
+
+701
+01:01:09,140 --> 01:01:12,980
+but that means that NIC has to know where memory it should put each packet,
+
+702
+01:01:13,070 --> 01:01:25,670
+so, the way that E1000 NIC works is that the host software formats up what's called rings, DMA rings,
+
+703
+01:01:26,140 --> 01:01:38,180
+a packet pointers, so DMA ring is just an array of pointers, to packet buffers.
+
+704
+01:01:40,120 --> 01:01:48,290
+So the host host driver when it's initialized the card will allocate however many say sixteen fifteen hundred byte packet buffers
+
+705
+01:01:48,350 --> 01:01:54,560
+will create an array of fifteen pointers are sixteen pointers and make these pointers point to there
+
+706
+01:01:54,560 --> 01:01:57,740
+and then it'll tell the NIC in configuration time,
+
+707
+01:01:57,770 --> 01:02:04,000
+look, here's the ring, so this is called DMA ring,
+
+708
+01:02:04,330 --> 01:02:09,030
+because after you've gone off the end you start back at the beginning.
+
+709
+01:02:10,170 --> 01:02:16,470
+The drivers software will tell the network here's a pointer the address in my RAM of the ring, DMA ring,
+
+710
+01:02:16,590 --> 01:02:19,380
+you're supposed to use the deposit incoming packets,
+
+711
+01:02:19,380 --> 01:02:25,890
+when a packet arrives, the NIC actually remember which ring entry is the next one.
+
+712
+01:02:27,960 --> 01:02:30,040
+It is a little pointer here,
+
+713
+01:02:30,040 --> 01:02:35,140
+that allows it to remember the next entry that it should DMA a packet into when a packet arrives,
+
+714
+01:02:35,230 --> 01:02:38,590
+the NIC will fetch the pointer out of this fetch,
+
+715
+01:02:38,590 --> 01:02:40,750
+this buffer pointer out of the host RAM,
+
+716
+01:02:41,590 --> 01:02:49,020
+copy the packet bytes into this buffer and then advance its internal index here,
+
+717
+01:02:49,020 --> 01:02:50,910
+to point to the next ring slot
+
+718
+01:02:50,970 --> 01:02:52,350
+which we'll use for the next packet.
+
+719
+01:02:53,510 --> 01:02:57,530
+And there's a similar, so this will be RX ring,
+
+720
+01:02:58,120 --> 01:03:06,220
+to receive there's a similar ring that the driver sets up in which the driver puts packets.
+
+721
+01:03:06,770 --> 01:03:09,140
+That it wants the NIC to send,
+
+722
+01:03:09,140 --> 01:03:12,080
+so the NIC also has a pointer to the TX ring.
+
+723
+01:03:14,090 --> 01:03:20,570
+So you'll learn, your job in the lab is basically to write the driver software that handle these rings.
+
+724
+01:03:22,560 --> 01:03:23,880
+Any questions about this arrangement?
+
+725
+01:03:29,040 --> 01:03:38,330
+Yeah, how does the E1000 compare with production level mix that may be used in high performance environments.
+
+726
+01:03:38,360 --> 01:03:43,940
+Well when the E1000 came out, it was the absolute best NIC available
+
+727
+01:03:44,540 --> 01:03:49,900
+and it was the NIC that was used in serious production environments,
+
+728
+01:03:49,930 --> 01:03:51,400
+but that was how many years ago,
+
+729
+01:03:51,460 --> 01:03:55,600
+modern NICs are quite a bit clever,
+
+730
+01:03:55,960 --> 01:04:01,380
+the what hasn't changed that much is this DMA ring structure,
+
+731
+01:04:01,770 --> 01:04:05,580
+you're still find that NICs to use DMA to deliver packets
+
+732
+01:04:05,580 --> 01:04:11,580
+and the way they find the place to deliver the packages by these rings of buffer pointers,
+
+733
+01:04:11,760 --> 01:04:17,290
+the main there's a couple things that are that modern NICs more clever about,
+
+734
+01:04:17,410 --> 01:04:21,430
+one is that modern NICs, you can set them up with many many queues,
+
+735
+01:04:22,090 --> 01:04:24,400
+the E1000 I think just as a single receive queue,
+
+736
+01:04:24,520 --> 01:04:32,020
+but you can tell a modern NIC, look you know I I want you to split my packets up into 32 different incoming queues
+
+737
+01:04:32,050 --> 01:04:34,480
+and here's how to decide for each package,
+
+738
+01:04:34,600 --> 01:04:40,480
+look at this field and use that to choose which ring DMA, the packaging to,
+
+739
+01:04:40,990 --> 01:04:45,220
+and there's a whole bunch of clever ways that people use that capability
+
+740
+01:04:45,220 --> 01:04:47,290
+like if you have multiple virtual machines,
+
+741
+01:04:47,290 --> 01:04:50,860
+your Amazon and you're running many guest virtual machines,
+
+742
+01:04:50,980 --> 01:04:57,940
+you may use that capability to sort of direct each packet to the queue corresponding to the virtual machine,
+
+743
+01:04:58,240 --> 01:04:59,800
+that that package should be read by.
+
+744
+01:05:01,210 --> 01:05:03,160
+Another way in which modern mixer more clever
+
+745
+01:05:03,160 --> 01:05:07,300
+as they'll do some of the TCP processing on the NIC,
+
+746
+01:05:07,330 --> 01:05:12,660
+like maybe typically checksum calculations the most I think.
+
+747
+01:05:13,620 --> 01:05:18,290
+Anyway, yeah so, modern NICs like the E1000 but more.
+
+748
+01:05:20,340 --> 01:05:21,090
+Okay, thanks.
+
+749
+01:05:23,320 --> 01:05:24,700
+Oh, sorry good.
+
+750
+01:05:25,090 --> 01:05:28,300
+Oh yeah I just wanted to ask so in our scheme in the lab,
+
+751
+01:05:28,390 --> 01:05:35,300
+there, there is no queue between the IP layer and the driver right.
+
+752
+01:05:35,600 --> 01:05:44,990
+Yeah the lab network stack is stripped down to the absolute minimum, simpler in structure than a real networks stack.
+
+753
+01:05:45,720 --> 01:05:49,710
+But this is worse in terms of performance.
+
+754
+01:05:49,800 --> 01:05:52,980
+Oh I don't know, I've never run it in real life,
+
+755
+01:05:52,980 --> 01:05:59,760
+I'm sure they've certainly we paid zero attention to performance, when writing lab networks,
+
+756
+01:05:59,760 --> 01:06:01,920
+so it would be surprising if this performance,
+
+757
+01:06:02,730 --> 01:06:05,040
+but mostly it's not a question of performances limitations,
+
+758
+01:06:05,040 --> 01:06:08,400
+it doesn't do 95% of what you need network stack,
+
+759
+01:06:08,400 --> 01:06:14,220
+to do like handle multiple NICs or have TCP.
+
+760
+01:06:15,320 --> 01:06:17,870
+Right, right, okay I see, thank you.
+
+761
+01:06:21,220 --> 01:06:37,110
+Um, sorry, so, were there any like hardware changes to the overall system that were needed to enable like NICs to have direct memory access, like in the previous picture,
+
+762
+01:06:37,380 --> 01:06:42,930
+was everything mediated through the CPU or could NICs also reached the that memory directly.
+
+763
+01:06:43,170 --> 01:06:48,690
+In that picture I showed before now the NIC doesn't reach the memory at all, the.
+
+764
+01:06:48,720 --> 01:06:49,260
+Okay.
+
+765
+01:06:49,860 --> 01:07:00,720
+I actually don't know, I mean the the maybe the most important question is how virtual memory whether and how virtual memory translation works,
+
+766
+01:07:00,750 --> 01:07:04,290
+when NIC wants to use an address that refers to host memory
+
+767
+01:07:04,380 --> 01:07:08,430
+and I don't actually know how that works, I don't know how that works,
+
+768
+01:07:09,120 --> 01:07:15,770
+I I suspect there's a translation you know NIC is really sitting on a bus
+
+769
+01:07:15,830 --> 01:07:22,890
+that's connected with you know through some fairly intelligent silicon to the to the DRAM system
+
+770
+01:07:23,040 --> 01:07:26,700
+and I believe in modern machines, you can setup translation tables within NIC
+
+771
+01:07:27,720 --> 01:07:33,560
+could use virtual addresses or addresses that are translated by this hardware
+
+772
+01:07:33,560 --> 01:07:35,660
+that sits between it and RAM,
+
+773
+01:07:35,660 --> 01:07:37,970
+and that could be very valuable for some situations.
+
+774
+01:07:38,590 --> 01:07:44,630
+The other thing, I mean another thing that I'm aware of is that,
+
+775
+01:07:46,340 --> 01:07:48,950
+if the NIC is going to write some memory or read some memory
+
+776
+01:07:48,950 --> 01:07:52,460
+and the memory is cached on the CPU.
+
+777
+01:07:53,880 --> 01:07:59,250
+You, you know you want the NIC to read if, if the software just wrote a packet buffer,
+
+778
+01:07:59,250 --> 01:08:05,260
+but the CPU hasn't, the CPU is merely cached the write,
+
+779
+01:08:05,260 --> 01:08:08,650
+because after all most memories write back,
+
+780
+01:08:08,890 --> 01:08:14,530
+that means that the real latest version of that memory is sitting in the CPU cache not in RAM
+
+781
+01:08:14,530 --> 01:08:20,080
+and in that case, we'd like the NIC to be reading the CPU cache, not the RAM, if it does DMA
+
+782
+01:08:20,590 --> 01:08:26,170
+and certainly on Intel machines and probably on others there's some fairly elaborate machinery,
+
+783
+01:08:26,170 --> 01:08:28,510
+so that if the NIC read some memory,
+
+784
+01:08:28,510 --> 01:08:33,040
+but the latest copy that memories in the CPU cache sits the CPU cache
+
+785
+01:08:33,040 --> 01:08:35,080
+that will produce the data and not RAM.
+
+786
+01:08:37,150 --> 01:08:43,990
+Yeah yeah that's actually a facility, you can some clever software uses to get high performance,
+
+787
+01:08:44,470 --> 01:08:48,070
+that is to have the effect of having this happens for writes also,
+
+788
+01:08:48,190 --> 01:08:51,520
+that the NIC will essentially directly write cache lines in the cache,
+
+789
+01:08:51,940 --> 01:08:54,670
+where it's the CPU can get at the data very quickly.
+
+790
+01:08:57,220 --> 01:09:02,290
+[] simple but their real life it's pretty involved.
+
+791
+01:09:03,940 --> 01:09:08,460
+Other questions about, about anything?
+
+792
+01:09:12,190 --> 01:09:17,890
+Okay, I'd like to switch gears now to today's paper.
+
+793
+01:09:19,390 --> 01:09:20,830
+And I'm just gonna like,
+
+794
+01:09:20,830 --> 01:09:25,150
+because we've already talked about the sort of a lot of the background of this paper,
+
+795
+01:09:25,150 --> 01:09:29,170
+I'm just going to go directly to the first graph paper
+
+796
+01:09:31,720 --> 01:09:36,340
+and essentially to drive the discussion of of the paper's graphs
+
+797
+01:09:37,030 --> 01:09:40,570
+and so what we're looking at here is the performance graph for router
+
+798
+01:09:41,140 --> 01:09:44,110
+on on the x axis, there's a router with two NICs,
+
+799
+01:09:44,110 --> 01:09:46,120
+its job is to package them in one NIC
+
+800
+01:09:46,120 --> 01:09:48,610
+and it's supposed to just send them out the other NIC,
+
+801
+01:09:48,670 --> 01:09:51,940
+the x axis is the arrival rate,
+
+802
+01:09:51,970 --> 01:09:54,160
+which packets arrive at the input NIC.
+
+803
+01:09:55,150 --> 01:10:00,280
+And the y axis is the output rate at which packets are observed to leave the output NIC
+
+804
+01:10:01,510 --> 01:10:11,110
+and the line we care about is is the filled circles which goes up then down.
+
+805
+01:10:12,180 --> 01:10:16,770
+So even without knowing anything about what's going on here,
+
+806
+01:10:16,770 --> 01:10:18,480
+we can look at this graph and we can ask ourselves,
+
+807
+01:10:18,480 --> 01:10:22,000
+gosh, why does it go up, why does it go down,
+
+808
+01:10:22,180 --> 01:10:26,110
+you know what's special about this point that's an inflection,
+
+809
+01:10:26,620 --> 01:10:30,430
+you know what is it that governs how fast it goes up or how fast it goes down.
+
+810
+01:10:32,760 --> 01:10:36,780
+So even with zero knowledge, we kind of have a good clue about what questions to ask,
+
+811
+01:10:37,080 --> 01:10:38,100
+so why does it go up.
+
+812
+01:10:41,540 --> 01:10:42,500
+Why did they [] go up.
+
+813
+01:10:48,510 --> 01:10:49,590
+It's not a very deep question.
+
+814
+01:10:54,170 --> 01:10:55,970
+They go up, sorry, go ahead.
+
+815
+01:10:56,300 --> 01:11:00,420
+Oh I guess when they're like, until it gets saturated,
+
+816
+01:11:00,750 --> 01:11:06,180
+you can process more input packages and produce more output packages.
+
+817
+01:11:06,330 --> 01:11:09,210
+Absolutely, until something starts to go wrong,
+
+818
+01:11:10,170 --> 01:11:12,750
+for every packet that comes in the router just forwards it out,
+
+819
+01:11:12,810 --> 01:11:14,970
+so you know until things go wrong,
+
+820
+01:11:14,970 --> 01:11:17,370
+if packets arrive at 2000 packets a second,
+
+821
+01:11:17,370 --> 01:11:19,530
+well it just copies every input packet to the output
+
+822
+01:11:19,530 --> 01:11:22,740
+and that means that the output rate is just equal to the input rate.
+
+823
+01:11:23,180 --> 01:11:25,160
+So this is just y equals x,
+
+824
+01:11:25,890 --> 01:11:27,810
+because every input packet gets sent out,
+
+825
+01:11:27,810 --> 01:11:29,430
+so it's y equals x for a while.
+
+826
+01:11:30,130 --> 01:11:31,960
+And so why does it stop going up.
+
+827
+01:11:39,620 --> 01:11:43,190
+Isn't this the one thing they mentioned in the paper about,
+
+828
+01:11:44,480 --> 01:11:52,520
+the they're being interrupts that can't be processed at the necessary rate.
+
+829
+01:11:52,940 --> 01:11:56,390
+That's the answer to the question, why does it go down.
+
+830
+01:11:58,600 --> 01:12:02,290
+My question is why does it stop going up, what is it,
+
+831
+01:12:02,290 --> 01:12:07,560
+that could this line in a well designed system supposing that they hadn't messed up the design, right,
+
+832
+01:12:07,590 --> 01:12:10,890
+you and I would design a system that didn't have problems right,
+
+833
+01:12:11,040 --> 01:12:14,010
+would our system with the line, just keep going up.
+
+834
+01:12:18,720 --> 01:12:26,760
+I guess not, because at some point the rate at which packets come will,
+
+835
+01:12:28,980 --> 01:12:39,300
+if you can process packets fast enough, then at some point the bottleneck will be the rate at which packets arrived.
+
+836
+01:12:39,930 --> 01:12:44,520
+That's right, this system we're talking about has has some sort of limits,
+
+837
+01:12:44,520 --> 01:12:46,830
+not, the CPU is not infinitely fast,
+
+838
+01:12:46,830 --> 01:12:50,370
+CPU executes, however many instructions per second and no more,
+
+839
+01:12:50,640 --> 01:12:53,220
+so usually these packets has to be processed,
+
+840
+01:12:53,220 --> 01:12:56,820
+the IP software has to look at the header and check the checks on
+
+841
+01:12:56,820 --> 01:13:00,030
+and look up the destination addresses and table whatever it takes,
+
+842
+01:13:00,060 --> 01:13:03,060
+hundreds or thousands of CPU cycles per packet.
+
+843
+01:13:04,810 --> 01:13:07,900
+And so we can never never expect these lines to go up
+
+844
+01:13:07,900 --> 01:13:11,050
+and definitely they must stop somewhere right
+
+845
+01:13:11,440 --> 01:13:17,470
+and we can sort of tell what we can make some guesses on this system that goes up to 5000 and no more,
+
+846
+01:13:17,800 --> 01:13:26,540
+and what that basically suggests to us is that it takes about 200 microseconds on this computer to process each packet, right,
+
+847
+01:13:26,540 --> 01:13:28,220
+that's what this point,
+
+848
+01:13:28,220 --> 01:13:35,960
+the fact that the inflection point is here means suggests that the total cost of processing package is around 200 microseconds CPU time.
+
+849
+01:13:37,510 --> 01:13:40,630
+It's a guess, but it's likely to be close to correct
+
+850
+01:13:40,720 --> 01:13:42,220
+and so there's no way we could get,
+
+851
+01:13:42,280 --> 01:13:44,470
+you know maybe we could make the software a little more efficiently,
+
+852
+01:13:44,470 --> 01:13:48,370
+we could reduce that to 150 microseconds per packet or something,
+
+853
+01:13:48,370 --> 01:13:51,040
+and so maybe we could move the inflection point up a bit,
+
+854
+01:13:51,070 --> 01:13:54,410
+but we're certainly faced with some point,
+
+855
+01:13:54,410 --> 01:13:58,670
+at which well that's just how many packets of this system can process.
+
+856
+01:14:00,760 --> 01:14:05,670
+Now, that's not necessarily what's going on here,
+
+857
+01:14:05,700 --> 01:14:07,200
+it happens to be what's going on here,
+
+858
+01:14:07,200 --> 01:14:09,300
+but it's not written in stone,
+
+859
+01:14:10,140 --> 01:14:16,450
+in fact the, there's other bottlenecks that could be the limit other than a CPU time,
+
+860
+01:14:16,450 --> 01:14:20,020
+which are worth considering the most obvious is the speed of the network,
+
+861
+01:14:20,020 --> 01:14:22,810
+the network they were using ran at only ten megabits per second,
+
+862
+01:14:22,810 --> 01:14:29,400
+that's just how fast the low level networking hardware sent bits
+
+863
+01:14:29,640 --> 01:14:35,050
+and so can never transmit more than ten thousand ten million bits per second.
+
+864
+01:14:35,730 --> 01:14:37,830
+And so that may also constitute a limit
+
+865
+01:14:37,890 --> 01:14:41,880
+and so we're thinking about whether maybe that's actually what's determining this 5000.
+
+866
+01:14:45,590 --> 01:14:47,840
+I don't, the paper doesn't quite say enough
+
+867
+01:14:47,840 --> 01:14:52,370
+to know whether it's whether it's CPU or the NIC is the limiting factor here,
+
+868
+01:14:52,910 --> 01:14:56,510
+but the fact is with with their ten megabit network,
+
+869
+01:14:57,170 --> 01:15:05,210
+if you send small packets, it's the ten megabits translates into something like ten or 15 000 packets per second,
+
+870
+01:15:05,780 --> 01:15:12,050
+that's the limit that the networking cable puts on the input rate
+
+871
+01:15:12,110 --> 01:15:18,500
+and so this is well under the ten or 15 000 packets per second, that the network is capable of,
+
+872
+01:15:18,500 --> 01:15:24,860
+so almost certainly the limit has to do with CPU or memory or something and not the, not the network itself.
+
+873
+01:15:26,400 --> 01:15:26,970
+Okay.
+
+874
+01:15:30,050 --> 01:15:33,560
+What we'd love to see, in a well designed router is that
+
+875
+01:15:34,790 --> 01:15:39,590
+it can actually you know it takes 200 microseconds to forward the packet to process a packet,
+
+876
+01:15:39,620 --> 01:15:44,960
+what we'd like to see is that the thing the router can actually forward 5000 packets per second no matter what,
+
+877
+01:15:44,960 --> 01:15:46,070
+even if the load is high,
+
+878
+01:15:46,220 --> 01:15:50,270
+so what we'd like to succeed, is this line here.
+
+879
+01:15:51,240 --> 01:15:57,450
+There's a output rate matches the input rate until you get up to the capacity of the system,
+
+880
+01:15:58,080 --> 01:15:59,670
+you know 5000 packets per second
+
+881
+01:15:59,670 --> 01:16:02,850
+and then it just continues to forward 5000 packets per second
+
+882
+01:16:02,850 --> 01:16:05,550
+and presumably drops discards the rest.
+
+883
+01:16:08,540 --> 01:16:10,790
+So this is what we'd like to design,
+
+884
+01:16:10,790 --> 01:16:12,710
+but what actually happened is much worse than that,
+
+885
+01:16:13,040 --> 01:16:19,040
+as you increase the rate beyond 5000 the number of packets that manages the forward goes down towards zero.
+
+886
+01:16:20,790 --> 01:16:23,610
+So why is this line go down, somebody mentioned this before.
+
+887
+01:16:35,220 --> 01:16:41,530
+Well, the, there's a reason that the authors figured out is that
+
+888
+01:16:41,590 --> 01:16:46,150
+as you increase the input rate, each of these input packets generates an interrupt.
+
+889
+01:16:47,300 --> 01:16:51,080
+And the interrupts, take time actually on their system interrupts are quite expensive,
+
+890
+01:16:51,080 --> 01:16:56,630
+because they involve copying a package off of the network interface card and into main memory
+
+891
+01:16:56,630 --> 01:16:58,790
+which took a long time, because the CPU was doing,
+
+892
+01:16:59,420 --> 01:17:03,560
+so each, so we know with packages arriving at 10 000 per second,
+
+893
+01:17:03,560 --> 01:17:11,330
+we certainly can't forward 10 000 and that means the best we can hope for is to forward 5000 and simply discard the other 5000,
+
+894
+01:17:11,330 --> 01:17:17,000
+but in fact the extra 5000 packets, each generated very expensive interrupt,
+
+895
+01:17:17,690 --> 01:17:20,930
+so for each additional packet over 5000 per second,
+
+896
+01:17:21,440 --> 01:17:24,200
+we're generating more and more expensive interrupts,
+
+897
+01:17:24,200 --> 01:17:29,630
+which have priority, like interrupts boy whatever you're doing, it stops the machine, takes the interrupt,
+
+898
+01:17:32,170 --> 01:17:35,380
+because the machine is essentially giving priority these interrupts,
+
+899
+01:17:35,410 --> 01:17:42,340
+that means every additional packet per second is taking CPU time away from the forwarding code,
+
+900
+01:17:43,890 --> 01:17:47,880
+until finally 100% of the CPU time is used up in the input interrupt routine
+
+901
+01:17:47,970 --> 01:17:54,010
+and no CPU time is used in the thread that forwards packets.
+
+902
+01:17:56,730 --> 01:17:58,470
+Is everyone happy with this explanation?
+
+903
+01:18:02,690 --> 01:18:09,580
+And this going down, it's called interrupt live lock.
+
+904
+01:18:11,660 --> 01:18:17,570
+The fact that this line goes down instead of saying string flags what people mean by interrupt live block
+
+905
+01:18:18,620 --> 01:18:24,620
+and it's actually a phenomenon that occurs in many systems,
+
+906
+01:18:25,010 --> 01:18:29,420
+I mean the sort of thing that's driving it is that there's two separate tasks,
+
+907
+01:18:29,630 --> 01:18:32,660
+like the input interrupt task and the forwarding task,
+
+908
+01:18:32,690 --> 01:18:40,140
+and because of a scheduling problem, essentially priority is given to the input task,
+
+909
+01:18:40,140 --> 01:18:43,800
+which can starve packet processing task,
+
+910
+01:18:44,070 --> 01:18:51,390
+in pretty much any system that has multiple independent tasks or sort of sequence of independent tasks
+
+911
+01:18:51,390 --> 01:18:52,950
+that need to be done to each input
+
+912
+01:18:53,070 --> 01:18:56,310
+and in which the input rate can't necessarily be controlled.
+
+913
+01:18:56,800 --> 01:19:00,940
+Many systems like that will exhibit exhibit live lock, if you push them too hard.
+
+914
+01:19:03,220 --> 01:19:07,240
+And you can get live lock due to many resources not just CPU,
+
+915
+01:19:07,240 --> 01:19:14,650
+but it could be that the NIC you know NIC DMAs uses up RAM cycles to do the DMAs
+
+916
+01:19:14,740 --> 01:19:18,100
+and if the NIC is using the RAM, the CPU can't use the RAM,
+
+917
+01:19:18,160 --> 01:19:19,930
+so another way to get live lock,
+
+918
+01:19:20,020 --> 01:19:24,670
+even if you have lots of CPU time, you know some other design, you might live lock,
+
+919
+01:19:24,670 --> 01:19:32,030
+because the NIC is using up RAM resources, RAM performance resources,
+
+920
+01:19:32,030 --> 01:19:34,640
+so the CPU was less able to use the RAM.
+
+921
+01:19:36,110 --> 01:19:39,590
+Anyway, this line going down is what they mean by live lock.
+
+922
+01:19:40,310 --> 01:19:43,910
+You may ask what happens to the excess packets
+
+923
+01:19:44,150 --> 01:19:48,680
+and if you recall the structure of their software,
+
+924
+01:19:48,680 --> 01:19:53,420
+was that they had been NIC that basically feeds the receive interrupt.
+
+925
+01:19:54,000 --> 01:19:57,840
+Received interrupt software copies, each packet into a queue.
+
+926
+01:19:58,610 --> 01:20:02,090
+And then there's some sort of network thread,
+
+927
+01:20:04,220 --> 01:20:05,660
+that pulls packets off the queue,
+
+928
+01:20:06,350 --> 01:20:10,880
+the exact place where packets are lost are right here.
+
+929
+01:20:11,410 --> 01:20:14,590
+What's going to happen is that the interrupt routine,
+
+930
+01:20:14,980 --> 01:20:19,330
+once we get down here with serious live lock,
+
+931
+01:20:19,780 --> 01:20:21,430
+the interrupt routine is going to fill this queue,
+
+932
+01:20:21,430 --> 01:20:23,260
+there's going to be some maximum queue length here,
+
+933
+01:20:23,260 --> 01:20:26,410
+you know, at least all the RAM, but probably much less.
+
+934
+01:20:27,550 --> 01:20:30,310
+And the interrupt routine is going to pull a packet off the NIC
+
+935
+01:20:30,310 --> 01:20:34,330
+and see that this queue is already as long as it's allowed to be
+
+936
+01:20:34,330 --> 01:20:36,520
+and the interrupt routine will discard the packet,
+
+937
+01:20:36,850 --> 01:20:39,850
+but then of course immediately after that, there'll be another interrupt.
+
+938
+01:20:41,200 --> 01:20:44,260
+The rough routine will again, this card the next packet,
+
+939
+01:20:44,260 --> 01:20:49,330
+because the network thread is always interrupted and never allowed to run.
+
+940
+01:20:52,040 --> 01:20:53,360
+Questions about this diagram?
+
+941
+01:20:57,840 --> 01:21:00,720
+This is the most important diagram in the paper.
+
+942
+01:21:05,100 --> 01:21:08,490
+Alright, well we've basically run out of time,
+
+943
+01:21:08,490 --> 01:21:12,930
+so I'll try to compress the answer to this problem into a minute.
+
+944
+01:21:15,100 --> 01:21:16,570
+The authors proposed a solution,
+
+945
+01:21:17,120 --> 01:21:21,560
+the most immediately good news about the solution is that this is the performance of their solution,
+
+946
+01:21:21,680 --> 01:21:27,980
+that is the input rate goes up to the 5000 and then its flat 5000 regardless of input rate,
+
+947
+01:21:30,050 --> 01:21:35,070
+so this is sort of a perfect non live lock performance line.
+
+948
+01:21:35,650 --> 01:21:36,790
+Of course it's going to be flat,
+
+949
+01:21:36,790 --> 01:21:42,490
+because you can only process 5000 packets per second the speed of the CPU
+
+950
+01:21:43,120 --> 01:21:46,630
+and the way they get this, they still have this network thread,
+
+951
+01:21:49,460 --> 01:21:51,440
+and they still have an interrupt routine.
+
+952
+01:21:55,940 --> 01:22:00,620
+So the very first time the NIC interrupts run the interrupt routine,
+
+953
+01:22:00,620 --> 01:22:03,530
+but the interrupt routine does not copy packets off the NIC,
+
+954
+01:22:03,590 --> 01:22:09,200
+it wakes up the network thread and then leaves interrupts on the NIC disabled,
+
+955
+01:22:09,200 --> 01:22:11,690
+so we'll get no more interrupts,
+
+956
+01:22:11,930 --> 01:22:15,230
+wake up the networking thread and then the interrupt routine will return,
+
+957
+01:22:15,230 --> 01:22:17,390
+so now interrupts the [snicker] turned off,
+
+958
+01:22:17,960 --> 01:22:19,910
+the networks right basically has a loop,
+
+959
+01:22:23,780 --> 01:22:31,430
+that a little check the NIC, you know pull a few packets from the NIC,
+
+960
+01:22:34,040 --> 01:22:36,020
+five I think is what they ended up using
+
+961
+01:22:36,110 --> 01:22:38,030
+and then process those packets.
+
+962
+01:22:40,240 --> 01:22:43,510
+And then if there were not,
+
+963
+01:22:43,900 --> 01:22:49,930
+if this a little check, then it's this networking thread now that reads packets off the NIC, not the interrupt routine,
+
+964
+01:22:50,380 --> 01:23:01,370
+if they're not no packets waiting, it enables interrupts, and then goes to sleep,
+
+965
+01:23:03,630 --> 01:23:09,960
+because it's enabled interrupts, next time packet arrives interrupt routine will wake up this thread
+
+966
+01:23:10,200 --> 01:23:12,510
+and come out of sleep and go back to the top of loop,
+
+967
+01:23:12,630 --> 01:23:15,090
+so this is this is the structure of their solution
+
+968
+01:23:15,630 --> 01:23:21,980
+and one way to view this, is that they turn an interrupt scheme into a polling scheme,
+
+969
+01:23:22,220 --> 01:23:25,660
+that is under high load, they just sit in this loop.
+
+970
+01:23:26,300 --> 01:23:30,590
+And they read packet process read packet processing with interrupts turned off,
+
+971
+01:23:30,620 --> 01:23:35,920
+so they since interrupts are turned off, they never get this effect,
+
+972
+01:23:35,920 --> 01:23:38,290
+where the interrupts steal time from the main thread,
+
+973
+01:23:38,560 --> 01:23:41,320
+whereas under low load, the enable interrupts,
+
+974
+01:23:41,840 --> 01:23:44,210
+and may be a while until packets arrive,
+
+975
+01:23:44,270 --> 01:23:47,690
+but they'll be woken up by the interrupt routine immediately if a packet does arrive.
+
+976
+01:23:50,440 --> 01:23:51,550
+And that's all I have to say.
+
+977
+01:23:53,370 --> 01:23:54,300
+Any questions?
+
+978
+01:23:56,220 --> 01:23:58,380
+I have a question,
+
+979
+01:23:59,200 --> 01:24:05,530
+is that loop looking at all of the devices or only the one that generated the interrupt.
+
+980
+01:24:07,420 --> 01:24:09,250
+If there's multiple NICs,
+
+981
+01:24:10,250 --> 01:24:13,680
+so that's a good question,
+
+982
+01:24:14,460 --> 01:24:17,130
+if there's multiple NICs, the loop,
+
+983
+01:24:17,460 --> 01:24:19,500
+I don't actually know how they how the loop works,
+
+984
+01:24:20,580 --> 01:24:25,290
+a very reasonable design is for this network thread to keep track of,
+
+985
+01:24:26,370 --> 01:24:30,900
+for every NIC whether it's an interrupting mode or polling mode.
+
+986
+01:24:33,410 --> 01:24:35,600
+And then it will only,
+
+987
+01:24:36,530 --> 01:24:42,350
+actually, because the interrupt routines no longer repackaged from the NIC,
+
+988
+01:24:42,410 --> 01:24:45,710
+that means the loop probably checks every interface at this point,
+
+989
+01:24:46,200 --> 01:24:49,120
+every probably checks every NIC at this point,
+
+990
+01:24:49,120 --> 01:24:53,270
+then pulls up, for every NIC, it has a few packets,
+
+991
+01:24:53,270 --> 01:24:58,910
+packet if that NIC has packets waiting, loop will pull a few out of the NIC and process them
+
+992
+01:24:59,420 --> 01:25:02,840
+and then if none of the NICs had anything,
+
+993
+01:25:04,170 --> 01:25:06,990
+if you checked all the NICs and none of them at any packets waiting,
+
+994
+01:25:07,600 --> 01:25:11,110
+the loop will enable interrupts on all the NICs and sleep.
+
+995
+01:25:11,560 --> 01:25:13,420
+And any NIC interrupts will wake it up.
+
+996
+01:25:14,940 --> 01:25:15,810
+That's my guess.
+
+997
+01:25:16,510 --> 01:25:19,270
+Okay, yeah sounds reasonable.
+
+998
+01:25:21,500 --> 01:25:22,940
+I had a quick question then,
+
+999
+01:25:22,940 --> 01:25:26,660
+so how did the, so while the loop is running,
+
+1000
+01:25:26,660 --> 01:25:31,640
+how do packets actually get into the queues to be pulled,
+
+1001
+01:25:31,730 --> 01:25:34,400
+I felt like there would only be one at a time.
+
+1002
+01:25:35,550 --> 01:25:41,960
+Initially the, initially the packets are queued inside the NIC in its own private memory.
+
+1003
+01:25:43,500 --> 01:25:47,370
+Then this loop, you know when it when it goes back to the top of the loop,
+
+1004
+01:25:47,430 --> 01:25:49,230
+it'll look at each NIC,
+
+1005
+01:25:50,120 --> 01:25:52,340
+and actually talk to the NIC hardware
+
+1006
+01:25:52,400 --> 01:25:55,340
+and asked do you have any input packets waiting in your memory,
+
+1007
+01:25:55,730 --> 01:26:00,520
+and if it does then this loop will, will you know allocate a packet buffer in RAM
+
+1008
+01:26:01,090 --> 01:26:04,720
+and copy the bytes of the packet out of the NIC,
+
+1009
+01:26:06,060 --> 01:26:08,370
+the packet buffer and then process that packet buffer.
+
+1010
+01:26:08,800 --> 01:26:10,930
+So it can copy more than one packet.
+
+1011
+01:26:10,990 --> 01:26:14,830
+Yeah I think they do it in groups of five, in order to,
+
+1012
+01:26:15,400 --> 01:26:17,200
+even if there's a hundred packets waiting here,
+
+1013
+01:26:17,200 --> 01:26:23,060
+it would just process the next five in order to be fair among input NICs to avoid starving.
+
+1014
+01:26:23,990 --> 01:26:28,190
+But this requires increasing the memory capacity of the NIC right, possibly.
+
+1015
+01:26:28,970 --> 01:26:35,690
+Well, I don't know, I don't know how much,
+
+1016
+01:26:36,490 --> 01:26:38,530
+the NIC might have had a reasonable amount of,
+
+1017
+01:26:40,180 --> 01:26:48,160
+the thing is this interrupt you know this live lock phenomenon below this point we're probably interrupting.
+
+1018
+01:26:50,300 --> 01:26:57,810
+And, if a packet arrives, the network thread will almost immediately be woken up and pull the packet out,
+
+1019
+01:26:57,810 --> 01:27:00,600
+over here in this regime, where too many packets are arriving,
+
+1020
+01:27:01,420 --> 01:27:04,570
+and this loop is polling instead of interrupting,
+
+1021
+01:27:06,240 --> 01:27:08,160
+packets are gonna be lost, we just know that,
+
+1022
+01:27:08,160 --> 01:27:16,470
+because the difference you know this difference between the [] the input rate and the output rate,
+
+1023
+01:27:16,680 --> 01:27:18,780
+this is all dropped packets,
+
+1024
+01:27:22,740 --> 01:27:28,870
+adding, I don't think adding because these packets are going to be dropped anyway,
+
+1025
+01:27:29,230 --> 01:27:32,050
+adding buffering to the NIC doesn't probably doesn't help very much.
+
+1026
+01:27:32,680 --> 01:27:35,170
+I I don't I don't think it's a NIC,
+
+1027
+01:27:37,920 --> 01:27:41,740
+it's not clear that NIC needs more than small amount of buffering.
+
+1028
+01:27:42,800 --> 01:27:47,960
+Yeah, that makes sense, yeah you only need as much as it would need to take to get saturated.
+
+1029
+01:27:49,530 --> 01:27:53,640
+So you know I think in their design, they would pull five packets of either quota was five packets
+
+1030
+01:27:53,640 --> 01:27:55,890
+and so the NICs centainly needs five packets of buffering,
+
+1031
+01:27:56,460 --> 01:28:01,800
+that makes sense but probably, anyway, it's not clear that more than that would be very beneficial.
+
+1032
+01:28:02,780 --> 01:28:08,380
+Really, the purpose of buffering is to absorb transient bursts,
+
+1033
+01:28:09,150 --> 01:28:13,590
+whole packets is long enough that the software can get along to reading,
+
+1034
+01:28:13,590 --> 01:28:16,530
+but we're not talking about transient anything in this situation,
+
+1035
+01:28:16,530 --> 01:28:18,390
+we're talking about persistent overload.
+
+1036
+01:28:18,990 --> 01:28:23,390
+So there's that, so that means there's not really much function for a lot of buffering.
+
+1037
+01:28:24,790 --> 01:28:25,420
+Yeah make sense.
+
+1038
+01:28:28,300 --> 01:28:30,730
+I think my question is related to that,
+
+1039
+01:28:30,730 --> 01:28:37,050
+it's so if the difference between interrupts on and interrupts off here is that,
+
+1040
+01:28:37,740 --> 01:28:41,640
+it's going to be the same, but like it's still going to be putting things on the queue,
+
+1041
+01:28:41,640 --> 01:28:46,120
+if it's able to, but it will just not issue an interrupt,
+
+1042
+01:28:46,120 --> 01:28:50,340
+but if there's no place on the queue then, it will just drop.
+
+1043
+01:28:50,670 --> 01:28:55,680
+The interrupt, the interrupt routine in this new scheme never looks at packets.
+
+1044
+01:28:56,270 --> 01:28:58,760
+Oh yes, I mean like, you said,
+
+1045
+01:28:59,420 --> 01:29:02,960
+you turn off the interrupts for the NIC, right.
+
+1046
+01:29:03,640 --> 01:29:05,770
+Yeah, so this what happens in the interrupt handler,
+
+1047
+01:29:05,770 --> 01:29:12,220
+is it disables interrupts on this NIC
+
+1048
+01:29:12,640 --> 01:29:14,980
+and then wakes up the network thread.
+
+1049
+01:29:16,000 --> 01:29:19,270
+That's all it does, returns.
+
+1050
+01:29:19,860 --> 01:29:23,070
+Right, I guess my question is when they interrupt here disabled,
+
+1051
+01:29:23,070 --> 01:29:27,000
+can the NICs still put packets on its own buffer.
+
+1052
+01:29:27,030 --> 01:29:31,530
+Yes, the NIC is self-contained, so it has internal buffering,
+
+1053
+01:29:31,800 --> 01:29:35,250
+whether or not regardless of whether interrupts are enabled or disabled,
+
+1054
+01:29:35,610 --> 01:29:42,450
+the only, all that happens when a packet arrives, is the NIC, adds appends the packet to it,
+
+1055
+01:29:43,120 --> 01:29:45,730
+it's queue packets in its own internal memory,
+
+1056
+01:29:45,760 --> 01:29:47,830
+that's all that ever happens when a packet arrives.
+
+1057
+01:29:48,720 --> 01:29:53,490
+So whenever the NIC, in this paper's NIC, different designs are very different,
+
+1058
+01:29:53,490 --> 01:29:59,790
+but for this paper, their NIC never did DMA, never reached out and touched host memory ever.
+
+1059
+01:30:01,170 --> 01:30:03,660
+It kept an internal queue in its own memory
+
+1060
+01:30:03,660 --> 01:30:05,700
+and the hosts could read packets out if it wanted to.
+
+1061
+01:30:07,140 --> 01:30:10,410
+Okay I see, and if there's no memory then.
+
+1062
+01:30:10,470 --> 01:30:11,310
+Drop.
+
+1063
+01:30:11,700 --> 01:30:16,530
+OK, so in this design, if packets are these excess packets,
+
+1064
+01:30:16,650 --> 01:30:22,290
+the place they're dropped is is inside the NIC what'll happen is a packet or [],
+
+1065
+01:30:23,630 --> 01:30:28,940
+if we're an overload situation, then the NICs queue will be full always or almost always,
+
+1066
+01:30:28,940 --> 01:30:31,550
+and so when a packet arrives, the NICs queue will typically be full,
+
+1067
+01:30:31,610 --> 01:30:36,680
+it will drop, the NIC will drop the packet without wasting any CPU time on the machine.
+
+1068
+01:30:38,020 --> 01:30:39,310
+Okay, yeah.
+
+1069
+01:30:39,310 --> 01:30:42,910
+That the fact that it can drop without burning up CPU time here,
+
+1070
+01:30:43,120 --> 01:30:47,260
+is one way of explaining how they avoid live locks.
+
+1071
+01:30:48,250 --> 01:30:50,470
+Right, right okay, thank you so much.
+
+1072
+01:30:55,660 --> 01:30:56,800
+I had a quick question,
+
+1073
+01:30:56,980 --> 01:31:04,120
+will there ever be a scenario in which the CPU you'll pull a few packets,
+
+1074
+01:31:04,330 --> 01:31:07,660
+but the like internal software queues are all like full.
+
+1075
+01:31:08,730 --> 01:31:09,420
+Oh sure.
+
+1076
+01:31:10,620 --> 01:31:12,300
+Yeah, there's some other bottleneck,
+
+1077
+01:31:12,630 --> 01:31:21,470
+so for example suppose these incoming packets, some of them need to be delivered to some application on a socket,
+
+1078
+01:31:21,920 --> 01:31:24,530
+if that application isn't reading packets fast enough,
+
+1079
+01:31:25,400 --> 01:31:33,560
+then the socket buffer leading to you know that that application should be reading will get full
+
+1080
+01:31:33,590 --> 01:31:38,570
+and then packets may be dropped in the networking thread,
+
+1081
+01:31:39,250 --> 01:31:42,610
+and that can also lead to live lock,
+
+1082
+01:31:43,120 --> 01:31:46,660
+because now because we have the same, the reason live lock comes up is that
+
+1083
+01:31:46,750 --> 01:31:51,440
+we expanded resources processing a packet that was later dropped,
+
+1084
+01:31:51,560 --> 01:31:52,940
+so it was wasted effort.
+
+1085
+01:31:53,670 --> 01:31:55,830
+If the application is not reading it's,
+
+1086
+01:31:55,830 --> 01:32:05,080
+well, one way we can get live lock is as the load goes up, maybe we end up spending a hundred percent of our time in the networking thread,
+
+1087
+01:32:05,960 --> 01:32:10,280
+leaving 0% of the time for whatever application is supposed to be reading the packets
+
+1088
+01:32:10,310 --> 01:32:12,170
+and then we'll again get live lock.
+
+1089
+01:32:13,080 --> 01:32:18,810
+But it won't be interrupt live lock it will be network processing live lock or something,
+
+1090
+01:32:18,900 --> 01:32:22,500
+the paper actually has a story for that,
+
+1091
+01:32:24,210 --> 01:32:27,450
+somewhere in section six, they talk about the network,
+
+1092
+01:32:27,480 --> 01:32:30,690
+if packets are being delivered to a local application,
+
+1093
+01:32:30,900 --> 01:32:34,810
+the network thread would look at the socket queue for that application,
+
+1094
+01:32:34,810 --> 01:32:43,060
+and if it was getting long, it would turn off interrupt would turn off interrupts and stop pulling packets off the network interface until the queue got shorter.
+
+1095
+01:32:43,740 --> 01:32:47,880
+And and so that means that network thread would stop running
+
+1096
+01:32:47,880 --> 01:32:50,640
+and give the application a chance to run and process the packets,
+
+1097
+01:32:50,700 --> 01:32:55,320
+so you can get live lock like situations at any stage,
+
+1098
+01:32:55,320 --> 01:32:58,980
+if you're not careful in a multistage process scheme.
+
+1099
+01:33:00,010 --> 01:33:01,780
+OK, that makes sense, thank you.
+
+1100
+01:33:04,820 --> 01:33:05,570
+Thank you.
+
+1101
+01:33:05,720 --> 01:33:06,590
+Thank you.
+
+1102
+01:33:07,040 --> 01:33:07,430
+Welcome.
+
