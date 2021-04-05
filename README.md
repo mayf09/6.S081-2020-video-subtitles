@@ -38,7 +38,7 @@
 | 20   | &check; | &check; |         |
 | 21   | &check; | &check; |         |
 | 22   | &check; | &check; |         |
-| 23   | &check; |         |         |
+| 23   | &check; | &check; |         |
 | 24   | &check; |         |         |
 
 ## 文件（夹）说明
