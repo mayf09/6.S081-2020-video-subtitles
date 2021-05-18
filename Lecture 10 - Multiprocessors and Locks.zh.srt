@@ -1,5856 +1,7320 @@
 1
 00:00:00,330 --> 00:00:03,360
+是的，我们不是很好。
 Yeah, we're not so good.
 
 2
 00:00:06,650 --> 00:00:08,090
+好的，那 Erica 呢，
 Good, how about Erica,
 
 3
 00:00:08,800 --> 00:00:11,590
+lazy 实验对你来说怎么样。
 how's the lazy lab for you.
 
 4
 00:00:12,040 --> 00:00:13,630
+我也觉得还可以，
 I also thought it was okay
 
 5
 00:00:13,630 --> 00:00:16,810
+我也是在 copyin 和 copyout 有 bug ，
 and I also had a bug with the copyin and copyout,
 
 6
 00:00:16,810 --> 00:00:20,110
+但我得到了结果，所以，还可以。
 but I got that result, so yeah.
 
 7
 00:00:20,700 --> 00:00:22,290
+我想这是一种棘手的情况，
 I think it is one of those tricky cases
 
 8
 00:00:22,290 --> 00:00:24,420
+当你开始编程的时候，可能没有想到。
 that you might not think about when you start programming.
 
 9
 00:00:26,390 --> 00:00:28,490
+但是，幸运的是， usertests 会为你找到它。
 But, luckily usertests will find it for you.
 
 10
 00:00:33,180 --> 00:00:34,950
+Caroline 。
 The, Caroline.
 
 11
 00:00:37,580 --> 00:00:39,050
+实验进行得很顺利，
 The lab is going good,
 
 12
 00:00:39,080 --> 00:00:41,060
+实际上我还没有做完。
 I haven't finished yet actually.
 
 13
 00:00:41,960 --> 00:00:44,990
+好的，我想要注意 copyin 。
 Alright, worry about copyin, I guess.
 
 14
 00:00:45,110 --> 00:00:46,070
+是的。
 Yeah.
 
 15
 00:00:52,560 --> 00:00:54,090
+Kendall Garner 怎么样？
 How about Kendall Garner?
 
 16
 00:00:55,920 --> 00:00:58,680
+我想在很大程度上，
 I think for the most part of the,
 
 17
 00:00:58,770 --> 00:01:01,440
+对我来说不算太糟，
 it was not too bad for me,
 
 18
 00:01:01,440 --> 00:01:04,080
+可能试着解决的最奇怪的[]是，
 probably the weirdest [] was trying to figure out
 
 19
 00:01:04,080 --> 00:01:07,020
+当它低于堆栈的界限。
 when it went below bounds of the stack.
 
 20
 00:01:08,760 --> 00:01:12,080
+是的，应该是它到达了守护页。
 Yeah, it to the guard page basically.
 
 21
 00:01:16,760 --> 00:01:17,360
+好的。
 Good.
 
 22
 00:01:18,810 --> 00:01:22,020
+好的，差不多该开始了。
 Okay, well it's about time to get started.
 
 23
 00:01:22,820 --> 00:01:27,620
+欢迎来到 6.S081 的下一节课，
 So welcome to the next lecture, in the 6.S081,
 
 24
 00:01:27,740 --> 00:01:29,660
+无论你在哪里，不管是什么时区。
 wherever you are, whatever time zone.
 
 25
 00:01:31,540 --> 00:01:33,400
+所以，今天的课程是关于锁。
 So today's lecture is about locks.
 
 26
 00:01:33,940 --> 00:01:37,870
+你们可能在之前的课上见过锁，
 You probably have seen locks in previous classes,
 
 27
 00:01:38,050 --> 00:01:42,130
+或者至少以这样或那样的方式与它们接触，
 or at least being in touch with them in some way or another,
 
 28
 00:01:42,130 --> 00:01:44,890
+这节课是有点概念性的课程，
 and so this lecture a little bit of a conceptual lecture,
 
 29
 00:01:44,890 --> 00:01:48,310
+可能与你之前见过的一些东西有些重叠，
 may overlap a little bit with some things you've seen before,
 
 30
 00:01:48,310 --> 00:01:52,150
+锁将更关注内核和操作系统方面。
 locks will have a little bit more of kernel and OS [focus].
 
 31
 00:01:52,560 --> 00:01:54,120
+这改变了几件事情。
 And that changes a couple things.
 
 32
 00:01:54,750 --> 00:01:56,970
+作为开始，
 Just to get started,
 
 33
 00:01:57,000 --> 00:01:59,970
+让我们提醒自己，为什么需要锁，
 let's remind ourselves why we need locks,
 
 34
 00:02:00,060 --> 00:02:03,060
+我想我们的出发点是，
 you know I guess the starting point is really that
 
 35
 00:02:03,060 --> 00:02:07,170
+应用程序想要使用多个核心。
 applications well want to use multiple cores.
 
 36
 00:02:12,190 --> 00:02:14,230
+它们希望使用多核来获得性能。
 They want to use multiple cores to get performance.
 
 37
 00:02:17,040 --> 00:02:21,990
+所以，如果一个应用程序希望在多个核心上运行，
 And so if an application actually want to run on multiple cores
 
 38
 00:02:21,990 --> 00:02:26,370
+可能核心是应用程序调用系统调用的一部分，
 and [presumably] what's the cores are part of the application may invoke system calls
 
 39
 00:02:26,580 --> 00:02:28,710
+所以内核必须能够处理，
 and so the kernel must be able to handle,
 
 40
 00:02:31,320 --> 00:02:32,880
+必须处理并发系统调用。
 must handle parallel system calls.
 
 41
 00:02:45,440 --> 00:02:50,630
+这意味着系统调用在不同的核心上并行运行，
 And that means that you know the system calls run in parallel on different cores,
 
 42
 00:02:50,900 --> 00:02:59,650
+它们可能并行访问共享数据结构。
 they may actually access shared data structures, data structures in parallel.
 
 43
 00:03:04,390 --> 00:03:05,830
+就像你们已经在 alloc 看到过的，
 And as you've seen by the alloc,
 
 44
 00:03:05,830 --> 00:03:09,490
+实际上 xv6 有相当多的共享数据结构，
 actually xv6 ask quite a number of shared data structures
 
 45
 00:03:09,580 --> 00:03:13,780
+比如 proc 数据结构或 ticks ，
 what's the proc structures or you know ticks
 
 46
 00:03:13,780 --> 00:03:17,860
+或者稍后我们会看到缓冲区，
 or you know later we'll see the buffer cache,
 
 47
 00:03:17,860 --> 00:03:20,170
+实际上有大量的共享数据结构。
 you know there's actually a ton of shared data structures.
 
 48
 00:03:20,960 --> 00:03:26,150
+所以，如果你并行访问一个数据结构，
 And so if you have parallel access you know to a data structure
 
 49
 00:03:26,150 --> 00:03:28,880
+其中一个核心是写入者，
 in one of the cores are writer
 
 50
 00:03:28,880 --> 00:03:30,920
+其他是读取者，
 and the other cores are reader
 
 51
 00:03:30,920 --> 00:03:35,090
+我们阻塞来协调更新这些共享数据结构，
 you know we basically blocks to coordinate these updates to shared data structure,
 
 52
 00:03:35,090 --> 00:03:37,430
+这样读取者看到一致的。
 so that readers see consistent view.
 
 53
 00:03:38,310 --> 00:03:46,840
+所以我们需要锁，来控制共享，保证正确共享。
 So we need locks, you know to, for control sharing, for correct sharing.
 
 54
 00:03:52,010 --> 00:03:55,310
+现在，这有点令人沮丧。
 Now, this is some sence a little bit of a bummer.
 
 55
 00:03:55,860 --> 00:03:59,070
+因为我们想要并行访问，
 Because we want these parallel access,
 
 56
 00:03:59,460 --> 00:04:05,340
+我们想在不同的核心上并行运行多个一致的调用，
 we want to run multiple consistent calls in parallel on different cores,
 
 57
 00:04:05,700 --> 00:04:09,450
+但不幸的是，如果它们共享数据结构，
 but unfortunately, if they share data structures,
 
 58
 00:04:09,450 --> 00:04:10,500
+它们需要锁，
 you know they need locks,
 
 59
 00:04:10,500 --> 00:04:13,620
+而锁序列化操作，
 and locks you know serialize basically operations
 
 60
 00:04:13,920 --> 00:04:17,160
+所以，实际上，锁最终会限制性能。
 and so in fact you know locks in the end can limit performance.
 
 61
 00:04:27,320 --> 00:04:28,910
+所以我们现在的情况有些微妙，
 And so we're sort of in a tricky situation,
 
 62
 00:04:28,910 --> 00:04:31,070
+为了正确，我们需要锁，
 where you know for correctness, we need locks,
 
 63
 00:04:31,070 --> 00:04:33,590
+但对于性能来说，它们不是很好。
 you know, but for performance, they're not good.
 
 64
 00:04:34,600 --> 00:04:37,420
+但是，这就是实际情况，
 But you know there's going to be a fact of life
 
 65
 00:04:37,420 --> 00:04:40,750
+我们看看能做些什么。
 and we'll see what can do about it.
 
 66
 00:04:41,300 --> 00:04:44,480
+但这是最高级别的场景，
 But that's sort of the top level scenario here
 
 67
 00:04:44,750 --> 00:04:48,620
+也许带来了这一点，
 and you know maybe just to really you know brings this point,
 
 68
 00:04:48,620 --> 00:04:51,710
+为什么应用程序需要多个核心，
 why do applications actually want multiple cores
 
 69
 00:04:51,920 --> 00:04:54,650
+这与技术趋势有关，
 and that really has to do with you know technology trends,
 
 70
 00:04:54,650 --> 00:04:56,480
+在过去的几十年里，
 you know over the last couple decades,
 
 71
 00:04:56,900 --> 00:04:59,330
+有一些经典的图表，
 and you know there's sort of this classic graphs,
 
 72
 00:04:59,330 --> 00:05:00,620
+在某种程度上说明了这些观点，
 that sort of make these points,
 
 73
 00:05:00,830 --> 00:05:02,990
+所以，让我调出其中一个，
 so let me pull up one of them,
 
 74
 00:05:02,990 --> 00:05:04,730
+这是一个有点复杂的图表，
 there's a little bit of a complicated graph,
 
 75
 00:05:04,730 --> 00:05:09,470
+x 轴上是年份，
 you know there's years on the x axis
 
 76
 00:05:09,470 --> 00:05:12,170
+而 y 轴上是单位，
 and y axis, there's you know units
 
 77
 00:05:12,290 --> 00:05:15,500
+或者根据我们看哪条线是不同的单位。
 or different types of units depending on which line we're looking at.
 
 78
 00:05:16,140 --> 00:05:18,150
+但是真正的东西是，
 But the thing that really look at, it is that,
 
 79
 00:05:18,630 --> 00:05:22,440
+过去几年发生的事情。
 what has happened in the last couple years.
 
 80
 00:05:22,440 --> 00:05:24,690
+过去几十年是，
 The last decades is that,
 
 81
 00:05:25,260 --> 00:05:26,940
+从 2000 年开始，
 so starting in the two thousands,
 
 82
 00:05:26,940 --> 00:05:30,690
+时钟频率并没有继续增加。
 that the clock frequency hasn't really increased any more.
 
 83
 00:05:31,320 --> 00:05:35,920
+基本上是停滞不前，持续不变的。
 So basically this has plateaued, constant.
 
 84
 00:05:37,000 --> 00:05:42,700
+所以，核心的单线程性能，
 And as a result, basically single thread performance of core
 
 85
 00:05:42,700 --> 00:05:47,980
+也基本达到了极限，停滞不前。
 also basically has reached limit you know plateaued.
 
 86
 00:05:52,060 --> 00:05:53,980
+然而，另一方面，
 And yet on the other hand,
 
 87
 00:05:53,980 --> 00:05:58,630
+核心的最小晶体管数量还在随时间增长，
 the minimum cores of the number of transistors still has been increasing over the same time period,
 
 88
 00:05:58,990 --> 00:06:02,980
+所以，如果你不能使用晶体管使单个核心运行得更快，
 so if you can't like you know use transistors to make a single core sort of run faster,
 
 89
 00:06:03,250 --> 00:06:06,400
+唯一的选择是使用多个内核，
 you know the only other option basically have to have multiple cores
 
 90
 00:06:06,400 --> 00:06:10,570
+你可以看到从 2001 年或 2000 年开始，
 and you see indeed that starting from 2001 or from nearly 2000,
 
 91
 00:06:10,570 --> 00:06:11,860
+内核的数量越来越多。
 the number of cores has gone up.
 
 92
 00:06:13,500 --> 00:06:15,570
+所以，应用程序需要更高的性能，
 And so there's an application wants more performance,
 
 93
 00:06:15,900 --> 00:06:18,630
+你不能依赖一个核心，
 you know, you can't rely on a single core,
 
 94
 00:06:18,630 --> 00:06:20,640
+而是要使用多个核心。
 basically have to through exploiting multiple cores.
 
 95
 00:06:21,170 --> 00:06:25,460
+而且，这意味着如果应用程序是内核密集型或非内核密集型，
 And also, this means if an application is you know kernel intensive or less intensive,
 
 96
 00:06:25,460 --> 00:06:28,430
+比如一台服务器，
 you know a server,
 
 97
 00:06:28,490 --> 00:06:33,950
+那就意味着操作系统必须在多核上高效运行。
 then that means that the operating system also has to be you know run efficiently on multiple cores.
 
 98
 00:06:34,740 --> 00:06:35,970
+所以这是主要原因，
 So that's the main reason,
 
 99
 00:06:36,330 --> 00:06:42,600
+我们对内核中的并行性非常感兴趣。
 you know, we're sort of very interested in parallelism within the kernel.
 
 100
 00:06:45,120 --> 00:06:46,320
+对这个有什么问题吗？
 Any questions about this?
 
 101
 00:06:52,020 --> 00:06:55,050
+好的，我猜你们以前看过其中的一些图表，
 Okay, I assume, I I assume that you've seen some of these graphs before,
 
 102
 00:06:55,050 --> 00:06:56,580
+但这很好地提醒我们，
 but it's good to remind us
 
 103
 00:06:56,580 --> 00:06:58,560
+所有讨论的出发点是什么。
 what the starting point of all the discussion is.
 
 104
 00:07:00,660 --> 00:07:01,500
+那么为什么要使用锁，
 So why locks,
 
 105
 00:07:02,960 --> 00:07:07,400
+我们已经提到了，是为了正确性，
 you know already hinted at this, you know, they're for correctness,
 
 106
 00:07:07,400 --> 00:07:12,080
+如果我们有读取者和写入者访问共享数据结构，
 if we have you know readers and writers are accessing shared data structure
 
 107
 00:07:12,440 --> 00:07:14,750
+会出现的问题是，
 and you know the thing that goes wrong is,
 
 108
 00:07:14,750 --> 00:07:16,880
+我们想要避免竞态条件。
 we want to avoid race conditions.
 
 109
 00:07:23,830 --> 00:07:25,000
+如果没有锁，
 If you don't have locks,
 
 110
 00:07:25,150 --> 00:07:26,230
+会出现一种风险，
 you know we run the risk,
 
 111
 00:07:26,260 --> 00:07:27,670
+我们有共享的数据结构，
 you know we have shared data structures,
 
 112
 00:07:27,670 --> 00:07:33,250
+我们会有竞态条件，
 that we're going to have, we're going to have race conditions
 
 113
 00:07:33,250 --> 00:07:37,330
+竞态条件是相当烦人的，
 and it turns out that race conditions are pretty annoying,
 
 114
 00:07:37,420 --> 00:07:41,620
+所以，首先对它的情况有了一点了解，
 so justly first got a little bit of sense of what it actually is,
 
 115
 00:07:41,770 --> 00:07:43,180
+让我们看一下，
 let's look at the,
 
 116
 00:07:43,210 --> 00:07:46,120
+让我们在 xv6 中创造一个竞态条件，
 let's create a race condition in xv6
 
 117
 00:07:46,120 --> 00:07:47,980
+然后看看它是怎么表现出来的，
 and sort of see how it actually shows up
 
 118
 00:07:47,980 --> 00:07:50,020
+然后理解实际发生了什么。
 and then understand like what actually happened.
 
 119
 00:07:51,100 --> 00:07:58,370
+好的，这是 kalloc.c 中的函数 kfree 。
 Alright, so here's the function kfree in kalloc.c.
 
 120
 00:07:58,370 --> 00:08:00,140
+这是一个函数，释放，
 You know this is the function that frees,
 
 121
 00:08:00,500 --> 00:08:02,750
+在你释放页面之后，它会推入到 free 列表，
 after you free page, it pushes on the freelist,
 
 122
 00:08:02,810 --> 00:08:05,420
+内核有一个非常简单的数据结构，
 there's kernel has a very simple data structure
 
 123
 00:08:05,420 --> 00:08:07,190
+使用 freelist 保存所有空闲页表。
 to keep the freelist of all free pages.
 
 124
 00:08:07,700 --> 00:08:11,120
+所以，当 kalloc 需要页面时，它从 freelist 中获取。
 So that when kalloc needs to page, that grabbing from the freelist.
 
 125
 00:08:11,620 --> 00:08:17,230
+这里你可以看到， allocation 有一个，
 This you see here, you know the allocation has one,
 
 126
 00:08:19,500 --> 00:08:21,660
+内存分配器有一个锁 kmem.lock ，
 the memory allocator has one lock kmem.lock
 
 127
 00:08:22,020 --> 00:08:24,780
+在这里，它更新了 freelist ，
 and here it actually updates the freelist
 
 128
 00:08:25,080 --> 00:08:29,310
+使用刚刚释放的页面或者需要释放的参数。
 with the page that just has been freed or with argument to free.
 
 129
 00:08:29,880 --> 00:08:30,630
+所以我们要做的是，
 So we're going to do is
 
 130
 00:08:30,630 --> 00:08:33,990
+注释掉这两个 acquire 和 release ，
 like just comment out these two acquire release,
 
 131
 00:08:33,990 --> 00:08:38,790
+这标志着获得锁，然后释放锁，
 that basically mark you know the acquiring of the lock, and then releasing the lock,
 
 132
 00:08:38,790 --> 00:08:41,760
+所以这段代码，
 you know and so this, this, this, this piece of code
 
 133
 00:08:41,760 --> 00:08:44,010
+之前在中间的这段（代码），
 that's in the middle that used to be,
 
 134
 00:08:44,400 --> 00:08:48,150
+不再是原子地执行了。
 there's not more, is not being executed anymore at atomically.
 
 135
 00:08:54,100 --> 00:08:55,840
+所以我们就这么做，
 So let's do that,
 
 136
 00:08:56,910 --> 00:09:03,330
+然后运行 QEMU ，编译它。
 and then run QEMU, so compile it.
 
 137
 00:09:05,300 --> 00:09:07,130
+在我运行它之前，
 And before I run it,
 
 138
 00:09:07,160 --> 00:09:09,290
+注意到我们已经启动了，
 you know notice actually we already booted
 
 139
 00:09:09,380 --> 00:09:14,150
+实际上，我们已经有几个 kfree 的调用，
 and actually presumably we have made some calls probably to kfree,
 
 140
 00:09:14,450 --> 00:09:15,680
+像你知道的，
 and probably as you know,
 
 141
 00:09:15,680 --> 00:09:17,510
+实际上事情看起来运行得很好。
 and so actually things seem to be working fine.
 
 142
 00:09:18,070 --> 00:09:19,630
+让我们运行 usertests 。
 So let's run usertests.
 
 143
 00:09:20,260 --> 00:09:22,870
+也许要想想这件事，
 And maybe you know this interesting to think a little bit about this
 
 144
 00:09:22,870 --> 00:09:23,740
+你期望的是什么，
 and what do you expect,
 
 145
 00:09:23,740 --> 00:09:25,870
+这能正常工作，或者不能正常工作。
 will this work, will does not work.
 
 146
 00:09:28,920 --> 00:09:30,120
+有人试过吗。
 Anybody who tried it out.
 
 147
 00:09:33,070 --> 00:09:36,640
+我想它可能会丢失一些页面，
 I think it could potentially lose some pages,
 
 148
 00:09:36,640 --> 00:09:38,500
+但也可能不会，
 but maybe will not,
 
 149
 00:09:38,590 --> 00:09:41,970
+因为可能竞态条件不会出现。
 because maybe a race condition wouldn't occur.
 
 150
 00:09:42,120 --> 00:09:43,920
+是的，其中一件事是，
 Yeah, so one of the things is
 
 151
 00:09:43,920 --> 00:09:46,170
+我们面临的是这些情况可能不会发生，
 that these we face conditions they might not happen,
 
 152
 00:09:46,170 --> 00:09:48,330
+所以，让我们运行 usertests ，看看实际会发生什么。
 so let's run the usertests and see actually what happens.
 
 153
 00:09:51,820 --> 00:09:53,320
+我们从这里开始。
 So here we started up.
 
 154
 00:09:54,360 --> 00:09:55,560
+这需要一小段时间，
 It'll take a little while,
 
 155
 00:09:55,560 --> 00:09:56,790
+你可能会抱怨，
 as you might complain a little bit,
 
 156
 00:09:56,790 --> 00:09:59,310
+因为要跑很多，
 because you know, run a lot of,
 
 157
 00:10:00,940 --> 00:10:02,590
+在我的机器上要加载很多，
 there are a lot of load on my machine here correct,
 
 158
 00:10:02,590 --> 00:10:07,060
+这里 QEMU 模拟了三个核心，
 you probably know the QEMU simulating three of cores here
 
 159
 00:10:07,060 --> 00:10:09,100
+并且不同的核心可以并行运行。
 and the discrete cores might run in parallel.
 
 160
 00:10:11,830 --> 00:10:13,840
+到目前为止一切顺利，
 And so far so good,
 
 161
 00:10:14,020 --> 00:10:15,580
+我们开始通过测试。
 we're starting to pass tests.
 
 162
 00:10:21,470 --> 00:10:22,430
+这有点慢，
 That's a little bit slower,
 
 163
 00:10:22,430 --> 00:10:24,200
+因为我同时运行了 Zoom 。
 because I'm running zoom at the same time.
 
 164
 00:10:26,920 --> 00:10:30,280
+让我们稍等一下，看看会发生什么。
 Let's wait a couple more and just to see what's going on.
 
 165
 00:10:43,070 --> 00:10:45,320
+好的，好吧。
 Okay, well.
 
 166
 00:10:46,290 --> 00:10:48,420
+我们还是回去看幻灯片，
 Let's just go back to the slides
 
 167
 00:10:48,420 --> 00:10:50,580
+然后我们过一会再回来看看，
 and then we'll check back in a little while
 
 168
 00:10:50,580 --> 00:10:52,020
+看看会发生什么。
 and see what actually happens.
 
 169
 00:10:52,860 --> 00:10:54,900
+但是需要指出，
 But it was pointed out
 
 170
 00:10:54,960 --> 00:10:57,330
+这些竞态条件可能会出现，也可能不会出现，
 you know these race conditions may appear, may not appear, right,
 
 171
 00:10:57,330 --> 00:10:58,770
+因为情况可能总是这样，
 because it's always the case
 
 172
 00:10:58,770 --> 00:11:01,590
+每个核心或每次我们调用 kfree ，
 that every core or every time we call kfree,
 
 173
 00:11:02,040 --> 00:11:05,340
+这两行（代码）原子地执行，
 these two lines are executed atomically
 
 174
 00:11:06,240 --> 00:11:08,820
+就像它们使用了锁那样，
 as they would have done with the lock,
 
 175
 00:11:08,970 --> 00:11:10,530
+那就不会出现问题，
 then there's no problem,
 
 176
 00:11:10,530 --> 00:11:11,490
+唯一的问题是，
 the only problem is
 
 177
 00:11:11,490 --> 00:11:14,940
+如果两个线程或两个进程同时执行，
 if two threads two processes are executed at the same time
 
 178
 00:11:15,000 --> 00:11:16,110
+然后有（代码）在中间执行。
 and somebody comes in between.
 
 179
 00:11:17,140 --> 00:11:19,420
+看看这个，在我说话的时候，
 Look at this, actually while I'm talking,
 
 180
 00:11:19,420 --> 00:11:21,010
+我们看到这里有一个 panic ，
 we see actually there is a panic
 
 181
 00:11:21,040 --> 00:11:23,920
+所以，有一些竞态条件引起了 panic 。
 and so there's some race condition that can actually cause a panic.
 
 182
 00:11:24,940 --> 00:11:27,970
+更确切地说，竞态条件会出现，
 Rather race conditions that will show up
 
 183
 00:11:27,970 --> 00:11:31,480
+正如所提到的那样，
 as indeed this as mentioned whereas mentioned
 
 184
 00:11:31,480 --> 00:11:33,910
+这是不够的，
 that will show up as [not enough],
 
 185
 00:11:34,030 --> 00:11:36,070
+一些空闲页面丢失了，
 some free pages where some pages get lost,
 
 186
 00:11:36,100 --> 00:11:38,650
+基本上 usertest 运行得很好直到最后，
 so basically usertests runs fine until the very end,
 
 187
 00:11:38,770 --> 00:11:42,100
+抱怨丢失了一些页面，
 where complaints saying well you lost some pages
 
 188
 00:11:42,100 --> 00:11:44,890
+在整个 usertests 中。
 during all user-, all of the [round] usertests.
 
 189
 00:11:45,600 --> 00:11:46,140
+好的。
 Okay.
 
 190
 00:11:46,440 --> 00:11:48,870
+所以，这些竞态条件可以以不同的方式表现出来，
 So these race conditions can show up in different ways,
 
 191
 00:11:48,930 --> 00:11:50,460
+它们可能会发生，也可能不会发生。
 they may happen, they may not happen.
 
 192
 00:11:51,120 --> 00:11:53,520
+很明显这里发生了，
 Clearly something happened here,
 
 193
 00:11:53,760 --> 00:11:57,750
+让我们试着了解到底哪里出了问题。
 let's try to understand you know what actually, what goes wrong.
 
 194
 00:12:00,420 --> 00:12:02,370
+回到幻灯片上。
 Back to the slides.
 
 195
 00:12:06,400 --> 00:12:09,040
+所以，你知道这个应该在脑海中的图片，
 So you know the picture, you should have in your head,
 
 196
 00:12:09,040 --> 00:12:12,250
+比如有多个核心在运行。
 like if there's multiple cores that were running.
 
 197
 00:12:13,070 --> 00:12:16,880
+所以， CPU0 正在执行指令，
 So you know CPU0, CPU0 is executing instructions,
 
 198
 00:12:17,470 --> 00:12:19,600
+并且 CPU1 也在执行指令。
 and CPU1 is executing instructions.
 
 199
 00:12:21,210 --> 00:12:24,750
+它们都连接到一块内存上，
 And they're both connected to a memory,
 
 200
 00:12:24,960 --> 00:12:27,720
+如果你回想一下方案示意图，
 if you're back think back about the scheme schematics,
 
 201
 00:12:27,720 --> 00:12:29,250
+我们之前展示过几次，
 you know we showed a couple times before,
 
 202
 00:12:29,550 --> 00:12:31,770
+实际上这里有一个 DRAM 控制器，
 in fact there's a DRAM controller,
 
 203
 00:12:31,770 --> 00:12:36,150
+它连接到 DRAM 芯片，
 you know that actually connects you know to the DRAM chips,
 
 204
 00:12:36,450 --> 00:12:38,100
+所有的阶段都在这里，
 where all the [stages] living,
 
 205
 00:12:38,800 --> 00:12:40,420
+或者所有的内存都在这里。
 or all the memories living.
 
 206
 00:12:41,370 --> 00:12:43,050
+我把内存画得大一点，
 I'm gonna make that memory a little bit bigger, bigger
 
 207
 00:12:43,050 --> 00:12:47,230
+好让我有地方可以画，
 whatever have some place to draw
 
 208
 00:12:47,260 --> 00:12:53,820
+所以我们的 freelist 在内存中，
 and so basically our freelist, you know lives in, in memory,
 
 209
 00:12:54,180 --> 00:12:56,670
+我们假设 freelist 上面有两页。
 and let's say there's a freelist with two pages on it.
 
 210
 00:12:59,060 --> 00:13:07,670
+并且两个 CPU 会几乎同时调用 kfree 。
 And you know both, both CPUs gonna call kfree roughly at the same time.
 
 211
 00:13:13,460 --> 00:13:15,440
+好的，再看一下代码，
 Okay, so look a little bit at the code, again,
 
 212
 00:13:15,440 --> 00:13:18,110
+确保运行的跟我们想的一样，
 just to make sure that we have running in our heads,
 
 213
 00:13:18,110 --> 00:13:19,400
+所以我们看看 kfree ，
 so we look at kfree,
 
 214
 00:13:19,790 --> 00:13:24,080
+它传递了 pa ，物理地址，
 you know get passing some pa, physical address,
 
 215
 00:13:24,350 --> 00:13:28,130
+我们要把它放到 freelist 上。
 that we're gonna use to actually hook up into the freelist.
 
 216
 00:13:29,000 --> 00:13:35,750
+CPU0 有一个 R ，
 So you know CPU0 has a you know R,
 
 217
 00:13:36,770 --> 00:13:41,000
+它指向了一些空闲页面，
 and that's pointing to some you know free page
 
 218
 00:13:41,540 --> 00:13:46,490
+可能 CPU1 也有一个，
 and maybe yeah and CPU1 has one,
 
 219
 00:13:47,080 --> 00:13:49,090
+对 CPU1 ，我们使用另一种颜色。
 we actually use another color for CPU1.
 
 220
 00:13:49,660 --> 00:13:53,590
+所以 CPU 另一个 R 总是指向一些页面，
 So CPU on another R always pointing to some page,
 
 221
 00:13:53,590 --> 00:13:55,540
+我们想放入 freelist 。
 you know that we want to hook into the freelist.
 
 222
 00:13:56,450 --> 00:13:57,050
+能理解吗?
 Makes sense?
 
 223
 00:13:59,050 --> 00:14:01,210
+所以，我们回顾代码，
 And so you know we're looking back at the code,
 
 224
 00:14:01,240 --> 00:14:04,180
+所做的第一件事就是，
 you know the first thing they do is
 
 225
 00:14:04,180 --> 00:14:08,500
+更新 r->next 指针指向 freelist 。
 you know update r->next pointer to point to the k- to the freelist.
 
 226
 00:14:09,210 --> 00:14:13,830
+我们假设 CPU1 首先运行，
 So let's assume you know that CPU1 runs first
 
 227
 00:14:14,250 --> 00:14:16,500
+它所做的是，
 and you know what it will do is
 
 228
 00:14:16,500 --> 00:14:20,890
+将指针指向开始，
 will put its pointer you know to the beginning of the
 
 229
 00:14:22,000 --> 00:14:24,400
+指向 freelist 指向的地方。
 you know wherever freelist pointed to.
 
 230
 00:14:25,090 --> 00:14:28,660
+CPU1 也在同时运行，
 If you know CPU1 runs exactly at the same time,
 
 231
 00:14:28,990 --> 00:14:37,270
+然后，它可以在 CPU0 执行第二条指令之前运行，
 then, you know it could run before CPU0 executes the second instruction,
 
 232
 00:14:37,570 --> 00:14:39,040
+所以它可能做同样的事情，
 so it actually might do the same thing,
 
 233
 00:14:39,040 --> 00:14:41,260
+它可能也运行第一条指令，
 it might actually also run that first instruction
 
 234
 00:14:41,560 --> 00:14:54,420
+并且将指针更新为二。
 and update and update the pointer to two.
 
 235
 00:14:54,420 --> 00:14:58,980
+所以，两个 R ，一个来自 CPU1 ，一个来自 CPU0 ，
 So both Rs you know one from CPU1, and from CPU zero, one from CPU1
 
 236
 00:14:58,980 --> 00:15:00,390
+都指向 freelist 的开头，
 are pointing to the beginning of the freelist
 
 237
 00:15:00,390 --> 00:15:03,330
+而 freelist 也指向 freelist 的开头。
 and the freelist is also pointing to the beginning of the freelist.
 
 238
 00:15:03,930 --> 00:15:07,020
+所以，现在有两条指令在并行执行。
 So now there are two [remaining] instructions that are being executed in parallel.
 
 239
 00:15:07,730 --> 00:15:09,890
+所以，我们再回到代码，
 So we go back again, you know the code,
 
 240
 00:15:10,280 --> 00:15:12,500
+剩下的指令正在执行，
 the remaining instruction is being executed
 
 241
 00:15:12,500 --> 00:15:14,630
+更新 freelist 指向 r 。
 is actually updating the freelist to point to r.
 
 242
 00:15:17,040 --> 00:15:21,450
+所以， CPU 0 1 要执行这些指令
 And so, you know CPU zero one going to execute these instructions
 
 243
 00:15:21,450 --> 00:15:24,780
+可能是完全一样的时间，
 may be exactly the same, roughly at the same time,
 
 244
 00:15:24,810 --> 00:15:26,070
+但是有一个会先执行，
 but one is gonna go first, correct,
 
 245
 00:15:26,070 --> 00:15:27,870
+这里只有一个共享内存，
 there's only one single shared memory
 
 246
 00:15:28,260 --> 00:15:30,210
+所以一个更新先执行，
 and so one update is going to go first
 
 247
 00:15:30,270 --> 00:15:31,710
+另一个更新第二。
 and the other one is gonna go second.
 
 248
 00:15:32,290 --> 00:15:34,630
+我们假设 CPU1 先运行。
 So let's say CPU one goes first.
 
 249
 00:15:35,240 --> 00:15:36,620
+现在接下来会发生什么，
 And now what will then happen,
 
 250
 00:15:36,620 --> 00:15:38,090
+好的，首先执行的 CPU ，
 well the CPU what goes first,
 
 251
 00:15:38,090 --> 00:15:40,750
+freelist 会指向它的 R 。
 freelist can be pointing to its r, right.
 
 252
 00:15:42,200 --> 00:15:44,210
+然后 CPU2 运行，
 And then CPU two runs,
 
 253
 00:15:44,240 --> 00:15:46,910
+所以现在 CPU2 运行指令，
 so now CPU2 runs actually instruction
 
 254
 00:15:47,210 --> 00:15:48,740
+那么接下来要做是什么，
 and so what is going to do,
 
 255
 00:15:48,770 --> 00:15:52,610
+它会更新 freelist 指向。
 it is going to actually update freelist to point.
 
 256
 00:15:55,340 --> 00:15:56,750
+这是 freelist ，
 So here's a freelist,
 
 257
 00:15:58,000 --> 00:16:02,580
+它会指向传入的 R 。
 and it's actually going point to R that actually passed in.
 
 258
 00:16:03,230 --> 00:16:05,300
+所以我们现在是一种情况，
 And so you know we have a setting now, correct,
 
 259
 00:16:05,300 --> 00:16:08,480
+我们丢失了一页，
 we're, we've lost basically one page,
 
 260
 00:16:10,880 --> 00:16:13,970
+实际上 CPU0 释放的的 R，
 R you know that actually CPU0 actually freed,
 
 261
 00:16:14,150 --> 00:16:16,580
+最终不在 freelist 上，
 actually ended up not being on the freelist at all,
 
 262
 00:16:16,970 --> 00:16:18,320
+所以我们丢了那一页。
 so we lost the page.
 
 263
 00:16:22,680 --> 00:16:25,800
+一个坏结果出现，
 And as one you know bad particular outcome,
 
 264
 00:16:25,800 --> 00:16:27,600
+当然，可能会有更多的坏结果，
 of course there could be more bad outcomes,
 
 265
 00:16:27,600 --> 00:16:30,690
+因为可能有更多的 CPU 尝试执行这个 freelist ，
 because there could be more CPUs actually trying to do this freelist,
 
 266
 00:16:31,020 --> 00:16:32,370
+它们可能会观察到，
 they may observe,
 
 267
 00:16:32,370 --> 00:16:33,720
+其中之一可能会观察到，
 the one of the might observe,
 
 268
 00:16:33,720 --> 00:16:37,800
+freelist 临时指向 CPU0 的 R ，
 the freelist pointing temporarily to CPU0's R,
 
 269
 00:16:38,040 --> 00:16:39,840
+所以我们开始使用它，
 and so we start using that,
 
 270
 00:16:40,110 --> 00:16:44,670
+然后由第二个 CPU 更新 freelist ，
 while then immediately the freelist updated by second CPU,
 
 271
 00:16:44,700 --> 00:16:46,530
+所以如果引入更多 CPU ，
 so that more CPU evolved,
 
 272
 00:16:46,530 --> 00:16:48,780
+我们可能会得到更离奇的结果，
 presumably we could actually get more bizarre outcomes
 
 273
 00:16:48,780 --> 00:16:50,340
+而不仅是丢失页面。
 than just the lost page.
 
 274
 00:16:52,310 --> 00:16:53,120
+这能理解吗？
 Does this make sense?
 
 275
 00:16:55,750 --> 00:16:56,800
+有什么问题吗？
 Any questions?
 
 276
 00:17:04,820 --> 00:17:06,170
+好的。
 Okay.
 
 277
 00:17:07,220 --> 00:17:10,100
+所以，代码使用的方法，
 So the way you know as you know the code does,
 
 278
 00:17:10,100 --> 00:17:11,540
+用来解决这个问题的方法，
 you know the way to address this,
 
 279
 00:17:11,540 --> 00:17:15,140
+是一种很常用的方法，
 one way in a very common way,
 
 280
 00:17:15,440 --> 00:17:19,190
+解决这个问题就是使用锁。
 is to address this problem is to use a lock.
 
 281
 00:17:19,970 --> 00:17:23,210
+所以，让我详细讨论一下锁的问题。
 So let me talk a little bit about locks in more detail.
 
 282
 00:17:26,860 --> 00:17:30,130
+那么什么是锁抽象。
 So what is the lock abstraction.
 
 283
 00:17:32,480 --> 00:17:34,640
+现在它只是一个对象，
 Well, now it is just an object,
 
 284
 00:17:34,640 --> 00:17:37,520
+与内核中的任何其他类型的对象一样，
 like any other sort of object in the kernel
 
 285
 00:17:37,730 --> 00:17:39,050
+任何包含。
 and anyone has.
 
 286
 00:17:39,740 --> 00:17:41,450
+实际上，有一个称为锁结构体的东西，
 In fact there's something called struct lock,
 
 287
 00:17:41,960 --> 00:17:45,680
+它包含一些字段，维护锁的状态，
 you know, that has some fields, you know to maintain state about locks,
 
 288
 00:17:46,010 --> 00:17:49,460
+它有一个相当简单的 API ，
 and it has a pretty straightforward API,
 
 289
 00:17:49,460 --> 00:17:51,760
+有一个 acquire ，
 you know there's acquire,
 
 290
 00:17:51,760 --> 00:17:55,030
+实际上，只有两个对此抽象的调用，
 in fact there are only two calls into this abstraction,
 
 291
 00:17:55,450 --> 00:18:03,490
+acquire 使用一个锁结构体的指针，
 which acquire which takes a pointer to lock struct
 
 292
 00:18:03,790 --> 00:18:11,450
+release 也使用一个锁结构体的指针，
 and release you know that actually also takes a pointer lock struct,
 
 293
 00:18:11,810 --> 00:18:14,000
+来更新锁对象。
 to basically update you know the lock object.
 
 294
 00:18:14,900 --> 00:18:18,890
+这里的规则是，
 And basically the rule of [] and the rule here is that,
 
 295
 00:18:20,020 --> 00:18:25,420
+acquire 遵守以下规则，
 the acquire enforces this following rule,
 
 296
 00:18:25,420 --> 00:18:33,160
+只有一个进程可以进入或者获得锁。
 that only one process you know can enter or can acquire the lock.
 
 297
 00:18:37,950 --> 00:18:39,570
+所以，在任何特定时间点，
 So any particular point of time,
 
 298
 00:18:40,140 --> 00:18:41,730
+只有一个进程
 there's only going to be one process
 
 299
 00:18:41,730 --> 00:18:44,400
+可以成功获取到锁，
 that is able to actually successfully acquire the lock
 
 300
 00:18:44,730 --> 00:18:48,150
+任何在同一时间获取锁的进程，
 any other process that basically trying to acquire the lock at the same time,
 
 301
 00:18:48,180 --> 00:18:51,000
+必须等到第一个进程调用 release 。
 has to wait until the first process actually calls release.
 
 302
 00:18:52,560 --> 00:18:54,360
+所以，这个序列，
 And so this sequence,
 
 303
 00:18:54,480 --> 00:18:58,920
+这些在 acquire release 之间的指令，
 you know the instructions, you know between the acquire release,
 
 304
 00:18:59,160 --> 00:19:01,020
+经常称为临界区间。
 are often called the critical section.
 
 305
 00:19:07,720 --> 00:19:09,550
+被称为临界区间的一个原因是
 And one reason is called the critical section is
 
 306
 00:19:09,550 --> 00:19:13,570
+因为这些指令一起执行，
 because this is sort of the the few instruction together to do the
 
 307
 00:19:13,600 --> 00:19:16,450
+需要对 r 进行更新，
 you know need to do the update to r,
 
 308
 00:19:16,450 --> 00:19:18,850
+由锁保护的任何共享数据结构，
 whatever shared data structure, that's protected by the lock
 
 309
 00:19:19,090 --> 00:19:20,170
+使用原子地方式。
 in an atomic fashion.
 
 310
 00:19:21,090 --> 00:19:22,920
+并且确保，
 And ensures that basically,
 
 311
 00:19:23,460 --> 00:19:27,870
+如果你在 acquire release 之间有多条指令，
 if you have multiple instructions in this you know between acquire release,
 
 312
 00:19:27,870 --> 00:19:32,550
+但它们要么一起执行，要么一个都不执行。
 but they all are executed all together or none.
 
 313
 00:19:33,800 --> 00:19:35,030
+所以，不会出现这种情况，
 So there's never a case,
 
 314
 00:19:35,030 --> 00:19:38,270
+临界区的这些指令交错执行，
 these instructions in the critical section are interleaved
 
 315
 00:19:38,480 --> 00:19:40,430
+像我们在竞态条件下看到的那样，
 as in the way that we saw in the race conditions
 
 316
 00:19:40,910 --> 00:19:43,850
+实际上，这用来避免竞态条件。
 and actually exactly, that is what avoids these race conditions.
 
 317
 00:19:48,190 --> 00:19:50,020
+关于锁抽象，有什么问题吗？
 Any questions about the lock abstraction?
 
 318
 00:19:55,220 --> 00:20:01,170
+程序通常有很多锁，
 You know programs typically have many locks,
 
 319
 00:20:01,260 --> 00:20:03,750
+实际上 xv6 就有很多锁。
 in fact the xv6 has many locks.
 
 320
 00:20:08,140 --> 00:20:09,940
+有很多锁的原因是，
 And the reason to have many locks is
 
 321
 00:20:09,940 --> 00:20:11,020
+因为即使，
 because you know even though,
 
 322
 00:20:11,020 --> 00:20:14,860
+锁可以序列化进程的执行，
 you know the the lock serializes the execution
 
 323
 00:20:15,040 --> 00:20:18,460
+两个进入临界区间的进程，
 of two processes you know what enter the critical section,
 
 324
 00:20:18,460 --> 00:20:19,330
+只有一个可以成功，
 only one succeeds,
 
 325
 00:20:19,330 --> 00:20:25,360
+另一个在第一个完成后运行临界区间，
 and the other one runs that critical section after the first one finishes,
 
 326
 00:20:25,540 --> 00:20:27,640
+所以这里没有并行。
 so there's no sort of parallelism at all.
 
 327
 00:20:28,500 --> 00:20:31,080
+如果内核只有一个锁，
 So if the kernel had only one lock,
 
 328
 00:20:31,110 --> 00:20:33,390
+通常称为大内核锁，
 which is typically called a big kernel lock,
 
 329
 00:20:33,540 --> 00:20:38,430
+那么内核中每个系统调用都会被串行化，
 then basically every system call in this, in the kernel, would be serialized,
 
 330
 00:20:39,240 --> 00:20:43,020
+系统调用 1 获取大内核锁，
 system call one start gets the one the big kernel lock,
 
 331
 00:20:43,020 --> 00:20:44,310
+做它想做的事情，
 does whatever it needs to do,
 
 332
 00:20:44,310 --> 00:20:45,870
+然后释放大内核锁，
 and then release the big kernel lock
 
 333
 00:20:45,870 --> 00:20:47,490
+然后返回用户空间。
 and then basically returns user space.
 
 334
 00:20:48,220 --> 00:20:49,990
+然后第二个系统调用运行，
 And then the second system call the run,
 
 335
 00:20:50,380 --> 00:20:51,970
+所以我们有并行运行的程序，
 so we have an parellel application,
 
 336
 00:20:51,970 --> 00:20:54,280
+并行运行大量的系统调用，
 that runs, lots of runs system calls in parallel,
 
 337
 00:20:54,310 --> 00:20:57,730
+突然所有的系统调用都是串行运行的，
 suddenly you know all the system calls actually run serially,
 
 338
 00:20:57,730 --> 00:20:58,960
+如果我们只有一把锁的话。
 if we had only one lock.
 
 339
 00:20:59,880 --> 00:21:04,170
+所以通常程序，比如 xv6 有很多锁，
 And so typically your program like, you know xv6 has you know many locks,
 
 340
 00:21:04,170 --> 00:21:06,360
+因为这样，我们可以得到一些并行性。
 because of these, you know we can get some parallelism.
 
 341
 00:21:09,670 --> 00:21:17,940
+因为，如果两个系统调用使用两个不同的锁，
 Because, you know if you know two system calls for example use two different locks,
 
 342
 00:21:17,970 --> 00:21:21,060
+那么它们实际上可以完全并行运行，
 then you know they can actually run a completely parallel,
 
 343
 00:21:21,270 --> 00:21:24,300
+没有任何串行化，
 without any you know serialization,
 
 344
 00:21:24,690 --> 00:21:27,990
+因为使用不同的锁进行串行化。
 because basically you know using different locks serialize.
 
 345
 00:21:31,070 --> 00:21:32,570
+现在。
 Now.
 
 346
 00:21:34,040 --> 00:21:36,050
+有几点很重要，
 There's a couple of important points,
 
 347
 00:21:36,380 --> 00:21:41,270
+在这个接口中没有什么是强制的，
 the nobody really sort of forces in this interface,
 
 348
 00:21:41,270 --> 00:21:43,790
+你使用 acquire release ，
 you know that you put in the acquire release,
 
 349
 00:21:43,790 --> 00:21:45,410
+这是由程序决定的。
 you know it's up to the program to do so.
 
 350
 00:21:46,010 --> 00:21:50,180
+所以，如果你希望代码段是原子的，
 So if you want a particular piece of code to be atomic,
 
 351
 00:21:50,540 --> 00:21:54,560
+由开发人员将 acquire release 那里。
 then it's up to the developer to actually put these acquire release there.
 
 352
 00:21:55,230 --> 00:21:57,480
+从这里可以清楚地看到，
 And there clearly see,
 
 353
 00:21:57,480 --> 00:22:02,220
+你可以想象，这需要一些技巧性，
 you can imagine, that there's a little bit can be tricky,
 
 354
 00:22:02,430 --> 00:22:03,630
+所以需要认识到，
 so it's important to realize that
 
 355
 00:22:03,630 --> 00:22:06,630
+锁并不是自动为你完成原子化的，
 you know that locking is not actually done automatically for you,
 
 356
 00:22:06,870 --> 00:22:09,900
+一切都由开发者决定的，
 it's all up to the developer to figure out,
 
 357
 00:22:09,900 --> 00:22:13,800
+将锁与数据结构关联，
 to associate locks with data structures
 
 358
 00:22:14,100 --> 00:22:19,020
+并确保适当的 acquire release 在那里。
 and ensuring that the appropriate acquire release are there.
 
 359
 00:22:23,050 --> 00:22:29,920
+所以，很明显地情况，锁限制了并行性，
 So clearly the case, like you know the locks limit in parallelism,
 
 360
 00:22:29,920 --> 00:22:31,510
+并且因此限制了性能，
 and therefore limit performance,
 
 361
 00:22:31,810 --> 00:22:35,080
+所以，这就提出了何时使用锁的问题。
 and so then this raises the question when to lock.
 
 362
 00:22:42,710 --> 00:22:46,430
+我要给你们一种保守的规则，
 And I'm going to give you sort of conservative rule,
 
 363
 00:22:46,640 --> 00:22:50,150
+但这是考虑这件事的一个很好的起点。
 but it's a good one as a starting point to think about things.
 
 364
 00:22:50,680 --> 00:22:58,910
+所以这个保守的规则，或者叫做指导原则更好，
 So the conservative rule, or maybe guidelines is better,
 
 365
 00:23:00,090 --> 00:23:03,030
+[]是你有两个进程，
 [] is that you have two processes,
 
 366
 00:23:05,740 --> 00:23:10,510
+两个进程访问一个共享数据结构。
 two processes access a shared data structure.
 
 367
 00:23:17,130 --> 00:23:22,100
+其中一个是写入者或更新者，
 And one is, one of the them is a writer or an updater
 
 368
 00:23:22,100 --> 00:23:25,880
+这意味着它对共享数据结构做修改。
 so meaning it's actually does modify to share data structure.
 
 369
 00:23:27,050 --> 00:23:29,750
+那么你需要对这个数据结构使用锁。
 Then you need a lock for that data structure.
 
 370
 00:23:40,620 --> 00:23:41,820
+所以这是一条保守的规则，
 So this is a conservative rule,
 
 371
 00:23:41,970 --> 00:23:43,410
+像是告警的红旗，
 sort of like a red flag,
 
 372
 00:23:43,470 --> 00:23:49,350
+当你编程时，并且有一个由多个进程访问的数据结构，
 when you're programming and you have a data structure that is accessed by multiple processes
 
 373
 00:23:49,350 --> 00:23:50,460
+那么什么是写入者，
 and what could be a writer
 
 374
 00:23:50,520 --> 00:23:51,960
+在这时候，你应该想，
 at that point you should be thinking,
 
 375
 00:23:51,960 --> 00:23:53,910
+好的，这里可能有竞态条件，
 okay, there's a possibility of race condition,
 
 376
 00:23:54,090 --> 00:23:56,040
+你希望避免这种竞态条件，
 you want to avoid this you know race condition,
 
 377
 00:23:56,280 --> 00:23:57,600
+你使用锁，
 you stick in a lock,
 
 378
 00:23:57,630 --> 00:24:01,650
+使用锁来保证这个竞态条件不会发生。
 use a lock to guarantee that this race condition can't happen.
 
 379
 00:24:02,450 --> 00:24:06,470
+但是，这些规则在某些方面太严格了。
 But you know those rules in some ways too strict.
 
 380
 00:24:10,890 --> 00:24:15,600
+在某些情况下，可以处理共享数据结构的这些操作，
 There are cases where it's okay to process these actions of shared data structure
 
 381
 00:24:15,600 --> 00:24:16,470
+其中一个是写入者，
 and one is a writer,
 
 382
 00:24:16,530 --> 00:24:21,630
+特别地是，有一种编程风格称为无锁编程。
 in particular, there are styles of programming called lock-free programming.
 
 383
 00:24:22,610 --> 00:24:27,230
+这是各种会发生的情况。
 That actually totally where these kinds of scenarios actually do happen.
 
 384
 00:24:32,310 --> 00:24:33,810
+无论如何，你想使用无锁编程，
 Anyway, you want to lock-free programming
 
 385
 00:24:33,810 --> 00:24:36,420
+是为了获得更好的性能或更多的并行性。
 is basically to get better performance or more parallelism.
 
 386
 00:24:38,730 --> 00:24:40,260
+无锁编程是很难的，
 Lock free program is tricky,
 
 387
 00:24:40,350 --> 00:24:42,930
+甚至比使用锁编程更难，
 even more tricky you know programming of locks,
 
 388
 00:24:43,290 --> 00:24:45,840
+我们会在本学期末讨论这个问题，
 and you know we'll talk about it at the end of this semester,
 
 389
 00:24:45,840 --> 00:24:49,890
+我们会研究一些无锁编程风格，
 we will study some lock-free styles of the programming
 
 390
 00:24:49,890 --> 00:24:53,970
+特别是在操作系统内核中常见的。
 or particularly common in operating system kernels.
 
 391
 00:24:54,440 --> 00:24:58,220
+基本上，对于这节课以及本学期的剩下的大部分课，
 Basically, for this lecture and most of the rest of the semester,
 
 392
 00:24:58,310 --> 00:25:00,110
+我们会考虑这种情况，
 we're going to be thinking about the case,
 
 393
 00:25:00,110 --> 00:25:05,480
+我们使用锁来控制共享。
 we're using locks, you know to control sharing.
 
 394
 00:25:06,280 --> 00:25:07,900
+这已经很难了，
 And that's hard enough,
 
 395
 00:25:07,930 --> 00:25:10,810
+只用锁，也不是那么简单的。
 you know you just use locks, its not that straightforward either.
 
 396
 00:25:12,520 --> 00:25:15,490
+所以一方面，有点太严格了，
 So in one hand, a little bit too strict,
 
 397
 00:25:15,760 --> 00:25:18,280
+因为并不总是所有情况都需要，
 because not always the case that you need
 
 398
 00:25:18,280 --> 00:25:19,900
+也有一些情况太宽松了。
 and also some cases too loose.
 
 399
 00:25:21,340 --> 00:25:22,210
+如果你可能只是。
 If you might just.
 
 400
 00:25:26,200 --> 00:25:27,460
+你可能[]宽松，
 You might [] loose,
 
 401
 00:25:27,460 --> 00:25:29,110
+你想使用锁，
 you want to actually make you know to use locks,
 
 402
 00:25:29,110 --> 00:25:31,630
+来保证一些其他属性，
 you know to enforce some other properties,
 
 403
 00:25:31,630 --> 00:25:32,740
+比如你看一下 printf ，
 like if you look at printf,
 
 404
 00:25:35,750 --> 00:25:37,670
+如果我们将一个字符串传递给 printf ，
 if we pass a string to printf,
 
 405
 00:25:38,280 --> 00:25:40,440
+xv6 内核试图，
 you know the xv6 kernel tries to
 
 406
 00:25:40,440 --> 00:25:44,220
+至少让整个字符串原子地打印出来。
 at least you know get the whole string to be printed atomically.
 
 407
 00:25:44,760 --> 00:25:47,640
+而且你知道这里不涉及共享数据结构，
 And you know there's no shared data structure involved,
 
 408
 00:25:47,850 --> 00:25:51,510
+但在这种情况下使用锁仍然很有用，
 but it's still useful to actually use a lock in that particular case,
 
 409
 00:25:51,510 --> 00:25:53,430
+因为我们希望输出是串行化的。
 because we want the output to be serialized.
 
 410
 00:25:54,220 --> 00:25:56,320
+所以这个规则并不完美，
 So this rule is not perfect,
 
 411
 00:25:56,320 --> 00:25:57,880
+但它是一个不错的指导原则。
 but it's a pretty good guideline.
 
 412
 00:26:00,020 --> 00:26:01,910
+关于这条规则，有什么问题吗？
 Any questions about this rule?
 
 413
 00:26:04,810 --> 00:26:06,850
+我有一个问题不是关于这个规则的，
 I had a question not about this rule,
 
 414
 00:26:06,850 --> 00:26:11,950
+但是有没有可能两个进程同时获取锁，
 but isn't it possible that two processes could acquire the lock at the same time
 
 415
 00:26:11,950 --> 00:26:15,690
+因此可以修改数据结构。
 and so would be able to modify the structure.
 
 416
 00:26:16,460 --> 00:26:20,420
+是的，不是，锁的一部分规定是
 Yeah, no, so so part of the sort of contract lock construction is is that
 
 417
 00:26:20,420 --> 00:26:24,410
+两个进程不能同时获得锁。
 it's impossible two process to acquire a lock at the same time.
 
 418
 00:26:25,290 --> 00:26:31,140
+这条规则，永远不会有这种情况，
 If the rule is that there's ever there's no, there's never a case,
 
 419
 00:26:31,140 --> 00:26:35,640
+两个进程可以同时获得锁，
 where two process actually acquire the lock, can hold the lock at the same time,
 
 420
 00:26:35,940 --> 00:26:37,590
+我们过一会会看到如何实现它，
 we'll see in the second, how to implement that,
 
 421
 00:26:37,590 --> 00:26:40,410
+但是 API 或规范要求是，
 but the API or the specification require is,
 
 422
 00:26:40,800 --> 00:26:44,580
+在任何给定的时间点，只有一个进程或没有持有锁。
 there's only one lock holder at any given point in time or zero.
 
 423
 00:26:45,090 --> 00:26:45,540
+好的。
 Yes.
 
 424
 00:26:49,300 --> 00:26:53,980
+好的，如果我们看一些锁编程，
 Okay, so, you know if we see you know programming lock,
 
 425
 00:26:54,310 --> 00:26:58,090
+可能产生一些问题，因为这些竞态条件。
 slightly it could be problematic, because of these race conditions.
 
 426
 00:26:59,950 --> 00:27:05,440
+当然，那个在 kfree 中的竞态条件，
 You know, of course the particular race condition, that we looked at in the kfree
 
 427
 00:27:05,620 --> 00:27:07,180
+或者是我们在 kfree 中创造的，
 or that we created in kfree,
 
 428
 00:27:07,360 --> 00:27:09,280
+使用一些方法很容易发现，
 which were easily spotted in some ways
 
 429
 00:27:09,280 --> 00:27:11,830
+实际上，如果使用一个竞态检查工具，
 and the fact you know if use a race detection tool,
 
 430
 00:27:11,890 --> 00:27:13,420
+它会立即找到它。
 it would immediately find it.
 
 431
 00:27:13,820 --> 00:27:16,550
+但还有更复杂的情况，
 But there are more tricky cases,
 
 432
 00:27:16,850 --> 00:27:20,630
+你可能会想，为什么可以这样，
 so you may wonder like why could use like make,
 
 433
 00:27:20,660 --> 00:27:24,350
+可以使加锁使原子的。
 could make locks or could make locking atomic.
 
 434
 00:27:31,120 --> 00:27:34,090
+所以，你遵循我刚在说的简单规则，
 So you follow this simple rule, that I just stated,
 
 435
 00:27:34,090 --> 00:27:36,490
+你知道，如果我们每次共享数据结构，
 you know then if every we shared data structure,
 
 436
 00:27:36,700 --> 00:27:40,510
+那么共享数据结构中的操作就需要锁，
 then you know operations in that shared data structure basically require lock,
 
 437
 00:27:40,540 --> 00:27:44,230
+我们应该在每个操作中把锁和数据结构关联起来，
 we should associate a lock with the data structure in the every operations,
 
 438
 00:27:44,230 --> 00:27:53,340
+实际上，它在数据结构上执行，
 actually that is a it's performed on that data structure,
 
 439
 00:27:53,340 --> 00:27:54,840
+来获取或释放锁。
 basically acquire or release the lock.
 
 440
 00:27:55,320 --> 00:27:57,270
+所以考虑它的一种方式是，
 So one way to think about it maybe,
 
 441
 00:27:57,390 --> 00:28:02,350
+在 xv6 术语中，每一种数据结构都有一个锁。
 in xv6 terms like every structure you know, has a lock.
 
 442
 00:28:04,440 --> 00:28:07,800
+在该锁中是原子获取的，
 And in that lock is atomically acquired,
 
 443
 00:28:07,800 --> 00:28:09,660
+当我们做任何与该结构相关的事情时，
 when we do anything related to that struct,
 
 444
 00:28:09,750 --> 00:28:12,410
+结果发现它太死板了，
 it just turns out to be too rigid,
 
 445
 00:28:12,500 --> 00:28:16,250
+这就是为什么锁不是真正原子的。
 and this is why you know locking can not really be atomic.
 
 446
 00:28:16,800 --> 00:28:19,260
+所以在运行操作系统中，
 So in the operating systems,
 
 447
 00:28:19,260 --> 00:28:21,330
+比如操作系统如下所示，
 for example from an operating system is the following,
 
 448
 00:28:21,630 --> 00:28:24,120
+假设我们有一个叫 rename 的调用。
 let's say we have a call like rename.
 
 449
 00:28:25,530 --> 00:28:29,370
+它将文件名从一个目录移动到另一个目录，
 That moves the filename from one directory to another directory,
 
 450
 00:28:29,490 --> 00:28:31,620
+假设我们有 d1/x ，
 so let's say we have d1/x,
 
 451
 00:28:32,160 --> 00:28:36,720
+我们把它重命名为 d2/y 。
 and we rename it to d2/y.
 
 452
 00:28:37,840 --> 00:28:41,260
+所以，我们在目录中有文件名 d1/x ，
 And so we have the file name in the directory, d1/x,
 
 453
 00:28:41,260 --> 00:28:44,890
+我们把它重命名为 d2/y 。
 and we rename it to d2/y.
 
 454
 00:28:45,460 --> 00:28:50,140
+所以，如果我们遵循严格的规则，
 So the way presumably, if we followed the rigid rule,
 
 455
 00:28:50,140 --> 00:28:53,260
+比如这个原子锁定规则，会发生什么。
 like this rule of atomic locking you know what would happen is.
 
 456
 00:28:53,740 --> 00:28:56,560
+这条规则，当我们有两个对象，
 You know that that rule when we have two objects,
 
 457
 00:28:56,560 --> 00:28:57,940
+d1 和 d2 。
 with d1 and d2.
 
 458
 00:28:58,820 --> 00:29:01,760
+所以我们遵循规则，原子规则，
 And so we follow the rule, then basically atomic rule,
 
 459
 00:29:01,760 --> 00:29:15,070
+我们对 d1 加锁，删除 x ，然后释放 d1 的锁。
 then we lock d1, you know erase x, and release the lock for d1.
 
 460
 00:29:17,740 --> 00:29:20,470
+然后，我们做数据的第二部分，
 And then we do the second part of data,
 
 461
 00:29:20,470 --> 00:29:30,640
+对 d2 加锁，添加 y ，然后释放 d2 。
 you know d2, lock d2, add y, and release d2.
 
 462
 00:29:33,460 --> 00:29:33,970
+然后我们就完成了。
 And then we're done.
 
 463
 00:29:34,000 --> 00:29:37,780
+这是一种假设的方案，
 So this would be the sort of hypothetical schema
 
 464
 00:29:37,780 --> 00:29:42,850
+你可以想象如果我们进行原子锁会发生什么，
 and you imagine what would happen if we did atomic locking,
 
 465
 00:29:43,360 --> 00:29:47,920
+这个例子的重点是会产生错误的结果，
 and the point of this example is going to, will have the wrong outcome
 
 466
 00:29:48,280 --> 00:29:51,820
+为什么这是一个有问题的方案，
 and why, why is this a problematic scheme,
 
 467
 00:29:52,090 --> 00:29:53,350
+为什么这行不通。
 why is this not gonna work.
 
 468
 00:30:03,170 --> 00:30:06,620
+所以，要考虑的是这个时间。
 So, think about like the thing to think about is this period.
 
 469
 00:30:08,000 --> 00:30:11,360
+所以我们已经完成了第一步，
 So we've done the first step, step one,
 
 470
 00:30:12,050 --> 00:30:13,880
+还没有完成第二步。
 not done step, step two yet.
 
 471
 00:30:14,630 --> 00:30:16,640
+另一个进程会观察到什么。
 What could another process observe.
 
 472
 00:30:24,160 --> 00:30:24,820
+有人知道吗？
 Anybody?
 
 473
 00:30:28,950 --> 00:30:30,480
+文件丢失了。
 The file it just be gone.
 
 474
 00:30:30,870 --> 00:30:33,810
+是的，在第一步和第二步之间，
 Yeah, you know this there's between step one and two,
 
 475
 00:30:33,810 --> 00:30:34,950
+这个文件不存在。
 the file doesn't exist.
 
 476
 00:30:41,520 --> 00:30:43,050
+我的意思是这显然是错误的，
 I mean that is clearly wrong,
 
 477
 00:30:43,080 --> 00:30:46,470
+因为该文件确实存在，它只是被重命名，
 because the file does exist, it just being renamed,
 
 478
 00:30:46,710 --> 00:30:49,410
+应该没有什么时候它不存在，
 and never point really that it didn't exist,
 
 479
 00:30:50,430 --> 00:30:52,890
+但是通过以这种方式实现它，
 but by implementing it in this way,
 
 480
 00:30:53,040 --> 00:30:56,160
+看起来该文件可能并不存在，
 it just appears that the file might actually not exist,
 
 481
 00:30:56,160 --> 00:30:57,000
+尽管它确实存在。
 even though it does.
 
 482
 00:30:57,800 --> 00:31:00,230
+所以正确的解决方案是，
 So the really right solution to this is
 
 483
 00:31:00,230 --> 00:31:03,790
+我们需要的是，
 what we need is
 
 484
 00:31:03,790 --> 00:31:10,250
+在重命名开始前，先锁定 d1 和 d2 ，
 that we actually lock d1 and d2 first, at the beginning of rename,
 
 485
 00:31:10,760 --> 00:31:13,120
+然后擦除并添加，
 then erase and add,
 
 486
 00:31:15,780 --> 00:31:21,580
+然后释放 d1 和 d2 的锁。
 and then release the locks for d1 and d2.
 
 487
 00:31:24,500 --> 00:31:25,250
+所以，这能理解吗？
 So, that makes sense?
 
 488
 00:31:26,870 --> 00:31:27,950
+所以，这是一个例子，
 So here's an example
 
 489
 00:31:27,950 --> 00:31:32,810
+我们有一个需要多个锁的操作，
 where we have an operation that acquire needs multiple locks
 
 490
 00:31:32,960 --> 00:31:37,550
+并且锁不能真正地与这两个对象相关联，
 and and the locks cannot really be associated with the two objects,
 
 491
 00:31:37,550 --> 00:31:39,170
+它们是这个操作的参数，
 that are the arguments of this operation,
 
 492
 00:31:39,590 --> 00:31:44,840
+实际上操作本身必须首先获取两个锁，
 it has to be the case that actually the operation itself first requires both locks,
 
 493
 00:31:44,840 --> 00:31:46,580
+然后执行操作。
 then perform the operations.
 
 494
 00:31:47,400 --> 00:31:50,490
+所以原子锁不是直接可能的。
 So there's atomic locking is not directly possible.
 
 495
 00:31:51,250 --> 00:31:52,120
+会有这种情况，
 There's going to be cases,
 
 496
 00:31:52,120 --> 00:31:55,990
+不是运行简单的方案，
 where there's not run to the native scheme
 
 497
 00:31:55,990 --> 00:31:58,360
+它们会遇到问题。
 at those will run into a problem problems.
 
 498
 00:32:00,400 --> 00:32:01,300
+对这个有什么问题吗？
 Any questions about this?
 
 499
 00:32:07,010 --> 00:32:08,900
+所以我们能不能这么说，
 So could we just say that,
 
 500
 00:32:08,930 --> 00:32:11,120
+当我们访问数据结构时，
 when we're accessing a data structure,
 
 501
 00:32:11,120 --> 00:32:13,490
+我们需要访问或者我们必须获取
 we just have to access or we have to acquire
 
 502
 00:32:13,490 --> 00:32:17,240
+所有我们需要的数据结构相关联的锁，
 all of the locks associated with all of the data structures we need
 
 503
 00:32:17,570 --> 00:32:18,350
+在开始的时候。
 at the beginning.
 
 504
 00:32:19,120 --> 00:32:19,840
+这是其中之一，
 That be one,
 
 505
 00:32:19,870 --> 00:32:21,520
+是的，这是一种方法，
 yeah, so that's one way doing it
 
 506
 00:32:21,520 --> 00:32:26,530
+我想很快会归结到拥有一个大内核锁。
 and I think that we should quickly will come down to basically having a big kernel lock.
 
 507
 00:32:27,380 --> 00:32:28,790
+好的。
 Okay.
 
 508
 00:32:28,790 --> 00:32:31,190
+你在不会有并发的风险上，
 You're on the risk, basically have no parallelism anymore,
 
 509
 00:32:31,850 --> 00:32:33,560
+所以你想做得更好，
 so you want to do better than that right,
 
 510
 00:32:34,190 --> 00:32:35,690
+我认为这一直是矛盾，
 and I think this is always the tension,
 
 511
 00:32:35,750 --> 00:32:37,100
+你可以使事情变得简单，
 you know you can make things simpler
 
 512
 00:32:37,130 --> 00:32:40,670
+通过使用粗粒度锁，
 by basically what's called coarse-grained locking,
 
 513
 00:32:41,060 --> 00:32:44,630
+但是你会丢失性能，
 but then you know you're lose lose performance
 
 514
 00:32:44,990 --> 00:32:46,190
+或者可能丢失性能，
 or you may lose performance,
 
 515
 00:32:46,740 --> 00:32:48,270
+取决于锁是不是有意的。
 depending if the locks intended or not.
 
 516
 00:32:49,730 --> 00:32:50,750
+好的，谢谢。
 Yeah thank you.
 
 517
 00:32:52,700 --> 00:32:58,430
+从锁的角度来看，这是考虑锁的不同方法。
 So lock perspective, so there's different ways to think about locks.
 
 518
 00:33:00,910 --> 00:33:02,590
+这有三个常见的问题，
 You know, those are three common ones,
 
 519
 00:33:02,650 --> 00:33:05,620
+而且，它们三个都要，
 and you know go for all three of them
 
 520
 00:33:05,620 --> 00:33:08,290
+也许这会帮助你思考锁的问题，
 and just maybe that may help you to think about locks
 
 521
 00:33:08,290 --> 00:33:09,940
+也许其中一个是你的最爱，
 and maybe one of them is your favorite
 
 522
 00:33:09,940 --> 00:33:13,300
+你可以使用它作为你思考问题的方式，
 and you can use that one as your way of thinking about it,
 
 523
 00:33:13,300 --> 00:33:14,680
+但是，这些可能是有用的，
 but there's probably helpful to see
 
 524
 00:33:14,680 --> 00:33:16,660
+它们以不同的方式来思考锁。
 that they're actually different ways of thinking about locks.
 
 525
 00:33:17,530 --> 00:33:19,990
+首先，
 So first of all,
 
 526
 00:33:20,080 --> 00:33:28,350
+可以考虑的一种方式是锁避免丢失更新，
 you know one way to think about is actually lock avoid lost updates
 
 527
 00:33:28,470 --> 00:33:29,160
+或者帮助（避免丢失）。
 or help.
 
 528
 00:33:29,840 --> 00:33:31,370
+如果你正确使用锁，
 If you use lock correctly,
 
 529
 00:33:31,370 --> 00:33:34,430
+锁可以帮助避免丢失更新。
 you know locks can help avoiding lost updates.
 
 530
 00:33:38,680 --> 00:33:43,060
+如果你考虑一下之前的 kalloc.c 中的示例，
 And if you think about early example in the kalloc.c,
 
 531
 00:33:43,060 --> 00:33:48,460
+丢失的更新就是丢失了 kfree 的一个更新。
 you know the lost update is basically lose one update to the kfree.
 
 532
 00:33:49,150 --> 00:33:53,530
+通过使用锁，它没有丢失更新，
 And by putting locks, it you know actually didn't lose that update,
 
 533
 00:33:53,590 --> 00:33:55,210
+所以这是思考这个问题的一种方式，
 so that's one way of thinking about it,
 
 534
 00:33:56,070 --> 00:33:58,260
+一种非常低级的方式。
 a very low-level way.
 
 535
 00:33:58,260 --> 00:34:00,930
+另一种思考方式是，你可以使用锁，
 Another way to think about is you know you can make lock,
 
 536
 00:34:00,930 --> 00:34:11,200
+锁使多步操作成为原子操作。
 locks make multi-step operations atomic.
 
 537
 00:34:13,700 --> 00:34:15,680
+所以，有一种临界区间的观点，
 And so there's sort of the view of critical section,
 
 538
 00:34:15,680 --> 00:34:21,050
+我们使用锁在一系列步骤或指令上，
 we have acquire lock with a whole bunch of a steps or instructions,
 
 539
 00:34:21,050 --> 00:34:23,210
+执行所有指令，然后释放，
 executed all instructions, then release,
 
 540
 00:34:23,450 --> 00:34:27,320
+整个临界区间作为原子操作执行。
 basically whole critical section execute as an atomic operation.
 
 541
 00:34:27,870 --> 00:34:32,460
+这也是思考锁的一个很好的方式。
 That sort of also a fine way to think about locks.
 
 542
 00:34:33,090 --> 00:34:33,990
+然后是第三个，
 And then the third one,
 
 543
 00:34:34,410 --> 00:34:35,940
+这可能会有帮助，
 you know that may be helpful,
 
 544
 00:34:35,940 --> 00:34:43,410
+锁真正的作用是锁帮助维护一个不变量，
 is that really what locks do is lock help maintain an invariant,
 
 545
 00:34:47,140 --> 00:34:50,200
+不变量共享它在保护的数据结构。
 invariant share data structure that you know it's protecting.
 
 546
 00:34:51,260 --> 00:34:54,200
+这里发生的是，
 And what was going on is that,
 
 547
 00:34:54,500 --> 00:34:56,900
+在 acquire 之前，
 before acquire,
 
 548
 00:34:56,930 --> 00:34:59,780
+如果没有锁持有者，持有不变量，
 if there's no lock holder, you know that invariant holds,
 
 549
 00:35:00,140 --> 00:35:02,990
+当我们获得锁，并进行一些操作时，
 when we acquire the lock and we do some operations,
 
 550
 00:35:02,990 --> 00:35:07,310
+那么可能暂时违反不变量，
 then temporarily the invariant may be violated,
 
 551
 00:35:07,670 --> 00:35:09,380
+但是在我们使用 release 的时候，
 but at the point that we do the release,
 
 552
 00:35:13,180 --> 00:35:17,080
+如果你考虑一下 r freelist 的例子，
 so if you think about r freelist case,
 
 553
 00:35:17,320 --> 00:35:23,290
+不变量是空闲指针指向下一个指针，
 you know the invariant is you know free pointer points to one other next pointer
 
 554
 00:35:23,350 --> 00:35:26,500
+并且所有的空闲页面都在一个列表上。
 and all the free pages are on a single list.
 
 555
 00:35:27,390 --> 00:35:32,160
+在这一点上，这是暂时违反的，
 And that's temporarily violated at the point,
 
 556
 00:35:33,950 --> 00:35:36,200
+在 kfree 中间，
 in the middle of the kfree,
 
 557
 00:35:36,200 --> 00:35:39,380
+因为多个指针指向 freelist 的开头。
 because like multiple pointers actually point to the beginning of freelist.
 
 558
 00:35:40,760 --> 00:35:42,860
+然后我们在末尾建立。
 And then we [established] at the end of it.
 
 559
 00:35:43,750 --> 00:35:47,860
+所以如果 freelist 不是那么复杂的变量，
 So if where freelist as not so complicated variables,
 
 560
 00:35:47,860 --> 00:35:50,080
+比如更复杂的共享数据结构，
 like more complicated shared data structures,
 
 561
 00:35:50,590 --> 00:35:54,040
+可以是一种很有帮助的方式，来思考锁到底做了什么。
 can be a helpful way of thinking actually what the lock is doing for you.
 
 562
 00:35:55,330 --> 00:35:58,390
+所以，即使在这三个示例中，
 And so see, even in this case three case,
 
 563
 00:35:58,390 --> 00:36:01,210
+所有三种锁视角都是合理的，
 you know all three lock perspective for reasonable perspectives,
 
 564
 00:36:01,450 --> 00:36:07,330
+它们中的一个，带来了更多思考，
 and you know one of them you know brings more [review],
 
 565
 00:36:07,330 --> 00:36:12,040
+然后，另一个用来考虑锁。
 then so, one of the other ones and you use that as your way to think about locks.
 
 566
 00:36:14,510 --> 00:36:17,060
+对于这一点，有什么问题吗？
 Any questions about this point?
 
 567
 00:36:23,560 --> 00:36:25,060
+好的。
 Okay.
 
 568
 00:36:25,620 --> 00:36:30,420
+所以，在我们自己的几件事上，
 So in our own for a couple things, sort of,
 
 569
 00:36:31,460 --> 00:36:34,760
+在[所需]属性中，或者使用锁可能发生的事，
 in [desirable] properties or that can actually happen with locks
 
 570
 00:36:34,850 --> 00:36:41,210
+你知道，锁用来修复正确性问题，避免竞态条件，
 and you know like locks are a necessary to fix correctness problem avoids race conditions,
 
 571
 00:36:41,450 --> 00:36:45,230
+但是当不适当的使用锁，
 but locks themselves in when inappropriate inappropriate used,
 
 572
 00:36:45,320 --> 00:36:47,630
+也会引入它们自己的一套问题。
 can also introduce their own set of problems.
 
 573
 00:36:48,280 --> 00:36:49,960
+所以我想谈一谈这一点，
 And so I want to talk a little bit about that
 
 574
 00:36:50,380 --> 00:36:52,570
+最明显的一个当然是死锁。
 and so the obvious one, of course is deadlock.
 
 575
 00:36:57,240 --> 00:36:59,790
+比如，这个简单的例子，
 You know for example, you know the simple case,
 
 576
 00:36:59,790 --> 00:37:02,790
+虽然有点无聊，但值得一想，
 you know a little bit boring, but worthwhile thinking about,
 
 577
 00:37:03,000 --> 00:37:07,040
+你获取锁，
 you know do an acquire you know lock,
 
 578
 00:37:07,680 --> 00:37:09,660
+你开始了临界区间，
 and so you start the critical section
 
 579
 00:37:09,660 --> 00:37:14,650
+在临界区间内，你又一次获取了同一把锁，
 and in the critical section, you do another acquire of the same lock,
 
 580
 00:37:16,930 --> 00:37:17,830
+接下来会发生什么，
 what will happen,
 
 581
 00:37:20,300 --> 00:37:22,010
+第二次获取能成功吗？
 can the second acquire succeed?
 
 582
 00:37:29,640 --> 00:37:32,850
+好吧，我们早些时候已经说过了，
 Well with respect that we've given early on,
 
 583
 00:37:32,850 --> 00:37:34,590
+你知道这是不允许的，
 you know this should be not allowed,
 
 584
 00:37:34,710 --> 00:37:37,110
+所以第二次获取会被阻塞，
 so basically the second acquire must block
 
 585
 00:37:37,140 --> 00:37:39,570
+直到第一次获取被释放锁，
 until the first acquire release lock,
 
 586
 00:37:39,570 --> 00:37:41,670
+但那是这个进程本身，
 but that was you know the process itself,
 
 587
 00:37:41,670 --> 00:37:43,590
+所以这会导致死锁。
 so basically this result in a deadlock.
 
 588
 00:37:46,970 --> 00:37:49,070
+这是一个微不足道的死锁的例子，
 You know, this is a trivial example of deadlock
 
 589
 00:37:49,160 --> 00:37:50,480
+或许不是很有趣，
 and maybe not that interesting,
 
 590
 00:37:50,480 --> 00:37:52,580
+如果 xv6 [文本]中有一个死锁，
 in fact there's a deadlock that xv6 [texts],
 
 591
 00:37:52,580 --> 00:37:56,660
+因为当它发现相同的进程再次获取相同的锁时，
 you know because when it sees that the same process acquire the same lock again,
 
 592
 00:37:56,840 --> 00:37:58,700
+就会引起 panic 。
 actually causes a panic.
 
 593
 00:37:59,330 --> 00:38:03,200
+一个更有趣的情况是，当涉及多个锁时，
 A more interesting cases are when multiple locks are involved,
 
 594
 00:38:03,380 --> 00:38:06,960
+让我们回到前面的例子，
 so let's go to our previous example,
 
 595
 00:38:07,020 --> 00:38:09,330
+假设我们有以下内容，
 let's say we have the following,
 
 596
 00:38:09,930 --> 00:38:13,010
+我们有核心一号 CPU1 ，
 we have core one, maybe CPU1,
 
 597
 00:38:16,620 --> 00:38:17,670
+我们有 CPU2 。
 we have CPU2.
 
 598
 00:38:19,970 --> 00:38:30,150
+CPU1 执行重命名 d1/x 到 d2/y 。
 And CPU1, you know executes rename you know d1/x to d2/y.
 
 599
 00:38:33,310 --> 00:38:36,370
+并且 CPU2 同时执行，
 And CPU2 execute at the same time,
 
 600
 00:38:37,100 --> 00:38:43,430
+以另一种方式重命名，
 rename in the other way,
 
 601
 00:38:43,430 --> 00:38:51,240
+从另一个方向， d2/a 到 d1/b ，
 in the other direction d2/a to d1 you know actually b,
 
 602
 00:38:51,540 --> 00:38:53,130
+只是为了让名字有所不同。
 just to make the names different.
 
 603
 00:38:53,520 --> 00:38:57,600
+所以这里要注意的关键是，
 So the critical of thing to observe here is that
 
 604
 00:38:57,960 --> 00:39:01,680
+CPU1 运行重命名从 d1 到 d2 ，
 CPU1 runs rename from d1 to d2,
 
 605
 00:39:02,160 --> 00:39:05,400
+而 CPU2 正好相反，
 and CPU2 that's exactly the opposite,
 
 606
 00:39:05,400 --> 00:39:07,290
+执行重命名从 d2 到 d1 。
 does rename from d2 to d1.
 
 607
 00:39:09,040 --> 00:39:10,300
+所以让我们假设，
 So let's assume that,
 
 608
 00:39:10,300 --> 00:39:13,090
+我们是按照它们的参数顺序获取锁的，
 we actually acquire the locks in the order of their arguments
 
 609
 00:39:13,480 --> 00:39:15,190
+那么会发生什么，
 and so what will happen correct is that,
 
 610
 00:39:15,670 --> 00:39:18,670
+在这种情况下，你获得两个锁，
 in this case, you will acquire both locks,
 
 611
 00:39:18,670 --> 00:39:21,610
+我们从前面的一个例子中知道，这上是很重要的。
 we know from a previous example that is actually important.
 
 612
 00:39:22,080 --> 00:39:26,380
+所以获取 d1 锁。
 So acquire you know d1 lock.
 
 613
 00:39:28,570 --> 00:39:31,690
+假设是真正的同时运行，
 And you know let's say really run true concurrent,
 
 614
 00:39:32,200 --> 00:39:34,840
+所以在这一点上，另一个可能，
 so at that point, the other guy might actually,
 
 615
 00:39:34,840 --> 00:39:39,090
+另一个 CPU 可能会先获取 d2 ，
 the other CPU might acquire d2 first,
 
 616
 00:39:39,180 --> 00:39:41,190
+因为这是它的第一个参数。
 because you know it's first argument.
 
 617
 00:39:43,180 --> 00:39:46,570
+而现在 d1 想要获得 d2 ，
 And now of course d2, d1 wants to acquired d2,
 
 618
 00:39:48,470 --> 00:39:50,720
+所以会尝试获取 d2 。
 so will try to acquire d2.
 
 619
 00:39:51,260 --> 00:39:52,220
+它会成功吗，
 Will it succeed,
 
 620
 00:39:53,540 --> 00:39:54,410
+它不会成功，
 it won't succeed,
 
 621
 00:39:54,410 --> 00:39:57,500
+因为另一个持有这个锁，
 because the other guy, you know actually has the lock
 
 622
 00:39:57,530 --> 00:40:00,890
+所以这个会到此为止，不再继续。
 and so this guy will stop here and not to proceed.
 
 623
 00:40:01,560 --> 00:40:03,480
+现在让我们看看另一个 CPU ，
 Now let's look at the other CPU,
 
 624
 00:40:03,480 --> 00:40:05,280
+CPU2 获取了 d2 ，
 CPU2 acquire d2,
 
 625
 00:40:05,280 --> 00:40:07,800
+它现在要获取第二个参数 d1 。
 it's now gone acquire d1 for its second argument.
 
 626
 00:40:08,630 --> 00:40:12,440
+它会试着调用 acquire d1 ，
 It's gonna try to call, to call acquire d1,
 
 627
 00:40:12,800 --> 00:40:14,390
+它是否能够继续执行。
 and will it be able to proceed.
 
 628
 00:40:14,570 --> 00:40:16,220
+不，无法继续，
 No, won't be able to proceed,
 
 629
 00:40:16,370 --> 00:40:20,420
+因为 CPU1 持有锁 d1 。
 because the CPU1 actually has the lock d1.
 
 630
 00:40:21,040 --> 00:40:24,130
+所以有时这被称为死锁，
 And so here we're sometimes this is called a deadly embrace,
 
 631
 00:40:24,130 --> 00:40:27,100
+因为，
 you know, where you know,
 
 632
 00:40:27,430 --> 00:40:30,280
+因为我们获取锁的方式，获取的顺序，
 because the way we acquire, the order in which we,
 
 633
 00:40:30,310 --> 00:40:33,280
+获取锁的顺序会导致死锁。
 order which acquire lock results actually in a deadlock.
 
 634
 00:40:41,050 --> 00:40:42,010
+这能理解吗？
 Does that make sense?
 
 635
 00:40:42,580 --> 00:40:43,330
+这个例子。
 This example.
 
 636
 00:40:45,580 --> 00:40:48,550
+这是一个更危险的死锁的例子，
 This is a little bit of a more dangerous example of deadlock,
 
 637
 00:40:48,580 --> 00:40:50,710
+这不是一个明显的问题，
 it's not an obvious problem
 
 638
 00:40:51,010 --> 00:40:54,580
+这个情况的解决方案是简单的。
 and the solution turns out in some sense reasonable simple.
 
 639
 00:40:56,370 --> 00:40:58,860
+解决方案是，如果你有多把锁，
 The solution is that you know if you have multiple locks,
 
 640
 00:40:59,040 --> 00:41:01,500
+那你就得对锁排序，
 then you have to order their locks,
 
 641
 00:41:03,930 --> 00:41:08,220
+所有操作都必须按照这个顺序来获取锁。
 and full operations have to acquire locks in that order.
 
 642
 00:41:17,410 --> 00:41:18,880
+所以如果你是一名系统设计师，
 So if you're a system designer,
 
 643
 00:41:18,880 --> 00:41:24,040
+你必须决定所有锁对象的全局顺序，
 you have to decide you know what the global order is for all lock objects
 
 644
 00:41:24,280 --> 00:41:26,320
+比如，在这种情况下，
 and so for example in this case
 
 645
 00:41:26,320 --> 00:41:30,670
+你可能会说 d1 应该总是在 d2 之前，
 where you may want to say that d1 should always order before d2,
 
 646
 00:41:30,880 --> 00:41:31,930
+这就意味着，
 and that means that,
 
 647
 00:41:32,230 --> 00:41:34,090
+当我们执行重命名时，
 when we execute a rename,
 
 648
 00:41:34,240 --> 00:41:41,230
+规则是我们总是先获取更小数字的目录，
 the rule of life is we always acquire lower number directories first,
 
 649
 00:41:41,230 --> 00:41:43,930
+在获取更高数字的目录之前。
 before we acquire higher order directory number.
 
 650
 00:41:44,900 --> 00:41:49,220
+这将确保全局顺序，
 And that will ensure that basically there's global order
 
 651
 00:41:49,220 --> 00:41:52,160
+这种情况就不会发生。
 and you know this particular case which cannot happen.
 
 652
 00:41:53,960 --> 00:41:56,210
+因为，锁的顺序会是，
 Because you know the lock order is going to be
 
 653
 00:41:56,210 --> 00:41:59,450
+对于这个是 d1 d2 ，
 then for d1 d2 for this guy
 
 654
 00:41:59,690 --> 00:42:04,400
+这个也使用相同的顺序获取锁， d1 d2 ，
 and this guy will acquire locks exactly the same global order, you know, d1 d2
 
 655
 00:42:04,580 --> 00:42:06,980
+这样我们就没有死锁了。
 and then we don't have deadly embrace.
 
 656
 00:42:09,700 --> 00:42:10,450
+这能理解吗？
 Does that make sense?
 
 657
 00:42:14,630 --> 00:42:15,830
+对于这个，有什么问题吗？
 Any questions about this?
 
 658
 00:42:22,180 --> 00:42:25,870
+所以这表明了一些问题，
 So this indicates a little bit of problem,
 
 659
 00:42:25,870 --> 00:42:26,530
+即使这样，
 even though like,
 
 660
 00:42:26,530 --> 00:42:28,930
+好的，让我们来解决这个死锁问题，
 okay let's fix this you know this sort of deadlock problem,
 
 661
 00:42:28,930 --> 00:42:32,200
+我有全局顺序，请注意这个顺序是全局的，
 that I have in global order, notice this order is global
 
 662
 00:42:32,560 --> 00:42:38,370
+这有一个小问题，
 and this is an issue a little bit,
 
 663
 00:42:38,490 --> 00:42:40,440
+在设计系统时，因为。
 when designing a system, because.
 
 664
 00:42:40,860 --> 00:42:42,120
+等一下。
 Hold on.
 
 665
 00:43:07,510 --> 00:43:10,480
+所以考虑一下锁的顺序，
 So you think about the sort of lock ordering,
 
 666
 00:43:15,050 --> 00:43:16,610
+一定是全局的。
 you know there has to be sort of global.
 
 667
 00:43:18,030 --> 00:43:26,400
+所以，如果我们有一个模块 m1 调用方法模块 m2 的方法。
 And so we have one module, one m, you know calls method in module two.
 
 668
 00:43:29,440 --> 00:43:33,970
+那么调用者 m1g ，可能需要注意，
 And the caller, you know m1g, you know might actually need to be aware
 
 669
 00:43:33,970 --> 00:43:35,440
+或者你需要注意，
 or could be you need to be aware
 
 670
 00:43:35,440 --> 00:43:40,660
+在 m2 中 f 获取了哪些锁。
 actually what locks f acquire for [one] locks m2 uses.
 
 671
 00:43:42,630 --> 00:43:48,510
+因为，如果 m2 使用了一些锁，
 Because if you know m2 uses some set locks,
 
 672
 00:43:48,750 --> 00:43:51,960
+然后遵守我们的锁规则，
 then you know follow our lock ordering rule,
 
 673
 00:43:52,110 --> 00:43:55,080
+只需要确保如果它有锁，
 [just] got to make sure that you know if it has some locks,
 
 674
 00:43:55,170 --> 00:43:57,720
+从 f 和 g 获取的所有锁，
 then acquires all locks from f and g,
 
 675
 00:43:57,720 --> 00:44:00,480
+是在某种全局顺序中。
 together actually in some global order.
 
 676
 00:44:01,270 --> 00:44:03,880
+所以这意味着这些内部结构，
 And so that really means that these sort of internals,
 
 677
 00:44:06,600 --> 00:44:17,570
+就锁而言， m2 的内部部件必须对 m1 可见。
 internals of m2, in terms of locks must be visible to m1.
 
 678
 00:44:21,400 --> 00:44:23,110
+所以 m1 可以确保，
 So that you know and m1 can ensure that,
 
 679
 00:44:23,110 --> 00:44:28,360
+以适当的方式调用 m2 。
 actually you know calls m2 in the appropriate way.
 
 680
 00:44:29,120 --> 00:44:32,420
+在某些方面，这是一种对抽象的违反，
 And you know in some ways, that is kind of an abstraction violation,
 
 681
 00:44:34,700 --> 00:44:36,050
+实际上做得很好，
 actually work out perfectly
 
 682
 00:44:36,050 --> 00:44:39,350
+m1 不需要知道关于 m2 实现的任何信息，
 and m1 doesn't know need to know anything about how m2 was implemented
 
 683
 00:44:39,830 --> 00:44:42,980
+不幸的是，锁是一种常见的例子，
 and unfortunately locks are common example
 
 684
 00:44:42,980 --> 00:44:47,030
+m2 要讲内部信息泄露给 m1 ，
 of where some of the internals, m2 might actually leak out to m1,
 
 685
 00:44:47,240 --> 00:44:48,740
+因为 m1 确实需要知道。
 because m1 really needs to know.
 
 686
 00:44:49,740 --> 00:44:53,400
+所以，当你设计一个更大的系统时，
 And so when you design a bigger system,
 
 687
 00:44:53,400 --> 00:44:56,130
+这使得模块化变得更加复杂。
 you know, this makes the modularity more complicated.
 
 688
 00:45:01,730 --> 00:45:07,160
+抱歉，我想知道，是否需要完整的锁的顺序，
 Oh sorry, I was just wondering, does need to be a complete ordering of locks
 
 689
 00:45:07,160 --> 00:45:10,010
+或者有没有一些锁，
 or can there be some locks that are,
 
 690
 00:45:10,400 --> 00:45:14,750
+可以用任何方式排序。
 that can be ordered in whatever way they.
 
 691
 00:45:14,900 --> 00:45:16,640
+是的，这要看情况，
 Yeah, it depends,
 
 692
 00:45:16,640 --> 00:45:19,370
+如果 f 和 g 共享任何锁，
 if like f and g you know share any locks right,
 
 693
 00:45:19,970 --> 00:45:22,460
+比如，如果查看 xv6 ，
 for example if you're looking at xv6,
 
 694
 00:45:22,730 --> 00:45:27,560
+它有多个锁顺序链，
 there are sort of multiple strands of lock orderings,
 
 695
 00:45:27,560 --> 00:45:29,570
+因为有些函数与其他锁无关，
 because some functions have nothing to do with other locks
 
 696
 00:45:29,570 --> 00:45:32,270
+它们永远不会一起获得。
 and you know they're never acquired together.
 
 697
 00:45:33,000 --> 00:45:34,890
+所以如果它们从来没有一起获取，
 And so if they're never acquire together,
 
 698
 00:45:34,890 --> 00:45:36,600
+如果您愿意，只需连接锁集，
 just join locks sets, if you will
 
 699
 00:45:36,930 --> 00:45:41,340
+然后，只需要确保特定锁集合中的顺序是全局的，
 and then only you have to make sure that the ordering in one particular locks set is global
 
 700
 00:45:41,610 --> 00:45:45,630
+并且其它锁集合的顺序序完全独立于其它顺序。
 and the ordering the other locks set is completely independent of the other ordering.
 
 701
 00:45:47,730 --> 00:45:50,940
+所以这是正确的，不一定是全局顺序，
 So it is correct, that it doesn't have to be global ordering,
 
 702
 00:45:50,940 --> 00:45:55,560
+但就像所有操作相同共享类型的锁集的函数，
 but like all the functions that manipulate the same share sort of lock set,
 
 703
 00:45:55,650 --> 00:45:57,480
+它们需要一致的全局顺序。
 they need to agree on a global order.
 
 704
 00:45:59,130 --> 00:45:59,910
+谢谢。
 Thank you.
 
 705
 00:46:04,430 --> 00:46:05,300
+好的，那么。
 Okay so.
 
 706
 00:46:05,880 --> 00:46:11,010
+另一种挑战使用锁的挑战，
 One in, you know another sort of challenge with locks,
 
 707
 00:46:11,070 --> 00:46:12,420
+我们已经看到了两个挑战，
 we've seen two challenges,
 
 708
 00:46:12,420 --> 00:46:14,130
+一个是死锁，一个是模块化，
 one is deadlock, one is modularity,
 
 709
 00:46:14,520 --> 00:46:19,640
+第三个挑战是锁与性能。
 the second challenge or third challenge just locks versus performance.
 
 710
 00:46:24,100 --> 00:46:26,800
+我之前暗示了几次，
 And you know really hinted at this a couple times,
 
 711
 00:46:26,800 --> 00:46:28,600
+但它需要，
 but it needs to,
 
 712
 00:46:28,630 --> 00:46:32,770
+强调一下是非常重要的。
 is important enough to actually put some emphasis on.
 
 713
 00:46:33,400 --> 00:46:37,720
+所以我们想要性能，
 And so basically we want to get performance,
 
 714
 00:46:37,720 --> 00:46:40,180
+你需要拆分数据结构，
 you need to split up data structures,
 
 715
 00:46:40,660 --> 00:46:42,880
+所以如果你有一个大内核锁，
 so if you have one big kernel lock,
 
 716
 00:46:43,150 --> 00:46:46,660
+这将使你的性能限于在单个 CPU 上，
 that will limit your performance to basically performance on a single CPU,
 
 717
 00:46:46,810 --> 00:46:51,850
+如果你想要具有多个 CPU 扩展的性能，
 if you want to perform, you want that performed scales with numerous CPUs,
 
 718
 00:46:52,060 --> 00:46:53,140
+你就得拆分。
 you gotta split up.
 
 719
 00:46:54,190 --> 00:46:55,690
+你需要拆分数据结构。
 You need to split up data structures.
 
 720
 00:47:04,910 --> 00:47:10,130
+最好的拆分，它并不明显，
 And best split, you know, it's not obvious
 
 721
 00:47:10,280 --> 00:47:11,420
+或者是一个挑战，
 or can be a challenge,
 
 722
 00:47:17,780 --> 00:47:21,380
+比如，如果你将锁与每个目录相关联，
 you know, for example if you associate the lock with every directories,
 
 723
 00:47:21,380 --> 00:47:23,510
+如果你将锁与每个 inode 相关联，
 if you associate the lock with every inode,
 
 724
 00:47:23,870 --> 00:47:25,940
+是否将锁与每个进程相关联。
 associated lock with every process or not.
 
 725
 00:47:26,480 --> 00:47:30,920
+哪里是，更适合的以不同的方式拆分数据结构。
 Where is the better to, sort of split the data structures in a different way.
 
 726
 00:47:31,930 --> 00:47:35,290
+如果你需要修改，
 And if you make a change,
 
 727
 00:47:35,290 --> 00:47:39,700
+重新设计锁规则，
 you know sort of redesign the locking discipline,
 
 728
 00:47:39,700 --> 00:47:41,530
+你必须确保，
 and you've got to make sure
 
 729
 00:47:41,530 --> 00:47:43,540
+你仍然保持着不变量，
 that you know you're still maintain the invariant,
 
 730
 00:47:43,540 --> 00:47:46,210
+是内核想要保持的。
 that actually the kernels trying to maintain.
 
 731
 00:47:46,870 --> 00:47:48,790
+如果你拆分锁，
 And if you split locks,
 
 732
 00:47:48,790 --> 00:47:50,590
+你还必须重写代码。
 you also have to rewrite the code.
 
 733
 00:47:51,540 --> 00:47:57,500
+你也可能需要重写代码。
 You may have to need, may write, may need to, rewrite code too.
 
 734
 00:48:02,540 --> 00:48:03,830
+所以事实证明，
 And so it turns out that,
 
 735
 00:48:03,830 --> 00:48:11,360
+你应该重构内核的一部分，或者你的程序的一部分，
 basically you should refactor you know part of your kernel or part of your [] program,
 
 736
 00:48:11,660 --> 00:48:12,920
+为了获得更好的性能，
 to get better performance
 
 737
 00:48:12,920 --> 00:48:16,340
+通过拆分数据结构或引入更多的锁，
 by splitting data structure or introducing more locks,
 
 738
 00:48:16,610 --> 00:48:18,470
+有很多工作要做，
 you know there's just a lot of work,
 
 739
 00:48:18,470 --> 00:48:22,040
+你要仔细考虑，想要维持持的范围，
 you have to carefully think through, that maintain, the range that intended to maintain,
 
 740
 00:48:22,310 --> 00:48:24,110
+你必须要写代码，
 you have to [] write code
 
 741
 00:48:24,350 --> 00:48:27,050
+一般说来，这是一项繁重的工作，
 and so generally this is just a lot of work,
 
 742
 00:48:28,020 --> 00:48:28,800
+它们并不容易。
 they're not easy.
 
 743
 00:48:32,500 --> 00:48:35,680
+所以这是比较负面的观点，
 And so there's a little bit of negative view point, right,
 
 744
 00:48:35,680 --> 00:48:38,530
+因为我们想要更好的性能，
 because you know we want to get better performance,
 
 745
 00:48:38,560 --> 00:48:40,360
+这需要更多的锁。
 that suggests you know more locks.
 
 746
 00:48:40,690 --> 00:48:46,280
+但这是一项繁重的工作。
 And, but that is actually a lot of work.
 
 747
 00:48:46,940 --> 00:48:51,840
+对于这个问题，有一种普遍的做法是，
 It's sort of general recipe, you know how to go about this is,
 
 748
 00:48:51,840 --> 00:48:54,980
+从粗粒度的锁开始，
 to you know start of coarse-grained locks,
 
 749
 00:49:05,160 --> 00:49:06,000
+然后测量。
 and then measure.
 
 750
 00:49:11,600 --> 00:49:14,450
+不管是什么应用程序运行在内核上，
 So whatever run a bunch of applications on top of the kernel
 
 751
 00:49:14,690 --> 00:49:18,020
+观察是否得到了加速，
 and see whether you get actually any speedup,
 
 752
 00:49:18,020 --> 00:49:19,880
+如果它们利用了多个核心。
 if they actually exploit multiple cores.
 
 753
 00:49:20,560 --> 00:49:23,290
+如果它们这样做了，你就完成了，
 And if they do, you know you basically be done, right,
 
 754
 00:49:23,290 --> 00:49:25,240
+你的锁设计已经够好了，
 that you're locking design is good enough,
 
 755
 00:49:25,990 --> 00:49:27,460
+如果没有加快速度，
 if you don't get speed up,
 
 756
 00:49:27,460 --> 00:49:29,620
+这意味着某些锁被争用，
 basically that means that some lock is contended,
 
 757
 00:49:33,030 --> 00:49:35,820
+多个进程尝试获取相同的锁，
 multiple processes are trying to get the same lock
 
 758
 00:49:35,850 --> 00:49:37,500
+因此它们被串行化了，
 and therefore they are serialized
 
 759
 00:49:37,710 --> 00:49:39,630
+所以，得不到加速。
 and therefore you don't get speed up.
 
 760
 00:49:40,160 --> 00:49:44,390
+然后你需要重新考虑，需要重新设计。
 Then you know you have to rethink about, then you need to redesign.
 
 761
 00:49:48,020 --> 00:49:49,400
+但这里的重点是，
 But the point is that,
 
 762
 00:49:49,400 --> 00:49:52,640
+你要以这些测量来指导，
 you want to be guided you know by these measurements,
 
 763
 00:49:53,030 --> 00:49:54,380
+因为可能是这种情况，
 because it maybe the case
 
 764
 00:49:54,380 --> 00:49:59,840
+一些使用粗粒度锁的模块不是经常并行调用，
 that you know some module that uses of coarse-grained lock is just not called in parallel often
 
 765
 00:49:59,930 --> 00:50:02,780
+所以，没有必要对它重新设计，
 and therefore it is not necessary to actually redesign,
 
 766
 00:50:03,140 --> 00:50:04,670
+因为重新设计有很多工作要做，
 since redesign there's a lot of work,
 
 767
 00:50:04,700 --> 00:50:08,510
+这也会使代码的条理变得复杂，
 you know can, you know it also can complicate the reasoning about code,
 
 768
 00:50:08,600 --> 00:50:12,200
+不重新设计这些是一个更好的选择，
 you know that, you know it's a good idea not actually do that redesign,
 
 769
 00:50:12,200 --> 00:50:13,190
+这不是必须的。
 it's not necessary.
 
 770
 00:50:15,430 --> 00:50:19,690
+所以，一般说来，一条好的规则是，
 And so, in general, a good rule of form is
 
 771
 00:50:19,690 --> 00:50:21,250
+从粗粒度的锁开始，
 you know start with coarse-grained locks,
 
 772
 00:50:21,340 --> 00:50:24,310
+测量这些锁中的一个是否出现争用，
 measure whether a contention that appears one of these locks
 
 773
 00:50:24,310 --> 00:50:26,230
+然后重新设计系统的这一部分，
 and then redesign that part of the system,
 
 774
 00:50:26,230 --> 00:50:28,480
+你就会得到更好的并行性。
 so that you get better better parallelism.
 
 775
 00:50:30,740 --> 00:50:33,170
+这能理解吗，目前为止有什么问题吗？
 Does that make sense, any questions so far?
 
 776
 00:50:39,030 --> 00:50:41,490
+好的，我们来看一下。
 Okay, let's look at.
 
 777
 00:50:42,140 --> 00:50:46,070
+好的，让我们看看 xv6 中的一些代码，
 Well, let's look at xv6 and you know some code
 
 778
 00:50:46,190 --> 00:50:51,650
+了解一下，锁在 xv6 中实际是如何工作的。
 to understand a little bit how this locking sort of works out in practice the xv6.
 
 779
 00:50:53,650 --> 00:50:57,190
+所以，我要回到，
 And so I'm gonna go back to,
 
 780
 00:50:58,480 --> 00:51:01,470
+回到这一屏，
 to the this screen,
 
 781
 00:51:01,680 --> 00:51:03,180
+我需要这个。
 I really need this.
 
 782
 00:51:03,680 --> 00:51:05,690
+我想看看 uart ，
 And I want to look at uart,
 
 783
 00:51:05,690 --> 00:51:08,270
+因为我们从那里开始讨论锁。
 because we start talking about locking there.
 
 784
 00:51:10,240 --> 00:51:13,820
+在周一的时候。
 On the, on Monday.
 
 785
 00:51:13,820 --> 00:51:15,350
+我想更详细的看看它。
 And I want to look a little bit more in detail.
 
 786
 00:51:16,390 --> 00:51:18,580
+现在我们对锁有了更多的了解，
 And now that we know a little bit more about locks
 
 787
 00:51:18,580 --> 00:51:21,250
+也说明了几个有趣的观点。
 and then also illustrate a couple of interesting points.
 
 788
 00:51:28,110 --> 00:51:32,490
+首先，你想知道，
 So first, you know it turns out you want to know,
 
 789
 00:51:32,520 --> 00:51:35,470
+查看锁，
 what's looking at lock,
 
 790
 00:51:35,500 --> 00:51:38,860
+UART 只有一个锁，
 it turns out that the uart actually has only one lock,
 
 791
 00:51:39,070 --> 00:51:41,890
+你可以认为这是一个可用的粗粒度（锁），
 so you can think about this as a reasonable coarse-grained,
 
 792
 00:51:41,950 --> 00:51:45,040
+在一点上对于 UART 来说。
 design at this particular point at least for uart.
 
 793
 00:51:45,540 --> 00:51:49,830
+这个锁保护 UART 传输缓冲区，
 And that particular lock, it protects basically uart transmission buffer
 
 794
 00:51:50,190 --> 00:51:53,550
+以及写指针和读指针。
 and write pointer and read pointer.
 
 795
 00:51:55,150 --> 00:51:56,230
+当我们传输的时候，
 So when we transmit,
 
 796
 00:51:56,230 --> 00:52:01,120
+写指针指向传输缓冲区中的下一个空闲插槽，
 you know the write pointer points to the next free slot in the transmission buffer
 
 797
 00:52:01,330 --> 00:52:04,570
+而读指针是需要传输的下一个插槽。
 and the read pointer is the next slot that actually needs to be transmitted.
 
 798
 00:52:05,200 --> 00:52:10,510
+这就是我们并行的标准设计，
 Maybe this is our standard design for parallelism,
 
 799
 00:52:11,060 --> 00:52:14,090
+或者是生产者消费者并行性。
 or for a consumer, producer consumer parallelism.
 
 800
 00:52:15,210 --> 00:52:19,230
+让我回去，把它拿出来。
 So let me go back and brought it out.
 
 801
 00:52:19,470 --> 00:52:25,820
+案例研究 UART ，
 So, case study uart,
 
 802
 00:52:27,340 --> 00:52:28,870
+这是缓冲区，
 and there's basically buffer,
 
 803
 00:52:29,870 --> 00:52:32,150
+有一个读指针，一个写指针，
 and there's a read pointer, there's a write pointer
 
 804
 00:52:32,480 --> 00:52:35,750
+或者写索引和读索引。
 or write read index and read index.
 
 805
 00:52:37,110 --> 00:52:40,620
+这是连接到用来显示的 UART ，
 This has to go to uart being displayed,
 
 806
 00:52:42,820 --> 00:52:44,320
+这是写入端，
 and this is the writer,
 
 807
 00:52:46,740 --> 00:52:50,730
+可能是 printf ，将字符插入到缓冲区中。
 printf maybe that actually sticks characters into this buffer.
 
 808
 00:52:52,490 --> 00:52:53,090
+好的?
 Okay?
 
 809
 00:52:53,840 --> 00:52:58,760
+所以，我们可以看到这个锁有多个作用。
 And so you know we can see is that the lock, you know lock has multiple roles.
 
 810
 00:53:03,200 --> 00:53:06,200
+一个是保护这个数据结构，
 One is to basically protect this data structure,
 
 811
 00:53:11,640 --> 00:53:13,500
+这个数据结构具有某种不变性，
 this data structure has some invariance,
 
 812
 00:53:14,200 --> 00:53:17,890
+也就是，从读到写，
 namely, the read to [proceed] write,
 
 813
 00:53:18,250 --> 00:53:23,080
+任何在 R 和 W 之间的字符都是要发送的，
 anything between R and W are characters that need to be sent,
 
 814
 00:53:23,440 --> 00:53:27,100
+任何在 W 和 R 之间的东西都是空插槽。
 anything between W and R are things that actually are empty slots.
 
 815
 00:53:27,780 --> 00:53:32,370
+这个锁帮助我们维持这个不变量。
 And the locks are basically help us maintain that invariant.
 
 816
 00:53:34,080 --> 00:53:37,980
+所以，我们回到代码。
 So, here are code again.
 
 817
 00:53:38,480 --> 00:53:41,210
+让我们看一下 acquire 。
 And let's look at the acquire.
 
 818
 00:53:41,900 --> 00:53:43,280
+这里是 uartputc ，
 So here's uartputc,
 
 819
 00:53:44,480 --> 00:53:47,600
+uartputc 做的第一件事是，
 and you know the first thing you know uartputc [] does is,
 
 820
 00:53:47,600 --> 00:53:49,190
+获取锁，
 actually you know grab the lock,
 
 821
 00:53:49,900 --> 00:53:53,440
+然后插入一个字符，
 and then stick a character,
 
 822
 00:53:53,500 --> 00:53:55,120
+如果缓冲区中有位置，
 if there's a place in the buffer,
 
 823
 00:53:55,150 --> 00:53:56,830
+将字符插入缓冲区，
 sticks the [] character in the buffer
 
 824
 00:53:57,190 --> 00:53:59,110
+开始打印，
 and start you know the printing
 
 825
 00:53:59,110 --> 00:54:02,460
+然后释放锁，
 and then releases the lock,
 
 826
 00:54:02,670 --> 00:54:07,620
+所以，如果两个进程同时调用 uartputc ，
 so if two processes at the same time call uartputc,
 
 827
 00:54:07,740 --> 00:54:10,380
+那么锁将会确保，
 then there's lock will ensure that
 
 828
 00:54:10,410 --> 00:54:13,140
+第一个进程中的一个字符出现在第一个插槽中，
 you know one character from the first process goes in the first slot
 
 829
 00:54:13,170 --> 00:54:18,720
+然后第二个进程的字符进入下一个插槽，
 and then the second character of the second process goes into the next slot
 
 830
 00:54:18,780 --> 00:54:22,920
+它们不会最终进入同一个插槽。
 and they're no as happened to end up in the same slot, right.
 
 831
 00:54:22,920 --> 00:54:24,270
+所以这是一个明显的例子，
 So this is a clear example
 
 832
 00:54:24,270 --> 00:54:30,690
+锁可以帮助我们避免竞态条件，
 where lock it helps us to avoids a race condition,
 
 833
 00:54:30,750 --> 00:54:34,360
+否则，第二个进程可能会
 because otherwise you know the, the second process might
 
 834
 00:54:34,360 --> 00:54:37,390
+覆盖第一个进程的字符，
 overwrite you know the first process's character,
 
 835
 00:54:38,740 --> 00:54:39,700
+这是一部分。
 that's one part.
 
 836
 00:54:40,150 --> 00:54:42,190
+然后，我们看看。
 Then we go look at.
 
 837
 00:54:42,960 --> 00:54:44,130
+我们之前看过一点，
 And we did that a little bit before,
 
 838
 00:54:44,130 --> 00:54:44,970
+我们查看 start ，
 we look at start,
 
 839
 00:54:45,000 --> 00:54:46,740
+我们看到有更多的事情。
 we see a couple more things going on.
 
 840
 00:54:48,640 --> 00:54:52,000
+这个，我们看到，
 The, we see actually that the,
 
 841
 00:54:53,220 --> 00:54:56,850
+如果缓冲区不是，
 if buffer is not you know,
 
 842
 00:54:57,460 --> 00:54:58,750
+如果缓冲器不为空，
 if the buffer is not empty,
 
 843
 00:54:59,080 --> 00:55:03,070
+那么我们知道有一些字符，
 then we know that basically there's a bunch of characters,
 
 844
 00:55:03,070 --> 00:55:05,800
+正在进行或正在发送。
 that are being progressed or being sent.
 
 845
 00:55:06,450 --> 00:55:08,580
+你知道锁可以确保，
 And you know the lock you know make sure that
 
 846
 00:55:08,580 --> 00:55:11,160
+我们不会覆盖其中的任何一个，
 we don't really overwrite any of those,
 
 847
 00:55:11,370 --> 00:55:15,390
+所以任何队列尾端的东西，
 so anything that's sort of the tailend of the queue,
 
 848
 00:55:15,390 --> 00:55:22,590
+是由 UART 本身处理的。
 is actually being processed by the uart itself.
 
 849
 00:55:22,620 --> 00:55:27,460
+所以，尾端正在处理。
 So, tailend is in flight.
 
 850
 00:55:30,370 --> 00:55:31,510
+我们确保，
 And we make sure that
 
 851
 00:55:31,510 --> 00:55:37,090
+通过获取锁，我们不会在这个方面修改或干扰。
 we basically don't modify or interfere with that particular aspect by grabbing a lock.
 
 852
 00:55:38,060 --> 00:55:41,930
+最后，更多的事情是，
 And then finally, they're sort of more and more thing is that
 
 853
 00:55:42,140 --> 00:55:46,520
+对 UART 寄存器的写入，
 the writes to registers of the uart
 
 854
 00:55:46,520 --> 00:55:47,720
+比如 THR 寄存器，
 like that THR register,
 
 855
 00:55:47,720 --> 00:55:51,230
+这里只有一个锁确保，
 which one, there's only one you know basically the lock ensures,
 
 856
 00:55:51,350 --> 00:55:54,770
+记得 uartstart 在持有锁的情况下调用，
 remember the uartstart just called with lock held,
 
 857
 00:55:55,100 --> 00:55:58,880
+确保只有一个写入者到 THR 寄存器。
 assures this is only one writer to the THR register.
 
 858
 00:55:59,870 --> 00:56:05,390
+所以，另一方面锁确保的是，
 And so another in sort of variant or another aspect that the locking enforces is
 
 859
 00:56:05,390 --> 00:56:11,500
+硬件寄存器有一个写入者。
 that hardware registers have one writer.
 
 860
 00:56:16,460 --> 00:56:17,090
+好的?
 Okay?
 
 861
 00:56:18,530 --> 00:56:20,150
+还有一件有趣的事，
 You know, there's one other interesting thing,
 
 862
 00:56:20,150 --> 00:56:22,730
+我想稍微谈一下，
 that I want to talk a little bit about,
 
 863
 00:56:23,120 --> 00:56:27,770
+那就是 UART 硬件完成后，
 and that is you know the uart is done correct, hardware is done,
 
 864
 00:56:27,770 --> 00:56:29,570
+会有一个中断。
 then there was an interrupt.
 
 865
 00:56:30,170 --> 00:56:32,600
+如你所知，
 And, as you know,
 
 866
 00:56:32,600 --> 00:56:34,370
+我们注意到在 uartstart 之前，
 we notice before uartstart right,
 
 867
 00:56:34,370 --> 00:56:37,250
+我们有调用者，
 you know we have the caller,
 
 868
 00:56:37,250 --> 00:56:39,080
+它是获取锁的调用者，
 it's a caller to acquire the lock,
 
 869
 00:56:39,140 --> 00:56:41,690
+来确保，
 to ensure that,
 
 870
 00:56:41,900 --> 00:56:45,830
+我们不会有多个[]写入写寄存器。
 we don't multiple [] writing to the write register.
 
 871
 00:56:46,620 --> 00:56:50,820
+UART 中断本身可以
 And so uart interrupt itself could
 
 872
 00:56:50,820 --> 00:56:54,780
+与调用 printf 的其他进程并行运行，
 run in parallel with another process that's called printf,
 
 873
 00:56:54,780 --> 00:56:58,500
+所以，有一些实际的 printf 运行在 CPU0 上，
 so there's some practical printf that runs on CPU0,
 
 874
 00:56:58,560 --> 00:57:01,500
+而在 CPU1 上接受 UART 中断，
 and on CPU1 actually takes the uart interrupt,
 
 875
 00:57:01,530 --> 00:57:02,910
+因为它什么都没做，
 because maybe it's doing nothing,
 
 876
 00:57:02,910 --> 00:57:05,250
+所以，它可以在任何时间点中断。
 and so it's ready to interrupt any particular point of time.
 
 877
 00:57:05,720 --> 00:57:08,360
+它将会调用 uartstart 。
 And it will call uartstart.
 
 878
 00:57:09,080 --> 00:57:10,610
+它必须是这种情况，
 And it has to be the case correct,
 
 879
 00:57:10,610 --> 00:57:14,030
+我们希望确保硬件寄存器中只有一个写入者，
 you know we want to ensure that there's a single writer into the hardware registers
 
 880
 00:57:14,270 --> 00:57:19,100
+或者保护传输缓冲区的不变性，
 or to protect you know the invariance actually of the transmission buffer,
 
 881
 00:57:19,460 --> 00:57:21,380
+我们必须获取锁。
 you know we have to acquire a lock.
 
 882
 00:57:21,810 --> 00:57:24,480
+所以，在 xv6 中，
 And so it is the case that in xv6,
 
 883
 00:57:24,480 --> 00:57:29,130
+中断可以运行驱动的下半部，
 actually that interrupts you know can run the bottom half of the driver
 
 884
 00:57:29,130 --> 00:57:33,600
+可以在不同的处理器上真正的同时运行，
 can run truly concurrent on on different processors
 
 885
 00:57:33,630 --> 00:57:35,790
+和驱动的上半部一起，
 with the top half of the driver
 
 886
 00:57:36,000 --> 00:57:40,140
+所以，中断函数也需要锁。
 and so therefore interrupt functions also require locks.
 
 887
 00:57:40,930 --> 00:57:42,430
+实际上，在这种情况下，
 In fact, in this particular case,
 
 888
 00:57:42,580 --> 00:57:45,820
+需要在 UART 中的锁，
 you know requires the one lock that there's actually in the uart
 
 889
 00:57:45,850 --> 00:57:47,770
+然后调用 uartstart ，
 and then calls uartstart
 
 890
 00:57:47,770 --> 00:57:48,940
+然后释放锁。
 and then releases the lock.
 
 891
 00:57:50,720 --> 00:57:52,640
+稍后，我会回到这里，
 And I'll come back to that in a second,
 
 892
 00:57:52,670 --> 00:57:57,110
+因为实现锁比较困难，
 because there's a little bit trickiness in implementing a lock,
 
 893
 00:57:57,350 --> 00:57:59,690
+在这种方式下，这是正确的。
 in such a way that this actually works out correctly.
 
 894
 00:58:00,490 --> 00:58:05,280
+你应该担心的事情是，
 And, and the thing that actually you should be worried about is that,
 
 895
 00:58:05,580 --> 00:58:07,980
+稍后我会讲一下，
 I'll actually talk about in a second,
 
 896
 00:58:08,010 --> 00:58:09,510
+等到了那里我再讲。
 let me postpone that until I get there.
 
 897
 00:58:13,040 --> 00:58:15,440
+好的，关于这个，有什么问题，
 Okay, so any any questions about this,
 
 898
 00:58:15,440 --> 00:58:20,990
+一个简单的使用锁和 UART 的例子。
 sort of simple example of lock use and uart.
 
 899
 00:58:29,640 --> 00:58:32,220
+好的，让我来讲一下，
 Okay, let me that thing kind of,
 
 900
 00:58:32,220 --> 00:58:34,140
+让我来讲一下实现锁。
 let me talk about implementing a lock.
 
 901
 00:58:34,940 --> 00:58:41,120
+所以，规范是只有一个进程可以获取锁，
 So the spec is that only one process can acquire lock,
 
 902
 00:58:41,240 --> 00:58:45,110
+在任何时间点锁持有者都不会超过一个。
 there's no more than one lock holder at any given point of time.
 
 903
 00:58:45,640 --> 00:58:48,340
+我们想要了解，
 And we want to look and understand
 
 904
 00:58:48,340 --> 00:58:49,570
+如何实现锁，
 actually how you implement a lock
 
 905
 00:58:49,570 --> 00:58:51,400
+以保证规范的方式。
 in such a way that actually is guaranteed.
 
 906
 00:58:51,930 --> 00:58:53,610
+我会先写一个错误的锁，
 Let me first write a broken lock,
 
 907
 00:58:54,440 --> 00:58:58,160
+让我们理解这里的挑战是什么，
 so we understand you know what the challenge is
 
 908
 00:58:59,020 --> 00:59:00,280
+或者错误的 acquire 。
 or broken acquire.
 
 909
 00:59:05,310 --> 00:59:08,160
+这样，我们知道挑战是如何实现 acquire 。
 So that we know what the challenge is actually an implement acquire.
 
 910
 00:59:09,610 --> 00:59:11,890
+这是我的错误的那个，
 So here's my broken one,
 
 911
 00:59:11,980 --> 00:59:19,480
+acquire struct lock *l ，
 so, struct [] acquires lock *l,
 
 912
 00:59:21,970 --> 00:59:23,020
+它所做是，
 you know what it does is
 
 913
 00:59:23,020 --> 00:59:27,400
+在它后面，有一个无限循环 while(1) ，
 it follows, it has an infinite loop while(1),
 
 914
 00:59:28,980 --> 00:59:37,190
+如果 l->locked 是零，表示没有人持有它。
 you know if l is locked is zero mean nobody holding it.
 
 915
 00:59:37,900 --> 00:59:40,510
+然后，调用者应该获取锁，
 Then, presumably the caller should grabbed the lock,
 
 916
 00:59:40,690 --> 00:59:45,040
+那么，我们把 l->locked 设为 1 ，
 so, then we set l->locked to one,
 
 917
 00:59:48,320 --> 00:59:50,360
+在这个时刻我们拿到了锁，
 and you know at that point we got the lock,
 
 918
 00:59:50,360 --> 00:59:51,380
+我们可以返回，
 so we can return,
 
 919
 00:59:51,770 --> 00:59:52,880
+什么事情都不用做，
 nothing to do anymore,
 
 920
 00:59:53,590 --> 00:59:55,090
+并结束循环。
 and close loop.
 
 921
 00:59:55,090 --> 00:59:56,080
+如果我们没拿到锁，
 If we didn't get the lock,
 
 922
 00:59:56,080 --> 00:59:57,130
+因为 locked 是 1 ，
 because the locked was one,
 
 923
 00:59:57,130 --> 00:59:58,480
+这意味着有其他人持有锁，
 it means somebody else is holding lock,
 
 924
 00:59:58,480 --> 00:59:59,410
+我们只需要继续旋转，
 so we just keep spinning,
 
 925
 01:00:01,080 --> 01:00:03,720
+等待一遍又一遍地循环，
 waiting to go around the loop over and over and over
 
 926
 01:00:03,990 --> 01:00:08,310
+直到在某一时刻，锁持有者调用 release ，
 until at some point you know the holder, lock holder called release,
 
 927
 01:00:08,310 --> 01:00:11,790
+它会将 locked 设置为零。
 which will set lock to, will set lock to zero.
 
 928
 01:00:14,740 --> 01:00:18,520
+那么这个实现的问题是什么？
 And you know what's wrong with this particular implementation?
 
 929
 01:00:20,870 --> 01:00:26,690
+我想两个进程可能同时读到它没有被锁。
 I think two processes may read that it's not locked at the same time.
 
 930
 01:00:27,260 --> 01:00:28,520
+是的，没错。
 Yeah right.
 
 931
 01:00:30,040 --> 01:00:31,720
+所以，这里有一个竞态条件，
 So there's a race condition here
 
 932
 01:00:31,750 --> 01:00:36,160
+竞态条件在这里。
 and just to make sure the races right here.
 
 933
 01:00:39,020 --> 01:00:42,170
+我们可以有两个 CPU 进来。
 We can have basically two CPUs coming in.
 
 934
 01:00:42,230 --> 01:00:44,060
+我们看这个时序图，
 You know we talk time diagram,
 
 935
 01:00:44,700 --> 01:00:49,080
+你知道 CPU1 ， CPU0 ， CPU1 ，
 you know CPU1, CPU0, CPU1,
 
 936
 01:00:50,600 --> 01:00:52,220
+这是语句 A，
 you know this statement A,
 
 937
 01:00:52,550 --> 01:00:53,900
+这是语句 B ，
 maybe this statement B,
 
 938
 01:00:54,500 --> 01:00:58,640
+CPU1 到达语句 A ，
 both CPU1 you know reach statement A,
 
 939
 01:00:58,700 --> 01:01:05,530
+CPU0 和 CPU1 都到达语句 A ，
 CPU0 and CPU the zero one both reach statement A,
 
 940
 01:01:05,530 --> 01:01:09,130
+所以，它们都看到 locked 是零，
 so they both see locked being zero
 
 941
 01:01:09,370 --> 01:01:10,930
+然后，它们都执行了 B 。
 and then they're both execute B.
 
 942
 01:01:13,470 --> 01:01:15,720
+好的，这里它们看到 locked 是 0 ，
 Alright, so here they see locked zero,
 
 943
 01:01:17,020 --> 01:01:18,910
+这个也看到的是 locked 是 0 。
 this guy see locked zero.
 
 944
 01:01:20,760 --> 01:01:22,920
+所以，它们都执行语句 B ，
 And so they both executes statement B,
 
 945
 01:01:22,920 --> 01:01:25,800
+它们都获得了锁，
 both have acquired lock
 
 946
 01:01:26,070 --> 01:01:30,150
+那么这个函数违反了规范。
 and which violated the spec, you know this particular function.
 
 947
 01:01:31,670 --> 01:01:32,270
+这能理解吗？
 This makes sense?
 
 948
 01:01:35,740 --> 01:01:38,740
+所以，要解决这个问题，
 So it turns out you know to solve this problem
 
 949
 01:01:38,800 --> 01:01:40,300
+并得到一个正确的实现，
 and sort of get a correct implementation,
 
 950
 01:01:40,300 --> 01:01:41,680
+有多种方式可以做到，
 there are multiple ways of going about it,
 
 951
 01:01:41,980 --> 01:01:46,720
+但最常见的方式是依靠特殊的硬件指令。
 but the most common ways to rely basically on a special hardware instruction.
 
 952
 01:01:47,620 --> 01:01:50,590
+这条硬件指令所做的就是，
 And hardware instruction that basically what it does,
 
 953
 01:01:50,860 --> 01:01:53,830
+它做这个测试，并原子的设置。
 it does this test and then set atomically.
 
 954
 01:01:56,050 --> 01:02:01,470
+所以，解决这个问题的方法是
 And so solution to this problem is
 
 955
 01:02:03,140 --> 01:02:09,140
+硬件的 testandset 支持。
 hardware testandset support.
 
 956
 01:02:16,680 --> 01:02:18,690
+你可以这样想，
 And the way you can think about it,
 
 957
 01:02:18,690 --> 01:02:20,760
+在 RISC-V 上，
 you know on the RISC-V,
 
 958
 01:02:20,790 --> 01:02:24,960
+这条指令是 amoswap ，
 you know this instruction actually there's the amoswap,
 
 959
 01:02:26,680 --> 01:02:27,970
+是我们会用到的。
 that would gonna be using.
 
 960
 01:02:28,740 --> 01:02:32,100
+基本上可以归结为测试和设置，
 And basically boils down to test and set,
 
 961
 01:02:32,130 --> 01:02:34,170
+硬件保证，
 basically the hardware guarantees,
 
 962
 01:02:34,410 --> 01:02:38,580
+你使用这三个参数，
 you will take this, takes two arguments or three arguments,
 
 963
 01:02:38,580 --> 01:02:44,600
+地址，寄存器一 r1 和寄存器二，寄存器1 R1和寄存器2
 address, register one r1 and register two
 
 964
 01:02:45,020 --> 01:02:50,930
+本质上硬件所做的是，
 and essentially what the hardware does conceptually is,
 
 965
 01:02:50,930 --> 01:02:52,700
+它锁定这个地址，
 it locks the address,
 
 966
 01:02:53,500 --> 01:02:57,650
+如果你愿意，我们稍后会更多的讨论锁定地址。
 if you will, we'll talk about that in a second little bit more locks address.
 
 967
 01:02:58,200 --> 01:03:03,120
+它（把值）放入一个临时变量，
 It, it puts in a temporary variable,
 
 968
 01:03:03,910 --> 01:03:07,240
+那个地址中的值。
 you know the value that actually is at that particular address.
 
 969
 01:03:09,570 --> 01:03:16,710
+然后，将 r1 的值放到地址中。
 And then, raise the value of r1 into the address.
 
 970
 01:03:17,560 --> 01:03:23,260
+然后把原始地址的值放入，
 And then basically puts the value that was at the originally address into,
 
 971
 01:03:24,380 --> 01:03:30,200
+tmp 中的原始值放入 r2 ，
 temp- temporary value, that was the original value was actually address actually into r2
 
 972
 01:03:30,470 --> 01:03:32,900
+然后释放锁，并返回。
 and then basically unlocks and returns.
 
 973
 01:03:37,220 --> 01:03:39,890
+在这个锁里，
 And you know in this lock,
 
 974
 01:03:39,890 --> 01:03:42,620
+你能保证这个测试，
 you will guarantee is that basically this test,
 
 975
 01:03:42,740 --> 01:03:45,350
+测试结果会返回到 r2 ，
 where the result of the test is returned into r2
 
 976
 01:03:45,620 --> 01:03:48,530
+而设置是原子发生的。
 and the set actually happened atomically.
 
 977
 01:03:49,070 --> 01:03:50,570
+所以这是一条硬件指令，
 And so this is a hardware instruction,
 
 978
 01:03:50,600 --> 01:03:53,960
+大多数处理器都有这样的硬件指令。
 most processor have an hardware instruction like this.
 
 979
 01:03:54,440 --> 01:03:58,340
+因为这是一种方便的实现锁的方法。
 Because it's a convenient way to actually implement locks.
 
 980
 01:04:00,560 --> 01:04:03,170
+所以我们要做的是，
 So basically what we've done is,
 
 981
 01:04:03,170 --> 01:04:09,770
+我们减少软件锁实现原子性，
 like we've reduced the atomicity of this software lock implementation,
 
 982
 01:04:09,770 --> 01:04:12,320
+而是硬件锁实现。
 to basically a hardware lock implementation.
 
 983
 01:04:13,190 --> 01:04:19,760
+处理器可能会使用不同的方式实现这个，
 And so the processor might implement this in very different ways,
 
 984
 01:04:19,790 --> 01:04:23,900
+所以，指令集本身有一份说明书，
 so basically the instruction set itself, there's like a specification,
 
 985
 01:04:23,900 --> 01:04:25,460
+它并没有说明它是如何实现的，
 it doesn't actually say how it's implemented
 
 986
 01:04:25,850 --> 01:04:28,400
+它非常依赖于实际的实现。
 and it is very dependent on the actual implementation.
 
 987
 01:04:30,320 --> 01:04:36,770
+显然取决于内存系统的工作方式。
 Obvious, dependent on how the memory system exactly works.
 
 988
 01:04:44,320 --> 01:04:50,620
+比如，如果多个处理器共享单个内存控制器，
 So, for example, if you know the multi processor shared single memory controller,
 
 989
 01:04:50,680 --> 01:04:52,120
+对内存进行读写，
 that reads or writes to memory,
 
 990
 01:04:52,210 --> 01:04:54,760
+那么内存控制器可以支持该操作，
 then the memory controller can actually support this operation,
 
 991
 01:04:55,060 --> 01:04:59,440
+允许在一个特定的地址设置锁，
 basically allow you to lock in a particular address,
 
 992
 01:04:59,440 --> 01:05:04,000
+然后让一个处理器做两个操作或三条指令，
 you know and then let you know one processor do two operations or three instructions
 
 993
 01:05:04,240 --> 01:05:05,380
+然后解锁，
 and then [] will unlock
 
 994
 01:05:05,410 --> 01:05:09,310
+因为所有处理器的读写都通过这个内存控制器，
 and so since all the processors reads or writes go for this memory controller,
 
 995
 01:05:09,310 --> 01:05:11,470
+内存控制器可以对锁进行排序。
 the memory controller can do the ordering of locking.
 
 996
 01:05:12,290 --> 01:05:17,840
+如果处理器中的内存位于共享总线上，
 If the memories are in this processor are sitting on a shared bus,
 
 997
 01:05:18,110 --> 01:05:21,260
+通常是总线仲裁器可以做这个，
 it's often the bus arbiter that can actually do that,
 
 998
 01:05:21,260 --> 01:05:27,500
+总线仲裁器支持以原子方式执行两条内存操作。
 where bus arbiter has support for basically executing two memory operations in an atomic way.
 
 999
 01:05:28,340 --> 01:05:32,990
+如果处理器有缓存，
 If it's, if the processor have caches,
 
 1000
 01:05:32,990 --> 01:05:36,230
+那么它通常是高速缓存一致性协议的一部分，
 then, it's sort of typically part of the cache coherence protocol,
 
 1001
 01:05:36,230 --> 01:05:40,460
+高速缓存一致性协议将确保，
 where cache coherence protocol will ensure that
 
 1002
 01:05:40,460 --> 01:05:41,360
+如果有写入者，
 if there's a writer,
 
 1003
 01:05:41,360 --> 01:05:48,350
+缓存行会持有我们要更新的值，
 you know that that particular cache line that holds a value we want to update,
 
 1004
 01:05:48,350 --> 01:05:50,150
+最终在一个单独的高速缓存中，
 ends up in one single cache,
 
 1005
 01:05:50,580 --> 01:05:56,850
+然后，处理器控制有两个操作的单个缓存行的锁。
 and then basically the processor is control of lock that single cache line across two operations.
 
 1006
 01:05:57,330 --> 01:05:59,070
+所以，这个的实现，
 So the implementation of this,
 
 1007
 01:05:59,070 --> 01:06:01,500
+可以用多种不同的方式来完成，
 you know can be done in many different ways,
 
 1008
 01:06:01,500 --> 01:06:02,970
+但理论上来说，
 but conceptually the,
 
 1009
 01:06:02,970 --> 01:06:05,220
+所做的是，你锁定地址，
 what's going on, it's like you lock the address,
 
 1010
 01:06:05,520 --> 01:06:07,440
+读取原始值，
 you read your original value,
 
 1011
 01:06:07,770 --> 01:06:09,660
+保存新值，
 you store in the new value
 
 1012
 01:06:09,660 --> 01:06:10,770
+然后返回值。
 and you return your value.
 
 1013
 01:06:12,360 --> 01:06:13,050
+这能理解吗？
 Does that make sense?
 
 1014
 01:06:15,820 --> 01:06:18,580
+看看我们如何使用这条指令，
 To see how we can use that instruction,
 
 1015
 01:06:19,240 --> 01:06:25,060
+让我们看看 xv6 中 acquire 和 release 的实现，
 let's actually look at the implementation of acquire and release in xv6
 
 1016
 01:06:25,300 --> 01:06:27,460
+它还会揭露一些其他有趣的细节。
 and it will expose a couple of other interesting details.
 
 1017
 01:06:31,800 --> 01:06:34,950
+让我先来介绍一下 spinlock.h ，
 So let me first bring up spinlock.h,
 
 1018
 01:06:34,980 --> 01:06:40,570
+spinlock.h ，如你所见，它非常简单，
 spinlock.h, as you can see, it's pretty straightforward,
 
 1019
 01:06:40,600 --> 01:06:45,160
+它有这个 locked 标记，和我们的伪代码一样，
 it has this flag locked, exactly as in our pseudo code
 
 1020
 01:06:45,460 --> 01:06:47,320
+还有其他两个东西用来调试，
 and then there's two other things for debugging,
 
 1021
 01:06:47,320 --> 01:06:48,700
+即锁的名称，
 namely the name of the lock
 
 1022
 01:06:48,790 --> 01:06:53,490
+和当前持有锁的 CPU 。
 and the CPU, the last, the current CPU that actually holding the lock.
 
 1023
 01:06:54,170 --> 01:06:56,630
+这主要是打印出调试消息，
 And this is mostly to print out the debugging messages,
 
 1024
 01:06:56,630 --> 01:06:59,690
+比如，获取相同的 CPU 。
 for example you do to acquire some of the same CPU.
 
 1025
 01:07:01,450 --> 01:07:07,230
+好的，让我们来看看它的实现。
 Okay, so then let's look at the implementation.
 
 1026
 01:07:12,020 --> 01:07:14,630
+我们从 acquire 开始。
 And so let's start out with acquire.
 
 1027
 01:07:15,140 --> 01:07:18,620
+我们先看看这个循环，
 And let's first look at this loop,
 
 1028
 01:07:19,540 --> 01:07:23,530
+这实际上是一种测试和设置循环，
 so this is actually the sort of test and set loop,
 
 1029
 01:07:23,530 --> 01:07:24,880
+就是我刚才谈到的，
 that I just talked about,
 
 1030
 01:07:25,150 --> 01:07:30,640
+实际上，在 C 标准中，
 it turns out that in the C standard,
 
 1031
 01:07:30,670 --> 01:07:34,390
+定义了这些原子操作之一，
 actually defines one of these atomic operations
 
 1032
 01:07:34,420 --> 01:07:38,350
+C 标准种有一个函数，
 and so C standard actually has a function,
 
 1033
 01:07:38,350 --> 01:07:42,070
+也就是 __sync_lock_test_and_set ，
 that says you know __sync_lock_test_and_set
 
 1034
 01:07:42,070 --> 01:07:45,130
+指定了我刚才描述的行为。
 and basically specifies the behavior that I just described.
 
 1035
 01:07:45,700 --> 01:07:50,740
+然后，每个处理器都需要实现该行为，
 And then every processor basically required to implement that behavior
 
 1036
 01:07:50,860 --> 01:07:55,180
+由于大多数处理器具有测试和设置硬件指令，
 and since most processors have and matching of test and set hardware instruction,
 
 1037
 01:07:55,420 --> 01:07:58,570
+这是实现[]的一个合理而直接的方案，
 this turns out to be a reasonable straightforward for the [] to implement,
 
 1038
 01:07:58,600 --> 01:08:01,420
+实际上，如果我们看看 kernel.asm ，
 then so in fact if we look at kernel.asm,
 
 1039
 01:08:01,420 --> 01:08:03,280
+我们可以查看汇编指令，
 we can look at the assembly instructions
 
 1040
 01:08:03,280 --> 01:08:05,980
+了解 RISC-V 处理器的确切功能。
 and see exactly what the RISC-V processor does.
 
 1041
 01:08:08,000 --> 01:08:09,320
+所以。
 So.
 
 1042
 01:08:11,200 --> 01:08:14,230
+这是我们的汇编结构 acquire ，
 At here is our assembly structures acquire
 
 1043
 01:08:14,560 --> 01:08:19,390
+这是 amoswap 指令。
 and let's here's our amoswap instruction.
 
 1044
 01:08:27,830 --> 01:08:29,240
+所以你可以看到，
 So you can see,
 
 1045
 01:08:30,800 --> 01:08:35,240
+amoswap 调用寄存器 a5 ，
 if you know amoswap basically called register a5
 
 1046
 01:08:35,240 --> 01:08:39,770
+并且输入和输出也是 a5 ，
 and the input and output also ends up in a5
 
 1047
 01:08:40,160 --> 01:08:41,930
+与整个地址一样长，
 and as long as the whole [] address
 
 1048
 01:08:42,200 --> 01:08:48,880
+如果不相等，我们就返回，
 and if it's not equal, we return
 
 1049
 01:08:48,910 --> 01:08:54,640
+否则我们会回到，
 and otherwise basically we go back to, we jump back to,
 
 1050
 01:08:57,170 --> 01:08:58,820
+再检查一遍我说的是对的，
 double check I'm saying the right thing here,
 
 1051
 01:08:59,180 --> 01:09:02,360
+将 a4 移动到[]，
 move a4 [],
 
 1052
 01:09:02,360 --> 01:09:06,620
+如果不等于，则到 +0x22 。
 if not equal to 0x twenty plus 22.
 
 1053
 01:09:07,260 --> 01:09:09,030
+好吧，这有点难计算，
 Alright, that's a little hard to calculate,
 
 1054
 01:09:09,030 --> 01:09:11,400
+但基本上在一种情况下，我们[扩展]，
 but basically in one case, we branch out
 
 1055
 01:09:11,490 --> 01:09:13,080
+在另一种情况下，我们向后分支。
 and in the other case, we [branch back].
 
 1056
 01:09:14,270 --> 01:09:16,730
+所以，可能看 C 代码更容易。
 So this may be easier to look at the C code.
 
 1057
 01:09:19,580 --> 01:09:20,840
+所以让我们到这里，
 So let's go away in here,
 
 1058
 01:09:20,840 --> 01:09:21,800
+那么会发生什么呢，
 so what happens,
 
 1059
 01:09:21,980 --> 01:09:24,590
+如果锁没有被持有，
 so if the if the lock is not held,
 
 1060
 01:09:25,140 --> 01:09:27,090
+lk->locked 的值是多少，
 what will be the value of l lock,
 
 1061
 01:09:27,090 --> 01:09:29,340
+lk->locked 会是零，
 well lk->locked will be zero right,
 
 1062
 01:09:30,180 --> 01:09:31,920
+所以我们称之为测试和设置，
 and so we call this test and set,
 
 1063
 01:09:32,100 --> 01:09:35,460
+将会发生的是，我们在 locked 中写入 1 ，
 what will happen is we'll write one in locked,
 
 1064
 01:09:36,330 --> 01:09:37,830
+但是返回之前的值。
 but return the previous value.
 
 1065
 01:09:38,620 --> 01:09:40,690
+所以如果之前的值是零，
 So if the previous value is zero,
 
 1066
 01:09:41,140 --> 01:09:43,390
+那我们就好了，
 then we're good right,
 
 1067
 01:09:43,390 --> 01:09:45,400
+因为这意味着没有人拿着锁，
 because that means that nobody was holding the lock
 
 1068
 01:09:45,400 --> 01:09:47,680
+我们就结束了这个 while 循环。
 and we fall through and we're done with this while loop.
 
 1069
 01:09:49,740 --> 01:09:51,660
+现在，我们假设锁的值是 1 ，
 Now, let's say the lock value was one,
 
 1070
 01:09:51,840 --> 01:09:54,990
+所以可能锁已经上锁，
 so probably the lock actually locked,
 
 1071
 01:09:55,350 --> 01:09:56,940
+这条指令会做什么，
 well, what will this instruction do,
 
 1072
 01:09:57,030 --> 01:10:02,130
+它会读取旧值，把它放在一边，
 it will read the old value, put that in the side correct,
 
 1073
 01:10:02,130 --> 01:10:04,020
+在这种情况下，是 1 ，
 there's one in this case
 
 1074
 01:10:04,110 --> 01:10:07,110
+然后在那个位置写入一个新的 1 。
 and then write a new one into that location.
 
 1075
 01:10:07,790 --> 01:10:10,490
+这不会改变任何事情，
 And that will change nothing right,
 
 1076
 01:10:10,490 --> 01:10:12,260
+因为它已经被锁上了。
 because it was already locked.
 
 1077
 01:10:12,810 --> 01:10:14,880
+函数将会返回 1 ，
 And and the function will return one,
 
 1078
 01:10:15,210 --> 01:10:17,370
+表明之前的持有，
 indicating that actually some of the previous hold,
 
 1079
 01:10:17,370 --> 01:10:18,810
+它已经被锁上了，
 that it was already locked
 
 1080
 01:10:18,840 --> 01:10:21,360
+所以在这种情况下，它不等于零，
 and so in that case it's unequal to zero
 
 1081
 01:10:21,480 --> 01:10:23,490
+它会旋转，一直旋转，
 and it will spin, will keep spinning
 
 1082
 01:10:23,580 --> 01:10:28,140
+直到 locked 重新设置为 0 ，
 until locked actually set back to zero,
 
 1083
 01:10:28,590 --> 01:10:30,270
+而这发生在 release 中。
 and presumably happened in this release.
 
 1084
 01:10:32,500 --> 01:10:33,430
+对于这个，有什么问题吗？
 Any questions about this?
 
 1085
 01:10:51,200 --> 01:10:51,980
+没有问题？
 No questions?
 
 1086
 01:10:52,810 --> 01:10:54,190
+好的。
 Okay.
 
 1087
 01:10:56,070 --> 01:11:01,430
+所以现在，让我们看看对应的 release 操作，
 So now basically you know let's look at the corresponding the release operation,
 
 1088
 01:11:01,990 --> 01:11:10,390
+这里是 release 操作，
 And, and here's release operation,
 
 1089
 01:11:10,690 --> 01:11:13,570
+如果你再看一下 kernel.asm 。
 and if you look at the kernel.asm again.
 
 1090
 01:11:15,960 --> 01:11:17,160
+那个指令，
 That instruction,
 
 1091
 01:11:17,250 --> 01:11:19,020
+所以让我们看看 release ，
 so lets look at release,
 
 1092
 01:11:19,020 --> 01:11:20,940
+可能在这里后面，这是 release 。
 probably right after, here release.
 
 1093
 01:11:22,220 --> 01:11:25,700
+所以， release 也使用了这个 amoswap 指令，
 So the release actually also uses this amoswap instruction,
 
 1094
 01:11:27,960 --> 01:11:30,510
+把 0 放入 s1 。
 and putting basically zero into s1.
 
 1095
 01:11:33,520 --> 01:11:35,290
+所以这保证的是，
 And so this guarantee is
 
 1096
 01:11:35,290 --> 01:11:40,090
+这个原子更新 lk->locked ，
 basically that this atomic update you know to l->locked or lk->locked,
 
 1097
 01:11:40,360 --> 01:11:44,530
+使用原子操作将 0 写入 lk->locked 。
 writing zero into lk->locked using atomic operation.
 
 1098
 01:11:46,080 --> 01:11:49,230
+你们中的许多人问到，为什么不直接使用 store ，
 Many of you ask why not just use store,
 
 1099
 01:11:49,800 --> 01:11:51,600
+store 指令来写入 0 。
 store instruction to actually write zero.
 
 1100
 01:11:53,990 --> 01:11:56,910
+有没有人，能猜猜为什么，
 Anybody, may you want to guess why,
 
 1101
 01:11:58,310 --> 01:11:59,390
+为什么那可能行不通，
 why that might not work
 
 1102
 01:11:59,390 --> 01:12:00,950
+或者问题可能是什么。
 or what the problem could be.
 
 1103
 01:12:02,380 --> 01:12:06,340
+因为某个其他进程可能正在将 1 写入锁，或者，
 Because then some other process might be writing one to the lock or,
 
 1104
 01:12:06,820 --> 01:12:09,200
+不，或者再写一个 0 ，
 no, or writing another zero,
 
 1105
 01:12:09,230 --> 01:12:10,610
+但不是这样的，对吧。
 but that can't be the case, right.
 
 1106
 01:12:11,320 --> 01:12:12,490
+是啊，可能是对的，
 Yeah, well there could be okay,
 
 1107
 01:12:12,490 --> 01:12:16,690
+可能有两个进程或两个 CPU 同时写入 l->locked ，
 so there could be two processes or two CPUs writing to l->locked at the same time right,
 
 1108
 01:12:17,170 --> 01:12:20,380
+但我认为真正的问题是，
 but I think what the question really is that,
 
 1109
 01:12:20,380 --> 01:12:23,230
+对很多人来说，我也经常这么想，
 you know, for many people and I often assume this too,
 
 1110
 01:12:23,350 --> 01:12:25,450
+就是你要做一条 store 指令，
 is that you're going to do a single store instruction,
 
 1111
 01:12:25,450 --> 01:12:27,070
+这是一个原子操作。
 that is sort of like an atomic operation.
 
 1112
 01:12:28,250 --> 01:12:30,800
+并不总是这样的，
 There's not always the case,
 
 1113
 01:12:30,830 --> 01:12:33,110
+比如，如果你，
 for example if you are
 
 1114
 01:12:33,110 --> 01:12:35,510
+这取决于架构的实现，
 and it really depends on the architecture implementation,
 
 1115
 01:12:35,540 --> 01:12:38,240
+比如，如果缓存[]协议工作，
 like for example if the cache [] protocol works
 
 1116
 01:12:38,240 --> 01:12:40,160
+或者缓存系统使用缓存行工作，
 or cache system works using cache lines,
 
 1117
 01:12:40,160 --> 01:12:43,290
+其中缓存行可能大于整数，
 where cache line maybe bigger than integer,
 
 1118
 01:12:43,290 --> 01:12:45,750
+通常大于整数，
 are typically bigger than integer,
 
 1119
 01:12:45,750 --> 01:12:46,860
+那么真正发生的是，
 then really what's happening is,
 
 1120
 01:12:46,860 --> 01:12:49,110
+第一个操作是加载缓存行，
 that the first operation is loading the cache line,
 
 1121
 01:12:49,110 --> 01:12:50,460
+然后是更新缓存行，
 and then updating the cache line,
 
 1122
 01:12:50,790 --> 01:12:54,510
+所以， store 指令里面有两个微操作，
 so in fact you know store instruction, basically has two micro operations in it
 
 1123
 01:12:54,690 --> 01:12:57,540
+你可能会得到错误的结果。
 and you can get the wrong result.
 
 1124
 01:12:58,990 --> 01:13:05,890
+所以，为了避免必须了解任何硬件实现，
 So, you know to avoid you know having to understand anything of the hardware implementation,
 
 1125
 01:13:05,890 --> 01:13:08,860
+以及整数运算是否是原子的，
 of exactly and whether integer operations are atomic or not
 
 1126
 01:13:08,890 --> 01:13:14,720
+或者写入 64 位内存值是原子操作，
 or writing to 64 bit 64 bit memory values as atomic operation,
 
 1127
 01:13:14,870 --> 01:13:19,550
+我们使用 RISC-V 操作，
 you know we use the RISC-V operation,
 
 1128
 01:13:19,550 --> 01:13:21,560
+它可以保证原子执行。
 that is guaranteed to be executed atomically.
 
 1129
 01:13:25,020 --> 01:13:25,770
+这能理解吗？
 Does that make sense?
 
 1130
 01:13:28,100 --> 01:13:28,640
+是的。
 Yes.
 
 1131
 01:13:30,290 --> 01:13:35,610
+好的，为了[扩展]一下，
 Okay, so just, just for your [amusement],
 
 1132
 01:13:36,180 --> 01:13:39,450
+amoswap 不是唯一存在的指令，
 amoswap is not the only instruction that exists,
 
 1133
 01:13:39,450 --> 01:13:41,160
+这是 RISC-V 手册，
 so here's the RISC-V manual,
 
 1134
 01:13:41,490 --> 01:13:44,700
+在列表中，是所有的原子操作，
 in lists, whole bunch of the atomic operation,
 
 1135
 01:13:44,700 --> 01:13:46,800
+所以有 AMOAND, AMOOR ，
 so there's an amoand, amoor,
 
 1136
 01:13:46,800 --> 01:13:48,390
+还有 AMOMAX, AMOMIN ，
 there's max min,
 
 1137
 01:13:48,690 --> 01:13:53,820
+它们都可以在原子操作中读写一个值。
 they're all can read or write a value in an atomic operation.
 
 1138
 01:13:58,480 --> 01:13:59,050
+好的?
 Okay?
 
 1139
 01:13:59,890 --> 01:14:02,350
+好的，还有其他几件事我想指出，
 Okay, so there's a couple other things, I want to point out,
 
 1140
 01:14:02,380 --> 01:14:04,150
+在这个实现中。
 in this particular implementation.
 
 1141
 01:14:06,420 --> 01:14:10,710
+让我重新回到 acquire 。
 In, let me start again go back to acquire.
 
 1142
 01:14:12,850 --> 01:14:19,030
+所以， acquire 函数首先做的是，
 So one of the first things that the acquire function does is
 
 1143
 01:14:19,030 --> 01:14:21,460
+它关闭了中断。
 it turns off interrupts.
 
 1144
 01:14:22,900 --> 01:14:26,290
+最好能理解为什么是这样，
 And it's really good to understand why that is the case
 
 1145
 01:14:26,290 --> 01:14:29,140
+现在，我回到 UART 示例代码。
 and so for now I'm gonna go back to uart example code.
 
 1146
 01:14:29,680 --> 01:14:31,300
+你可以稍微想一想这个。
 And you think a little bit about this.
 
 1147
 01:14:31,800 --> 01:14:34,200
+所以我们要考虑一下这个情况，
 And so we want to think about the case,
 
 1148
 01:14:34,380 --> 01:14:39,430
+是 acquire 可能没有正确实现，
 were acquire is actually maybe incorrectly implemented,
 
 1149
 01:14:39,430 --> 01:14:41,200
+没有关闭中断，
 does not turn off interrupts,
 
 1150
 01:14:41,320 --> 01:14:43,960
+所以思考这个问题的方法是，
 so the way to think about this is
 
 1151
 01:14:43,960 --> 01:14:45,700
+如果我们到 uartputc ，
 if we go to uartputc,
 
 1152
 01:14:46,090 --> 01:14:48,670
+我们假设 uartputc 运行，
 and here let's say uartputc runs,
 
 1153
 01:14:49,170 --> 01:14:52,470
+并且获得了锁，
 and acquires the lock,
 
 1154
 01:14:53,520 --> 01:14:55,470
+但是不关闭中断，
 and but does not turn off interrupts,
 
 1155
 01:14:55,530 --> 01:14:56,340
+会发生什么。
 what can happen.
 
 1156
 01:15:03,050 --> 01:15:05,540
+给大家几秒钟考虑一下，
 Give everybody a couple seconds to think about it,
 
 1157
 01:15:05,930 --> 01:15:07,040
+如果你有想法
 if you have an idea
 
 1158
 01:15:07,040 --> 01:15:08,300
+或者为什么它可能是错误的，
 or why it might be wrong,
 
 1159
 01:15:08,300 --> 01:15:09,950
+可以直接说。
 like jumpin.
 
 1160
 01:15:18,340 --> 01:15:21,520
+或许，它可以被中断，
 Perhaps, it could be interrupted,
 
 1161
 01:15:21,520 --> 01:15:28,240
+因为这个锁，然后其他事情发生了，
 because of, because of the [lock] and then something happens
 
 1162
 01:15:28,480 --> 01:15:31,090
+它也需要打印一些其他的东西，
 and it needs to print something else,
 
 1163
 01:15:31,090 --> 01:15:33,400
+它试图再做一次 uartputc ，
 and it tries to do uartputc again,
 
 1164
 01:15:33,970 --> 01:15:35,530
+但是锁已经被拿走了。
 but the lock is already taken.
 
 1165
 01:15:35,740 --> 01:15:37,180
+这是一种可能的情况，
 That might be a possible scenario,
 
 1166
 01:15:37,180 --> 01:15:40,300
+有一个更直接的例子。
 there is a much more direct example for this.
 
 1167
 01:15:40,840 --> 01:15:43,360
+我们假设 uartputc 得到了锁，
 So let's say uartputc grab the lock
 
 1168
 01:15:43,810 --> 01:15:46,690
+而 UART 正忙于传输一些字符。
 and uart were busy transmitting some character.
 
 1169
 01:15:47,590 --> 01:15:50,230
+那么当 UART 完成了传输字符，
 So when uart done or transmitting character,
 
 1170
 01:15:50,230 --> 01:15:50,890
+它要做什么。
 what does it do.
 
 1171
 01:15:53,160 --> 01:15:54,750
+它会导致中断，
 It causes an interrupt correct
 
 1172
 01:15:55,230 --> 01:15:57,090
+并且 uartintr 运行，
 and uartintr runs,
 
 1173
 01:15:57,940 --> 01:15:59,560
+uartintr 会做什么，
 what uartintr do,
 
 1174
 01:16:00,740 --> 01:16:02,300
+它获取同一把锁，
 it grabs the same lock,
 
 1175
 01:16:02,450 --> 01:16:04,520
+uartputc 已经持有了，
 you know that the uartputc is holding right,
 
 1176
 01:16:04,520 --> 01:16:05,600
+那么，这里会发生什么，
 so what will happen here,
 
 1177
 01:16:06,080 --> 01:16:07,310
+如果只有一个 CPU ，
 if there's only one CPU
 
 1178
 01:16:07,580 --> 01:16:10,580
+没有其他 CPU 可以运行这个中断。
 and so there's no other CPU where this interrupt could be running.
 
 1179
 01:16:12,460 --> 01:16:13,660
+我们现在死锁了，
 Well, we have a deadlock right,
 
 1180
 01:16:13,660 --> 01:16:19,500
+因为当前 CPU 持有 uartputc 的锁，
 because the current CPU is holding the lock as part of uartputc,
 
 1181
 01:16:19,560 --> 01:16:22,110
+然后，后面传入的中断，
 then later the interrupt that came in
 
 1182
 01:16:22,260 --> 01:16:23,490
+它做的第一件事就是，
 and the first thing it tries to do is
 
 1183
 01:16:23,490 --> 01:16:25,140
+获取已经持有的锁。
 actually acquire a lock has already held.
 
 1184
 01:16:25,640 --> 01:16:28,550
+实际上，在 xv6 的情况下，你会得到一个 panic ，
 In fact, in the case of xv6, you will get a panic,
 
 1185
 01:16:28,640 --> 01:16:30,290
+因为相同的 CPU ，
 because you know the same CPU,
 
 1186
 01:16:30,560 --> 01:16:32,780
+正在再次尝试获取相同的锁。
 is actually trying to acquire the same lock again.
 
 1187
 01:16:37,460 --> 01:16:40,400
+所以，获得自旋锁，
 So basically you know what acquire spinlock,
 
 1188
 01:16:40,400 --> 01:16:42,920
+处理了两种不同类型的并发，
 deals with sort of two different types of concurrency,
 
 1189
 01:16:43,040 --> 01:16:45,710
+其一，它们是两个不同 CPU 之间的并发，
 one they're sort of concurrency between two different CPUs,
 
 1190
 01:16:45,980 --> 01:16:47,450
+而且我们必须保证，
 and we get make sure like for example is
 
 1191
 01:16:47,450 --> 01:16:50,240
+中断函数运行在不同的 CPU 上，
 the interrupt function runs on a different CPU,
 
 1192
 01:16:50,420 --> 01:16:52,940
+一般我们不会重新安排传输缓冲区，
 you know basically we're don't get arrange on the transmission buffer,
 
 1193
 01:16:53,440 --> 01:16:55,150
+但是如果它们在同一个 CPU 上运行，
 but if they run in the same CPU,
 
 1194
 01:16:55,150 --> 01:16:57,550
+我们要确保它仍然是原子的，
 we're going to make sure that it's still atomic
 
 1195
 01:16:57,550 --> 01:16:58,840
+它不会被中断，
 and that is not being interrupted
 
 1196
 01:16:58,840 --> 01:17:01,780
+所以，我们在 acquire 中关闭了中断。
 and therefore we actually turn the interrupts off in acquire.
 
 1197
 01:17:03,360 --> 01:17:06,450
+它们只有在 release 结束时才会再次打开，
 And they're only turned on again at the end of release,
 
 1198
 01:17:06,780 --> 01:17:09,570
+当锁被释放的时候，
 when the lock actually has been released,
 
 1199
 01:17:09,570 --> 01:17:10,890
+在这一点上，再次看到，
 at that point is see it again,
 
 1200
 01:17:10,920 --> 01:17:12,090
+接收中断，
 you know to take these interrupts,
 
 1201
 01:17:12,270 --> 01:17:15,090
+因为锁不会再被释放，
 because lock actually is not released anymore,
 
 1202
 01:17:16,190 --> 01:17:17,990
+不是 acquire 持有它，不再持有。
 not acquire holding it, not held anymore.
 
 1203
 01:17:18,940 --> 01:17:19,810
+这能理解吗？
 Does that make sense?
 
 1204
 01:17:28,560 --> 01:17:32,730
+好的，在这个实现中还有一件更微妙的事情，
 Okay, there's one more subtle thing in this implementation,
 
 1205
 01:17:32,730 --> 01:17:33,900
+我想说一下，
 that I want to talk about,
 
 1206
 01:17:34,260 --> 01:17:39,110
+而且我们需要处理。
 and we need to deal with.
 
 1207
 01:17:43,200 --> 01:17:46,110
+那就是内存排序。
 And that is memory ordering.
 
 1208
 01:17:53,810 --> 01:17:57,860
+比如，你认为锁是，
 So for example you think about lock is,
 
 1209
 01:17:57,860 --> 01:18:01,900
+比如， acquire locked 是 1 ，
 let's say, acquires its locked to one,
 
 1210
 01:18:02,290 --> 01:18:04,270
+也许我们有一个临界区，
 maybe we have a critical section,
 
 1211
 01:18:04,270 --> 01:18:06,550
+x<-x+1 ，
 in which you x x plus one
 
 1212
 01:18:06,940 --> 01:18:12,580
+然后， release 将 locked 设置为 0 。
 and then acquire release you know set locked zero.
 
 1213
 01:18:13,260 --> 01:18:15,270
+所以，考虑一下指令方案，
 So you know sort of think about instruction scheme,
 
 1214
 01:18:15,270 --> 01:18:17,400
+它是在特定的 CPU 上执行的，
 that's being executed on a particular CPU,
 
 1215
 01:18:17,550 --> 01:18:20,280
+这些是正在执行的指令。
 you know so these are the instructions are being executed, right.
 
 1216
 01:18:22,110 --> 01:18:25,620
+现在，如果代码仅仅是顺序的。
 Now, if the code were just purely sequential.
 
 1217
 01:18:30,490 --> 01:18:36,670
+编译器或处理器可能会重新排序指令，
 The compiler or the processor could actually reorder instructions,
 
 1218
 01:18:36,670 --> 01:18:38,350
+为了获得更好的性能，
 you know just to get better performance,
 
 1219
 01:18:38,680 --> 01:18:43,120
+比如，如果它是顺序流，
 for example, if it were a sequential stream,
 
 1220
 01:18:43,120 --> 01:18:46,180
+可以把这个指令移到后面去吗？
 would it be okay to move this instruction to afterwards.
 
 1221
 01:18:49,170 --> 01:18:53,010
+我们不会改变单一执行流程的正确性。
 We don't change the correctness of the single stream of execution.
 
 1222
 01:18:58,180 --> 01:18:58,900
+你知道，不是很清楚，
 You know, not really,
 
 1223
 01:18:58,930 --> 01:19:01,180
+因为锁是完全独立的，
 because lock the next are totally independent of each other,
 
 1224
 01:19:01,180 --> 01:19:02,950
+与它无关，
 there's no relation to it,
 
 1225
 01:19:02,950 --> 01:19:05,710
+如果是顺序执行就完全没问题，
 would be perfectly fine if it were a sequential execution,
 
 1226
 01:19:06,010 --> 01:19:10,030
+将 x 移动到 locked 0 之后。
 that the x has moved after locked zero.
 
 1227
 01:19:10,620 --> 01:19:16,020
+所以，在单一的串行执行中，
 So that you know on the single, single serial execution,
 
 1228
 01:19:18,140 --> 01:19:18,830
+这是对的。
 that's okay.
 
 1229
 01:19:23,500 --> 01:19:26,770
+实际上，处理器都是这样做的，
 And in fact and in fact processors you know do this all the time,
 
 1230
 01:19:26,770 --> 01:19:28,750
+它们[]地执行任务，
 you know they do [] execute stuff,
 
 1231
 01:19:29,170 --> 01:19:31,120
+我们期望执行指令，
 we're expected to execute instructions
 
 1232
 01:19:31,120 --> 01:19:34,300
+这会导致这些指令重新排序。
 and so that can result in basically these instructions re-orderings.
 
 1233
 01:19:34,760 --> 01:19:37,430
+编译器也会这样做，
 The compiler does it too,
 
 1234
 01:19:37,520 --> 01:19:39,290
+可能优化一些代码路径，
 may be optimized some code path
 
 1235
 01:19:39,290 --> 01:19:40,700
+并且重新排序指令，
 and also will reorder instructions,
 
 1236
 01:19:40,700 --> 01:19:43,730
+结果是相同的串行执行。
 as long as you know results in the same serial execution.
 
 1237
 01:19:44,710 --> 01:19:47,680
+但是，很明显在并行执行的过程中这是一场灾难，
 But clearly during concurrent execution this be disaster, right,
 
 1238
 01:19:47,680 --> 01:19:49,840
+因为如果获取了锁，
 because if lock are acquire,
 
 1239
 01:19:51,320 --> 01:19:52,940
+这是我们的 release ，
 and this was our release,
 
 1240
 01:19:54,180 --> 01:19:55,290
+我们所做的，
 and basically what we've done,
 
 1241
 01:19:55,290 --> 01:19:59,670
+我们将临界区间移出了 acquire 区间，
 we move the critical section outside of the the acquire region,
 
 1242
 01:19:59,670 --> 01:20:00,930
+这完全是错误的。
 that would be totally incorrect.
 
 1243
 01:20:01,580 --> 01:20:05,940
+所以，这在并发执行中是错误的。
 So that's wrong, wrong in a concurrent execution.
 
 1244
 01:20:12,780 --> 01:20:17,580
+所以，为了禁止或告诉编译器和硬件不要这么做，
 And so you know to forbid or tell the compiler and hardware not to do this,
 
 1245
 01:20:17,910 --> 01:20:21,750
+有一个叫做内存屏障的东西，
 there's something that's called memory fence
 
 1246
 01:20:21,750 --> 01:20:23,070
+或者某个 synchronize ，
 or something that synchronize,
 
 1247
 01:20:23,370 --> 01:20:24,870
+这个指令表示，
 there's instructions basically says,
 
 1248
 01:20:24,870 --> 01:20:27,660
+在这个点之前的加载或保存，
 like any loads or stores before this point,
 
 1249
 01:20:27,900 --> 01:20:30,540
+不允许移动到这一点之后。
 you are not allowed to move beyond this point.
 
 1250
 01:20:31,320 --> 01:20:34,860
+所以 release 有这个， acquire 也有这个，
 And so release has this and acquire has this
 
 1251
 01:20:35,190 --> 01:20:37,350
+比如，这个 x<-x+1 ，
 and so for example, this x plus, x plus one,
 
 1252
 01:20:37,380 --> 01:20:41,880
+如果这个更新是在 acquire 之后和 release 之前，
 if that was updated after the acquire and before the release,
 
 1253
 01:20:41,910 --> 01:20:43,980
+x<-x+1 必须留在，
 the x plus x plus one has to stay
 
 1254
 01:20:43,980 --> 01:20:46,890
+这个内存同步点之前。
 before you know this particular memory synchronization point.
 
 1255
 01:20:47,410 --> 01:20:48,970
+所以不会，
 And so it will not be,
 
 1256
 01:20:48,970 --> 01:20:52,630
+不会有内存重排的问题，
 there will be no trouble with memory ordering,
 
 1257
 01:20:52,930 --> 01:20:55,750
+这就是 __sync_synchronize 在这的原因，
 so this is the reason why __sync_synchronize there,
 
 1258
 01:20:55,900 --> 01:20:59,530
+无论是在 release 还是在 acquire 。
 both in the release and also there's one in the acquire.
 
 1259
 01:21:03,560 --> 01:21:04,250
+这能理解吗？
 Does that make sense?
 
 1260
 01:21:06,230 --> 01:21:07,670
+我有一个问题。
 I have a question.
 
 1261
 01:21:08,880 --> 01:21:12,450
+是不是按照惯例，
 Is it, is it by convention
 
 1262
 01:21:12,450 --> 01:21:18,290
+这个[]的开始，
 that the start of the [],
 
 1263
 01:21:18,320 --> 01:21:22,670
+所以，我想编译器可以搞清楚，
 so I guess I guess the the compiler could figure out,
 
 1264
 01:21:22,670 --> 01:21:26,810
+在获取锁之前，有一条指令，
 that there is an instruction before the lock is even acquire
 
 1265
 01:21:26,810 --> 01:21:30,860
+它可以被移动到锁释放之后。
 and that it can be just as well moved after the lock is released.
 
 1266
 01:21:32,830 --> 01:21:34,150
+这会发生吗，
 Can that happen,
 
 1267
 01:21:34,150 --> 01:21:37,210
+或者它会遇到屏障。
 or will it encounter a barrier and see that.
 
 1268
 01:21:37,300 --> 01:21:39,280
+在这种情况下，
 You will see, you know in this case,
 
 1269
 01:21:39,280 --> 01:21:40,420
+acquire 是一个屏障，
 acquire as a barrier
 
 1270
 01:21:40,420 --> 01:21:41,440
+release 也是一个屏障，
 and release as a barrier,
 
 1271
 01:21:41,440 --> 01:21:44,350
+所以，任何在 locked 设置为 1 之前发生的事情，
 so anything that happened before locked is set to one
 
 1272
 01:21:44,440 --> 01:21:45,640
+会在它之前发生，
 will happen before that,
 
 1273
 01:21:45,880 --> 01:21:47,650
+永远不会超过那个指令，
 it will never pass that instruction,
 
 1274
 01:21:47,680 --> 01:21:48,790
+这就是屏障，
 so this is a barrier,
 
 1275
 01:21:48,910 --> 01:21:49,480
+如果你愿意的话，
 if you will,
 
 1276
 01:21:50,390 --> 01:21:53,330
+这个是屏障一，这是屏障二。
 this barrier one, and this is barrier two.
 
 1277
 01:21:55,520 --> 01:21:58,820
+所以，这意味着在这之前的任何指令，留在这里，
 And so it means that any instruction before here, stay here,
 
 1278
 01:21:59,150 --> 01:22:03,440
+在之间的指令，会发生在 acquire 和 release 之间，
 any instruction between what happened between the two between acquire and release
 
 1279
 01:22:03,440 --> 01:22:06,530
+之后的指令，将留在 release 之后。
 and instruction after will stay after the release.
 
 1280
 01:22:07,950 --> 01:22:08,550
+好的。
 Okay.
 
 1281
 01:22:11,110 --> 01:22:11,710
+好的?
 Okay?
 
 1282
 01:22:12,550 --> 01:22:15,130
+好的，我的时间快到了，
 Okay so I'm running close to the end,
 
 1283
 01:22:15,160 --> 01:22:19,390
+所以让我来总结一下。
 so let me just actually wrapup here.
 
 1284
 01:22:27,710 --> 01:22:32,210
+所以，对于锁，锁对正确性有好处，
 So, to locks, you know locks are good for correctness,
 
 1285
 01:22:40,370 --> 01:22:42,050
+但可能会对性能造成不良影响。
 but can be bad for performance.
 
 1286
 01:22:47,480 --> 01:22:49,160
+这是一种失望的局面，
 Which sort of a bummer correct,
 
 1287
 01:22:49,160 --> 01:22:51,830
+因为我们使用锁的一个原因是，
 because we are one reason we actually got into locks is
 
 1288
 01:22:51,830 --> 01:22:54,620
+为了在并行执行过程中保持正确，
 basically to get correct during parallel execution,
 
 1289
 01:22:54,620 --> 01:22:58,130
+但是锁实际上限制了并行执行。
 but locks actually limit parallel execution.
 
 1290
 01:22:58,850 --> 01:23:06,360
+这是一个或两个锁使编程复杂化。
 That's one and two locks complicate programming.
 
 1291
 01:23:07,290 --> 01:23:09,420
+你会在一些实验里体验到，
 And you will experience that in some of the lab,
 
 1292
 01:23:09,420 --> 01:23:11,430
+从现在开始，我们将要做的事情，
 that we're going to be doing, in fact from now on,
 
 1293
 01:23:11,430 --> 01:23:13,470
+我们会看到锁一直会出现，
 we'll see lock shown all the time,
 
 1294
 01:23:13,890 --> 01:23:18,300
+这至少会给我们一些思考，
 and that will give us least you know some thought,
 
 1295
 01:23:18,300 --> 01:23:21,060
+有必要理解为什么锁在那里，
 you know it's going to be necessary to understand why the locks are there
 
 1296
 01:23:21,060 --> 01:23:22,230
+以及它们保护的是什么。
 and what they protect.
 
 1297
 01:23:22,700 --> 01:23:26,420
+如果你做并行编程，这是一种内在的，
 And there sort of inherent, if you do parallel programming,
 
 1298
 01:23:26,780 --> 01:23:29,210
+你需要使用锁。
 that you need to use locks.
 
 1299
 01:23:29,880 --> 01:23:33,840
+所以，如果你想避免锁带来的复杂性，
 And so you know if you want to avoid the complications due to locks,
 
 1300
 01:23:33,840 --> 01:23:35,520
+你可以做几件事，
 you know a couple things you could do,
 
 1301
 01:23:35,550 --> 01:23:37,530
+不要分享它，除非必须这么做。
 you know don't share it, you don't have to.
 
 1302
 01:23:42,860 --> 01:23:44,480
+如果你没有共享数据结构，
 If you don't have shared data structures,
 
 1303
 01:23:46,340 --> 01:23:48,110
+这些竞态条件就不会发生，
 these race conditions cannot happen,
 
 1304
 01:23:48,350 --> 01:23:51,500
+所以这里你不需要锁，
 and so there and so you you don't need locks
 
 1305
 01:23:51,500 --> 01:23:53,390
+你不需要这种复杂的编程。
 and so you don't need this complicated programming.
 
 1306
 01:23:54,000 --> 01:23:56,760
+但是，通常你会有一些共享的数据结构，
 But you know typically you will have some shared data structures,
 
 1307
 01:23:56,760 --> 01:23:58,920
+你会需要锁，
 you will do, you will need locks
 
 1308
 01:23:59,100 --> 01:24:01,830
+我认为要做的事情是从粗粒度开始，
 and I think the thing to do is start with coarse-grained,
 
 1309
 01:24:04,130 --> 01:24:08,500
+然后在需要的时候转向细粒度，
 and then move to fine-grained if necessary
 
 1310
 01:24:08,500 --> 01:24:10,060
+基于你的测量，
 based on your measurements,
 
 1311
 01:24:10,060 --> 01:24:13,150
+你要确保锁真的争用，
 you want to make determined to make sure that the lock actually contended,
 
 1312
 01:24:13,150 --> 01:24:14,620
+在你开始重新设计之前。
 before you actually start redesigning.
 
 1313
 01:24:15,480 --> 01:24:18,060
+最后，也可以使用竞争检测器。
 And finally, you know use a race detector to.
 
 1314
 01:24:20,460 --> 01:24:25,950
+这些竞争检测器工具会发现问题或竞态条件，
 And one of these race detector tools actually finds problems or race conditions,
 
 1315
 01:24:25,950 --> 01:24:27,390
+因为你把锁放错了，
 because you put the locks in the wrong
 
 1316
 01:24:27,390 --> 01:24:29,370
+或者你将 acquire 和 release 放错了，
 or you put the acquire and release in the wrong place
 
 1317
 01:24:29,370 --> 01:24:32,070
+而实际上，你还有竞争。
 and in fact you still have races.
 
 1318
 01:24:32,770 --> 01:24:34,900
+好的，这是一个关于锁的快速介绍，
 Okay so there's a quick introduction to locks,
 
 1319
 01:24:34,960 --> 01:24:36,670
+我们将会谈论更多关于锁的话题，
 we're going to talk a lot more about locks
 
 1320
 01:24:36,670 --> 01:24:38,650
+在本学期的剩余课程中，
 in the basically for the rest of the semester,
 
 1321
 01:24:38,650 --> 01:24:39,340
+它会出现，
 that will show up,
 
 1322
 01:24:39,340 --> 01:24:42,160
+最后，我们将讨论有关无锁编程的问题，
 and we'll talk a little bit more about lock-free programming at the end
 
 1323
 01:24:42,460 --> 01:24:44,950
+看看在内核中是如何做到这一点的。
 and see how that's done in kernels.
 
 1324
 01:24:45,580 --> 01:24:47,380
+好的，我在这里停止，
 Okay, so let me stop here,
 
 1325
 01:24:47,740 --> 01:24:50,380
+所以，任何必须去别的地方的人可以去，
 so that anybody who has to go somewhere else can go,
 
 1326
 01:24:50,380 --> 01:24:51,730
+但是，如果你还有什么问题，
 but if you have any more questions,
 
 1327
 01:24:51,730 --> 01:24:53,650
+请随时提出来。
 feel free, please feel free to ask them.
 
 1328
 01:24:54,820 --> 01:24:55,990
+我们在聊天中有个问题，
 We have a question in the chat,
 
 1329
 01:24:56,260 --> 01:24:58,930
+fence 指令是不是没有必要，
 isn't the fence instruction unnecessary,
 
 1330
 01:24:58,930 --> 01:25:02,740
+因为 amoswap 指令可以具有获取释放顺序。
 because the amoswap instruction can have the acquire release ordering.
 
 1331
 01:25:04,060 --> 01:25:08,080
+是的，好的，所以有两件事，
 Yeah, okay, so okay, so two things,
 
 1332
 01:25:08,170 --> 01:25:12,430
+sync 指令同时为编译器和硬件。
 the sync instruction there both for the compiler and for the hardware.
 
 1333
 01:25:25,000 --> 01:25:27,010
+是的，我马上要超过工作时间了，
 Yeah I'm jumping off to sort of office hours,
 
 1334
 01:25:27,010 --> 01:25:28,450
+但我认为还有更多的问题。
 but I think there's still more questions in the.
 
 1335
 01:25:28,450 --> 01:25:30,880
+如何只为编译器做这件事呢？
 How do you do it for the compiler only?
 
 1336
 01:25:31,480 --> 01:25:35,350
+编译器知道正在编译的是哪个体系结构，
 The compiler knows which architecture is compiling
 
 1337
 01:25:35,860 --> 01:25:39,490
+所以我们知道它什么时候必须确保合适的栅栏，
 and so we will know when it actually has to ensure the appropriate fences
 
 1338
 01:25:39,760 --> 01:25:41,800
+无论运行在哪种体系结构上，
 for whatever architecture is running on
 
 1339
 01:25:41,800 --> 01:25:43,990
+不管是哪种内存一致性模型。
 and whatever memory consistency model it has.
 
 1340
 01:25:44,740 --> 01:25:46,840
+所以这会引起更复杂的讨论，
 So this gets a little bit more complicated discussion
 
 1341
 01:25:46,840 --> 01:25:49,810
+就是每个硬件都有一个内存模型，
 is that every piece of hardware has a memory model
 
 1342
 01:25:50,140 --> 01:25:53,230
+编译器决定，
 and the compilers decide
 
 1343
 01:25:53,230 --> 01:25:56,080
+给特定架构的内存模型，
 you know given the memory model for that particular architecture,
 
 1344
 01:25:56,080 --> 01:25:57,790
+它可以做什么，不能做什么。
 what actually can do what it cannot do.
 
 1345
 01:25:59,440 --> 01:26:01,150
+我想我的问题是，
 I guess my question was that
 
 1346
 01:26:01,210 --> 01:26:04,360
+fence 指令只有在这种情况是没有必要的，
 like the fence instruction only becomes unnecessary,
 
 1347
 01:26:04,360 --> 01:26:09,310
+如果你调用 amoswap.w.rl ，
 if you call amoswap like.w.rl,
 
 1348
 01:26:09,400 --> 01:26:19,290
+放在 sync 中，这有一个 sync ，
 and like putting in the the sync and there that will sync,
 
 1349
 01:26:19,290 --> 01:26:23,910
+但是编译器排序，然后。
 but the you know the compiler ordering and then the.
 
 1350
 01:26:24,460 --> 01:26:25,120
+是的。
 Yeah.
 
 1351
 01:26:25,330 --> 01:26:28,240
+内存排序和无序。
 The memory ordering and the out of ordering.
 
 1352
 01:26:28,690 --> 01:26:29,200
+是的。
 Yeah.
 
 1353
 01:26:29,230 --> 01:26:31,300
+机器也使用 fence 指令，
 Machinery using the fence instruction as well,
 
 1354
 01:26:31,300 --> 01:26:35,230
+fence 指令只在执行 .rl 的情况下是没有必要的，
 the fence instructions only unnecessary in the case that you do.rl,
 
 1355
 01:26:35,230 --> 01:26:37,180
+看起来它不会检测到这一点，
 so it seems like it wouldn't detect that,
 
 1356
 01:26:37,180 --> 01:26:38,230
+那么你怎么做的，
 so how would you do it,
 
 1357
 01:26:38,530 --> 01:26:42,340
+所以编译器最终强制排序，
 so the compiler enforces the ordering on its end,
 
 1358
 01:26:42,670 --> 01:26:46,840
+但你已经使用[]指令覆盖了它。
 but you already cover it using the [] instruction.
 
 1359
 01:26:46,870 --> 01:26:49,660
+是的，好问题，
 Yeah, you very good question,
 
 1360
 01:26:49,690 --> 01:26:53,470
+更复杂的需求实现会是，
 and you know more sophisticated requirements implementation would be,
 
 1361
 01:26:53,470 --> 01:26:59,900
+比如 RISC-V 专门的 acquire 和 release 实现，
 we were like specialized acquire and release implementation or implementation for RISC-V,
 
 1362
 01:26:59,900 --> 01:27:02,390
+可能比我们做的事情更复杂，
 you know probably do more sophisticated things than we do,
 
 1363
 01:27:02,390 --> 01:27:05,150
+使用 fence 指令是一个粗粒度的实现。
 pretty coarse grain by just issuing the fence instruction.
 
 1364
 01:27:05,800 --> 01:27:10,570
+但是这有点复杂，
 The, the but it's slightly complicated,
 
 1365
 01:27:10,600 --> 01:27:14,620
+是的，如果你对这个感兴趣，
 yeah, so if you're interested in this,
 
 1366
 01:27:14,650 --> 01:27:20,110
+RISC-V 的内存模型非常复杂，
 the memory model for RISC-V is really complicated,
 
 1367
 01:27:20,110 --> 01:27:25,120
+如果你看一下操作手册中的非特权指令，
 so if you look at the instruction manual for the unprivileged instructions,
 
 1368
 01:27:25,120 --> 01:27:28,810
+有一整章来专门介绍内存排序，
 there is whole chapter dedicated to memory ordering
 
 1369
 01:27:28,810 --> 01:27:30,370
+告诉你应该做什么。
 and tells you what they have to,
 
 1370
 01:27:30,370 --> 01:27:34,410
+在特定情况下，编译器应该怎么做。
 the compiler should do in this particular case.
 
 1371
 01:27:37,760 --> 01:27:40,640
+所以，你的意思是编译器会注意到这一事实，
 So you're saying that the compiler would pick up on the fact,
 
 1372
 01:27:40,640 --> 01:27:43,730
+我们只是把汇编指令放在这里，
 that we just put that assembly instruction inside of there,
 
 1373
 01:27:43,760 --> 01:27:47,030
+而且它本身不会对任何内存访问进行重新排序。
 and it wouldn't reorder any of the memory accesses on its own.
 
 1374
 01:27:47,120 --> 01:27:52,910
+抱歉， synchronize ，这个同步库函数是库函数，
 Sorry, the synchronize this, this synchronized library function is a library function right,
 
 1375
 01:27:52,910 --> 01:27:54,530
+它可以通过不同的方式实现。
 it can be implemented in different ways.
 
 1376
 01:27:55,030 --> 01:27:57,460
+这是一种实现。
 And this is one particular implementation.
 
 1377
 01:27:58,440 --> 01:28:00,810
+并且库函数由编译器提供。
 And the library function is provided by the compiler.
 
 1378
 01:28:02,610 --> 01:28:06,300
+但是编译器有没有进行优化的选项，
 But is there like the option for the compiler to do optimization,
 
 1379
 01:28:06,300 --> 01:28:09,450
+它可以移动加载和存储指令。
 where it itself moves the loads and stores around.
 
 1380
 01:28:10,560 --> 01:28:12,120
+是的，编译器有。
 Yes, compilers do.
 
 1381
 01:28:12,480 --> 01:28:16,080
+那么如何在不使用 fence 指令时防止这种情况发生，
 So how do you prevent that without emitting the fence instruction,
 
 1382
 01:28:16,110 --> 01:28:17,040
+我想知道这个。
 that's curious about.
 
 1383
 01:28:17,040 --> 01:28:20,520
+我想我说的是，
 I guess what I'm saying is that,
 
 1384
 01:28:20,800 --> 01:28:23,680
+也许我想说的是，
 and maybe what I'm saying is that basically the,
 
 1385
 01:28:24,470 --> 01:28:28,070
+synchronized 告诉编译器和硬件，
 this indication the synchronized basically both tells the compiler and hardware,
 
 1386
 01:28:28,070 --> 01:28:30,860
+但是编译器可以实现不同的 __sync_synchronize ，
 but the compiler could actually implement __sync_synchronize differently,
 
 1387
 01:28:30,860 --> 01:28:32,660
+它知道它不能移动东西，
 it knows that it can't move things around,
 
 1388
 01:28:32,900 --> 01:28:35,390
+但它没有 RISC-V 上的发布和 fence 指令，
 but it doesn't have the issue and fence instruction on the RISC-V,
 
 1389
 01:28:35,390 --> 01:28:38,450
+它知道它以一种特殊的方式在 RISC-V 上运行。
 it knew that it was running in a particular way on RISC-V.
 
 1390
 01:28:42,060 --> 01:28:46,530
+但是 RISC-V 内存模型还不够吗，
 But isn't the RISC-V memory model like [] enough
 
 1391
 01:28:46,530 --> 01:28:50,160
+机器可以重组东西，
 to where the out of order machinery could reorganize stuff,
 
 1392
 01:28:50,160 --> 01:28:52,800
+所以你是否需要 acquire ，
 so do you need like the acquire,
 
 1393
 01:28:53,410 --> 01:28:55,150
+整个[点]都有。
 it's like the whole point of having.
 
 1394
 01:28:55,210 --> 01:29:02,130
+好的，还有比 __sync_synchronize 更复杂的接口，
 Okay, there more complicated interfaces __sync_synchronize,
 
 1395
 01:29:03,120 --> 01:29:07,650
+这给了编译器编写者更多的自由，
 and which give the compiler writer more gives the programmer more freedom
 
 1396
 01:29:07,650 --> 01:29:08,730
+我们可以得到编译器，
 and we'll get the compiler
 
 1397
 01:29:08,730 --> 01:29:11,700
+并将编译器和处理器解耦。
 and decouple the compiler part and the processor part.
 
 1398
 01:29:13,000 --> 01:29:15,340
+比如，我想这里有一个标记可以传入，
 So, for example I think there's a flag you can pass in,
 
 1399
 01:29:15,340 --> 01:29:19,240
+有一个 release 一致性同步。
 you know to say that there's a release consistent synchronize.
 
 1400
 01:29:19,970 --> 01:29:22,550
+我不知道细节，
 You know I I don't know the details,
 
 1401
 01:29:22,550 --> 01:29:23,990
+我不知道，
 right out of my head,
 
 1402
 01:29:23,990 --> 01:29:25,100
+但你可以查一下这个，
 but you can look into this,
 
 1403
 01:29:25,400 --> 01:29:27,680
+这是粗粒度接口，
 this is the coarse-grained interface
 
 1404
 01:29:27,680 --> 01:29:30,500
+更细粒度的接口，让程序员有更多的控制权。
 and a more fine-grained interfaces that give the programmer more control.
 
 1405
 01:29:31,300 --> 01:29:33,250
+好的，谢谢。
 Okay, thank you.
 
 1406
 01:29:35,660 --> 01:29:38,240
+我有一个问题，
 I have a question what is,
 
 1407
 01:29:38,270 --> 01:29:44,180
+如果有多个线程和一个处理器，
 how do you like for having multiple threads and one processor
 
 1408
 01:29:44,210 --> 01:29:50,060
+[争论]的方式与我们对多处理器的争论是否相同。
 do argue in roughly the same way as we did for multiple processors.
 
 1409
 01:29:50,920 --> 01:29:55,210
+你能重复一下问题吗，只是确认一下。
 Can you repeat that question just to make sure.
 
 1410
 01:29:56,700 --> 01:29:57,870
+所以我们没有，
 So we didn't,
 
 1411
 01:29:58,140 --> 01:30:01,200
+我想我们并没有谈到多线程，
 I think I don't think we really talked about multiple threads,
 
 1412
 01:30:01,200 --> 01:30:03,870
+我们主要讨论的是多 CPU ，
 we mostly talked about multiple CPUs,
 
 1413
 01:30:04,140 --> 01:30:07,650
+所以对于多线程来说，
 so for multiple threads is the,
 
 1414
 01:30:07,740 --> 01:30:13,720
+我想解决方案与拥有多个 CPU 时的解决方案相同，
 I guess the solution the same as for when you have multiple CPUs,
 
 1415
 01:30:13,720 --> 01:30:16,090
+比如，那里有没有同样的参数。
 like do you have the same arguments there.
 
 1416
 01:30:16,480 --> 01:30:17,860
+或多或少，
 More or less,
 
 1417
 01:30:17,890 --> 01:30:20,650
+至少在理论上是正确的思考方式，
 at least conceptually is the right way to think about it,
 
 1418
 01:30:20,710 --> 01:30:22,930
+所以你有多个线程，
 so you have multiple threads,
 
 1419
 01:30:22,960 --> 01:30:24,490
+但是只有一个 CPU ，
 but only one CPU,
 
 1420
 01:30:24,880 --> 01:30:27,280
+还是这样情况，你希望确保，
 it's still the case that you want to ensure
 
 1421
 01:30:27,280 --> 01:30:30,910
+以原子方式执行某些内核代码序列。
 that certain kernel code sequences are executed atomically.
 
 1422
 01:30:31,550 --> 01:30:35,600
+所以，你仍然需要有一个临界区间的概念。
 And so you still have to have a notion of critical sections.
 
 1423
 01:30:36,100 --> 01:30:39,760
+你可能不需要显式的锁或释放，
 You might not need locks or releases explicitly,
 
 1424
 01:30:39,760 --> 01:30:42,640
+但是你确实需要一种打开和关闭中断的方法，
 but you do need a way of turning on interrupts off and on
 
 1425
 01:30:42,640 --> 01:30:43,810
+在一段代码中。
 in a particular piece of code.
 
 1426
 01:30:44,670 --> 01:30:48,360
+所以，如果你查看较旧的操作系统内核，
 So if you look at older operating system kernels,
 
 1427
 01:30:48,360 --> 01:30:52,350
+它们通常在内核中没有真正的锁获取，
 they typically don't have really locking acquire in the kernel,
 
 1428
 01:30:52,350 --> 01:30:54,660
+因为它们假设在一个处理器上运行，
 because they assume they're running on a single processor,
 
 1429
 01:30:54,810 --> 01:30:56,610
+但是它们确实有像锁这样的东西，
 but they do have something like locks,
 
 1430
 01:30:56,610 --> 01:31:01,120
+要打开和关闭中断。
 you know to basically turn off interrupt and interrupt on and off.
 
 1431
 01:31:03,460 --> 01:31:04,660
+好的，我明白了，
 Okay I see,
 
 1432
 01:31:04,960 --> 01:31:07,330
+我的另一个问题是，
 and my other question was,
 
 1433
 01:31:07,420 --> 01:31:14,860
+在带有 UART 图片和缓冲区的的幻灯片上。
 actually on the slide with the uart picture, the buffer.
 
 1434
 01:31:17,570 --> 01:31:18,800
+是的，是不是，
 Yeah, is it,
 
 1435
 01:31:18,800 --> 01:31:19,790
+是的，就是那个，
 yeah that one,
 
 1436
 01:31:19,820 --> 01:31:25,790
+是不是一直都是这样的，读在后面，
 is it always the case that the read is going to be like lagging behind,
 
 1437
 01:31:25,820 --> 01:31:26,930
+我不明白这个。
 I didn't understand that.
 
 1438
 01:31:27,170 --> 01:31:28,730
+是的，好的。
 Yeah, okay so good.
 
 1439
 01:31:29,400 --> 01:31:30,690
+所以这个到显示器，
 So this goes to the display,
 
 1440
 01:31:30,690 --> 01:31:33,480
+这是字符序列，
 whatever is this basically this is the sequence of characters,
 
 1441
 01:31:33,480 --> 01:31:34,800
+要到显示器。
 that needs to go to the display.
 
 1442
 01:31:36,730 --> 01:31:42,190
+写入者增加更多字符，
 And the writer basically appending more and more characters, right.
 
 1443
 01:31:42,190 --> 01:31:45,220
+所以，写入者走这条路，
 And so, so the writers going that way
 
 1444
 01:31:45,220 --> 01:31:47,980
+读取者跟随写入者，
 and the readers, you know following the writer,
 
 1445
 01:31:48,340 --> 01:31:51,610
+因为你不能打印尚未放入缓冲区的字符。
 because you can't print a character that hasn't been put into buffer yet.
 
 1446
 01:31:52,260 --> 01:31:58,620
+UART 把东西给显示器，
 And so let's you know the the uart who puts things on the display,
 
 1447
 01:32:02,340 --> 01:32:07,710
+开始将这个插槽中的第一个字符放到显示器上，
 you know will start basically putting first characters in this slot onto the display,
 
 1448
 01:32:08,100 --> 01:32:11,040
+同时， printf 进入，
 meanwhile printf could come in multiple printf come in,
 
 1449
 01:32:11,070 --> 01:32:12,990
+它们在这里放更多的字符，
 you know they put more characters in here,
 
 1450
 01:32:13,020 --> 01:32:15,030
+所以写指针在这里，
 so that the write pointer spacing standing here
 
 1451
 01:32:15,300 --> 01:32:17,310
+然后当显示了一个字符，
 and then when there's one character is displayed,
 
 1452
 01:32:17,490 --> 01:32:19,860
+然后 UART 将这个指针向上移动，
 then the uart will move up this pointer
 
 1453
 01:32:20,340 --> 01:32:21,540
+以显示下一个字符。
 to display the next character.
 
 1454
 01:32:22,430 --> 01:32:26,900
+UART 总是有点落后于写入者，
 The uart is always lagging a little behind the writer,
 
 1455
 01:32:26,930 --> 01:32:28,820
+直到它赶上，
 until the point that it catches up right,
 
 1456
 01:32:28,820 --> 01:32:31,070
+然后 r 和 w 相同，
 then where r and w are the same,
 
 1457
 01:32:31,070 --> 01:32:34,220
+在这一点上，意味着缓冲区中不再有字符。
 and at that point, basically, that means that there's no character anymore in the buffer.
 
 1458
 01:32:35,920 --> 01:32:38,800
+哦，好的，我明白了。
 Oh okay I see, that makes, that makes a lot more sense.
 
 1459
 01:32:38,800 --> 01:32:40,060
+好的，非常感谢。
 Okay, thank you so much.
 
 1460
 01:32:40,420 --> 01:32:40,900
+不用谢。
 You're welcome.
 
 1461
 01:32:42,850 --> 01:32:43,780
+还有什么问题吗？
 Any more questions?
 
 1462
 01:32:48,990 --> 01:32:49,980
+只有我们在这里。
 Just us left here.
 
 1463
 01:32:50,580 --> 01:32:51,060
+好的。
 All right.
 
 1464
 01:32:53,680 --> 01:32:55,510
+所有人，再见。
 All you guys, see you later.
 
