@@ -51,6 +51,8 @@
 
 - draft - 自定义的 [草稿字幕（.draft.srt）](https://github.com/mayf09/subtitle-tools/blob/develop/draft.srt.md) 文件
 
+- final - 生成的最终字幕文件
+
 - videos.txt - 课程视频链接
 
 - words.txt - 字幕中的常见单词
