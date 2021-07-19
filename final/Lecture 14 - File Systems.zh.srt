@@ -1,5480 +1,6850 @@
 1
 00:00:00,000 --> 00:00:05,700
+我开始了，大家能看到我分享的屏幕吗？
 I started and everybody could see my screen that I shared?
 
 2
 00:00:06,700 --> 00:00:08,830
+我希望每个人都能听到我说话。
 And I hope everybody can hear me.
 
 3
 00:00:11,630 --> 00:00:12,230
+让我。
 Let me.
 
 4
 00:00:12,970 --> 00:00:13,600
+我想是好的。
 I think we're good.
 
 5
 00:00:13,780 --> 00:00:18,180
+好的，今天我要讨论一下文件系统，
 Okay, so I'm going to talk about file system today
 
 6
 00:00:18,210 --> 00:00:23,100
+我们会用三节课来讲解文件系统，
 and going to be actually going to spend three lectures on file systems,
 
 7
 00:00:23,310 --> 00:00:28,200
+两节在 xv6 环境中，一节在 Linux 环境中。
 two in the context of xv6 and one in the context of Linux.
 
 8
 00:00:28,690 --> 00:00:35,770
+实际上，这是关于 xv6 的最后一个话题，
 In fact, this is the last topic, that we're covering of xv6,
 
 9
 00:00:35,770 --> 00:00:39,520
+这周过后，我们基本上完成了 xv6 。
 after this week, we're basically done with xv6.
 
 10
 00:00:40,230 --> 00:00:46,470
+所以，文件系统，你们都知道，并使用它，
 So, you know file systems, you all know them, you use them,
 
 11
 00:00:46,560 --> 00:00:52,980
+它是操作系统中最面向用户的方面之一，
 they're one of the most sort of user facing aspects of an operating system,
 
 12
 00:00:52,980 --> 00:00:54,360
+除了 shell 。
 in addition to the shell.
 
 13
 00:00:54,600 --> 00:00:57,930
+所以，我们现在想知道，
 And so, we want to understand now
 
 14
 00:00:57,930 --> 00:00:59,340
+而这几节课讲的就是，
 and the set of lectures actually
 
 15
 00:00:59,340 --> 00:01:00,810
+文件系统底层到底发生了什么，
 what it really happens under the hoods
 
 16
 00:01:00,960 --> 00:01:02,880
+以及它是如何实现的。
 and how is the file system is implemented.
 
 17
 00:01:02,880 --> 00:01:05,940
+这让人兴奋，因为你一直在使用它。
 And that's sort of exciting, because you know you use them all the time.
 
 18
 00:01:06,520 --> 00:01:11,320
+也许在深入任何细节之前，我们先来问个问题，
 And maybe here to start off with a question before diving in any of the details,
 
 19
 00:01:11,680 --> 00:01:16,900
+在某种程度上，因为你几乎每天都在使用文件系统，
 I, in one way you know, since you use file systems are almost daily,
 
 20
 00:01:16,990 --> 00:01:20,200
+在某种程度上， xv6 文件系统不同于
 in one way is the xv6 file system different than
 
 21
 00:01:20,200 --> 00:01:25,570
+你日常使用的文件系统。
 the file system that you're using in the day-to-day work.
 
 22
 00:01:26,460 --> 00:01:27,840
+我会把它们提供给大家，
 Maybe I'll collect them to people
 
 23
 00:01:27,840 --> 00:01:30,170
+看看他们是怎么想的。
 and see what they think.
 
 24
 00:01:30,170 --> 00:01:33,140
+比如 Kendall ， Kendall Garner 。
 For example Kendall, Kendall Garner, what.
 
 25
 00:01:34,700 --> 00:01:38,120
+你有没有注意到 xv6 有什么不同或相似之处？
 Did you notice anything particular about xv6 that is different or similar.
 
 26
 00:01:45,850 --> 00:01:47,710
+我不确定我们能不能听到你， Kendall 。
 I'm not sure we can hear your, Kendall.
 
 27
 00:01:49,500 --> 00:01:50,670
+我在这里。
 Here I am.
 
 28
 00:01:51,320 --> 00:01:51,830
+好的。
 Yeah.
 
 29
 00:01:51,980 --> 00:01:52,850
+好的。
 Yeah okay.
 
 30
 00:01:52,880 --> 00:01:53,780
+好的。
 Yeah.
 
 31
 00:01:53,900 --> 00:01:55,940
+所以其中一个问题就是大小，
 So one of the problems is size
 
 32
 00:01:56,090 --> 00:01:59,510
+或者至少 xv6 支持的文件的大小
 or at least the size of the files that xv6 support
 
 33
 00:01:59,510 --> 00:02:01,790
+比许多其他文件系统小得多，
 are much less than a lot of other file systems,
 
 34
 00:02:01,790 --> 00:02:05,060
+另外，有些文件的名称相对较短。
 also the names for some files are relatively short.
 
 35
 00:02:05,590 --> 00:02:10,720
+还有一个功能，更多的是使用[][]，
 And another feature, it's more just to use [] [],
 
 36
 00:02:10,930 --> 00:02:11,350
+它没有，
 it doesn't,
 
 37
 00:02:11,350 --> 00:02:14,020
+我认为它没有文件系统的写入时复制。
 I don't think it has a copy-on-write for a file system.
 
 38
 00:02:15,590 --> 00:02:17,930
+很好，有什么相似之处。
 Good, in what way is similar.
 
 39
 00:02:20,120 --> 00:02:23,120
+它在总体结构上是相似的，
 It's similar in the general structure,
 
 40
 00:02:23,150 --> 00:02:26,600
+所以有文件名，
 so the idea of you have file names,
 
 41
 00:02:26,600 --> 00:02:29,090
+有 inode ，目录等等。
 you have the inodes, directories, and all that.
 
 42
 00:02:30,360 --> 00:02:32,240
+是的，不错。
 Yeah, seems good.
 
 43
 00:02:32,330 --> 00:02:36,940
+那 Adella Yang 呢。
 And how about Adella Yang.
 
 44
 00:02:38,790 --> 00:02:42,900
+你如何比较 xv6 文件系统与你使用的文件系统。
 How do you compare xv6 file system to the file system you use.
 
 45
 00:02:47,380 --> 00:02:48,190
+抱歉，是什么。
 Sorry, what is that.
 
 46
 00:02:48,670 --> 00:02:50,290
+问题是，你会如何，
 The question is like how would you,
 
 47
 00:02:50,320 --> 00:02:52,870
+你如何比较 xv6 文件系统
 how would you compare the xv6 file system
 
 48
 00:02:52,900 --> 00:02:55,570
+与你在日常生活中使用的文件系统，
 to the file system you might be using in daily life
 
 49
 00:02:55,990 --> 00:02:57,130
+或者在你的笔记本电脑上，
 or on your laptop
 
 50
 00:02:57,130 --> 00:02:58,600
+不管你用的是什么电脑。
 whatever computer you're using.
 
 51
 00:03:00,700 --> 00:03:03,250
+有没有相似之处。
 Any similarities.
 
 52
 00:03:04,460 --> 00:03:08,240
+是的，比如文件系统的路径系统，
 Yeah, like the the file system paths system,
 
 53
 00:03:08,480 --> 00:03:14,230
+比如路径和文件系统是分层的。
 like paths and file system are [] hierarchical.
 
 54
 00:03:16,060 --> 00:03:17,890
+是的，这是一个很好的观点。
 Yep, that's a good point.
 
 55
 00:03:18,220 --> 00:03:19,900
+好的，所以，
 Okay, so you know,
 
 56
 00:03:19,900 --> 00:03:22,450
+所以让我，稍微深入一点，
 so let me, so dive in a little bit
 
 57
 00:03:22,450 --> 00:03:25,120
+稍微谈一下文件系统的属性，
 and sort of talk a little bit about properties of file systems,
 
 58
 00:03:25,120 --> 00:03:27,130
+有点[突出]，
 you know sort of stand out,
 
 59
 00:03:27,520 --> 00:03:30,850
+有一个我想你刚才在这里提到的，
 and one I think you know you just mentioned here,
 
 60
 00:03:30,850 --> 00:03:39,960
+是用户友好的命名，
 [] is user-friendly, user-friendly names,
 
 61
 00:03:40,980 --> 00:03:45,000
+特别是路径名，它的层次结构，
 in particular path names, you know hierarchy to, hierarchy to them,
 
 62
 00:03:45,120 --> 00:03:48,900
+帮助人们组织他们的文件和目录，
 to help people to organize their files and directories or folders
 
 63
 00:03:48,900 --> 00:03:51,390
+无论你想使用什么术语，
 whatever term you want to use
 
 64
 00:03:51,810 --> 00:03:56,190
+它使人们共享文件更方便，
 and it makes it easy for you know people to share files
 
 65
 00:03:58,850 --> 00:04:03,840
+在用户和进程之间。
 you know between users and processes.
 
 66
 00:04:04,830 --> 00:04:09,780
+你可以方便地给它们命名。
 You can name them with conveniently to remember names.
 
 67
 00:04:10,390 --> 00:04:12,100
+然后可能最重要的是，
 And then probably most importantly,
 
 68
 00:04:12,130 --> 00:04:16,960
+至少为目前我们在 xv6 中看到的所有子系统做好了准备，
 prepared at least for all the subsystems, that we've looked so far in xv6
 
 69
 00:04:17,020 --> 00:04:18,370
+它们提供了持久化存储，
 and they provide persistence,
 
 70
 00:04:21,770 --> 00:04:23,450
+或者有时候被称为耐久性。
 or sometimes that's called durability.
 
 71
 00:04:26,440 --> 00:04:29,020
+我的意思是，如果你关掉电脑，
 With that, I mean like if you turn off your computer,
 
 72
 00:04:29,140 --> 00:04:30,340
+你做了一些工作，
 you did some work,
 
 73
 00:04:30,340 --> 00:04:32,590
+关掉了电脑或者笔记本电脑，
 you turn off your computer or turn off your laptop,
 
 74
 00:04:32,980 --> 00:04:35,800
+几天后你回来，
 and then a couple days later you come back,
 
 75
 00:04:35,800 --> 00:04:36,970
+重新打开电脑，
 you turn your computer on,
 
 76
 00:04:37,090 --> 00:04:38,380
+文件还在那里，
 the files are still there,
 
 77
 00:04:39,030 --> 00:04:42,420
+你可以继续使用它们工作。
 and you continue working with them.
 
 78
 00:04:43,200 --> 00:04:45,720
+这不同于进程，
 Which is different from like processes
 
 79
 00:04:45,720 --> 00:04:48,990
+或者目前为止我们看到的资源，
 or the thing of the resources that we've seen so far,
 
 80
 00:04:48,990 --> 00:04:52,620
+如果计算机重新启动，它们消失了，
 which basically you know the computer reboots, you know they're gone
 
 81
 00:04:52,620 --> 00:04:53,880
+你必须重新开始，
 and you have to start up again,
 
 82
 00:04:53,880 --> 00:04:56,430
+但是文件系统可以提供这种持久性。
 but file systems can provide this persistence.
 
 83
 00:04:57,060 --> 00:05:01,220
+所以它们是，你们所有人都在使用它们，
 And so they're you know all of you using them,
 
 84
 00:05:01,340 --> 00:05:03,320
+接下来几节课我们要做的是，
 and what we're gonna be doing in the next couple lectures is
 
 85
 00:05:03,320 --> 00:05:06,050
+了解它在内部是如何工作的。
 actually understanding how to actually work internally.
 
 86
 00:05:06,650 --> 00:05:09,260
+这很有趣，有很多原因。
 And this is interesting for a number of reasons.
 
 87
 00:05:18,080 --> 00:05:23,640
+一个是抽象本身，它是有用的。
 One you know the abstraction itself, it's just useful.
 
 88
 00:05:27,150 --> 00:05:29,340
+所以理解幕后很有趣，
 And so it's interesting to understand under the hood,
 
 89
 00:05:29,340 --> 00:05:31,530
+实际上，它的抽象是如何实现的。
 it's actually how do abstraction is actually implemented.
 
 90
 00:05:32,100 --> 00:05:35,640
+这里面有几个关键的有趣的方面。
 It turns out there's a couple key interesting aspects.
 
 91
 00:05:35,670 --> 00:05:38,310
+一个是崩溃安全，
 One is crash safety,
 
 92
 00:05:43,140 --> 00:05:44,130
+它是这种情况，
 you'd like it to be the case
 
 93
 00:05:44,130 --> 00:05:48,330
+比如在文件系统操作期间，
 that you know if for example during the file system operation,
 
 94
 00:05:48,330 --> 00:05:50,640
+计算机崩溃了，
 the computer crashes,
 
 95
 00:05:50,820 --> 00:05:54,690
+在重启后，文件系统仍然保持完好，
 that after reboot basically file system still intact,
 
 96
 00:05:54,690 --> 00:05:58,380
+文件系统的所有变量仍然存在，
 you know all the variants of the file systems still hold
 
 97
 00:05:58,560 --> 00:06:00,810
+而且你可以访问你的大部分文件，
 and that you can actually get access to most of your files,
 
 98
 00:06:01,050 --> 00:06:02,070
+这会是一场灾难，
 it would be a disaster
 
 99
 00:06:02,070 --> 00:06:04,890
+如果计算机在文件系统操作过程中崩溃，
 if the computer crashed in the middle of file system operation,
 
 100
 00:06:05,290 --> 00:06:07,690
+你重新启动，但是没有了文件系统，
 you reboot and there's no file system anymore,
 
 101
 00:06:07,720 --> 00:06:10,060
+或者磁盘上的数据结构已损坏，
 or you know the data structure on disk have been garbled
 
 102
 00:06:10,330 --> 00:06:12,580
+你丢失了它们。
 and you lost them.
 
 103
 00:06:13,240 --> 00:06:18,790
+所以这是一个非常重要的话题，[]
 And so this actually turns out to be a really important topic and involved
 
 104
 00:06:19,090 --> 00:06:21,550
+所以我们将在周三讨论这个，
 and so we're going to talk about that on Wednesday,
 
 105
 00:06:21,550 --> 00:06:23,740
+这是周三课程的主要话题。
 this is basically the main topic for Wednesday's lecture.
 
 106
 00:06:26,810 --> 00:06:28,520
+然后有一个一般性问题，
 Then there's sort of a general question
 
 107
 00:06:28,520 --> 00:06:33,510
+关于文件系统在磁盘上如何安排。
 about how to layout the file system on disk.
 
 108
 00:06:35,000 --> 00:06:38,330
+你知道，这些文件，这些目录，
 You know, the files, the files, the directories,
 
 109
 00:06:38,420 --> 00:06:41,240
+它们都必须以某种方式在磁盘上表示，
 they all have to be represented in some way on the disk,
 
 110
 00:06:41,240 --> 00:06:44,030
+因为如果你关机后，再回来，
 because like after if you shut down your computer, come back up,
 
 111
 00:06:44,030 --> 00:06:46,160
+所有的数据还得在那里，
 you know all the data still has to be there
 
 112
 00:06:46,160 --> 00:06:48,440
+所以在这个数据结构上
 and so there's basically on this data structures
 
 113
 00:06:48,620 --> 00:06:52,080
+以表示文件系统的数据结构
 to represent the structure of the file system
 
 114
 00:06:52,080 --> 00:06:53,520
+或者文件系统的内容。
 or the content of the file system.
 
 115
 00:06:54,480 --> 00:06:56,010
+在 xv6 中，
 In xv6,
 
 116
 00:06:56,010 --> 00:07:01,110
+当然表示或数据结构非常简单，
 of course you know that representation or the data structures used are quite simple,
 
 117
 00:07:01,110 --> 00:07:03,830
+只是出于教学上的原因，
 you know just do for pedagogical reasons
 
 118
 00:07:03,830 --> 00:07:07,070
+而真实的文件系统有更复杂的数据结构，
 and real file systems more complex data structures,
 
 119
 00:07:07,070 --> 00:07:09,530
+但是你可以把它想象成在这个数据结构上。
 but you can just think about this as on this data structures.
 
 120
 00:07:10,840 --> 00:07:13,300
+所以我们会在今天的课程中看到很多这样的内容。
 And so we'll see a lot of that in today's lecture.
 
 121
 00:07:13,630 --> 00:07:18,130
+最后，让它变得有趣的是性能。
 And then finally, what makes it interesting is performance.
 
 122
 00:07:20,360 --> 00:07:25,610
+通常存储文件系统的设备，
 The devices typically on which you know file systems are stored
 
 123
 00:07:25,610 --> 00:07:28,340
+存储设备通常很慢。
 you know stored devices are typically slow.
 
 124
 00:07:35,930 --> 00:07:38,150
+比如，读或写一个块，
 That meaning example to read or write a block,
 
 125
 00:07:38,150 --> 00:07:42,890
+在 SSD 固态硬盘上的速度是 1 毫秒，
 you know on a solid-state disk, SSD disk, that's going the order a millisecond
 
 126
 00:07:43,160 --> 00:07:45,860
+而在 1 毫秒内，你可以做大量的工作。
 and so in the millisecond, you can do a ton of work.
 
 127
 00:07:46,340 --> 00:07:50,450
+所以，尽量避免使用磁盘是很重要的，
 And so it's important that you're trying to avoid going to disk,
 
 128
 00:07:50,840 --> 00:07:52,250
+我们会看到有多种方法，
 we'll see that in multiple ways,
 
 129
 00:07:52,250 --> 00:07:52,940
+我们会看到，
 so we see that,
 
 130
 00:07:52,940 --> 00:07:56,630
+比如，所有文件系统都有某种缓冲区缓存
 for example all file system will have something of a buffer cache
 
 131
 00:07:56,720 --> 00:07:57,800
+或块缓存。
 or a block cache.
 
 132
 00:08:01,300 --> 00:08:06,040
+而且你还可以看到更多形式或更多的并发性。
 And you also see it basically additional forms or more concurrency.
 
 133
 00:08:06,800 --> 00:08:10,910
+比如，如果你执行路径名查找，
 For example, if you do a path name lookup,
 
 134
 00:08:11,000 --> 00:08:14,660
+通常是关联的操作，
 you know, then that typically is involved operation
 
 135
 00:08:14,660 --> 00:08:16,670
+按层级查找目录，
 required descending the directory hierarchy,
 
 136
 00:08:16,670 --> 00:08:20,520
+你查找目录[]，
 you looking up [] for a directory,
 
 137
 00:08:20,520 --> 00:08:21,930
+在目录中查找文件名，
 find the file name in the directory,
 
 138
 00:08:21,930 --> 00:08:23,970
+然后检查下一个目录，等等，
 then go through the next directory, etc etc,
 
 139
 00:08:24,300 --> 00:08:25,770
+你想要的情况是，
 and you wanted to be the case
 
 140
 00:08:25,770 --> 00:08:28,260
+如果一个进程正在进行路径名查找，
 that if one process is doing path name lookup,
 
 141
 00:08:28,260 --> 00:08:31,470
+另一进程可以并发或并行运行。
 another process can run concurrently or in parallel
 
 142
 00:08:31,500 --> 00:08:33,960
+与第一个查找路径名的进程一起。
 with the first process doing a path name lookup.
 
 143
 00:08:34,860 --> 00:08:37,500
+所以我们会看到并发出现，
 And so we'll see that sort of concurrency you know shows up
 
 144
 00:08:37,590 --> 00:08:40,770
+这也是文件系统中的一个大的话题。
 again is a big topic in the content of file systems.
 
 145
 00:08:42,840 --> 00:08:44,970
+有趣的另一个原因是
 The other reason why it's interesting is,
 
 146
 00:08:44,970 --> 00:08:46,650
+它将成为两个实验的主题。
 it's going to be the topic of two labs.
 
 147
 00:08:47,580 --> 00:08:52,470
+我们接下来的实验将完全集中在文件系统上，
 So we're gonna have next upcoming lab is completely focused on file systems
 
 148
 00:08:52,470 --> 00:08:56,130
+之后的实验是虚拟内存和文件系统的组合，
 and the lab after that is a combination of virtual memory and file systems
 
 149
 00:08:56,130 --> 00:08:58,980
+即使是今天或本周的实验，
 and even the lab for today or this week
 
 150
 00:08:58,980 --> 00:09:03,030
+也有一个组件试图让缓冲区缓存更加并行。
 has a component to trying to make the buffer cache more parallel.
 
 151
 00:09:05,180 --> 00:09:06,950
+所以这就是为什么它很有趣的原因，
 So that's why it's interesting
 
 152
 00:09:08,360 --> 00:09:10,910
+你应该开始
 and you know just you should get off the ground
 
 153
 00:09:10,970 --> 00:09:14,420
+了解文件系统必须提供什么，
 to understand what the file system must provide,
 
 154
 00:09:14,510 --> 00:09:19,190
+让我们再来看看基本的文件系统调用，
 just let's look again at the basic file system system calls,
 
 155
 00:09:19,810 --> 00:09:27,350
+去看 API 示例。
 right, to the API example.
 
 156
 00:09:27,350 --> 00:09:30,920
+如果你查看这些文件系统调用的 API ，
 If looking at you know API, these file system calls,
 
 157
 00:09:30,980 --> 00:09:33,350
+然后我们可以看到这里有几个有趣的属性，
 then we can sort of there's a couple of interesting properties,
 
 158
 00:09:33,350 --> 00:09:35,150
+关于实现，它们一定是真的。
 that must be true about the implementation.
 
 159
 00:09:35,870 --> 00:09:39,710
+所以文件系统调用，
 And so the, you know the file system calls,
 
 160
 00:09:42,810 --> 00:09:47,200
+我们在这个学期的早些时候就见过它们，
 we've seen them early on in, in the semester
 
 161
 00:09:47,290 --> 00:09:51,850
+我们看过大多数其他 Unix 系统调用如何实现它，
 and you know we've looked at most other Unix system calls how to implement it,
 
 162
 00:09:51,850 --> 00:09:54,820
+比如 dork exec 和管道，所有的东西，
 like fork and exec pipes, all that stuff,
 
 163
 00:09:54,910 --> 00:09:57,280
+基本上，这几节课的重点是
 and basically this set of lectures is really focusing on
 
 164
 00:09:57,280 --> 00:09:59,200
+如何实现文件系统调用。
 how to implement the file system calls.
 
 165
 00:10:00,400 --> 00:10:06,670
+首先，让我们从一个简单的情况开始。
 So, first of all, let's startup simple case with a simple scenario.
 
 166
 00:10:08,640 --> 00:10:12,510
+假设我们创建了一个文件 x/y ，
 We have you know say we create a file x/y,
 
 167
 00:10:13,080 --> 00:10:19,740
+或者文件 y 在目录 x 中。
 or file y in the directory x.
 
 168
 00:10:23,700 --> 00:10:24,960
+是啊，它可能，糟糕。
 Yeah, it probably have to oops.
 
 169
 00:10:27,740 --> 00:10:34,870
+是的，在文件 x 中，
 Yeah, in the file x,
 
 170
 00:10:34,870 --> 00:10:36,940
+我们必须提供一些标志，
 we have to provide some flags,
 
 171
 00:10:36,940 --> 00:10:38,260
+我们并不关心这些标志，
 we don't really care about the flags,
 
 172
 00:10:38,260 --> 00:10:39,610
+所以我忽略它们，
 so I'm just going to ignore them,
 
 173
 00:10:40,270 --> 00:10:41,740
+所以，这将创建一个文件，
 so this will create a file
 
 174
 00:10:41,740 --> 00:10:45,370
+返回文件描述符给调用者，
 returns a file descriptor you know to the caller
 
 175
 00:10:45,580 --> 00:10:49,090
+然后调用者，用户应用程序可以写，
 and the caller, the user application can then actually for example write,
 
 176
 00:10:49,120 --> 00:10:50,680
+通过这个文件描述符，
 you know through that file descriptor,
 
 177
 00:10:50,680 --> 00:10:52,450
+就像我们之前看到的，
 as we've seen many times before,
 
 178
 00:10:52,810 --> 00:10:57,650
+这里有 write(fd, "abc", 3) 。
 there's a write fd, maybe abc, you know 3 characters.
 
 179
 00:10:58,550 --> 00:10:59,810
+还有一件事，
 And one things,
 
 180
 00:10:59,810 --> 00:11:05,120
+已经有很多东西可以从这两个调用中看出。
 actually you know already a couple things that we can point out right, from this two calls.
 
 181
 00:11:05,120 --> 00:11:11,280
+首先是路径名，
 So that first of all, the path names,
 
 182
 00:11:13,910 --> 00:11:15,350
+它在接口中出现，
 that show up in the interface
 
 183
 00:11:15,350 --> 00:11:17,060
+我们必须实现的，
 and we're going to have to implement,
 
 184
 00:11:17,710 --> 00:11:21,130
+名字人类可读的，
 names are hum- human readable,
 
 185
 00:11:22,680 --> 00:11:23,850
+它们不是数字，
 they're not numbers,
 
 186
 00:11:23,970 --> 00:11:26,190
+它们是由用户选择的。
 you know they get selected by the user.
 
 187
 00:11:29,280 --> 00:11:31,530
+这里另一个有趣的事情是，
 Another interesting thing here is that,
 
 188
 00:11:31,530 --> 00:11:32,940
+在 write 系统调用中，
 in the write system call,
 
 189
 00:11:33,600 --> 00:11:35,790
+没有偏移量作为参数，
 there's no offset as an argument,
 
 190
 00:11:36,440 --> 00:11:37,850
+所以偏移量是隐式的，
 so the offset is implicit,
 
 191
 00:11:39,350 --> 00:11:43,800
+所以文件系统某个地方必须存储偏移量，
 so the file system somewhere must store the offset,
 
 192
 00:11:44,490 --> 00:11:45,960
+如果你第二次调用 write ，
 if you do a second call to write,
 
 193
 00:11:45,960 --> 00:11:47,040
+write 最终，
 write will end up as
 
 194
 00:11:47,040 --> 00:11:50,130
+下一组字节将写入到位置 4 。
 you know the next set of bytes will written in that location 4.
 
 195
 00:11:52,480 --> 00:11:55,930
+也许有一些我们没有看过的更有趣的调用，
 You know, so maybe some more interesting calls that we haven't looked at much,
 
 196
 00:11:55,930 --> 00:11:59,710
+比如， xv6 和所有 Unix 文件系统
 for example, you know the xv6 and all Unix file systems
 
 197
 00:11:59,710 --> 00:12:03,430
+基本上都支持创建链接的调用，
 basically support calls to create links,
 
 198
 00:12:04,190 --> 00:12:07,970
+为了使同一文件具有多个名称，
 to have multiple names for the same files for the same file,
 
 199
 00:12:08,000 --> 00:12:10,760
+比如，它可能调用 link ，
 so for example it might call like link
 
 200
 00:12:10,760 --> 00:12:15,890
+为原始文件创建第二个名称，
 that basically creates a second name for the original file,
 
 201
 00:12:15,890 --> 00:12:21,200
+比如，为我们之前创建的文件 y 创建名称 z 。
 so for example, creates names z for the file y that we earlier created.
 
 202
 00:12:24,040 --> 00:12:25,600
+所以，多个名称，
 So multiple names,
 
 203
 00:12:32,780 --> 00:12:36,140
+可能文件系统内部需要以某种方式跟踪，
 the file system probably internally has to keep track you know in some way,
 
 204
 00:12:36,140 --> 00:12:39,260
+多个名称可能指向同一个文件。
 that multiple names might be pointing to the same file.
 
 205
 00:12:40,030 --> 00:12:47,980
+我们可能会在文件打开时，删除或更改名称空间，
 We might actually remove, or changed name space, while the file is open,
 
 206
 00:12:48,010 --> 00:12:51,150
+比如，我们可以调用，
 so for example, we could call,
 
 207
 00:12:51,180 --> 00:12:52,860
+用户可能调用一个进程，
 user might actually call that a process,
 
 208
 00:12:52,860 --> 00:12:56,340
+同一进程可能会调用 unlink 来删除指定文件。
 the same process might call unlink you to remove a particular file.
 
 209
 00:12:56,980 --> 00:13:01,570
+事实上，我们删除了之前打开的文件 x/y ，
 In fact you know we removed the file x/y that we actually open earlier,
 
 210
 00:13:01,570 --> 00:13:03,400
+但是我们仍然有一个打开的文件描述符，
 but we still have a file descriptor open
 
 211
 00:13:03,760 --> 00:13:06,040
+所以我们仍然可以给它写入，
 and so in fact you know we can still write to it,
 
 212
 00:13:07,530 --> 00:13:10,860
+所以我们仍然可以写入到 fd ，
 so we can still write to fd,
 
 213
 00:13:10,890 --> 00:13:14,860
+比如字符，不管什么， d e 和 f ，
 you know, for example the character whatever d e and f,
 
 214
 00:13:16,150 --> 00:13:17,590
+实际上，它一切都很顺利。
 and it actually worked out fine.
 
 215
 00:13:18,440 --> 00:13:22,640
+所以当文件在使用时，
 So basically while you know file file was used,
 
 216
 00:13:22,640 --> 00:13:26,300
+它周围的命名空间实际上是可以改变的。
 the name space that surrounds it could actually be changed.
 
 217
 00:13:27,160 --> 00:13:29,290
+所以必须是这样的，
 And so it has to be the case,
 
 218
 00:13:29,290 --> 00:13:30,400
+如果你看一下这个，
 you know if you sort of look at this,
 
 219
 00:13:30,400 --> 00:13:31,210
+这些事情，
 you know sort of things,
 
 220
 00:13:31,210 --> 00:13:34,570
+文件系统内部发生了一系列有趣的事情，
 that there's a bunch of interesting things going on internally the file system,
 
 221
 00:13:34,840 --> 00:13:38,740
+比如，文件描述符必须关联，
 for example the file system, file descriptor must be associated,
 
 222
 00:13:39,220 --> 00:13:45,400
+我们有一些与名字无关的对象，
 we have some you know object that is independent of the name, right,
 
 223
 00:13:45,940 --> 00:13:47,800
+因为即使名字改了，
 because you know even if the name changes,
 
 224
 00:13:47,800 --> 00:13:53,920
+文件描述符仍然指向或引用相同的文件对象。
 the file descriptor still point or you know, references the same file object itself.
 
 225
 00:13:54,790 --> 00:13:57,760
+所以，如果你想一想，
 And, so, in fact if you think about this,
 
 226
 00:13:57,760 --> 00:13:58,660
+情况肯定是这样的，
 it has to be the case,
 
 227
 00:13:58,660 --> 00:14:05,110
+必须有一些文件的内部表示，
 that basically there has to be some internal representation of the file
 
 228
 00:14:05,230 --> 00:14:06,490
+在操作系统中，
 inside of the operating system,
 
 229
 00:14:06,490 --> 00:14:08,770
+与名称本身无关。
 that's independent of the name itself.
 
 230
 00:14:10,630 --> 00:14:12,490
+所以我们马上就会看到，
 And so we're looking at in a second,
 
 231
 00:14:12,490 --> 00:14:15,280
+但我还想在这里说明另一点是，
 but there's one other point I wanted to make here is
 
 232
 00:14:15,610 --> 00:14:17,140
+文件系统的目标是
 the goal of the file system is
 
 233
 00:14:17,140 --> 00:14:20,140
+实现像我们在这里看到的 API ，
 to be implemented an API like the ones that we're looking here
 
 234
 00:14:20,140 --> 00:14:22,660
+它是一种典型的文件系统 API 。
 which is a sort of typical file system API.
 
 235
 00:14:23,140 --> 00:14:26,830
+这当然不是能够访问存储系统的唯一方法，
 You know, this is of course not the only way to be able to storage system
 
 236
 00:14:27,070 --> 00:14:29,260
+或者把信息存储在磁盘上，
 or going to store the information on disk,
 
 237
 00:14:29,260 --> 00:14:31,990
+我们可以想象完全不同的 API 。
 you know we could imagine completely different APIs.
 
 238
 00:14:32,480 --> 00:14:38,260
+比如，数据库，
 And, for example, you know maybe the database right,
 
 239
 00:14:38,680 --> 00:14:40,180
+持久化存储一些数据，
 store some data persistently,
 
 240
 00:14:40,210 --> 00:14:45,970
+但是对数据的访问提供了非常不同的编程 API 或用户 API ，
 but access to the data provides very different programming or API user API,
 
 241
 00:14:46,180 --> 00:14:48,160
+跟文件系统相比。
 than a file system does.
 
 242
 00:14:48,640 --> 00:14:51,430
+所以重要的是，要记住，
 And so just important, to keep in mind that you know,
 
 243
 00:14:51,940 --> 00:14:55,660
+还有其他方法组织存储系统，
 you know there's other ways of organizing storage systems
 
 244
 00:14:55,660 --> 00:14:57,970
+我们的重点将放在文件系统上，
 and where our focus is going to be on file system,
 
 245
 00:14:57,970 --> 00:15:00,220
+通常由操作系统提供。
 which is typically provided by an operating system.
 
 246
 00:15:00,890 --> 00:15:04,730
+而数据库通常在文件系统之上实施，
 And databases are typically implemented on top of the file system
 
 247
 00:15:04,730 --> 00:15:07,490
+或者围绕文件系统的大部分工作中，
 or most of work around the file system,
 
 248
 00:15:07,880 --> 00:15:10,940
+你不能直接访问磁盘。
 you can't have direct access to the disk.
 
 249
 00:15:12,750 --> 00:15:14,370
+我们在聊天中有两个问题。
 We have two questions in the chat.
 
 250
 00:15:14,580 --> 00:15:15,210
+好的。
 Yeah.
 
 251
 00:15:16,780 --> 00:15:20,640
+让我，请继续问任何问题。
 Let me, just going to ask any questions.
 
 252
 00:15:22,090 --> 00:15:25,840
+所以， link 递增对底层文件描述符的引用，
 So link increments a reference to the underlying file descriptor
 
 253
 00:15:25,840 --> 00:15:27,790
+而 unlink 递减？
 and unlink decrement?
 
 254
 00:15:27,790 --> 00:15:31,090
+是的，这是正确的，我们稍后再详细讨论这个问题。
 Yes, that is correct, we'll talk a little bit more about it later.
 
 255
 00:15:31,770 --> 00:15:35,280
+这里的另一个问题是关于软链接和硬链接的问题。
 Another question here is about a soft links versus hard links.
 
 256
 00:15:35,310 --> 00:15:39,570
+今天我不会讲的太多，
 I'm not going to talk much about it today,
 
 257
 00:15:39,570 --> 00:15:43,080
+但是你将实现软链接
 but you will be implementing soft links
 
 258
 00:15:43,080 --> 00:15:47,760
+在即将到来的文件系统实验中。
 in the next in the file system lab that is upcoming.
 
 259
 00:15:48,640 --> 00:15:50,830
+xv6 本身实现了硬链接，
 So xv6 by itself implements hard links,
 
 260
 00:15:50,830 --> 00:15:53,080
+你还要实现软链接。
 and you implement soft links in addition.
 
 261
 00:15:55,040 --> 00:15:57,050
+还有问题吗，还有其他问题吗？
 Any questions, other questions?
 
 262
 00:16:04,490 --> 00:16:07,250
+link 是在 inode 上操作，
 The link operates on the inode
 
 263
 00:16:07,250 --> 00:16:09,110
+不是在文件描述符上，是吗？
 not on the file descriptor right?
 
 264
 00:16:09,290 --> 00:16:12,830
+没错， link 在 inode 上工作，
 That's correct, link work on the inode,
 
 265
 00:16:12,830 --> 00:16:13,400
+让我。
 so let me.
 
 266
 00:16:13,700 --> 00:16:15,230
+让我们到那里。
 Since let's go there.
 
 267
 00:16:15,230 --> 00:16:17,590
+所以，文件系统结构。
 So file system structures.
 
 268
 00:16:20,250 --> 00:16:22,500
+那么文件系统维护什么样的结构
 So what structure does the file system maintain
 
 269
 00:16:22,500 --> 00:16:27,110
+来实现刚才提到的 API 。
 to implement you know this API just talked about.
 
 270
 00:16:27,320 --> 00:16:30,350
+所以首先最重要的属性是 inode ，
 So first of all the most important property is the inode,
 
 271
 00:16:31,880 --> 00:16:36,380
+所以这是一个表示文件的对象，独立于名称，
 and so this is the object that represents a file, independent of the name,
 
 272
 00:16:36,530 --> 00:16:41,820
+所以，文件信息，独立于名称。
 so file info independent of name.
 
 273
 00:16:45,390 --> 00:16:48,900
+实际上， inode 的命名方式是
 In fact, you know the way you know name actually inode this is
 
 274
 00:16:48,900 --> 00:16:51,930
+inode 数字只是一个数字。
 inode number just literally an integer.
 
 275
 00:16:52,620 --> 00:16:56,340
+所以，文件系统内部引用 inode ，
 So the file system internally refers to inode
 
 276
 00:16:56,580 --> 00:16:59,310
+是通过编号，而不是实际路径名称。
 by number instead of actually by path names.
 
 277
 00:17:00,500 --> 00:17:02,900
+我们也知道，从这个讨论中知道，
 And we also know this based on this discussion,
 
 278
 00:17:03,020 --> 00:17:06,410
+inode 必须有链接计数，
 that you know inode must actually have link count,
 
 279
 00:17:08,600 --> 00:17:11,720
+为了记录，
 to keep track of the number of,
 
 280
 00:17:12,880 --> 00:17:14,860
+为了记录名字的数目，
 to keep track of the number of names,
 
 281
 00:17:14,860 --> 00:17:17,080
+它们指向特定的 inode ，
 that are pointing to that particular inode
 
 282
 00:17:17,140 --> 00:17:19,030
+文件只能在以下情况下删除，
 and the file should only be deleted
 
 283
 00:17:19,240 --> 00:17:21,700
+当链接计数为 0 时。
 when the link count actually reaches zero no earlier.
 
 284
 00:17:22,590 --> 00:17:25,200
+这要稍微复杂一点，
 It's actually slightly more complicated,
 
 285
 00:17:25,530 --> 00:17:30,010
+还必须有打开的 fd 计数，
 there must be also an open fd count,
 
 286
 00:17:30,190 --> 00:17:33,070
+即文件具有的文件描述符数，
 number file descriptors that actually have to file open
 
 287
 00:17:33,430 --> 00:17:36,730
+只有当这两个值都为零时，才能删除文件。
 and file can only be deleted when both of these are zero.
 
 288
 00:17:43,070 --> 00:17:47,780
+我们也知道， write 没有偏移量，
 And we also know that basically based on you know the write have no offset,
 
 289
 00:17:47,780 --> 00:17:48,740
+read 也没有，
 nor does read,
 
 290
 00:17:48,740 --> 00:17:54,540
+所以，文件描述符必须隐式维护一个偏移量。
 you know that the file descriptor implicitly must maintain an offset.
 
 291
 00:18:01,950 --> 00:18:02,670
+好的?
 Okay?
 
 292
 00:18:03,650 --> 00:18:09,080
+所以，文件系统中的中心数据结构是 inode ，
 And so basically the central really data structure in a file system is inode
 
 293
 00:18:09,080 --> 00:18:15,750
+然后是与进程交互的文件描述符。
 and then a file descriptor to actually interact with the processes.
 
 294
 00:18:19,820 --> 00:18:26,210
+所以，即使文件系统在 API 方面非常相似，
 So, even though the file systems are very similar terms short of their API,
 
 295
 00:18:26,210 --> 00:18:28,700
+它们的实现方式是不同的，
 you know they're all implemented differently,
 
 296
 00:18:29,090 --> 00:18:35,630
+但它们中的许多都有一种类似的结构。
 but many of them have a sort of similar structure.
 
 297
 00:18:40,050 --> 00:18:42,090
+而且因为文件系统相当复杂，
 And because the file systems are quite complex,
 
 298
 00:18:42,090 --> 00:18:47,250
+将它们组织成一层，有助于组织它们。
 you know just helps to sort of organize them in a typically organized in a set of layers.
 
 299
 00:18:47,750 --> 00:18:49,520
+我想的是，
 And you know what I think about it,
 
 300
 00:18:49,520 --> 00:18:51,980
+在最下面，这是磁盘，
 this is at the very bottom, there's the disk,
 
 301
 00:18:53,120 --> 00:18:56,150
+一些存储设备保存着这些数据。
 some storage device that actually holds you know the data.
 
 302
 00:18:56,870 --> 00:18:59,450
+并且提供了持久性和耐久性，
 And actually provides the persistence and durability
 
 303
 00:18:59,750 --> 00:19:01,340
+通常，这里有一些东西，
 and typically you know there's something
 
 304
 00:19:01,340 --> 00:19:04,310
+比如缓冲区在它的上面，
 like a buffer cache, a block cache right, above it,
 
 305
 00:19:05,600 --> 00:19:10,040
+为了避免访问磁盘太多。
 so that to avoid going to disk many times.
 
 306
 00:19:10,040 --> 00:19:13,220
+所以我们把缓存数据放在内存中。
 So we're gonna cache basically data inside in memory.
 
 307
 00:19:13,220 --> 00:19:16,360
+所以这是内存，
 So this is going to be basically, you know memory,
 
 308
 00:19:20,560 --> 00:19:23,590
+这是设备。
 and this is the device.
 
 309
 00:19:27,980 --> 00:19:31,130
+对于持久性，通常会提供记录层，
 For persistence, there's something typically offer logging layer,
 
 310
 00:19:31,160 --> 00:19:33,860
+很多文件系统具有某种形式的日志记录。
 you know many many file system have a form of logging.
 
 311
 00:19:34,540 --> 00:19:36,460
+我们周三会更多地讨论这个，
 We're going to talk mostly about it Wednesday,
 
 312
 00:19:36,460 --> 00:19:37,630
+所以我先跳过这个话题。
 so I can skip that.
 
 313
 00:19:38,220 --> 00:19:42,300
+在 xv6 中的最高层，
 Then the top of the layer locate in xv6,
 
 314
 00:19:42,780 --> 00:19:45,060
+有一个 icache ，就是 inode 缓存，
 there's an icache where inode cache,
 
 315
 00:19:45,270 --> 00:19:47,580
+这主要是为了同步，
 this is mostly for synchronization,
 
 316
 00:19:47,970 --> 00:19:49,800
+我们也稍后再谈。
 let's also talk about a little bit later.
 
 317
 00:19:54,430 --> 00:19:57,760
+所以 inode 通常比磁盘块要小，
 So inode you know typically smaller than disk block
 
 318
 00:19:57,760 --> 00:20:00,400
+许多 inode 打包到一个磁盘块中，
 and many inodes are packed into a single disk block
 
 319
 00:20:00,970 --> 00:20:04,630
+为这些单独的 inode 提供同步，
 provides synchronization to those individual inode,
 
 320
 00:20:04,870 --> 00:20:07,300
+xv6 维护着 icache 。
 you know xv6 maintains icache.
 
 321
 00:20:08,020 --> 00:20:13,150
+然后是 inode 本身的实现，
 And then typically that you know were inode the implementation itself,
 
 322
 00:20:13,150 --> 00:20:17,670
+读取和写入字节。
 you know that sort of ranges for read and writes bytes.
 
 323
 00:20:20,610 --> 00:20:22,380
+然后在它之上，
 And then you know on top of that,
 
 324
 00:20:23,310 --> 00:20:28,510
+我们有名称，比如路径名和文件描述符操作。
 we have names, like path names and file descriptor operations.
 
 325
 00:20:29,640 --> 00:20:33,060
+无论如何，每个文件系统的组织方式略有不同，
 Anyway, every file system be slightly differently organized
 
 326
 00:20:33,090 --> 00:20:34,890
+并且层也可能略有不同，
 and layers may be slightly different,
 
 327
 00:20:35,220 --> 00:20:38,550
+也许层并不总是那么严格，
 maybe layers is not always that strict,
 
 328
 00:20:38,700 --> 00:20:40,830
+即使是 xv6 ，它也不总是非常严格的，
 even xv6 it's not always super strict,
 
 329
 00:20:41,130 --> 00:20:44,100
+但是这是一个很好的思考方式，
 but it is conceptually good way to think about it
 
 330
 00:20:44,100 --> 00:20:47,220
+几乎所有文件系统都有组件
 and almost all file systems have components in their file systems
 
 331
 00:20:47,220 --> 00:20:48,720
+对应于不同部分，
 correspond to the different pieces,
 
 332
 00:20:48,720 --> 00:20:53,940
+有缓冲区缓存、日志记录、 inode 和路径名。
 you know the buffer cache, the logging, to the inodes and to path names.
 
 333
 00:20:54,600 --> 00:20:57,060
+所以工作是通过，
 And so you know basically work by through a little bit,
 
 334
 00:20:57,090 --> 00:21:00,720
+通过这些不同的文件系统层。
 through these different file system layers.
 
 335
 00:21:01,980 --> 00:21:05,310
+让我从最底层说起。
 Let me talk a little bit of starting with the bottom layer.
 
 336
 00:21:10,000 --> 00:21:13,520
+只是看一下聊天。
 Just looking at the chat.
 
 337
 00:21:13,670 --> 00:21:18,440
+所以，让我从存储设备开始说起。
 So let me start with a talk a little bit about storage itself, storage devices.
 
 338
 00:21:22,030 --> 00:21:25,660
+有很多不同类型的存储设备，
 It turns out there are many many, many different types of storage devices,
 
 339
 00:21:25,840 --> 00:21:32,860
+有不同的性能、容量和耐久度，
 in the difference between performance you know capacity, degree of durability,
 
 340
 00:21:33,130 --> 00:21:36,580
+但是最常见的两个是，
 but you know two of the common ones you know are
 
 341
 00:21:36,610 --> 00:21:39,880
+你们可能很熟悉 SSD 固态硬盘，
 you know you're probably all familiar with you know the SSD,
 
 342
 00:21:41,000 --> 00:21:44,750
+也有有些人可能
 and there maybe you know some people
 
 343
 00:21:44,750 --> 00:21:47,780
+只是简单地说选择硬盘或磁盘。
 may simply mean choosing hard disks or magnetic disks.
 
 344
 00:21:48,540 --> 00:21:52,140
+你知道它们提供了大量的存储空间，
 And you know they provide a ton of storage,
 
 345
 00:21:52,350 --> 00:21:56,070
+以合理的价格，以不同的性能，
 in reasonable cost, in different performance,
 
 346
 00:21:56,070 --> 00:21:58,770
+SSD 通常具有
 so SSD have typically in the order of
 
 347
 00:21:58,770 --> 00:22:02,980
+数百微秒到毫秒级的访问时间，
 hundreds of microseconds to the milliseconds access time,
 
 348
 00:22:04,110 --> 00:22:08,190
+而磁盘通常是十毫秒级，
 well magnetic disks tend to be more in the order of ten milliseconds
 
 349
 00:22:08,800 --> 00:22:11,740
+对于单个读写块来说。
 to individually read or write a block.
 
 350
 00:22:12,940 --> 00:22:16,720
+这里的术语有点困惑，
 The terminology is actually slightly confusion here,
 
 351
 00:22:16,720 --> 00:22:21,870
+术语扇区，还有块，
 you know, the terms sector, that are used blocks,
 
 352
 00:22:24,430 --> 00:22:29,680
+历史上扇区是最小单位，
 and so in sectors typically the historically the smallest unit,
 
 353
 00:22:29,710 --> 00:22:34,810
+磁盘可以读取或写入，
 that disk drives can can read or write in
 
 354
 00:22:34,870 --> 00:22:38,950
+所以通常是 512 个字节，
 and so you know should be typically five hundred twelve bytes just a common number,
 
 355
 00:22:39,690 --> 00:22:41,730
+而块大小通常，
 the block size is basically
 
 356
 00:22:41,760 --> 00:22:45,210
+块通常是操作系统或文件系统的说法，
 where a block is basically an OS or a file system idea
 
 357
 00:22:45,210 --> 00:22:47,130
+或者是由文件系统定义的，
 or defined by a file system
 
 358
 00:22:47,340 --> 00:22:50,190
+比如在 xv6 中是 1024 字节，
 and in xv6 for example it is 1024 bytes,
 
 359
 00:22:50,490 --> 00:22:51,570
+所以这是两个扇区，
 and so it's two sectors,
 
 360
 00:22:51,570 --> 00:22:54,690
+通常情况下，块的大小是一个或多个扇区。
 so typically the block sizes one or more sectors.
 
 361
 00:22:55,120 --> 00:22:59,230
+有时，人们也将磁盘上的扇区称为块，
 Sometimes people refer to the sectors on disk also as blocks
 
 362
 00:22:59,230 --> 00:23:03,340
+所以术语不是特别精确。
 and so you know the terminology is not particularly precise.
 
 363
 00:23:04,590 --> 00:23:08,310
+这些设备是连接在某个总线上，
 So these devices you know basically sit you know on some bus,
 
 364
 00:23:09,060 --> 00:23:12,360
+总线连接到 CPU 上，
 and you know the bus is connected to the CPU right,
 
 365
 00:23:12,950 --> 00:23:15,770
+内存可能在这边，
 you know there might be memory on the side here,
 
 366
 00:23:17,850 --> 00:23:20,370
+可能有多个 CPU ，
 maybe multiple CPUs,
 
 367
 00:23:20,370 --> 00:23:23,160
+文件系统运行在 CPU 上，
 in the file system that runs on the CPU,
 
 368
 00:23:23,160 --> 00:23:26,010
+将其内部数据结构保存在内存中，
 stores its internal data structures in memory
 
 369
 00:23:26,070 --> 00:23:34,320
+对 SSD 或硬盘的读写，
 and basically reads and writes you know to to the SSD or the hard disk
 
 370
 00:23:34,320 --> 00:23:36,120
+是写入块或读取块。
 to actually write a block or read a block.
 
 371
 00:23:36,180 --> 00:23:39,880
+所以，接口非常简单，
 And so to actually interface is quite simple,
 
 372
 00:23:40,740 --> 00:23:44,910
+它通常只是使用块编号读或写。
 so it's typically just read you know or write with block number.
 
 373
 00:23:46,020 --> 00:23:48,180
+这有点过于简单化了，
 There's a little bit of oversimplification,
 
 374
 00:23:48,180 --> 00:23:50,130
+但是接口的核心大概就是这样的，
 but like the core of the interface is roughly that,
 
 375
 00:23:50,790 --> 00:23:56,460
+在内部，固态硬盘和硬盘的工作方式完全不同，
 internally, of course SSDs and hard disk to work completely differently,
 
 376
 00:23:56,460 --> 00:23:59,760
+但是硬件将大部分抽出，
 but hardware extracts mostly away
 
 377
 00:23:59,790 --> 00:24:06,660
+通常是某种标准协议，比如 PCI 或 PCIe ，
 and typically they're sort of standard protocols like PCI or PCI extended,
 
 378
 00:24:06,660 --> 00:24:11,610
+这是处理器或文件系统用户磁盘驱动程序
 that's the processor or the file system user disk drivers
 
 379
 00:24:11,610 --> 00:24:14,630
+用于与磁盘交互，
 used to actually talk to disks
 
 380
 00:24:14,630 --> 00:24:16,220
+通常从磁盘驱动来看，
 and often from the disk driver,
 
 381
 00:24:16,220 --> 00:24:20,600
+大多数磁盘看起来都是一样的，
 you know most disks you know sort of look the same
 
 382
 00:24:20,750 --> 00:24:25,040
+只需要提供一个块编号和一些数据就可以读写，
 and you can just read and write by providing a block number and some data
 
 383
 00:24:25,400 --> 00:24:28,220
+把它发出去，
 and then you know send it off
 
 384
 00:24:28,220 --> 00:24:30,830
+或者写入设备的控制寄存器，
 or write to control registers you know the device
 
 385
 00:24:30,830 --> 00:24:32,360
+设备就会完成它的工作。
 and the device will do its job.
 
 386
 00:24:33,760 --> 00:24:37,620
+从文件系统的角度来看，
 And so this from file system perspective,
 
 387
 00:24:37,830 --> 00:24:41,160
+虽然磁盘有非常不同的，
 although you know the the disk have quite
 
 388
 00:24:41,160 --> 00:24:43,260
+存储设备有非常不同的属性，
 storage device have quite different properties,
 
 389
 00:24:43,440 --> 00:24:47,640
+从驱动的角度来看，
 they're actually, from the driver's perspective,
 
 390
 00:24:47,670 --> 00:24:50,010
+你可以用大致相同的方式编程。
 you know so you can program in roughly the same way.
 
 391
 00:24:53,840 --> 00:24:54,890
+有什么问题吗，
 Any questions about that,
 
 392
 00:24:54,920 --> 00:24:56,930
+我不会太多谈论存储设备，
 I'm not gonna talk much about the storage devices,
 
 393
 00:24:56,930 --> 00:24:58,790
+所以如果你有任何问题，
 so if you have any questions,
 
 394
 00:24:58,790 --> 00:25:00,620
+现在是提问的好时机。
 this is a good time to ask them.
 
 395
 00:25:11,240 --> 00:25:12,830
+是的，我有个问题，
 Yes, I have a question,
 
 396
 00:25:12,860 --> 00:25:19,360
+用于调用读或写的接口是否
 is the interface for calling read or write something
 
 397
 00:25:19,360 --> 00:25:22,090
+提供了同步和异步选项。
 that offers synchronous and asynchronous options.
 
 398
 00:25:22,450 --> 00:25:24,370
+是的，通常都是这样的，
 Yeah, often this is the case,
 
 399
 00:25:24,370 --> 00:25:27,190
+它非常类似于，
 in fact it's generally like it's almost very similar to
 
 400
 00:25:27,190 --> 00:25:30,280
+你可以考虑磁盘的驱动程序
 actually, basically you can think about the driver for a disk
 
 401
 00:25:30,550 --> 00:25:32,740
+与控制台驱动程序相同的方式，
 in the same way as the console driver
 
 402
 00:25:33,040 --> 00:25:38,590
+CPU 或驱动向设备发出命令，
 where the CPU or the driver issues a command to the device,
 
 403
 00:25:38,770 --> 00:25:41,050
+开始读或写，
 basically say start to read or do write
 
 404
 00:25:41,320 --> 00:25:43,210
+然后在设备完成后的某个时刻，
 and then at some point later when the device is done
 
 405
 00:25:43,210 --> 00:25:44,320
+然后生成一个中断，
 and will generate an interrupt
 
 406
 00:25:44,320 --> 00:25:46,660
+表示，好的我已经完成了读或写，
 saying like okay, I did the read or I did the write
 
 407
 00:25:46,780 --> 00:25:49,030
+然后这意味着完成了。
 and then you know that indicates the completion.
 
 408
 00:25:50,060 --> 00:25:52,160
+当然，驱动程序，
 And you know of course, the driver,
 
 409
 00:25:52,250 --> 00:25:55,580
+因为这个设备比控制台更复杂，
 since this device is more complicated than the console,
 
 410
 00:25:55,580 --> 00:25:58,550
+它的驱动程序比控制台驱动程序要复杂得多，
 you know it's quite a bit more complicated driver than the console driver
 
 411
 00:25:58,550 --> 00:26:00,830
+我们在上一节课中看到的，
 that we saw in the previous lecture
 
 412
 00:26:00,890 --> 00:26:02,270
+基本上是相同的结构，
 was basically the same structure,
 
 413
 00:26:02,660 --> 00:26:05,600
+下半部，上半部，中断，
 bottom half top half, interrupts,
 
 414
 00:26:05,990 --> 00:26:08,270
+以及读取或写入控制寄存器。
 and reading or writing to control registers.
 
 415
 00:26:10,850 --> 00:26:11,810
+好的，谢谢。
 Okay, thanks.
 
 416
 00:26:16,490 --> 00:26:19,460
+好的，从文件系统的角度来看，
 Okay, so, so from the file system perspective,
 
 417
 00:26:19,490 --> 00:26:24,830
+考虑磁盘的方式非常简单。
 the way to think about the disk is pretty straightforward.
 
 418
 00:26:25,400 --> 00:26:28,730
+有一个读写块或扇区，
 Since there's a read or write of block or sectors,
 
 419
 00:26:28,910 --> 00:26:29,960
+但我们可以想象一下，
 but we can just think about
 
 420
 00:26:29,960 --> 00:26:35,840
+磁盘是巨大的块数组，
 the disk basically gigantic you know array of blocks,
 
 421
 00:26:36,340 --> 00:26:38,470
+从 0 开始，
 you know starting at you know whatever zero,
 
 422
 00:26:39,280 --> 00:26:40,120
+然后是 1 ，
 you know one,
 
 423
 00:26:40,920 --> 00:26:43,530
+然后增加到磁盘的大小。
 and going up to whatever the size the disk is.
 
 424
 00:26:44,300 --> 00:26:48,080
+文件系统的作用是
 And basically the file system's job is
 
 425
 00:26:48,080 --> 00:26:51,620
+在磁盘上放置所有数据结构，
 to sort of layout all the data structures on the disk,
 
 426
 00:26:51,620 --> 00:26:56,600
+以一种可以在重启后重新构建文件系统的方式。
 in a way that you can reconstruct the file system after reboot.
 
 427
 00:26:57,740 --> 00:27:00,500
+所以有不同的方式去做，
 And so you know there are different ways of going about it,
 
 428
 00:27:00,500 --> 00:27:05,690
+xv6 使用非常简单的布局结构，
 xv6 you'll see uses a very simple layout structure,
 
 429
 00:27:05,750 --> 00:27:10,940
+但是，不是完全使用，
 but, but not completely use,
 
 430
 00:27:10,940 --> 00:27:17,540
+典型的文件系统操作。
 you know pretty typical in or prototypical for how file systems operate.
 
 431
 00:27:18,110 --> 00:27:21,170
+所以，通常块 0 不使用，
 So typically the block zero is generally not used
 
 432
 00:27:21,170 --> 00:27:25,440
+或用于引导扇区以引导操作系统。
 or used actually for the boot sector, to boot the operating system.
 
 433
 00:27:27,470 --> 00:27:30,500
+块 1 通常是所谓的超级块，
 Block one is often what's called a super block,
 
 434
 00:27:31,350 --> 00:27:34,620
+超级块描述了文件系统，
 and the super block basically describes you know the file system,
 
 435
 00:27:35,500 --> 00:27:38,380
+它可能会说磁盘上有这么多块，
 and it may say like oh there's so many blocks on disk
 
 436
 00:27:38,380 --> 00:27:39,910
+它们构成了文件系统，
 and that constitute the file system,
 
 437
 00:27:40,030 --> 00:27:41,320
+稍后我们会看到，
 and we'll see in a second,
 
 438
 00:27:41,320 --> 00:27:43,120
+xv6 在其中包含了更多信息，
 xv6 is a little bit more information in it,
 
 439
 00:27:43,120 --> 00:27:44,890
+像大多数其他文件系统一样。
 as in make most other of file system.
 
 440
 00:27:45,410 --> 00:27:46,790
+例如，在 xv6 中，
 For example, in xv6,
 
 441
 00:27:46,910 --> 00:27:52,670
+日志从块 2 到块 32 。
 the log starts at you know block 2 and runs into block 32.
 
 442
 00:27:55,110 --> 00:27:56,490
+是的，这是日志。
 Yeah, so this is the log.
 
 443
 00:27:57,460 --> 00:27:59,020
+当然，日志可以有不同的大小，
 And of course the log could be different size
 
 444
 00:27:59,020 --> 00:28:00,280
+事实上，在超级块中，
 and in fact in the super block,
 
 445
 00:28:00,280 --> 00:28:03,340
+写着日志的长度是 30 个块。
 it just says like the log is whatever 30 blocks long.
 
 446
 00:28:04,200 --> 00:28:11,910
+然后，在 xv6 中，从块 32 到 45 ，
 Then, xv6 after that, stores from 32 to basically block 45,
 
 447
 00:28:11,940 --> 00:28:12,990
+如果我没记错的话，
 if I remember correctly,
 
 448
 00:28:14,050 --> 00:28:15,910
+保存这 inodes ，
 it's stores inodes,
 
 449
 00:28:18,160 --> 00:28:19,090
+就像我之前说的那样，
 as I said before,
 
 450
 00:28:19,120 --> 00:28:22,510
+多个 inode 打包成一个单独的，
 multiply inodes are packed into a single,
 
 451
 00:28:22,540 --> 00:28:25,060
+这个块我想 inode 是，
 this block I think inode is,
 
 452
 00:28:26,470 --> 00:28:28,750
+我想，我不记得了，
 I believe, I don't actually remember at the top of my head,
 
 453
 00:28:28,750 --> 00:28:34,620
+但我认为它是 64 字节，或 128 字节，我相信是 64 字节。
 but I think it's either 64 bytes, or 128, I believe 64.
 
 454
 00:28:34,950 --> 00:28:39,390
+在那之后，有一个 bitmap 块，
 And after that you know there's a bitmap block,
 
 455
 00:28:39,420 --> 00:28:42,870
+是我们构建文件系统的详细方式，
 it turns out in the detail way we build the file system,
 
 456
 00:28:43,440 --> 00:28:46,830
+这个 bitmap 块是一个块的大小，
 this next bitmap block one block in size,
 
 457
 00:28:48,680 --> 00:28:52,430
+这些跟踪数据块，
 and so these basically keep track of actually the data blocks,
 
 458
 00:28:52,960 --> 00:28:54,460
+它是不是空闲的。
 whether it's free or not.
 
 459
 00:28:54,820 --> 00:28:59,260
+在那之后，从这里到那里，都是数据块，
 And after that, it's all for basically here to there, it's all data blocks,
 
 460
 00:28:59,350 --> 00:29:03,430
+数据块保存文件内容或目录内容。
 so data blocks that actually stored contents files or contents of directories.
 
 461
 00:29:05,140 --> 00:29:11,230
+通常所有 bitmap 块和 inode 块以及记录块，
 Often all the bitmap blocks and inode blocks and logging block,
 
 462
 00:29:11,380 --> 00:29:14,080
+有时称为元数据块，
 often sometimes referred to as metadata blocks,
 
 463
 00:29:16,940 --> 00:29:18,620
+它们并不存储实际数据，
 they don't actually store actual data,
 
 464
 00:29:18,620 --> 00:29:22,820
+但它们为文件系统保存元数据信息来完成工作，
 but they help you know they store meta information for the file system to do its job,
 
 465
 00:29:23,350 --> 00:29:25,420
+比如位图和索引节点。
 like bitmaps and inodes.
 
 466
 00:29:28,580 --> 00:29:30,470
+到目前为止，有什么问题吗？
 Any questions so far about this?
 
 467
 00:29:33,160 --> 00:29:35,440
+我有一个关于引导块的问题，
 I have a question about the boot block,
 
 468
 00:29:35,440 --> 00:29:40,960
+它是否包含用于引导操作系统的代码或其他内容。
 does it contain the code for the operating system to boot or something else.
 
 469
 00:29:41,500 --> 00:29:47,890
+是的，没错，它通常包含一个块代码，
 Yeah, exactly, it typically contains you know one block of code,
 
 470
 00:29:47,920 --> 00:29:50,020
+足够让操作系统开始运行，
 enough for the operating system to get going
 
 471
 00:29:50,020 --> 00:29:54,040
+然后，可能会从文件系统加载操作系统的更多部分。
 and then load maybe more of the operating system actually from the file system itself.
 
 472
 00:29:57,810 --> 00:29:58,470
+谢谢。
 Thank you.
 
 473
 00:29:58,740 --> 00:30:03,900
+那么这是否意味着 xv6 的代码实际上存储在虚拟磁盘上，
 So does that mean that the code for xv6 is actually stored on the virtual disk,
 
 474
 00:30:03,930 --> 00:30:06,330
+或者是怎么回事。
 or is it like how does.
 
 475
 00:30:06,330 --> 00:30:09,990
+xv6 我们使用 QEMU ，得到一些[]，
 Xv6, you know the way we do with QEMU, you know we got some [],
 
 476
 00:30:10,320 --> 00:30:13,350
+QEMU 有一个标志， -kernel ，
 QEMU actually has a flag, you know -kernel
 
 477
 00:30:13,350 --> 00:30:17,220
+它指向引导内核的位置，
 that basically points to the where boots the kernel from
 
 478
 00:30:17,220 --> 00:30:19,410
+然后加载到一个特定的地址，
 and loads you know that at a particular address
 
 479
 00:30:19,410 --> 00:30:23,220
+到物理内存中， 0x80000 ，
 into physical memory at 0x80000,
 
 480
 00:30:23,760 --> 00:30:25,950
+所以当我们使用 QEMU 时，
 and so basically when we're using QEMU,
 
 481
 00:30:25,950 --> 00:30:26,730
+按照我们使用 QEMU 的方式，
 the way we use QEMU,
 
 482
 00:30:26,730 --> 00:30:30,120
+我们不必担心引导扇区或类似的事情。
 we don't really have to worry about boot sectors or anything like that.
 
 483
 00:30:31,420 --> 00:30:36,730
+好的，所以当你运行 QEMU 时，
 Okay, so basically like when you run Q- QEMU,
 
 484
 00:30:36,760 --> 00:30:42,130
+你只要就像通过命令行一样把程序传进来，
 you just you just pass in like the the program through the command line,
 
 485
 00:30:42,130 --> 00:30:43,210
+然后它就会运行它，
 and then it'll just run that,
 
 486
 00:30:43,210 --> 00:30:46,000
+它不需要从虚拟磁盘和其他东西中读取它。
 it doesn't need to read it from the virtual disk and everything.
 
 487
 00:30:46,990 --> 00:30:47,680
+理解了。
 That makes sense.
 
 488
 00:30:51,530 --> 00:30:55,240
+好的，就像，比如，
 Okay, so like in the, so for example,
 
 489
 00:30:55,960 --> 00:30:59,590
+所以假设我知道 64 个字节，
 so assuming I know such 64 bytes,
 
 490
 00:30:59,590 --> 00:31:03,580
+现在如果你想读取 inode 10 ，
 you know for example, now if you want to read inode 10,
 
 491
 00:31:08,540 --> 00:31:10,670
+你应该怎么做。
 what do you do.
 
 492
 00:31:11,550 --> 00:31:12,930
+如何读取 inode 10 ？
 How do you read inode 10?
 
 493
 00:31:18,370 --> 00:31:19,180
+有人知道吗？
 Anybody?
 
 494
 00:31:22,530 --> 00:31:24,300
+inode 10 在哪个块上？
 Which block do inode 10 be?
 
 495
 00:31:25,660 --> 00:31:27,520
+你需要加上，
 You'd need to add,
 
 496
 00:31:27,820 --> 00:31:32,230
+使用 inode 编号加上偏移量，
 you take the inode number and add the offset into the [],
 
 497
 00:31:32,230 --> 00:31:33,400
+所以是 10 加 32 。
 so 10 plus 32.
 
 498
 00:31:33,880 --> 00:31:39,000
+所以是 32 加 10 或者其他的东西。
 So 32, right, and it literally plus 10 or something else.
 
 499
 00:31:47,880 --> 00:31:51,180
+是 10 除以大小吗？
 Is it 10 divided by the size.
 
 500
 00:31:51,210 --> 00:31:54,240
+是的， inode 编号，
 Yeah, it's gonna be whatever it's gonna be inode number,
 
 501
 00:31:55,090 --> 00:32:03,190
+inode 编号乘以，我们以字节为单位，乘以 64 ，
 inode number multiplied times, we do it in bytes, multiply it by 64,
 
 502
 00:32:03,970 --> 00:32:06,010
+除以 1024 ，
 divided by 1024,
 
 503
 00:32:08,540 --> 00:32:11,540
+所以， inode 0 最终出现在块 32 中，
 so inode 0 will end up in block 32,
 
 504
 00:32:12,040 --> 00:32:15,560
+无论哪个 inode ，
 inode whatever,
 
 505
 00:32:15,710 --> 00:32:18,410
+1024 除以 64 是多少？
 what was 1024 divided by 64?
 
 506
 00:32:23,640 --> 00:32:26,370
+16？是的， 16 ，
 16? Yeah 16 that's all right,
 
 507
 00:32:26,370 --> 00:32:29,610
+所以 inode 17 会在哪里，
 so inode 17 where will where will it end up,
 
 508
 00:32:32,960 --> 00:32:35,360
+应该在块 33 ，对吧。
 should be in, should be in block 33 right.
 
 509
 00:32:37,710 --> 00:32:38,340
+这能理解吗？
 Does that make sense?
 
 510
 00:32:39,520 --> 00:32:40,840
+所以，给出 inode 编号，
 So given inode number,
 
 511
 00:32:40,840 --> 00:32:45,760
+我们就可以在磁盘上找到 inode 存储的字节。
 we can always find the bytes on disk where inode actually stored.
 
 512
 00:32:47,370 --> 00:32:48,000
+好的?
 Okay?
 
 513
 00:32:50,580 --> 00:32:52,860
+好的，我们来看一下，
 Okay, so then let's look at the,
 
 514
 00:32:53,310 --> 00:32:56,910
+在磁盘 inode 上的实际是什么。
 what actually is in on disk inode.
 
 515
 00:33:04,850 --> 00:33:06,920
+根据我们知道的，
 So as we know it before,
 
 516
 00:33:06,950 --> 00:33:11,630
+你将看到数据结构， 64 字节大小，
 you'll see there's basically little data structure, 64 bytes in size,
 
 517
 00:33:13,760 --> 00:33:16,310
+通常有一个 type ，
 and you know typically has a type,
 
 518
 00:33:16,880 --> 00:33:18,530
+我们稍后会谈到，
 which we'll talk about it later,
 
 519
 00:33:18,530 --> 00:33:20,690
+比如 type 是文件或目录。
 but for example type file or directory.
 
 520
 00:33:21,050 --> 00:33:22,340
+还有 link ，
 And link,
 
 521
 00:33:23,640 --> 00:33:28,980
+link 计数跟踪多个名称或指向同一 inode 。
 you know the link count to track multiple names or pointing to the same inode.
 
 522
 00:33:29,580 --> 00:33:31,230
+还有以字节为单位的 size 。
 Size in bytes.
 
 523
 00:33:32,960 --> 00:33:37,760
+在 xv6 中，文件系统中的这些略有不同，
 And then in xv6 you know there can be slightly different in the file system
 
 524
 00:33:37,760 --> 00:33:39,380
+具体的表现形式是，
 and exactly how the representation is,
 
 525
 00:33:39,710 --> 00:33:41,480
+在 xv6 中，
 but in xv6,
 
 526
 00:33:41,840 --> 00:33:43,910
+多一点空间。
 a little bit more space.
 
 527
 00:33:49,760 --> 00:33:53,330
+在 xv6 中，后面跟着的是块编号，
 In xv6 basically is followed by a number of block numbers,
 
 528
 00:33:54,120 --> 00:33:58,680
+所以，后面是块 0 ，块 1 ，
 and so after, block number 0, block number 1,
 
 529
 00:33:59,240 --> 00:34:02,480
+实际上，有 12 个这样的块编号，
 in fact, there were twelve of those guys,
 
 530
 00:34:03,140 --> 00:34:05,270
+这 12 个直接块编号，
 these 12 direct block numbers,
 
 531
 00:34:10,510 --> 00:34:11,680
+这些直接块编号
 and those direct you know block numbers
 
 532
 00:34:11,680 --> 00:34:15,910
+对应于构成该文件的前 12 个块。
 basically correspond to the first 12 blocks that constitute that file.
 
 533
 00:34:16,440 --> 00:34:18,930
+如果文件只有两个字节长，
 So, for example if the file was only two bytes long,
 
 534
 00:34:18,990 --> 00:34:22,770
+这里只有一个块编号 0 ，
 you know there would be only one block number 0
 
 535
 00:34:23,100 --> 00:34:27,760
+块编号 0 是磁盘的块编号，
 and block number 0 is that the block number of the disk block
 
 536
 00:34:27,760 --> 00:34:31,150
+它包含该文件的前几个字节。
 that contains you know the first few bytes of that file.
 
 537
 00:34:32,290 --> 00:34:36,040
+然后有一个间接的块编号，
 And then there's one indirect block number,
 
 538
 00:34:41,570 --> 00:34:45,820
+这是一个块编号对应于一个块，
 basically that's a block number, that corresponds to a block,
 
 539
 00:34:46,550 --> 00:34:50,670
+它本身的块是 1024 字节，
 which then itself block is 1024 bytes,
 
 540
 00:34:50,670 --> 00:34:55,540
+保存 256 个块编号。
 which holds 256 block numbers.
 
 541
 00:35:01,800 --> 00:35:09,850
+所以从块编号 0 到 11 都是直接块编号，
 So from block number 0 to block number 11 are all direct block numbers
 
 542
 00:35:09,850 --> 00:35:19,120
+然后是块编号 12 保存那个间接块，
 and so then block number 12 you know stored in that, in that indirect block,
 
 543
 00:35:19,480 --> 00:35:23,230
+指向间接块编号。
 basically pointed to by the indirect block number.
 
 544
 00:35:25,900 --> 00:35:33,580
+这就是 xv6 中文件的布局。
 And that is basically the layout of the file in xv6.
 
 545
 00:35:35,300 --> 00:35:38,690
+那么基于这个， xv6 中的最大文件是多少呢？
 And so what is the maximum file size in xv6 based on this.
 
 546
 00:35:45,880 --> 00:35:46,540
+有人知道吗？
 Anybody?
 
 547
 00:35:54,240 --> 00:35:58,590
+它是 268 乘以 1024 字节。
 It would be 268 times 1024 bytes, basically.
 
 548
 00:35:58,950 --> 00:36:07,960
+是的， 256 加上 12 个直接块编号乘以 1024 ，
 Yeah, where just 256 plus 12 direct times 1024
 
 549
 00:36:07,990 --> 00:36:10,720
+我们就得到了以字节为单位的最大文件大小。
 and then we get the maximum file size in bytes, right.
 
 550
 00:36:12,840 --> 00:36:13,770
+它是多少？
 How much is that?
 
 551
 00:36:19,460 --> 00:36:22,340
+换个说法，它是 268 千字节。
 Another way of saying it's basically two 268 kilobytes, correct.
 
 552
 00:36:24,470 --> 00:36:26,780
+你能在 268 千字节中存储什么？
 What can you store in 268 kilobytes?
 
 553
 00:36:30,510 --> 00:36:36,110
+你能在里面存储视频或者一首歌吗？
 Can you store video in it or a song?
 
 554
 00:36:39,050 --> 00:36:40,700
+如果是一首短歌，是的。
 If it's a short song, yes.
 
 555
 00:36:42,170 --> 00:36:43,460
+很短的歌，是的。
 Very short song, correct.
 
 556
 00:36:44,060 --> 00:36:46,640
+所以这些文件非常小，
 So these are really small file size,
 
 557
 00:36:47,000 --> 00:36:49,850
+真实的文件系统文件要大得多。
 real file systems has much much bigger file size.
 
 558
 00:36:50,120 --> 00:36:52,850
+那么，如何处理文件系统表示，
 So what would you do to file system representation
 
 559
 00:36:52,850 --> 00:36:56,360
+可以让文件变得更大。
 to make this, to allow the files to be much more files to be much bigger.
 
 560
 00:37:01,560 --> 00:37:04,530
+你可以增加间接的部分吗？
 Could you extend the indirect portions.
 
 561
 00:37:05,400 --> 00:37:08,760
+是的，比如，你可以在下面有另一个块，
 Yeah, like for example you could have another block seating here below, correct,
 
 562
 00:37:08,760 --> 00:37:10,230
+可能是两倍间接，
 which is maybe double indirect,
 
 563
 00:37:14,170 --> 00:37:19,370
+就像我们以前看到的那种页表类型的数据结构一样，
 almost like you know the sort of the page table type data structures that we've seen before, right,
 
 564
 00:37:19,370 --> 00:37:22,970
+那个双倍间接块指向 256 个间接块编号，
 that double indirect block points to 256 indirect block numbers,
 
 565
 00:37:22,970 --> 00:37:25,220
+每一个都指向另一个块编号，
 each which point to another block number,
 
 566
 00:37:25,610 --> 00:37:28,760
+最大文件尺寸要大得多。
 and so certainly the file size is going to maximum file size is much there.
 
 567
 00:37:29,440 --> 00:37:33,880
+只是对这些数据结构的一种练习，
 And basically just turned out to be just a sort of exercise in on those data structures,
 
 568
 00:37:33,880 --> 00:37:36,610
+你可以选择类似的数据结构，比如树，
 you could pick a structure like this, like tree,
 
 569
 00:37:36,610 --> 00:37:41,110
+但也有可能实现为 B-Tree 或其他复杂的东西。
 but there's also possible to like maybe implemented as B-Tree or something other sophisticated,
 
 570
 00:37:41,800 --> 00:37:44,980
+xv6 是非常简单的，
 xv6 something extremely simple,
 
 571
 00:37:44,980 --> 00:37:49,750
+基本上它是仿照最初的第六版 Unix 。
 basically it's modeled after the original version six Unix Unix.
 
 572
 00:37:51,120 --> 00:37:53,880
+但你可以让使用更复杂的方案，
 But you can make them more sophisticated schemes,
 
 573
 00:37:53,910 --> 00:37:56,790
+事实上，在文件系统实验里，
 in fact in the file system lab,
 
 574
 00:37:56,850 --> 00:38:01,560
+你可以实现双倍间接块编号来支持更大的文件。
 you will implement double indirect block numbers to support much bigger files.
 
 575
 00:38:04,260 --> 00:38:05,340
+关于这个，有什么问题吗？
 Any questions about this?
 
 576
 00:38:10,530 --> 00:38:13,620
+抱歉，是 256 个块吗，
 Sorry, so is it 256 blocks,
 
 577
 00:38:13,620 --> 00:38:17,250
+因为就像一个整体的块，
 because it's like one block as a whole,
 
 578
 00:38:18,500 --> 00:38:20,480
+间接块。
 indirect.
 
 579
 00:38:20,600 --> 00:38:23,510
+这是一个间接的块编号，所以这不算，
 What this is an indirect block number, so that doesn't count,
 
 580
 00:38:23,510 --> 00:38:26,600
+所以间接块中有 256 个，
 so there's 256 sitting in this indirect block
 
 581
 00:38:26,780 --> 00:38:30,710
+加上 12 个直接的块编号，就是 268 个。
 plus 12 direct block numbers that makes it 268.
 
 582
 00:38:32,620 --> 00:38:36,850
+哦，抱歉，我的问题是为什么是 256 。
 Oh, sorry, my question was why is it 256.
 
 583
 00:38:37,030 --> 00:38:40,690
+哦，因为可能块编号是 4 个字节。
 Oh, because it's a block number 4 byte probably.
 
 584
 00:38:43,300 --> 00:38:47,260
+所以 1024 除以 4 是 256 个条目。
 So 1024 divided by 4 is 256 entries.
 
 585
 00:38:47,920 --> 00:38:50,000
+好的，谢谢。
 Okay, thank you.
 
 586
 00:38:50,120 --> 00:38:51,830
+这也是有点[可笑的]，
 Which is also a little bit ridiculous,
 
 587
 00:38:51,830 --> 00:38:54,590
+如果块编号只有 4 个字节，这个能有多大？
 if block number is only 4 bytes, how big can this be.
 
 588
 00:39:04,610 --> 00:39:05,240
+有人知道吗？
 Anybody?
 
 589
 00:39:16,280 --> 00:39:18,680
+2 的 32次方，对吧，
 Two to the power 32 right,
 
 590
 00:39:19,490 --> 00:39:20,690
+有些东西比这更大，
 some things are bigger than that,
 
 591
 00:39:20,900 --> 00:39:28,650
+所以，通常人们使用比 32 位更大的尺寸来存储块编号。
 and so typically you know people use larger sizes for block numbers than 32 bits.
 
 592
 00:39:30,820 --> 00:39:31,420
+好的?
 Okay?
 
 593
 00:39:32,080 --> 00:39:33,370
+有什么问题吗，更多的问题？
 Any questions, further questions?
 
 594
 00:39:36,430 --> 00:39:38,560
+对于最大文件大小，
 For the max file size,
 
 595
 00:39:38,980 --> 00:39:42,880
+您能再解释一遍吗，比如。
 could you could you help explain that again, like.
 
 596
 00:39:43,550 --> 00:39:44,690
+好的，当然可以。
 Okay, sure.
 
 597
 00:39:44,930 --> 00:39:47,000
+每个块能不能，
 Could each block in the,
 
 598
 00:39:47,210 --> 00:39:51,440
+间接块引用的每个块，
 could each block in, that's referenced by the indirect block
 
 599
 00:39:51,440 --> 00:39:55,400
+能不能指向更多块，
 could that also point to more blocks,
 
 600
 00:39:55,610 --> 00:39:56,420
+如果有用的话。
 if that makes sense.
 
 601
 00:39:56,420 --> 00:39:59,840
+在默认的 xv6 设计中，不是这样，
 In in the default xv6 design, that's not the case,
 
 602
 00:39:59,840 --> 00:40:02,840
+基本上 12 个直接块编号，
 basically the 12 block numbers, 12 direct block numbers
 
 603
 00:40:02,840 --> 00:40:04,970
+和 256 个间接块编号，
 and 256 indirect block numbers
 
 604
 00:40:05,210 --> 00:40:06,140
+没有其他了。
 and nothing more.
 
 605
 00:40:06,840 --> 00:40:09,960
+在下一个实验中，
 In in the next lab,
 
 606
 00:40:09,960 --> 00:40:12,540
+你要给 inode 添加一个双重间接块，
 you'll be adding a double indirect block to the inode,
 
 607
 00:40:12,900 --> 00:40:14,910
+所以你要从 bn0 到 11 中选择一个，
 so you'll take one of these bn0 11
 
 608
 00:40:14,910 --> 00:40:17,130
+把它变成一个双重间接块。
 and turn that into a double indirect.
 
 609
 00:40:17,660 --> 00:40:21,200
+而这个双重间接块将指向，
 And that double indirect going to point to,
 
 610
 00:40:21,230 --> 00:40:25,550
+这里我们有有 256 个的间接块编号，
 this we have 256 indirect block numbers,
 
 611
 00:40:26,880 --> 00:40:30,090
+然后，它本身指向块。
 which itself then point to you know blocks.
 
 612
 00:40:31,060 --> 00:40:33,520
+现在，文件可以放在那里。
 Now, the way file can be substantially there.
 
 613
 00:40:36,040 --> 00:40:37,480
+哦，好的，谢谢。
 Oh okay, thanks.
 
 614
 00:40:39,300 --> 00:40:43,380
+好的，现在，让我们看看实现 read 系统调用。
 Okay, so now, let's say we want to implement the read system call.
 
 615
 00:40:44,000 --> 00:40:49,250
+我们从操作系统引导开始，
 And, you know basically we start from operating system boots
 
 616
 00:40:49,460 --> 00:40:59,680
+要读取字节 8000 。
 wants to read say byte, read byte 8000.
 
 617
 00:41:04,320 --> 00:41:07,050
+是的，你怎么知道读哪个块，
 Yeah, how would, you know, which block would you read,
 
 618
 00:41:09,380 --> 00:41:12,830
+哪个块包含字节 8000 。
 which block will contain basically byte 8000.
 
 619
 00:41:17,340 --> 00:41:19,380
+你如何计算或如何查找，
 How would you compute or how you would look up,
 
 620
 00:41:19,410 --> 00:41:20,850
+给出这个数据结构，
 giving this data structure,
 
 621
 00:41:21,300 --> 00:41:23,400
+这个非常简单的数据结构，
 this extremely simple data structure,
 
 622
 00:41:23,400 --> 00:41:25,830
+你怎么计算出块编号，
 how would you compute the actually the block number
 
 623
 00:41:25,890 --> 00:41:28,860
+或者找出包含字节 8000 的块编号。
 or find the block number that contains byte 8000.
 
 624
 00:41:36,070 --> 00:41:37,000
+有人知道吗？
 Anybody?
 
 625
 00:41:38,670 --> 00:41:41,290
+你是不是减去，
 Do you just subtract,
 
 626
 00:41:41,320 --> 00:41:46,120
+比如，首先减去前十二个直接块的字节数。
 like, first of all subtract the number of bytes in the first 12 direct blocks.
 
 627
 00:41:46,300 --> 00:41:46,870
+嗯。
 Hmm.
 
 628
 00:41:47,430 --> 00:41:51,600
+然后看看间接块中的偏移量是多少。
 And then see what the offset is in the indirect blocks.
 
 629
 00:41:52,080 --> 00:41:54,150
+是的，所以好的，在 8000 的情况下，
 Yeah, so okay, so in case of 8000,
 
 630
 00:41:54,150 --> 00:41:56,640
+我们做的是除以 1024 ，
 what we will do correctly divided by 1024,
 
 631
 00:41:56,640 --> 00:41:57,900
+因为那是块大小，
 because that's the block size,
 
 632
 00:42:00,000 --> 00:42:03,240
+结果是 7 ，对吧。
 and that is 7, right.
 
 633
 00:42:05,250 --> 00:42:08,790
+这意味着第 7 个块，
 And so that means that basically the 7th block
 
 634
 00:42:09,120 --> 00:42:12,870
+在直接块编号里的第 7 个，
 actually has the 7th entry in this direct block number,
 
 635
 00:42:13,140 --> 00:42:16,710
+有包含字节 8000 的块编号。
 has the block number that contains you know byte 8000 correct.
 
 636
 00:42:17,750 --> 00:42:22,100
+所以 bn7 不管块编号的什么数字，
 So bn7 whatever number is there is the block number,
 
 637
 00:42:22,100 --> 00:42:25,790
+包含这个特定的文件，
 that contains this particular file file,
 
 638
 00:42:26,540 --> 00:42:32,900
+字节 8000 找出那个字节在块中的确切位置，
 byte 8000 to actually find out exactly where that byte is inside of that block,
 
 639
 00:42:32,900 --> 00:42:38,220
+我们用 8000 对 1024 取模，
 you know basically we have to compute 8000 delivery by 1024,
 
 640
 00:42:40,690 --> 00:42:43,840
+我想大概是 832 。
 which is probably I think it's 832.
 
 641
 00:42:46,460 --> 00:42:49,880
+好的，所以要读取字节 8000 ，
 Okay, so basically to read byte 8000,
 
 642
 00:42:49,880 --> 00:42:52,370
+文件系统会查看 inode ，
 you know the file system looks at the inode,
 
 643
 00:42:53,090 --> 00:42:55,910
+取字节数除以 1024 ，
 takes the byte number divide 1024,
 
 644
 00:42:55,970 --> 00:42:57,500
+进入索引，
 indexes into,
 
 645
 00:42:58,000 --> 00:43:01,840
+查看是否小于 12 ，然后是一个直接块编号，
 see see if it falls below 12, then as a direct block number
 
 646
 00:43:02,200 --> 00:43:06,370
+只需从 inode 获取直接的块编号，，
 and just picks up the direct block number from the inode
 
 647
 00:43:06,580 --> 00:43:10,360
+读取块，然后取出 8000 字节，
 read that block and then fishes out you know 8000 byte
 
 648
 00:43:10,360 --> 00:43:14,680
+通过计算 8000 对 1024 取模，
 by computing 8000 divided by by module 1024 and
 
 649
 00:43:14,680 --> 00:43:16,780
+它会给我们偏移量 832 ，
 so it will give us an offset of 832
 
 650
 00:43:16,780 --> 00:43:21,250
+这就是文件的 8000 字节的位置。
 and that's the location for byte 8000 that file.
 
 651
 00:43:22,760 --> 00:43:23,480
+好的?
 Okay?
 
 652
 00:43:24,690 --> 00:43:27,390
+所以，这些信息足够得出结论，
 So basically, this is enough information to conclude from,
 
 653
 00:43:27,390 --> 00:43:29,520
+现在这里有足够的信息
 this is like there's enough information here now
 
 654
 00:43:29,520 --> 00:43:32,880
+来实现 read write 系统调用，
 to actually implement read, write system calls,
 
 655
 00:43:32,880 --> 00:43:40,470
+至少找出哪些磁盘块需要读取或写入，
 at least to find out which disk blocks need to be read or written,
 
 656
 00:43:41,100 --> 00:43:43,500
+对于读或写系统调用。
 in response to read or write system call.
 
 657
 00:43:46,630 --> 00:43:47,170
+好的。
 Okay.
 
 658
 00:43:51,520 --> 00:43:53,260
+让我简单地谈一下目录。
 So let me talk a little bit about directories.
 
 659
 00:43:56,100 --> 00:43:58,200
+关于文件系统最酷的事情之一，
 One of the cool things about you know file systems,
 
 660
 00:43:58,200 --> 00:44:01,470
+有一个分层的名称空间，
 where you know have a hierarchical name space
 
 661
 00:44:01,470 --> 00:44:06,540
+你可以使用用户友好的名称，
 and you can store store symbolic user friendly names
 
 662
 00:44:06,540 --> 00:44:11,110
+在文件系统中。
 inside of inside of the, inside of the file system.
 
 663
 00:44:11,720 --> 00:44:14,210
+有趣的是，
 And the interesting aspect actually,
 
 664
 00:44:14,210 --> 00:44:17,330
+一个很酷的设计是，
 one of the cool design features is,
 
 665
 00:44:17,600 --> 00:44:19,070
+大多数 Unix 文件系统所做的，
 most Unix file systems actually does,
 
 666
 00:44:19,070 --> 00:44:21,820
+目录基本上就是文件，
 directory is basically the file,
 
 667
 00:44:22,380 --> 00:44:24,120
+除了文件具有某种结构,
 except the file with some structure,
 
 668
 00:44:28,440 --> 00:44:30,180
+文件系统理解的。
 that the file system understands.
 
 669
 00:44:30,830 --> 00:44:35,300
+事实上，在 xv6 中，数据结构非常简单，
 In fact, in xv6 you know the structure is extremely simple,
 
 670
 00:44:36,230 --> 00:44:39,920
+目录由目录项组成。
 every, the directory consists of directory entries.
 
 671
 00:44:40,690 --> 00:44:45,280
+而每个条目都有固定的格式，
 And every entry has a fixed format,
 
 672
 00:44:45,490 --> 00:44:50,880
+它在前两个字节中包含 inode 编号，
 namely it contains an inode number in the first two bytes,
 
 673
 00:44:51,860 --> 00:44:58,720
+在剩余的 14 个字节中包含文件名，
 and it contains a filename in the remaining 14 bytes
 
 674
 00:44:58,720 --> 00:45:00,520
+所以总共是 16 个字节。
 and so the total thing is sixteen bytes.
 
 675
 00:45:03,280 --> 00:45:08,140
+这些信息基本上已经足够了，
 And, this is enough information basically for,
 
 676
 00:45:08,170 --> 00:45:11,020
+我们实现了路径名查找。
 you know we actually implement path name lookup.
 
 677
 00:45:18,070 --> 00:45:19,720
+所以，比如，更清楚一点，
 So, for example just to make it clear,
 
 678
 00:45:19,720 --> 00:45:25,770
+假设我们想要查找路径名 y/x ，
 let's say we want to look up the path name y/x,
 
 679
 00:45:26,470 --> 00:45:27,970
+我们该怎么做呢？
 how we go about doing that?
 
 680
 00:45:29,750 --> 00:45:33,800
+你知道这个路径名表示，
 So well, you know this path name explain, indicates
 
 681
 00:45:33,800 --> 00:45:35,840
+我们必须从根 inode 开始。
 that we have to start at the root inode.
 
 682
 00:45:39,990 --> 00:45:41,070
+通过它，
 And it turns out that through that,
 
 683
 00:45:41,070 --> 00:45:43,950
+有一个固定的 inode 编号，
 then basically has a fixed a fixed inode number,
 
 684
 00:45:43,980 --> 00:45:47,160
+根 inode 编号有一个预先定义的固定编号，
 the root inode number has a pre agreed fixed number
 
 685
 00:45:47,160 --> 00:45:49,260
+在 xv6 中，这个数字是 1 。
 and in fact in xv6 that number is 1.
 
 686
 00:45:50,520 --> 00:45:52,980
+那么我们如何找到根 inode 编号呢？
 So how can we find the root inode number?
 
 687
 00:45:56,930 --> 00:45:59,360
+现在我们回到之前的图片，
 Now we go back to our earlier picture, right,
 
 688
 00:45:59,450 --> 00:46:00,680
+是的，它是编号 1 ，
 yeah it's number 1,
 
 689
 00:46:00,710 --> 00:46:03,830
+我们知道 inode 从块 32 开始，
 you know we know that you know inode start at block 32,
 
 690
 00:46:03,830 --> 00:46:05,750
+所以它一定是块 32 ，
 so it must be thirty block 32
 
 691
 00:46:05,750 --> 00:46:12,430
+所以在第 1 个块的字节 64 到 128 ，
 and so it's the byte 16 to whatever byte 64 to 128 in that first block,
 
 692
 00:46:12,460 --> 00:46:15,200
+包含根 inode 编号，
 that contains the root inode number
 
 693
 00:46:15,200 --> 00:46:17,810
+所以，文件系统可以读取根 inode 编号。
 and so the file system can just read the root inode number.
 
 694
 00:46:18,760 --> 00:46:19,390
+好的?
 Okay?
 
 695
 00:46:21,060 --> 00:46:24,090
+然后按照路径名查找和工作的方式，
 And then basically the way path name lookups and works,
 
 696
 00:46:24,090 --> 00:46:26,460
+它查看块，
 it just scans the blocks,
 
 697
 00:46:30,890 --> 00:46:35,200
+你知道名字 y ，
 therefore, you know the name y,
 
 698
 00:46:37,040 --> 00:46:39,020
+所以文件系统通过，
 so the file system basically go through
 
 699
 00:46:39,020 --> 00:46:45,320
+到达 inode 所在的块，文件 inode 1 ，
 reach the blocks of the inode, file inode one,
 
 700
 00:46:45,320 --> 00:46:46,310
+一个接一个，
 one by one
 
 701
 00:46:46,310 --> 00:46:48,740
+查看这些块的数据，
 and just looks you know for the data of those blocks
 
 702
 00:46:49,010 --> 00:46:51,260
+看字符串 y 是否存在。
 whether the string y appeers.
 
 703
 00:46:51,900 --> 00:46:54,840
+它如何找到 inode 1 的所有块，
 And how can it find all the blocks of the inode 1,
 
 704
 00:46:54,840 --> 00:46:58,950
+看 bn0 ，第一个块，
 well, just look at the, reach the bn0 the first block,
 
 705
 00:46:59,370 --> 00:47:01,800
+查看 x 是否在其中，
 you know sees if x in that,
 
 706
 00:47:01,800 --> 00:47:04,950
+如果不是，会读取第二个块，等等，
 you know if it's not, will read the second block, etc etc,
 
 707
 00:47:04,980 --> 00:47:06,540
+直到在某一时刻，
 until hopefully at some point,
 
 708
 00:47:06,540 --> 00:47:08,310
+它要么找到它，要么找不到它。
 either it finds it, or doesn't find it.
 
 709
 00:47:10,140 --> 00:47:11,490
+如果它找到它，
 And if it finds it,
 
 710
 00:47:11,490 --> 00:47:13,110
+让我们找文件 x ，
 let's find file x,
 
 711
 00:47:13,950 --> 00:47:18,390
+在目录中，会有 inode 编号，比如 251 ，
 in the directory was going to have so inode number say 251,
 
 712
 00:47:19,010 --> 00:47:20,840
+然后我们就可以从那里开始了，
 and then we can just proceed from there, right,
 
 713
 00:47:20,840 --> 00:47:22,460
+我们可以说，好的，
 we can say it's like, well okay, well,
 
 714
 00:47:22,460 --> 00:47:30,250
+现在读取 inode 251 ，
 now read you know block number, you know read inode 251,
 
 715
 00:47:31,150 --> 00:47:37,180
+查看它的块。
 and scan its blocks for.
 
 716
 00:47:39,230 --> 00:47:40,940
+好的，我做错了我的例子，
 Okay, I just did my example wrong,
 
 717
 00:47:40,940 --> 00:47:44,680
+这是 y ，它会获取 x 的块。
 this is y, and it's going to block for x.
 
 718
 00:47:47,080 --> 00:47:48,310
+然后，我们，
 And [] was going to find us,
 
 719
 00:47:48,310 --> 00:47:49,630
+所以 inode 编号，
 you know, so inode number again,
 
 720
 00:47:49,630 --> 00:47:52,030
+我们会把它作为路径名查找的结果返回。
 we'll return that as a result of the path name lookup.
 
 721
 00:47:55,540 --> 00:47:56,650
+对于这个，有什么问题吗？
 Any questions about this?
 
 722
 00:48:05,900 --> 00:48:06,560
+你知道。
 Would you say you.
 
 723
 00:48:06,560 --> 00:48:07,310
+这个。
 So, this.
 
 724
 00:48:07,340 --> 00:48:13,670
+是的，这是磁盘中目录的布局，
 Yeah, so this is the layout of the directory in the disk,
 
 725
 00:48:13,910 --> 00:48:17,360
+但是，在元数据块中的是否有一些位，
 but is there some bits somewhere in the metadata blocks
 
 726
 00:48:17,360 --> 00:48:20,810
+指示当前是目录还是文件。
 that indicates whether the current thing is a directory or a file.
 
 727
 00:48:21,260 --> 00:48:22,970
+是的，它实际上在 inode 中，
 Yeah it's actually in inode,
 
 728
 00:48:23,240 --> 00:48:26,920
+inode 的类型说明了是目录或文件，
 so the type of the inode says what's a directory or file,
 
 729
 00:48:26,920 --> 00:48:28,600
+如果你查找，
 so if you do look up on
 
 730
 00:48:29,020 --> 00:48:31,960
+而 inode 是一个文件，
 and inode that actually happens to be a file,
 
 731
 00:48:31,960 --> 00:48:33,820
+那么文件系统会返回一个错误。
 then actually the file system will return an error.
 
 732
 00:48:37,260 --> 00:48:38,850
+我明白了，谢谢。
 I see, thanks.
 
 733
 00:48:40,890 --> 00:48:41,550
+好的?
 Okay?
 
 734
 00:48:46,080 --> 00:48:51,090
+很明显这种数据结构并不是特别高效，
 Now, clearly this structure is not particular efficient,
 
 735
 00:48:51,090 --> 00:48:54,750
+要找到目录名，你必须扫描，
 you know to actually find a directory name, you have to scan,
 
 736
 00:48:54,870 --> 00:49:01,350
+一个真正的文件系统可能会使用更复杂的数据结构，
 and so a real file system you know probably would use more sophisticated data structures,
 
 737
 00:49:01,780 --> 00:49:06,520
+让这种查找比 xv6 快得多。
 to actually make this lookups much faster than xv6 does.
 
 738
 00:49:08,970 --> 00:49:12,990
+但是，这是一个关于数据结构设计的问题，
 But, again it's sort of almost you know a more design question of data structures
 
 739
 00:49:12,990 --> 00:49:14,940
+而不是操作系统设计的问题。
 than is a question of operating system design.
 
 740
 00:49:17,230 --> 00:49:20,980
+你可以使用你最喜欢的数据结构，
 And so you could plug in your favorite data structure
 
 741
 00:49:20,980 --> 00:49:22,930
+并将它转换[]数据结构，
 and turn it into an [] data structure,
 
 742
 00:49:22,930 --> 00:49:24,970
+然后希望能获得更好的性能。
 and then hopefully you're going to get better performance.
 
 743
 00:49:26,450 --> 00:49:29,060
+但是为了简单和容易解释，
 But for simplicity and ease explanation,
 
 744
 00:49:29,090 --> 00:49:31,280
+这里是非常简单的数据结构。
 you know actually is very simple structure.
 
 745
 00:49:37,530 --> 00:49:38,130
+好的?
 Okay?
 
 746
 00:49:40,080 --> 00:49:41,580
+好的，接下来我要做的是
 Okay, so what I wanna do next is
 
 747
 00:49:41,580 --> 00:49:44,220
+对这个有更具体的感受，
 going to get a little bit more concrete feel for this
 
 748
 00:49:44,220 --> 00:49:48,360
+看看在 xv6 中实际是如何工作的，
 and just to see actually how things work out in practice in xv6
 
 749
 00:49:48,390 --> 00:49:52,290
+这对下一个实验是很有帮助的。
 and this will be helpful you know for the next lab.
 
 750
 00:49:52,910 --> 00:49:56,960
+我要看一下 xv6 ，
 I'm going to look at xv6 for a second,
 
 751
 00:49:56,960 --> 00:50:00,050
+通常的 screen 。
 usual [screen].
 
 752
 00:50:02,520 --> 00:50:05,990
+所以，我要重启 xv6 的第一件事，
 So, the first thing I'm gonna boot xv6 again,
 
 753
 00:50:05,990 --> 00:50:09,410
+它总是，我输入 make clean ，
 it's always and I did make clean,
 
 754
 00:50:09,650 --> 00:50:11,990
+你们可能还记得，
 and as you probably remember
 
 755
 00:50:11,990 --> 00:50:13,700
+或者你们中的许多人都遇到过这种情况，
 or many of you have run into this,
 
 756
 00:50:13,700 --> 00:50:15,380
+你需要新的文件系统，
 you know you want actually new file system,
 
 757
 00:50:15,590 --> 00:50:16,820
+你必须运行 make clean ，
 you have to run make clean,
 
 758
 00:50:16,820 --> 00:50:20,540
+因为，然后 make qumu 将会构建一个新的干净的文件系统。
 because then make qemu will build you a new clean file system.
 
 759
 00:50:21,540 --> 00:50:23,310
+所以我们开始吧。
 So here we go.
 
 760
 00:50:25,640 --> 00:50:29,960
+我们看到 xv6 已经启动，
 And we'll see that xv6 has started,
 
 761
 00:50:29,990 --> 00:50:33,200
+但是我首先要指出的是，
 but the thing I want to point out first is,
 
 762
 00:50:33,200 --> 00:50:39,350
+在这里，你看到有一个调用创建一个文件系统，
 here, here, you'll see there's a call to basically make a file system,
 
 763
 00:50:39,350 --> 00:50:42,860
+所以这会产生一个新的磁盘镜像，
 so this makes a fresh disk image,
 
 764
 00:50:42,980 --> 00:50:46,610
+在磁盘映像中包含了一些文件，
 in the disk image contains you know a bunch of files,
 
 765
 00:50:46,610 --> 00:50:48,320
+我们在命令行中指定的，
 that we specify on the command line
 
 766
 00:50:49,100 --> 00:50:49,880
+并使它更快，
 and make it fast,
 
 767
 00:50:49,880 --> 00:50:53,150
+创建包含那些文件的 QEMU 文件系统，
 basically built QEMU file system that contains those files
 
 768
 00:50:53,150 --> 00:50:54,500
+那些文件作为文件系统内容。
 as the contents of the file system.
 
 769
 00:50:55,510 --> 00:50:57,520
+你可以看到 xv6 ，
 And you can see you know the xv6
 
 770
 00:50:57,520 --> 00:51:01,000
+提供了一些关于文件系统的信息，
 which brings out a bit of information about the file system,
 
 771
 00:51:01,210 --> 00:51:03,760
+它表示有 46 个元数据块，
 so it basically says there are 46 meta blocks,
 
 772
 00:51:03,760 --> 00:51:06,040
+包括启动块，超级块，
 you know that includes the boot block, the super block,
 
 773
 00:51:06,040 --> 00:51:09,880
+30 个 日志块， 13 个 inode 块， 1 个位图块，
 the 30 log blocks, 13 inode blocks, one bitmap block
 
 774
 00:51:10,270 --> 00:51:13,270
+然后是 954 个数据块，
 and then followed by 954 data blocks,
 
 775
 00:51:13,300 --> 00:51:14,920
+所以这是一个很小的文件系统，
 so it's a tiny file system
 
 776
 00:51:14,920 --> 00:51:16,510
+总共只有 1000 块。
 in total of only thousand blocks.
 
 777
 00:51:17,020 --> 00:51:20,260
+你们在实验中要做的一件事是，
 And one of the things you will do in the, the lab,
 
 778
 00:51:20,260 --> 00:51:21,190
+支持更大的文件，
 to support bigger files,
 
 779
 00:51:21,190 --> 00:51:24,460
+你还必须使用更大的文件系统。
 you also will have to use a much bigger file system.
 
 780
 00:51:27,050 --> 00:51:31,000
+然后，我稍微修改了 xv6 ，
 Then I modified xv6 slightly
 
 781
 00:51:31,000 --> 00:51:33,610
+来写或打印一些东西。
 to basically write or print something
 
 782
 00:51:33,610 --> 00:51:35,680
+当我们写入特定的块的时候。
 whenever we write to a particular block.
 
 783
 00:51:36,290 --> 00:51:38,990
+比如，我们看到几个文件系统调用，
 So for example, we see a couple file system call,
 
 784
 00:51:38,990 --> 00:51:40,910
+在 xv6 启动时，
 xv6 when it starts up
 
 785
 00:51:40,910 --> 00:51:42,770
+执行了一系列文件系统调用，
 does a bunch of file system calls
 
 786
 00:51:42,950 --> 00:51:46,640
+写了块 33 33 46 和 32 。
 and apparently wrote block 33 33 46 and 32.
 
 787
 00:51:47,430 --> 00:51:50,970
+我们要执行指令，
 And we're gonna run basically command
 
 788
 00:51:50,970 --> 00:51:52,170
+我们要查看，
 and we're just gonna see
 
 789
 00:51:52,170 --> 00:51:55,590
+哪些块编号被写入，
 what block numbers are being written
 
 790
 00:51:55,890 --> 00:52:00,270
+是由那个命令引起的，
 by that command or cause of that command
 
 791
 00:52:00,270 --> 00:52:01,590
+我们要理解，
 and we've been trying to understand
 
 792
 00:52:01,650 --> 00:52:03,960
+这些 write 是什么意思，
 where do where do those writes make sense,
 
 793
 00:52:03,960 --> 00:52:06,630
+我们想看到它们是否真的，
 what we expect to see if they were actually,
 
 794
 00:52:08,730 --> 00:52:11,220
+看看发生了什么才是我们真正期待的。
 to see what is happening is what we actually expect.
 
 795
 00:52:12,110 --> 00:52:15,110
+所以我要创建一个文件，
 So I'm going to create a file,
 
 796
 00:52:15,110 --> 00:52:16,040
 echo hi,
+echo hi,
 
 797
 00:52:17,480 --> 00:52:19,010
+是的，我要创建一个文件 x 。
 yeah, I'm gonna create a file x.
 
 798
 00:52:21,310 --> 00:52:27,760
+让我把它复制出来，
 And let me actually copy that a little bit over,
 
 799
 00:52:27,760 --> 00:52:33,260
+这样我就可以标记这个，
 so I can delineate this,
 
 800
 00:52:33,290 --> 00:52:35,030
+我将在几个地方标记，
 I'm going to delineate in a couple places
 
 801
 00:52:35,030 --> 00:52:37,490
+为了帮助理解，
 just for help for understanding,
 
 802
 00:52:39,850 --> 00:52:41,710
+可能在这里，
 probably right here,
 
 803
 00:52:44,990 --> 00:52:46,430
+然后可能在这里。
 then probably here.
 
 804
 00:52:48,680 --> 00:52:49,430
+好的。
 Okay.
 
 805
 00:52:50,240 --> 00:52:54,260
+基本上这里有几个阶段，
 It's basically it turns out there's gonna be a couple phases here,
 
 806
 00:52:54,260 --> 00:52:56,630
+一个是创建文件的阶段，
 one is the phase to actually create the file,
 
 807
 00:52:59,970 --> 00:53:06,930
+然后是写文件，也就是 write hi ，
 then, there's write the file, namely write hi to file
 
 808
 00:53:06,960 --> 00:53:09,180
+然后再写一次，
 and then one more write,
 
 809
 00:53:10,260 --> 00:53:15,670
+写入换行到文件中。
 write actually the new line into the file.
 
 810
 00:53:18,540 --> 00:53:20,790
+所以，你可以查看 echo 程序，
 So you look at the echo program,
 
 811
 00:53:20,790 --> 00:53:22,050
+这就是它所做的。
 that is basically what it does.
 
 812
 00:53:23,560 --> 00:53:24,250
+我可以把它找出来，
 I can actually pick it up,
 
 813
 00:53:28,460 --> 00:53:30,830
+为了[完整性]，
 just do it for completeness, right,
 
 814
 00:53:30,830 --> 00:53:35,160
+所以， echo ，看看它的参数，
 so echo, look at his arguments,
 
 815
 00:53:35,160 --> 00:53:39,660
+write 的参数写入文件描述符 1 ，
 write's arguments to file descriptor 1
 
 816
 00:53:39,660 --> 00:53:43,050
+然后在末尾添加一个换行。
 and then at the end of the appends a new line.
 
 817
 00:53:43,620 --> 00:53:44,310
+好的?
 Okay?
 
 818
 00:53:44,890 --> 00:53:49,780
+所以，这些就是每个操作中涉及的磁盘写入序列。
 So, these are basically the sequences of disk writes get involved in each operation.
 
 819
 00:53:50,640 --> 00:53:53,310
+让我们依次看看，
 And let's go look at them one by one
 
 820
 00:53:53,310 --> 00:53:54,870
+试着理解发生了什么事。
 and start to understand what's going on.
 
 821
 00:53:55,460 --> 00:53:57,050
+我要做的，
 I'm going to basically,
 
 822
 00:53:57,050 --> 00:53:59,240
+可能是最简单的事情，
 maybe the easiest thing to do
 
 823
 00:53:59,240 --> 00:54:01,280
+把这个移过去。
 actually used to, move this over.
 
 824
 00:54:07,880 --> 00:54:13,490
+好的，所以很方便理解发生了什么，
 Okay so, it's convenient to understand what's going on,
 
 825
 00:54:13,490 --> 00:54:14,540
+我们不看代码，
 instead of looking at the code,
 
 826
 00:54:14,540 --> 00:54:17,060
+而是只看这个磁盘布局，
 we're going to just look at this disk layout
 
 827
 00:54:17,120 --> 00:54:18,830
+试图弄清楚，
 and trying to figure out
 
 828
 00:54:19,100 --> 00:54:22,340
+在这些特殊的操作中可能会发生什么。
 what might be going on in these particular operations.
 
 829
 00:54:39,280 --> 00:54:39,910
+好的。
 Okay, good.
 
 830
 00:54:42,310 --> 00:54:46,270
+那么我们怎么看这个 write 。
 So what do we think this write is.
 
 831
 00:54:53,210 --> 00:54:55,070
+有人知道这是什么吗？
 Any idea what this might actually be?
 
 832
 00:54:56,230 --> 00:54:57,250
+我们在创建一个文件，
 We're creating a file,
 
 833
 00:54:57,250 --> 00:54:59,470
+那么我们期望文件系统做什么。
 so what do we expect file system to do.
 
 834
 00:55:00,340 --> 00:55:02,440
+它写入了 inode 条目。
 It writes the inodes entry.
 
 835
 00:55:03,200 --> 00:55:05,330
+是的，所以第一件事是，
 Yeah, so first thing I was just to,
 
 836
 00:55:05,330 --> 00:55:07,820
+好的，它是 33 ，
 so okay so it's 33,
 
 837
 00:55:07,820 --> 00:55:09,380
+我们对块 33 有什么了解？
 so what do we know about block 33?
 
 838
 00:55:10,210 --> 00:55:11,560
+如果我们看一下磁盘布局图。
 If we look at the disk layout picture.
 
 839
 00:55:14,130 --> 00:55:16,500
+它包含一个空闲 inode 。
 It contains a free inode.
 
 840
 00:55:17,020 --> 00:55:18,220
+是的，它包含，
 Yeah, you know it contains,
 
 841
 00:55:18,220 --> 00:55:21,640
+我们知道 inode 1 在 32 ，
 we know that inode one lives in 32, correct,
 
 842
 00:55:21,640 --> 00:55:27,100
+所以我们分配的 inode ，
 and so we're whatever apparently inode that's being allocated is
 
 843
 00:55:27,100 --> 00:55:29,230
+可能是位于块 33 的 inode 。
 probably at inode that lives in block 33.
 
 844
 00:55:29,870 --> 00:55:32,720
+假设第一次写入可能只是标记，
 Presumably the first write might just be marking
 
 845
 00:55:32,720 --> 00:55:35,030
+这个 inode 是要使用的，
 you know that this inode actually is now going to be used
 
 846
 00:55:35,090 --> 00:55:37,100
+所以我认为 xv6 的实现方式是，
 and so I think the way xv6 does is
 
 847
 00:55:37,280 --> 00:55:40,320
+它在 inode 中使用 type 字段，
 it uses the type field in the inode
 
 848
 00:55:40,320 --> 00:55:43,320
+指示 inode 空闲，文件或目录，
 to actually indicate where inode free, file or directory,
 
 849
 00:55:43,350 --> 00:55:47,190
+所以它从空闲变成文件，
 so it basically changes from free to file
 
 850
 00:55:47,190 --> 00:55:51,660
+并写入磁盘，标记为已使用。
 and write to the disk to mark it as in use.
 
 851
 00:55:52,960 --> 00:55:56,290
+我们认为下一个 write 33 是什么？
 What do we think next write 33 is?
 
 852
 00:56:02,320 --> 00:56:06,810
+填充 inode 条目需要信息。
 Actually, populating the inode entry would like info.
 
 853
 00:56:07,110 --> 00:56:10,020
+是的，确实填充 inode 信息，
 Yeah, exactly yeah, indeed populating an inode info,
 
 854
 00:56:10,080 --> 00:56:12,300
+inode 可能有条目，
 you know inode probably with entries
 
 855
 00:56:12,300 --> 00:56:16,620
+比如将链接计数设置为 1 ，或类似的东西。
 like setting the link count one and things like that, right.
 
 856
 00:56:21,230 --> 00:56:22,130
+46 是什么，
 What is 46,
 
 857
 00:56:22,130 --> 00:56:24,170
+我们期望 46 32 是什么，
 what do we expect 46 to be in 32,
 
 858
 00:56:24,200 --> 00:56:24,980
+它可能是什么。
 maybe that's there.
 
 859
 00:56:30,300 --> 00:56:33,360
+46 是第一个数据吗，
 Is 46 the first data,
 
 860
 00:56:33,450 --> 00:56:36,090
+不，是位图。
 no, actually bitmap bitmap.
 
 861
 00:56:36,640 --> 00:56:38,320
+不，它只是一个数据块，
 No, it's just a data block
 
 862
 00:56:38,350 --> 00:56:40,180
+你说得对，这是第一个数据块。
 and you're right it's the first data block.
 
 863
 00:56:41,260 --> 00:56:42,940
+那么你认为这是谁的数据块？
 So whose data block do you think is this?
 
 864
 00:56:45,640 --> 00:56:50,860
+是根目录条目？
 It's root directory entry?
 
 865
 00:56:51,440 --> 00:56:54,140
+是的，没错，这可能是块，
 Yeah correct, this is this is probably the block,
 
 866
 00:56:54,960 --> 00:56:59,860
+根目录的第一个块，
 first block of the root directory,
 
 867
 00:57:01,040 --> 00:57:03,550
+是 inode 1 ，对吧。
 you know inode one, right.
 
 868
 00:57:04,420 --> 00:57:07,720
+我们为什么要写入它，
 And why were we expecting to actually that to be written,
 
 869
 00:57:09,180 --> 00:57:09,600
+发生了什么。
 what has.
 
 870
 00:57:09,600 --> 00:57:16,880
+因为我们正在创建 x ，
 Because, because we're, we're creating like x in,
 
 871
 00:57:17,620 --> 00:57:20,020
+我们将一个新文件 x 添加到当前目录中，
 we're adding a new file x to the current directory,
 
 872
 00:57:20,020 --> 00:57:21,850
+将它添加到文件层次结构中。
 so adding it to the file hierarchy.
 
 873
 00:57:21,940 --> 00:57:24,700
+是的，没错，我们这样做，
 Yeah, exactly, so we have we've done this
 
 874
 00:57:24,700 --> 00:57:30,100
+我们刚刚在根目录中添加了一个条目，
 and we just added an entry to the root directory,
 
 875
 00:57:30,100 --> 00:57:33,310
+即条目 x ，使用我们分配的 inode ，
 namely entry x with whatever inode we allocated,
 
 876
 00:57:33,400 --> 00:57:36,040
+在一两步之前。
 you know the step, two steps before.
 
 877
 00:57:37,250 --> 00:57:37,970
+这能理解吗？
 Does that make sense?
 
 878
 00:57:40,030 --> 00:57:41,830
+那么我们认为 write 32 是什么？
 So what do we think is write 32 is?
 
 879
 00:57:47,190 --> 00:57:47,940
+对于块 32 ，
 To block 32,
 
 880
 00:57:47,940 --> 00:57:49,020
+那么现在要做的是，
 well, the thing to do is
 
 881
 00:57:49,020 --> 00:57:51,000
+回去看看磁盘布局图。
 go back and look at the disk layout picture.
 
 882
 00:57:51,630 --> 00:57:53,010
+块 32 是什么？
 And what is block 32?
 
 883
 00:57:55,490 --> 00:57:56,960
+可能是 inode 1 。
 Inode 1 probably.
 
 884
 00:57:57,790 --> 00:58:00,490
+是的，它将包括 inode 1 ，
 Yeah, well, it will include inode 1,
 
 885
 00:58:00,550 --> 00:58:02,260
+包括所有其他 inode ，
 includes all the other inodes correct,
 
 886
 00:58:02,260 --> 00:58:03,790
+因为 inode 比块小，
 because inode is smaller than a block,
 
 887
 00:58:03,790 --> 00:58:05,650
+但它将包括 inode 1 。
 but it will include inode 1.
 
 888
 00:58:06,210 --> 00:58:07,530
+你认为它为什么写入，
 Why do you think it's going to be written
 
 889
 00:58:07,680 --> 00:58:09,870
+inode 中可能发生了哪些更改，
 what what might have changed in the inode
 
 890
 00:58:09,870 --> 00:58:12,210
+需要 inode 实际写入磁盘。
 that requires that the inode actually written to disk.
 
 891
 00:58:13,390 --> 00:58:14,230
+大小。
 Size.
 
 892
 00:58:14,410 --> 00:58:16,030
+是的，大小改变了，
 Yeah, the size change exactly,
 
 893
 00:58:16,030 --> 00:58:16,720
+大小改变了，
 size change,
 
 894
 00:58:16,720 --> 00:58:19,660
+因为我们将目录增加了 16 个字节，
 because we grew the directory correct by 16 bytes
 
 895
 00:58:19,660 --> 00:58:21,370
+保存条目 x 。
 to actually store entry x.
 
 896
 00:58:24,220 --> 00:58:27,760
+然后还有一个写入 33 ，
 Then there's one more write to 33
 
 897
 00:58:28,030 --> 00:58:31,120
+我暂且不提这个，
 and I'll leave that hanging for a second,
 
 898
 00:58:31,180 --> 00:58:36,470
+基本上，我们再次更新 x 的 inode ，
 basically we're updating inode for x one more time,
 
 899
 00:58:36,500 --> 00:58:39,800
+即使没有写入什么。
 even through nothing actually what's written yet.
 
 900
 00:58:41,540 --> 00:58:42,290
+好的?
 Okay?
 
 901
 00:58:44,380 --> 00:58:45,490
+所以这是第一阶段。
 So that's the first phase.
 
 902
 00:58:45,520 --> 00:58:47,890
+现在我们来看第二个，
 So let's now look at the second,
 
 903
 00:58:48,310 --> 00:58:49,900
+所以有创建，
 you know so there's creation,
 
 904
 00:58:49,900 --> 00:58:51,760
+现在我们来看一下第二阶段，
 now let's look at the second phase
 
 905
 00:58:51,760 --> 00:58:52,720
+或者第一次写入，
 or the first write
 
 906
 00:58:52,720 --> 00:58:55,030
+将 hi 写入到文件 x 。
 you know write hi to file x.
 
 907
 00:58:57,470 --> 00:58:59,810
+好的，我们认为 45 是什么？
 Well, what do we think 45?
 
 908
 00:59:01,910 --> 00:59:04,160
+位图？
 Bitmap?
 
 909
 00:59:04,280 --> 00:59:05,360
+是的，是位图，
 Yeah, it's the bitmap,
 
 910
 00:59:05,360 --> 00:59:07,550
+这里发生的事情是，
 so presumably what happened to here is does that
 
 911
 00:59:08,200 --> 00:59:10,840
+文件系统扫描位图块，
 file system scan the bitmap block
 
 912
 00:59:11,260 --> 00:59:13,570
+为了找出没有使用过的块，
 to find a block that was not used,
 
 913
 00:59:13,690 --> 00:59:19,360
+找到位 0 ，然后设置为 1 ，
 so find bit 0 and then set that bit, you know to 1
 
 914
 00:59:19,360 --> 00:59:22,210
+表明这个块现在正在使用。
 to indicate that that particular block now is in use.
 
 915
 00:59:22,890 --> 00:59:26,430
+所以它写入 45 到磁盘中，
 And so it wrote you know 45 to to disk,
 
 916
 00:59:26,430 --> 00:59:28,230
+更新位图块。
 updated the bigmap block.
 
 917
 00:59:30,180 --> 00:59:33,480
+你觉得位图分配器选了哪个块？
 What block do you think the bitmap allocator picked?
 
 918
 00:59:36,690 --> 00:59:38,070
+595？
 595?
 
 919
 00:59:38,130 --> 00:59:39,780
+是的，很有可能，
 Yeah, most likely, correct,
 
 920
 00:59:39,780 --> 00:59:42,660
+因为紧接着我们看到写入 595 ，
 because right after it we see you know write to 595,
 
 921
 00:59:43,280 --> 00:59:47,240
+很可能这个块是分配给文件 x 的。
 and presumably the block that was allocated to the file x.
 
 922
 00:59:47,720 --> 00:59:49,280
+所以，在 inode 中，
 And so basically in the inode correct,
 
 923
 00:59:49,310 --> 00:59:53,510
+文件 x 的 bn0 是数字 595 。
 file x now in bn0 will have the number 595.
 
 924
 00:59:54,640 --> 00:59:58,660
+那么第一个字节是什么，
 And, and basically what will be the first byte,
 
 925
 00:59:58,990 --> 01:00:04,120
+在这个写之后，块 595 的第一个字节的值是多少。
 what's the value of the first byte of block 595, after this write.
 
 926
 01:00:05,560 --> 01:00:06,790
 H.
+H.
 
 927
 01:00:06,820 --> 01:00:07,630
+H ，是的。
 H, yeah.
 
 928
 01:00:07,900 --> 01:00:12,310
+第二个写的是什么，这一个。
 What do we think the second write is, this one.
 
 929
 01:00:14,030 --> 01:00:14,720
+i 。
 i.
 
 930
 01:00:15,200 --> 01:00:17,270
+是的，是 i ，
 Yes, i right,
 
 931
 01:00:17,270 --> 01:00:21,110
+因为每个 echo ，字符是一个接一个的，
 because every echo, you know there's a character by character.
 
 932
 01:00:21,940 --> 01:00:24,160
+好的，我们认为这个 33 是什么？
 Okay, what do we think this write 33 is?
 
 933
 01:00:28,500 --> 01:00:29,730
+再次更新大小。
 Updating the size again.
 
 934
 01:00:30,180 --> 01:00:31,890
+是的，更新 inode 的大小，
 Yeah, updating the size of the inode,
 
 935
 01:00:31,890 --> 01:00:33,720
+因为现在它有两个字节。
 that's because now it has two bytes in it.
 
 936
 01:00:34,760 --> 01:00:35,540
+这能理解吗？
 Does it make sense?
 
 937
 01:00:37,740 --> 01:00:43,590
+问题， 595 看起来在磁盘中的位置很高，
 Question, 595 seems very high up in the disk,
 
 938
 01:00:43,860 --> 01:00:46,770
+那是因为那里目前有着其他的东西，
 that because there's other stuff that's currently living there
 
 939
 01:00:46,770 --> 01:00:49,950
+比如内核引导代码和其他已经启动的东西吗？
 like the kernel boot code and other things that have already been start?
 
 940
 01:00:50,010 --> 01:00:52,890
+是的，我们可以回到这个屏幕，
 Well, yeah we can go back to the this screen,
 
 941
 01:00:52,890 --> 01:00:54,930
+我们可以看看 make fs 做了什么，
 we can look at what make fs did, right,
 
 942
 01:00:54,930 --> 01:00:57,600
+所以 make fs 在那里存储了很多文件，
 so make fs stored a whole bunch of files there,
 
 943
 01:00:58,410 --> 01:01:01,050
+在我们创建文件 x 之前。
 in the files that before we actually created file x.
 
 944
 01:01:01,800 --> 01:01:04,170
+我们创建了所有这些文件。
 And in fact we've created all these guys.
 
 945
 01:01:05,540 --> 01:01:09,470
+所以很大一部分磁盘已经被文件填满了，
 And so it was only a good chunk of the disk is already filled by the files,
 
 946
 01:01:09,470 --> 01:01:15,350
+相当数量的块已经被这些文件使用。
 the for blocks, a good number of blocks already used basically by the set of files.
 
 947
 01:01:18,660 --> 01:01:19,320
+明白了。
 Got it.
 
 948
 01:01:20,800 --> 01:01:24,340
+写入块 595
 Would it write down that block 595
 
 949
 01:01:24,370 --> 01:01:29,470
+是否与上次的 inode 有关，
 is related to that to that inode during the last,
 
 950
 01:01:29,500 --> 01:01:32,500
+比如在 write 32 。
 like during the write 32 that.
 
 951
 01:01:32,530 --> 01:01:34,480
+是的，完全正确，
 Yeah, exactly correct,
 
 952
 01:01:34,480 --> 01:01:37,630
+这个写入 33 可能有很多东西发生，
 so there's write to 33 probably a bunch of things happened correct,
 
 953
 01:01:37,630 --> 01:01:38,830
+大小更新了，
 the size got updated,
 
 954
 01:01:40,640 --> 01:01:45,010
+并且 bn0 和 bn1 更新了，
 and you know bn0 and bn1 were updated,
 
 955
 01:01:45,040 --> 01:01:48,700
+抱歉，只有 bn0 被更新，包含 595 ，
 sorry, only bn0 is updated, correct, to contain 595
 
 956
 01:01:48,700 --> 01:01:51,640
+这些信息都被更新到 inode ，
 and both pieces of information are updated inode
 
 957
 01:01:51,640 --> 01:01:54,040
+然后写入磁盘。
 then written to the disk by this write.
 
 958
 01:01:59,340 --> 01:01:59,970
+能理解吗?
 That makes sense?
 
 959
 01:02:01,580 --> 01:02:03,200
+是的，谢谢。
 Yeah yeah, thank you.
 
 960
 01:02:04,430 --> 01:02:08,570
+很好，这就是磁盘布局的本质，
 Good, so that's you know sort of the essence of disk layout
 
 961
 01:02:08,960 --> 01:02:11,210
+希望你能很好地理解
 and hopefully you have a pretty good understanding
 
 962
 01:02:11,210 --> 01:02:15,440
+这些是如何工作的。
 of what goes on to make this work.
 
 963
 01:02:15,440 --> 01:02:17,720
+所以现在我们将更详细地看一下，
 And so it's going to look a little bit more in detail,
 
 964
 01:02:17,720 --> 01:02:19,190
+在代码中，
 now at the code,
 
 965
 01:02:19,310 --> 01:02:26,120
+看看更多一个层次的细节。
 to see actually things little, one more level of detail.
 
 966
 01:02:26,830 --> 01:02:30,560
+好的，重新分 inode 后的第一件事，
 Okay, so the first thing since reallocated inode,
 
 967
 01:02:30,560 --> 01:02:36,500
+我们先来看看是怎么发生的，
 let's first look at actually how, how that happened,
 
 968
 01:02:36,500 --> 01:02:40,370
+所以，在 sysfile 中，让我们看一下[]。
 so in sysfile, let's see [].
 
 969
 01:02:43,940 --> 01:02:47,780
+这里是与文件系统调用相关的所有调用，
 So here're all the calls related to file system calls,
 
 970
 01:02:47,780 --> 01:02:50,300
+发生的第一件事是 sys_open ，
 so the first thing that actually happens, correct, it was sys_open,
 
 971
 01:02:50,300 --> 01:02:51,800
+因为我们要创建一个文件，
 because we're going to create a file,
 
 972
 01:02:52,440 --> 01:02:55,260
+因为 open 要调用 create ，
 since open will call create,
 
 973
 01:02:59,570 --> 01:03:00,860
+这里是 create 。
 here's create.
 
 974
 01:03:01,520 --> 01:03:03,860
+create 稍后将看到，
 Create we'll look at this later,
 
 975
 01:03:04,250 --> 01:03:08,390
+将路径名解析为最后一个目录，
 resolves the path name to basically the last directory,
 
 976
 01:03:08,920 --> 01:03:12,100
+遍历目录，然后查找，
 walks the directory and then does look up
 
 977
 01:03:12,130 --> 01:03:13,450
+并真正关心的，
 and really care about that
 
 978
 01:03:13,930 --> 01:03:15,850
+看看文件是否已经存在，
 just to see if the file already exists,
 
 979
 01:03:15,850 --> 01:03:18,280
+如果文件存在，可能会返回错误。
 and if the file exists, you know maybe you're return an error.
 
 980
 01:03:19,830 --> 01:03:22,080
+然后它调用 ialloc ，
 And then it calls inode allocate
 
 981
 01:03:22,110 --> 01:03:24,330
+这是那个调用，
 and so this is the call
 
 982
 01:03:24,330 --> 01:03:29,280
+为文件 x 分配 inode ，
 that is going to allocate this inode for the file x,
 
 983
 01:03:29,850 --> 01:03:32,940
+让我们看看，它在 fs.c 中。
 so let's look that, it's gonna be fs.c.
 
 984
 01:03:37,840 --> 01:03:39,580
+这里是 alloc ，
 And here is ialloc,
 
 985
 01:03:39,610 --> 01:03:41,380
+像大多数 xv6 代码一样，
 like most xv6 code,
 
 986
 01:03:41,380 --> 01:03:42,940
+它非常简单，
 you know it's just very simple,
 
 987
 01:03:42,940 --> 01:03:44,260
+但性能不是特别高。
 but not particularly efficient.
 
 988
 01:03:44,880 --> 01:03:46,320
+它所做的是，
 And so what it does,
 
 989
 01:03:46,320 --> 01:03:50,490
+它遍历所有的 inode 编号，
 basically it goes for all the inode numbers possible,
 
 990
 01:03:51,090 --> 01:03:53,640
+从 1 到任意最大 inode 数，
 from 1 to whatever the maximum number of inode
 
 991
 01:03:53,640 --> 01:03:56,880
+在这个特定的文件系统上，
 that as a possible on this particular file system,
 
 992
 01:03:57,120 --> 01:04:01,860
+然后到达那个 inode 编号的块，
 and then reach block for that inode number,
 
 993
 01:04:01,860 --> 01:04:03,300
+所以，从 1 开始，
 so, for example starts with one,
 
 994
 01:04:03,690 --> 01:04:06,270
+包含 inode 编号 1 的块，
 which you know the block contains an inode number one
 
 995
 01:04:06,660 --> 01:04:13,480
+然后查看那个 inode 编号是否可用，
 and and then sees if that inode number is free
 
 996
 01:04:13,480 --> 01:04:14,740
+如果它不是，
 and if it's not,
 
 997
 01:04:14,770 --> 01:04:15,670
+如果它是空闲的，
 if it is free,
 
 998
 01:04:15,970 --> 01:04:19,630
+然后把它设置给文件，
 then it sets it to file,
 
 999
 01:04:19,630 --> 01:04:22,480
+通过这种方式将其标记为已分配，
 and that way marks it as allocated
 
 1000
 01:04:22,810 --> 01:04:24,010
+并写入磁盘，
 and writes it to disk,
 
 1001
 01:04:24,040 --> 01:04:26,890
+这个 log_write ，有我使用的 print 语句，
 and this log_write, you know actually print statements I had,
 
 1002
 01:04:27,220 --> 01:04:28,930
+我把它们放到 log_write ，
 I put that actually log_write,
 
 1003
 01:04:29,230 --> 01:04:35,660
+所以 log_write 是我们看到第一次写入，
 so that log_write was the first write that we've seen,
 
 1004
 01:04:35,990 --> 01:04:38,480
+以我们执行的写入顺序，
 in that sequence of writes that we did,
 
 1005
 01:04:39,500 --> 01:04:40,880
+文件系统说做的。
 what file system do.
 
 1006
 01:04:40,910 --> 01:04:41,750
+这能理解吗？
 Does this make sense?
 
 1007
 01:04:47,880 --> 01:04:48,810
+非常有趣，
 So interesting,
 
 1008
 01:04:48,930 --> 01:04:52,110
+所以这是一系列事件
 so it's basically sort of the sequence of events
 
 1009
 01:04:52,110 --> 01:04:55,170
+让你第一次写入磁盘，
 that get you to the first write to the disk,
 
 1010
 01:04:55,590 --> 01:04:57,510
+有趣的问题是，
 interesting question of course,
 
 1011
 01:04:58,200 --> 01:05:05,160
+如果多个进程同时调用 create 会发生什么，
 what happens if multiple processes are calling create at the same time,
 
 1012
 01:05:05,190 --> 01:05:09,390
+多核机器可以并行运行，
 multi-core machine that can be running in parallel,
 
 1013
 01:05:09,420 --> 01:05:13,350
+同时下来，几乎同时到达 ialloc ，
 you know coming down and all get to ialloc roughly at the same time,
 
 1014
 01:05:13,680 --> 01:05:16,290
+然后它们要调用 bread ，
 and then all they're gonna call they're gonna call bread,
 
 1015
 01:05:16,860 --> 01:05:18,300
+所以这里有一些故事，
 so there has some story
 
 1016
 01:05:18,720 --> 01:05:22,830
+或者这些写是如何彼此不干扰的。
 or how is these writes don't interfere with each other.
 
 1017
 01:05:23,700 --> 01:05:25,620
+是的，这很值得一看，
 Yeah, it's really worthwhile looking into,
 
 1018
 01:05:26,070 --> 01:05:28,350
+因为在某种意义上，这实际上是
 because in some sense, you know this is actually
 
 1019
 01:05:28,350 --> 01:05:33,420
+你正在做的实验的最后一部分，
 the part of the last part of this lab that you're currently doing,
 
 1020
 01:05:33,420 --> 01:05:35,040
+所以它会进入缓冲区高速缓存。
 so it gets into the buffer cache.
 
 1021
 01:05:37,940 --> 01:05:40,010
+那么让我们来看看 bread ，
 So let's look at bread,
 
 1022
 01:05:40,580 --> 01:05:42,350
+在 bread 中，第一件事是，
 so on bread more the first thing
 
 1023
 01:05:42,350 --> 01:05:43,970
+它调用 bget ，
 it does actually it's called bget
 
 1024
 01:05:44,000 --> 01:05:48,200
+bget 基本上是在缓冲区高速缓存获取一个插槽。
 and so basically bget a slot in the buffer cache.
 
 1025
 01:05:48,660 --> 01:05:51,990
+让我们看一下 bget ，
 Let's look at the bget for a little while,
 
 1026
 01:05:51,990 --> 01:05:53,520
+因为有一个非常棘手的代码。
 because there's a reasonable tricky code.
 
 1027
 01:05:55,700 --> 01:06:01,040
+那么，这里的前几行是怎么回事。
 And, so what's going on in the first couple lines here.
 
 1028
 01:06:03,810 --> 01:06:06,720
+我想你们中的一些人，已经详细看过了这段代码，
 I imagine some of you already looked at this code quite a bit of detail
 
 1029
 01:06:06,720 --> 01:06:07,770
+作为本实验的一部分，
 as part of this lab,
 
 1030
 01:06:08,510 --> 01:06:09,500
+锁实验。
 the locking lab.
 
 1031
 01:06:10,170 --> 01:06:11,400
+那么这里是怎么回事。
 So what's going on here.
 
 1032
 01:06:18,480 --> 01:06:23,310
+它对链表加锁，并检查是否有任何，
 It locks the linked list and check if any of the,
 
 1033
 01:06:23,460 --> 01:06:28,470
+查看缓存中有没有我们要找的东西。
 things in the cache are maching with what we're looking for.
 
 1034
 01:06:28,980 --> 01:06:31,770
+是的，所以这是缓存，
 Yeah, so basically this is the cache,
 
 1035
 01:06:31,770 --> 01:06:34,110
+实际上，我们要找的是
 in action we're looking for
 
 1036
 01:06:34,110 --> 01:06:37,410
+无论什么块编号，块编号 33 ，
 whatever the block number, block number 33
 
 1037
 01:06:37,740 --> 01:06:41,790
+我们查看缓存里是否已经有编号 33 的块。
 and we're basically seeing if the cache already has block number 33.
 
 1038
 01:06:43,040 --> 01:06:48,470
+如果是这样的话，它就会增加引用数量，
 And and if that is the case, it bumps the ref count up
 
 1039
 01:06:48,590 --> 01:06:52,130
+然后释放 bcache 锁，
 and and then release the bcache lock,
 
 1040
 01:06:52,160 --> 01:06:54,380
+因为我们已经完成了对缓存的查看，
 because we're done looking into cache itself,
 
 1041
 01:06:54,680 --> 01:06:55,880
+我们知道它在那里，
 we know it's there,
 
 1042
 01:06:56,210 --> 01:06:59,390
+我们知道那里有一个块的缓冲区，
 we know that there's a buff- buffer for that particular block, there,
 
 1043
 01:06:59,630 --> 01:07:04,820
+然后，发生的下一步是非常有趣的。
 and, and then the next step that actually happens is sort of interesting.
 
 1044
 01:07:06,490 --> 01:07:12,850
+下一步，块缓存会尝试获取缓冲区的锁。
 Next step, the block cache basically tries to get a lock on the buffer.
 
 1045
 01:07:13,660 --> 01:07:19,750
+所以，如果多个进程同时调用 bget ，
 So, so what happens if like multiple processes at the same time called bget,
 
 1046
 01:07:19,780 --> 01:07:23,500
+其中一个会获得 bcache 锁，对吧。
 well one of them is going to get the bcache lock, right.
 
 1047
 01:07:24,350 --> 01:07:26,750
+它会扫描缓冲区缓存，
 It's going to scan the buffer cache,
 
 1048
 01:07:26,780 --> 01:07:29,840
+没有人可以在特定时间内修改缓冲区缓存，
 and so nobody can actually modify the buffer cache in this particular point,
 
 1049
 01:07:30,420 --> 01:07:32,850
+找出块编号是否在那里，
 find if the block number is there
 
 1050
 01:07:32,850 --> 01:07:35,130
+如果块编号在那里，
 and if the block number is there,
 
 1051
 01:07:35,130 --> 01:07:36,540
+它会增加引用数量，
 it bumps the ref count,
 
 1052
 01:07:36,600 --> 01:07:39,480
+表明它有一个引用，
 indicating that basically it has a reference,
 
 1053
 01:07:39,480 --> 01:07:42,100
+对于这个特定的锁，
 you know to this, this particular lock
 
 1054
 01:07:42,100 --> 01:07:44,530
+然后释放 bcache 锁。
 and then releases the bcache lock.
 
 1055
 01:07:44,800 --> 01:07:47,290
+如果有第二个进程等待，
 So if there were a second process waiting,
 
 1056
 01:07:47,960 --> 01:07:51,560
+为了扫描这个缓存，
 all to also scan the this cache,
 
 1057
 01:07:51,680 --> 01:07:54,260
+它可能不能马上获得锁，
 it might not actually require to lock right away, right,
 
 1058
 01:07:54,650 --> 01:07:57,050
+可能是第二个扫描的进程，
 in fact it might be a second process of scanning for,
 
 1059
 01:07:57,050 --> 01:07:59,630
+也想扫描这个块 33 。
 one also want to scan for this block 33.
 
 1060
 01:08:00,140 --> 01:08:06,140
+它也会获得引用，增加引用计数，
 And it will also get you know basically a reference to be bump the reference count,
 
 1061
 01:08:06,410 --> 01:08:09,110
+到 2 或 3 ，不管是什么
 to 2 or 3 whatever it is
 
 1062
 01:08:09,320 --> 01:08:12,350
+然后它们两个都会试着调用 acquiresleep ，
 and then you know both of them will try to call acquiresleep,
 
 1063
 01:08:13,200 --> 01:08:15,210
+在那个特定缓冲器 33 上。
 on that particular buffer buffer 33.
 
 1064
 01:08:16,120 --> 01:08:19,030
+acquiresleep 是另一种类型的锁，
 And acquiresleep it's just basically another type of lock,
 
 1065
 01:08:19,210 --> 01:08:21,400
+我们称它们为睡眠锁，
 we call them sleep locks
 
 1066
 01:08:21,580 --> 01:08:23,290
+稍后我们会讨论，
 and we'll talk about in a second,
 
 1067
 01:08:23,500 --> 01:08:28,570
+基本上，这会获得缓冲区上的锁，
 but basically you know this acquires the lock on the buffer,
 
 1068
 01:08:28,750 --> 01:08:33,340
+所以，进程中的一个将获得缓冲器 33 的锁。
 so one of the two processes will get the, the lock of buffer 33,
 
 1069
 01:08:33,900 --> 01:08:37,290
+并将继续进行，并且返回，
 and will proceed and that will be returned
 
 1070
 01:08:37,590 --> 01:08:39,870
+并通过[]，
 and go from going through [],
 
 1071
 01:08:40,140 --> 01:08:42,060
+扫描块 33 ，
 you know like scanning that block 33
 
 1072
 01:08:42,060 --> 01:08:44,220
+看看是否 inode 是真正空闲的。
 to see if there is inode that actually is free.
 
 1073
 01:08:45,580 --> 01:08:49,360
+另一个进程在 acquiresleep 等待，
 And the other process will just be sitting in the acquiresleep here,
 
 1074
 01:08:49,360 --> 01:08:53,890
+等待第一个进程完成所有操作。
 you know waiting until the first process is done with all its operations.
 
 1075
 01:08:58,380 --> 01:08:59,400
+对于这个，有什么问题吗？
 Any questions about this?
 
 1076
 01:09:01,970 --> 01:09:03,740
+我有个问题，
 I have a question,
 
 1077
 01:09:05,440 --> 01:09:10,390
+当块的引用计数不是 0 时，
 while the ref count of a block is not 0,
 
 1078
 01:09:10,390 --> 01:09:13,870
+关于块改变有没有什么重要的，
 can anything important about that block change,
 
 1079
 01:09:13,900 --> 01:09:15,760
+因为某些事情可能会发生，
 because something can happen
 
 1080
 01:09:15,760 --> 01:09:21,550
+在释放 bcache 和获取块的锁之间。
 between the release of the bcache and acquiring the lock of the block.
 
 1081
 01:09:22,600 --> 01:09:24,910
+是的，原则是，
 Yeah, actually the the protocol,
 
 1082
 01:09:24,910 --> 01:09:27,010
+好的，这里我要说明几个点，
 okay, so there's a couple points I want to make here,
 
 1083
 01:09:27,010 --> 01:09:30,970
+xv6 遵循的规则是
 the protocol basically xv6 follows is
 
 1084
 01:09:30,970 --> 01:09:33,550
+任何对于 bache 本身的修改，
 that for any modification to the bcache itself,
 
 1085
 01:09:33,610 --> 01:09:35,050
+你都需要持有 bcache 锁。
 you need to hold the bcache lock.
 
 1086
 01:09:36,180 --> 01:09:38,700
+对于任何对于块 33 的修改，
 For any modification to this block 33,
 
 1087
 01:09:38,730 --> 01:09:41,070
+你需要持有块 33 的睡眠锁。
 you need to hold the sleep lock on block 33.
 
 1088
 01:09:41,790 --> 01:09:43,800
+所以在任何特定的时间点，
 And so at any particular point in time,
 
 1089
 01:09:44,100 --> 01:09:52,080
+在释放之后， b->refcnt 大于 0 ，
 so after the release, b->refcnt is a larger than 0
 
 1090
 01:09:52,410 --> 01:09:55,770
+并且不会对缓冲器高速缓存进行修改，
 and there will be no modification to the buffer cache,
 
 1091
 01:09:56,010 --> 01:09:57,510
+缓冲器高速缓存只会驱逐，
 buffer cache will only evict
 
 1092
 01:09:57,920 --> 01:09:59,990
+或者具有引用计数 0 的东西，
 or things that actually have the refcnt 0,
 
 1093
 01:09:59,990 --> 01:10:03,290
+refcnt 不会有大于 0 。
 never that has a refcnt of something bigger than 0.
 
 1094
 01:10:04,120 --> 01:10:05,140
+所以我们可以肯定的是，
 And so we know for sure
 
 1095
 01:10:05,140 --> 01:10:09,250
+这个块，这个缓冲区不会接触 bcache 本身，
 that this block basically this buffer won't be touched in the bcache itself,
 
 1096
 01:10:09,550 --> 01:10:11,350
+其他进程可能正在查找，
 you know other processes might be looking up,
 
 1097
 01:10:11,350 --> 01:10:14,770
+可能正在查找 bcache 中的条目，
 might be looking up the entry in the bcache,
 
 1098
 01:10:15,010 --> 01:10:20,220
+但它不会从 bcache 中删除，对吧。
 but it won't be removed from the bcache, right.
 
 1099
 01:10:21,160 --> 01:10:21,490
+是的，理解了。
 Yeah make sense.
 
 1100
 01:10:21,490 --> 01:10:24,190
+而第二个锁，睡眠锁，
 And this lock that second lock at this sleeplock
 
 1101
 01:10:24,190 --> 01:10:26,770
+用来保护缓冲区的内容，
 is really what protects the content of the buffer,
 
 1102
 01:10:27,440 --> 01:10:31,850
+确保只有一个进程在读取或写入缓冲区，
 ensuring that only one process actually will be reading or writing the buffer
 
 1103
 01:10:32,150 --> 01:10:33,410
+在任何时间点。
 at any particular point of time.
 
 1104
 01:10:36,060 --> 01:10:38,100
+这很重要，
 And it's important, correct,
 
 1105
 01:10:38,550 --> 01:10:43,940
+会有什么不好的，
 that can it say, would be bad if like say what would be bad
 
 1106
 01:10:43,940 --> 01:10:49,870
+如果块 33 在缓存的不同的插槽中出现两次。
 if block 33 ended up in the cache twice in different slots.
 
 1107
 01:10:53,100 --> 01:10:55,830
+是的，因为那样任何都会有正确的信息了，对吧。
 Yeah, because then any could have the correct information, right.
 
 1108
 01:10:56,720 --> 01:10:57,500
+是的，没错，
 Yeah correctly,
 
 1109
 01:10:57,500 --> 01:11:02,330
+比如，进程 1 写入 inode 19 ，
 for example let's say process one writes inode 19
 
 1110
 01:11:02,330 --> 01:11:04,520
+而另一个进程写入 inode 20 ，
 and the other process writes inode 20, correct,
 
 1111
 01:11:04,520 --> 01:11:07,010
+所以，如果它们都获得了缓冲区的句柄，
 and so if they both get a handle on the buffer,
 
 1112
 01:11:07,280 --> 01:11:10,700
+表示块 33 ，
 for that represents you know the the block 33,
 
 1113
 01:11:11,000 --> 01:11:13,310
+一个可能更新 inode 18 ，
 one might update inode 18,
 
 1114
 01:11:13,310 --> 01:11:14,840
+另一个是 19 ，
 the other in 19,
 
 1115
 01:11:14,840 --> 01:11:17,600
+第一个可能安排 18 写回到磁盘上，
 the first one maybe arrange its 18 back to the disk,
 
 1116
 01:11:17,630 --> 01:11:21,740
+然后修改 19 的进程写回到 19 ，
 then the guy that does modified 19 write 19 back,
 
 1117
 01:11:21,860 --> 01:11:24,560
+会覆盖 18 所做的更改，
 will overwrite changes at 18 made, right,
 
 1118
 01:11:24,650 --> 01:11:26,120
+是 inode 18 所做的。
 that were made for inode 18.
 
 1119
 01:11:26,690 --> 01:11:27,620
+所以这太可怕了，
 And so that's terrible,
 
 1120
 01:11:28,070 --> 01:11:29,480
+所以，必须是这种情况，
 so it has to be the case
 
 1121
 01:11:29,750 --> 01:11:34,910
+块编号只能在缓冲区缓存中出现一次。
 that the block number only appears in the buffer cache only exactly once.
 
 1122
 01:11:38,380 --> 01:11:39,670
+这里有一个不变量，
 And there's an invariant, correct,
 
 1123
 01:11:39,670 --> 01:11:42,550
+你需要维护，
 you know you sort of have to maintain
 
 1124
 01:11:42,550 --> 01:11:46,690
+当你做块缓存实验，锁实验时，
 while you're doing this a block cache lab, locking lab
 
 1125
 01:11:46,690 --> 01:11:48,850
+本周的实验里。
 in this week's lab.
 
 1126
 01:11:50,140 --> 01:11:51,670
+这能理解吗，那个不变量？
 Does that make sense, that invariant?
 
 1127
 01:11:54,220 --> 01:11:56,650
+是的，这是个离题的问题，
 Yeah, I guess tangential question to this,
 
 1128
 01:11:57,010 --> 01:12:00,370
+可能有一些块有多个引用，
 there might be some blocks that have multiple references to them
 
 1129
 01:12:00,970 --> 01:12:06,130
+然后可能其中一个进程接触到这个块，
 and then maybe one of the processes that has is touching this block
 
 1130
 01:12:06,430 --> 01:12:09,970
+通过强制写入磁盘来刷新高速缓存，
 flushes the cache by forcing a write to the disk,
 
 1131
 01:12:09,970 --> 01:12:13,510
+其他人看到的东西会发生什么。
 what happens to what everyone else sees.
 
 1132
 01:12:14,070 --> 01:12:18,280
+是的，就像我做的，如果写，
 Well, as I did, if the write,
 
 1133
 01:12:18,280 --> 01:12:20,440
+好的，第一个进程在某个点上完成了，
 okay, so the first process is done at some point,
 
 1134
 01:12:20,440 --> 01:12:24,220
+会调用 release ，
 will call release [] whatever it's called,
 
 1135
 01:12:24,220 --> 01:12:26,290
+所以你可以想一想，
 so basically you can think about
 
 1136
 01:12:26,680 --> 01:12:29,650
+当第一个进程完成，
 at the end when the first process done
 
 1137
 01:12:29,650 --> 01:12:32,020
+通过读写块 33 ，
 with it's reading and writing to that block 33,
 
 1138
 01:12:32,290 --> 01:12:34,150
+它会调用 brelse 释放那个缓存，
 it will call brelse release with a buffer,
 
 1139
 01:12:34,540 --> 01:12:37,870
+这会减少 refcnt ，
 and that will actually decrease the refcnt,
 
 1140
 01:12:38,460 --> 01:12:40,050
+releasesleep 锁，
 well, releasesleep lock,
 
 1141
 01:12:40,080 --> 01:12:42,000
+也就是说，如果有人在等，
 and that means that if anybody was waiting,
 
 1142
 01:12:42,000 --> 01:12:44,490
+任何其他等待特定缓冲区的进程，
 any other processes was waiting for that particular buffer
 
 1143
 01:12:44,730 --> 01:12:48,150
+现在能够获得缓冲区上的睡眠锁，
 and will now be able to get the sleeplock on the buffer
 
 1144
 01:12:48,390 --> 01:12:55,050
+会看到之前做的修改。
 and go read, it will observe the preview than you make changes, right.
 
 1145
 01:12:55,050 --> 01:12:56,430
+所以，如果两个进程返回，
 So if two processes were returning
 
 1146
 01:12:56,430 --> 01:12:58,980
+更新 inode 18 和 inode 19 ，
 to the update inode 18 and inode 19,
 
 1147
 01:12:58,980 --> 01:13:00,660
+它们都在块 33 上，
 that all both live in block 33,
 
 1148
 01:13:00,930 --> 01:13:02,580
+那么如果第一个过程完成了，
 then if the first process is done,
 
 1149
 01:13:02,670 --> 01:13:04,560
+它修改的 18 是可见的，
 it changes 18 are visible
 
 1150
 01:13:04,920 --> 01:13:08,160
+所以下一个，
 and so the next
 
 1151
 01:13:08,160 --> 01:13:11,340
+下一个进程会分配 inode 19 ，
 and so the next guy will actually allocate inode 19,
 
 1152
 01:13:11,370 --> 01:13:13,680
+因为现在 18 已经标记为文件了，
 because actually 18 is marked as a file now,
 
 1153
 01:13:14,820 --> 01:13:17,370
+后面的任何进程都会观察到这些变化。
 anybody afterwards will observe the changes.
 
 1154
 01:13:20,400 --> 01:13:20,940
+理解了吗?
 Makes sense?
 
 1155
 01:13:23,220 --> 01:13:24,600
+好的，谢谢。
 Yes, thanks.
 
 1156
 01:13:25,550 --> 01:13:27,350
+这正是我们所希望的情况，
 And this is exactly what we hoped would be the case,
 
 1157
 01:13:28,400 --> 01:13:31,340
+如果一个进程创建 inode 或创建文件，
 if one process creates an inode or creates a file,
 
 1158
 01:13:31,340 --> 01:13:33,800
+那么后面的进程读取，
 then the process, later process does read,
 
 1159
 01:13:33,800 --> 01:13:35,240
+应该能观察那个文件。
 you know should observe that file.
 
 1160
 01:13:37,650 --> 01:13:42,370
+好的，因为一个更小的细节，
 Okay, then, because one more smaller detail,
 
 1161
 01:13:42,400 --> 01:13:44,170
+正如你在代码中看到的，
 as you can see here in the code,
 
 1162
 01:13:44,170 --> 01:13:48,330
+在进程中对缓冲区使用了睡眠锁，
 in the process actually takes a sleeplock on the buffer
 
 1163
 01:13:48,540 --> 01:13:53,940
+所以睡眠锁与普通锁或旋转锁略有不同，
 and so the sleeplock is slightly different than a regular or a spin lock,
 
 1164
 01:13:54,150 --> 01:13:56,100
+让我们来看一下睡眠锁。
 let's look at sleeplock for a second.
 
 1165
 01:13:57,050 --> 01:13:58,820
+你会看到它是什么。
 And you see what it is.
 
 1166
 01:13:59,350 --> 01:14:00,970
+所以我们需要获取睡眠锁。
 So we need to acquire sleeplock.
 
 1167
 01:14:02,040 --> 01:14:04,320
+是的，当它发生的时候，
 Yeah, and when it does,
 
 1168
 01:14:04,350 --> 01:14:06,240
+它获取某些字段，
 it requires you know some field,
 
 1169
 01:14:06,690 --> 01:14:10,740
+获取与睡眠锁相关的自旋锁，
 basically requires a spin lock that is associated with sleeplock,
 
 1170
 01:14:11,160 --> 01:14:13,470
+如果锁真的被持有了，
 if the lock is actually held,
 
 1171
 01:14:14,170 --> 01:14:15,520
+好的，旋转锁被持有了，
 okay, the spin lock is held,
 
 1172
 01:14:15,520 --> 01:14:19,450
+那么，如果锁真的被持有了。
 then, if the lock is actually held.
 
 1173
 01:14:19,450 --> 01:14:23,310
+好的，让我先看看头文件，
 So okay, let me first see h file,
 
 1174
 01:14:23,310 --> 01:14:25,320
+头文件包含一个 locked 字段，
 the h file contains a locked field,
 
 1175
 01:14:25,900 --> 01:14:31,250
+然后，就这样了。
 and, and that's it.
 
 1176
 01:14:33,800 --> 01:14:35,030
+所以，基本上。
 And so basically.
 
 1177
 01:14:38,110 --> 01:14:40,120
+那是自旋锁。
 That was the spin lock.
 
 1178
 01:14:40,150 --> 01:14:41,440
+是的，是自旋锁。
 Yeah, we're spin lock.
 
 1179
 01:14:46,000 --> 01:14:51,490
+哦，是的，这是自旋锁。
 Oh, yeah, there's a spin lock.
 
 1180
 01:14:55,280 --> 01:14:55,970
+很好。
 Good good.
 
 1181
 01:15:01,020 --> 01:15:04,860
+抱歉，如果锁持有了，
 Sorry, and then if the lock is actually held,
 
 1182
 01:15:05,010 --> 01:15:06,960
+睡眠锁被持有，它进入睡眠状态。
 sleeplock is held it actually goes to sleep,
 
 1183
 01:15:08,160 --> 01:15:09,540
+它会自行排定调度。
 so it deschedules itself.
 
 1184
 01:15:10,140 --> 01:15:13,980
+为什么对这些缓冲器
 And why, why do you think for these buffers are
 
 1185
 01:15:13,980 --> 01:15:16,980
+我们使用睡眠锁而不是自旋锁，
 we using sleeplocks instead of spin locks,
 
 1186
 01:15:17,820 --> 01:15:20,790
+因为我们间接地使用自旋锁来实现休眠锁，
 because indirectly we're using spin locks to implement sleeplocks,
 
 1187
 01:15:21,060 --> 01:15:22,890
+为什么不直接用普通的呢？
 why not just use regular?
 
 1188
 01:15:26,760 --> 01:15:29,190
+因为磁盘操作需要很长时间？
 Because disk operations take a long time?
 
 1189
 01:15:29,740 --> 01:15:32,110
+是的，原因有很多，
 Yeah, there's multiple reasons,
 
 1190
 01:15:32,110 --> 01:15:37,480
+在自旋锁上有各种各样的限制，
 there's all kinds of rules correct restrictions on a on a spin locks,
 
 1191
 01:15:37,570 --> 01:15:39,700
+自旋锁的限制之一是什么。
 what is one of the restrictions on spin locks.
 
 1192
 01:15:43,990 --> 01:15:44,530
+你要做什么。
 Well, what do.
 
 1193
 01:15:44,530 --> 01:15:46,000
+中断必须关闭。
 Interrupts have to be off.
 
 1194
 01:15:46,330 --> 01:15:47,920
+是的，它们会关闭中断。
 Yeah, they turn interrupts off, right.
 
 1195
 01:15:48,830 --> 01:15:52,160
+所以我们开始这个操作，
 And so we were we started this operation,
 
 1196
 01:15:52,520 --> 01:15:56,330
+在缓冲器上持有自旋锁，
 while holding a buffer, while holding a spin lock on the buffer
 
 1197
 01:15:56,330 --> 01:15:58,310
+然后我们再也不会从磁盘让出。
 and then we would never yield from the disk.
 
 1198
 01:15:58,700 --> 01:16:00,170
+嗯，也许还有另一个核心，
 Well, maybe another core here,
 
 1199
 01:16:00,170 --> 01:16:01,700
+但是如果我们只有一个核心，
 but if we had only one core
 
 1200
 01:16:01,700 --> 01:16:03,290
+我们永远不会从它让出，是吧。
 and we would never yield from it, right.
 
 1201
 01:16:05,320 --> 01:16:07,360
+出于同样的原因，
 And for more, for the same reasons,
 
 1202
 01:16:07,360 --> 01:16:10,300
+你不能持有自旋锁进入睡眠。
 you know you're not allowed to go to sleep, while holding a spin lock.
 
 1203
 01:16:10,930 --> 01:16:13,960
+所以，我们有了这些睡眠锁，
 And so therefore we have these sleeplocks,
 
 1204
 01:16:13,960 --> 01:16:15,490
+这是一种长期的锁，
 that are sort of long-term locks,
 
 1205
 01:16:15,490 --> 01:16:19,810
+对于这个特定情况。
 if you will, for for that particular use case.
 
 1206
 01:16:20,310 --> 01:16:23,220
+所以我们可以持有锁，
 So that we can hold locks,
 
 1207
 01:16:23,220 --> 01:16:25,950
+睡眠锁的优点之一，
 one of the advantages of sleeplocks
 
 1208
 01:16:25,950 --> 01:16:27,570
+我们可以持有它们通过中断，
 that we can hold them across interrupts,
 
 1209
 01:16:27,840 --> 01:16:29,490
+因为磁盘操作，
 hold, because disk operations,
 
 1210
 01:16:29,490 --> 01:16:30,960
+我们可以长时间持有它们。
 we can hold them for long periods of time.
 
 1211
 01:16:32,010 --> 01:16:34,890
+如果我们在等待那把锁，
 And we're not, if we're waiting on that lock,
 
 1212
 01:16:34,890 --> 01:16:37,740
+我们也不会让 CPU 保持忙碌，
 we also not keeping the CPU busy
 
 1213
 01:16:37,740 --> 01:16:39,090
+或花费在 CPU 上，
 or spending on the CPU,
 
 1214
 01:16:39,150 --> 01:16:42,090
+我们通过调用 sleep 来释放 CPU 。
 we're basically releasing the CPU by calling sleep.
 
 1215
 01:16:43,530 --> 01:16:44,190
+这能理解吗？
 Does that make sense?
 
 1216
 01:16:49,580 --> 01:16:50,570
+对于这个，有什么问题吗？
 Any questions about this?
 
 1217
 01:16:56,490 --> 01:17:00,840
+好的，我们再来看一件事，
 Okay, let's look at one more thing,
 
 1218
 01:17:00,840 --> 01:17:07,360
+这就是 brelse 。
 which is brelse.
 
 1219
 01:17:08,190 --> 01:17:10,170
+所以我们已经看了一点，
 So we looked already a little bit,
 
 1220
 01:17:10,170 --> 01:17:12,750
+brelse 释放睡眠锁，
 you know basically would brelse does releases the sleeplock,
 
 1221
 01:17:12,780 --> 01:17:15,570
+然后获取 bcache 锁，减少 refcnt ，
 then acquires the bcache lock, decrement refcnt
 
 1222
 01:17:15,570 --> 01:17:18,990
+表示一个进程对这个缓冲区不再感兴趣。
 to indicate that one process is not interested anymore, in this particular buffer.
 
 1223
 01:17:19,590 --> 01:17:22,170
+然后，如果 refcnt 为 0 ，
 And then, if if the refcnt is 0,
 
 1224
 01:17:22,440 --> 01:17:29,690
+它稍微操作一下缓冲区列表，
 the, it manipulates the list of buffers a little bit,
 
 1225
 01:17:29,690 --> 01:17:30,740
+它在这里做什么。
 what does it do here.
 
 1226
 01:17:38,220 --> 01:17:47,350
+它将 b 插入到列表中 b->head 之后。
 It inserts the b into the position after b head, inside of the []list.
 
 1227
 01:17:47,470 --> 01:17:49,030
+是的，这是它做做什么，
 Yeah, where does it basically go,
 
 1228
 01:17:49,030 --> 01:17:50,050
+那是什么意思。
 what does that mean.
 
 1229
 01:17:52,340 --> 01:17:55,460
+让我们返回，让我们来看看。
 So let's go back up, correct, let's look at.
 
 1230
 01:17:56,640 --> 01:18:00,080
+它是最近使用过。
 It was most recently used.
 
 1231
 01:18:00,140 --> 01:18:04,640
+是的，移动到最近使用的缓冲区的位置。
 Yeah, basically moves into the position of the most recently used buffer, right.
 
 1232
 01:18:05,340 --> 01:18:06,600
+这一点很重要，
 And this is important,
 
 1233
 01:18:06,600 --> 01:18:12,150
+因为当我们在块缓存中找不到块的时候，
 because when, when we cannot find the block in the block cache,
 
 1234
 01:18:12,770 --> 01:18:16,490
+那么我们需要一些东西来腾出空间，对吧。
 then we need to fix something to make space, right.
 
 1235
 01:18:17,280 --> 01:18:19,920
+所以我们遍历块，
 And so we're going to go through the block as we go
 
 1236
 01:18:19,920 --> 01:18:23,100
+我们从最近使用的一个开始。
 and we basically start from most recently used one.
 
 1237
 01:18:24,800 --> 01:18:26,120
+先想一想这一点。
 And think that one first.
 
 1238
 01:18:27,540 --> 01:18:32,460
+所以，我们使用缓冲区，可能刚刚逐出。
 And so we just used the buffer as very unlikely, that it actually evicted.
 
 1239
 01:18:33,540 --> 01:18:35,100
+为什么这是个好的策略。
 Why is that a good policy.
 
 1240
 01:18:41,610 --> 01:18:44,760
+通常情况下，系统服从时间局部性。
 Generally, systems obey a temporal locality.
 
 1241
 01:18:45,180 --> 01:18:48,570
+是的，如果块是最近用过的，
 Yeah right, so if the block is recently used,
 
 1242
 01:18:48,570 --> 01:18:49,920
+这可能是一个很好的迹象，
 it's probably a good indicator,
 
 1243
 01:18:49,920 --> 01:18:51,780
+表明它可能会很快再次被使用。
 that it might actually be used again quickly.
 
 1244
 01:18:52,390 --> 01:18:54,640
+所以不把它赶出去是个好主意。
 And so it's a good idea not to evict it.
 
 1245
 01:18:55,320 --> 01:18:57,270
+你想要，通常情况下，
 You wanna and it's generally sort of
 
 1246
 01:18:57,270 --> 01:19:00,960
+即使有本地缓存，
 if you even you have locality cache locality
 
 1247
 01:19:00,960 --> 01:19:05,070
+最近最少使用的块，
 and the block that is you know least recently used
 
 1248
 01:19:05,070 --> 01:19:08,670
+可能是未来最有可能使用的块，
 probably the block that is also most likely to be used in the future
 
 1249
 01:19:08,820 --> 01:19:10,560
+所以，这是一个很好的[驱逐]。
 and so that's a good one to evict.
 
 1250
 01:19:12,220 --> 01:19:12,910
+这能理解吗？
 Does that make sense?
 
 1251
 01:19:18,160 --> 01:19:19,720
+好的。
 Okay.
 
 1252
 01:19:21,920 --> 01:19:25,280
+所以，让我回到幻灯片上，
 So, let me go back to my slides here,
 
 1253
 01:19:25,280 --> 01:19:30,980
+所以， bcache 代码中有一点小偏差，
 so, so there's a little bit of a slight excursion
 
 1254
 01:19:30,980 --> 01:19:37,450
+在块缓存中。
 in the bcache code or the block cache.
 
 1255
 01:19:40,200 --> 01:19:42,720
+在这里有几个有趣的事情，
 There's a couple interesting things at the point at to, correct,
 
 1256
 01:19:42,720 --> 01:19:43,890
+有一个不变量，
 you know there's this invariant,
 
 1257
 01:19:43,890 --> 01:19:48,310
+内存中只有一份块的副本。
 that there's only one copy of a block in memory.
 
 1258
 01:19:50,840 --> 01:19:52,250
+作为重要的变量
 And as an important variant
 
 1259
 01:19:52,280 --> 01:19:54,260
+必须由块缓存维护，
 that must be maintained by block cache,
 
 1260
 01:19:54,260 --> 01:19:55,790
+它有睡眠锁，
 it has sleeplocks,
 
 1261
 01:19:55,820 --> 01:19:58,940
+和我们以前见过的不同类型的锁，
 you know different types of locks than the ones that we've seen before,
 
 1262
 01:19:59,510 --> 01:20:03,320
+它可以跨越 IO 操作，实现 LRU ，
 that can span IO operations that implements you know LRU,
 
 1263
 01:20:03,350 --> 01:20:05,630
+最近最少缓存替换策略，
 least recently caching replacement policy,
 
 1264
 01:20:05,840 --> 01:20:08,780
+需要有两个级别的锁，
 need to have these two levels of locking,
 
 1265
 01:20:09,540 --> 01:20:13,170
+在它的实现中，
 to, in its implementation,
 
 1266
 01:20:13,170 --> 01:20:16,560
+一级是为了保护 bcache 内部数据结构，
 one level to basically protect the bcache internal data structures,
 
 1267
 01:20:16,860 --> 01:20:21,720
+然后另一级锁，通过睡眠锁对不同的缓存加锁。
 and then one level of locking through sleeplocks to actually lock individual buffers.
 
 1268
 01:20:26,570 --> 01:20:27,410
+这能理解吗？
 Does that make sense?
 
 1269
 01:20:29,230 --> 01:20:30,370
+好的。
 Okay.
 
 1270
 01:20:32,200 --> 01:20:33,610
+我的时间快用完了，
 I'm going to run out of time,
 
 1271
 01:20:33,610 --> 01:20:35,590
+所以让我停在这里，
 so let me stop here,
 
 1272
 01:20:35,890 --> 01:20:38,980
+很快总结一下我们到目前为止所看到的，
 you know quickly summarized what we've seen so far
 
 1273
 01:20:38,980 --> 01:20:39,790
+在下周三，
 and we're going Wednesday
 
 1274
 01:20:39,790 --> 01:20:42,970
+我们将关注崩溃安全问题。
 and we're going to focus really on crash safety.
 
 1275
 01:20:43,210 --> 01:20:46,570
+文件系统在这个数据结构上，
 So basically you know file system is on this data structure,
 
 1276
 01:20:47,410 --> 01:20:48,880
+今天演讲的大部分时间，
 basically, most of the lecture today,
 
 1277
 01:20:48,880 --> 01:20:52,240
+我们都集中在数据结构上，
 we're focusing on the layout of the on this data structure
 
 1278
 01:20:52,270 --> 01:20:56,710
+对于 xv6 ，磁盘上的这个数据结构，
 of the xv6 you know this data structure on disk
 
 1279
 01:20:56,710 --> 01:20:59,710
+我们看到 xv6 有一个非常简单的。
 and you know we saw xv6 has a very simple one.
 
 1280
 01:21:04,480 --> 01:21:05,470
+但是你可以想象一下，
 But you can imagine
 
 1281
 01:21:05,470 --> 01:21:07,600
+比如实现更复杂的。
 like you know implementing more complicated one.
 
 1282
 01:21:07,930 --> 01:21:09,640
+我们花了很多时间的另一件事是
 And the other thing that we spend much time
 
 1283
 01:21:09,640 --> 01:21:10,840
+查看这个块缓存，
 looking at is this block cache,
 
 1284
 01:21:10,840 --> 01:21:12,520
+这对性能至关重要，
 which is crucial for performance,
 
 1285
 01:21:12,760 --> 01:21:16,150
+因为对磁盘的读写是昂贵的，
 because reading and writing typically to disk is actually expensive,
 
 1286
 01:21:16,180 --> 01:21:19,330
+那里有几百微秒到几毫秒的时间，
 you know we're there for hundreds of microseconds to milliseconds
 
 1287
 01:21:19,540 --> 01:21:21,670
+块缓存可以确保，
 and the block cache basically ensures that,
 
 1288
 01:21:22,030 --> 01:21:25,450
+如果最近从磁盘读取了块，
 you know if a block was recently read from the disk,
 
 1289
 01:21:25,450 --> 01:21:27,580
+我们不会再从磁盘中读取它。
 we're actually not reading it again from the disk.
 
 1290
 01:21:28,620 --> 01:21:30,750
+好的，然后是周三，
 Okay, and then Wednesday,
 
 1291
 01:21:30,750 --> 01:21:32,460
+我要谈的是崩溃安全，
 I'm going to talk about crash safety,
 
 1292
 01:21:33,890 --> 01:21:38,720
+是文件系统设计的另一个吸引人的方面，
 which is a fascinating other aspect of file system design,
 
 1293
 01:21:38,720 --> 01:21:41,120
+事实上，我们将花两节课来讲解崩溃安全问题。
 in fact we'll spend two lectures on crash safety.
 
 1294
 01:21:41,660 --> 01:21:44,480
+我们将在周三看到一个慢的日志设计，
 We'll see a logging design on Wednesday that's slow
 
 1295
 01:21:44,480 --> 01:21:45,170
+然后在下周，
 and then next week,
 
 1296
 01:21:45,170 --> 01:21:48,350
+我们将了解 Linux ext3 如何进行日志记录，
 we'll look at how Linux ext3 does logging
 
 1297
 01:21:48,470 --> 01:21:50,330
+是一个更快的方案。
 which is a much more faster scheme.
 
 1298
 01:21:51,620 --> 01:21:52,850
+如果你有任何其他问题，
 If you have any other questions
 
 1299
 01:21:52,850 --> 01:21:54,530
+请随意提问，
 feel free to hang around
 
 1300
 01:21:54,560 --> 01:21:56,360
+我很乐意回答，
 and I'm happy to answer them,
 
 1301
 01:21:56,360 --> 01:21:59,080
+否则，周三见。
 otherwise, you know, see you Wednesday.
 
 1302
 01:22:02,160 --> 01:22:03,000
+好的，谢谢。
 Alright, thank you.
 
 1303
 01:22:04,370 --> 01:22:07,640
+我有一个关于 brelse 的问题。
 I have a question about brelse.
 
 1304
 01:22:08,330 --> 01:22:08,810
+是的。
 Yes.
 
 1305
 01:22:09,640 --> 01:22:15,460
+看起来像是它释放了块的锁，
 So it seems like it releases the block's lock
 
 1306
 01:22:15,520 --> 01:22:19,600
+在它修改了 refcnt 之后。
 and after that it modifies the refcnt.
 
 1307
 01:22:19,720 --> 01:22:20,320
+嗯。
 Um.
 
 1308
 01:22:21,180 --> 01:22:22,650
+为什么这样可以？
 Why is that okay?
 
 1309
 01:22:22,890 --> 01:22:23,940
+是的，好问题。
 Yeah, good question.
 
 1310
 01:22:25,580 --> 01:22:26,750
+所以我们知道，
 So what do we know,
 
 1311
 01:22:26,930 --> 01:22:29,510
+假设我们释放了睡眠锁，
 you know, so let's say we do release the sleeplock,
 
 1312
 01:22:29,570 --> 01:22:34,490
+如果其他程序正在等待，
 so if some other guy or some other process actually was waiting,
 
 1313
 01:22:34,490 --> 01:22:36,260
+或者要获取睡眠锁，
 or what doing acquire sleeplock,
 
 1314
 01:22:36,290 --> 01:22:38,180
+这对 refcnt 是什么意思？
 what does that mean about the refcnt?
 
 1315
 01:22:41,300 --> 01:22:43,640
+它是 0 ？
 That it was 0?
 
 1316
 01:22:45,230 --> 01:22:46,700
+不，
 No, correct,
 
 1317
 01:22:46,700 --> 01:22:50,330
+如果 n 个进程正在等待缓冲区。
 so if n processes are waiting for a buffer.
 
 1318
 01:22:50,480 --> 01:22:52,100
+哦，好的。
 Oh okay.
 
 1319
 01:22:52,220 --> 01:22:52,850
+refcnt 是什么？
 What's the refcnt?
 
 1320
 01:22:54,390 --> 01:22:56,670
+至少是 1 。
 There was at least 1.
 
 1321
 01:22:57,290 --> 01:22:58,580
+是的，多于 1 ，
 Yeah, more than one, correct,
 
 1322
 01:22:58,580 --> 01:22:59,870
+如果 10 个进程正在等待，
 if 10 process you're waiting,
 
 1323
 01:22:59,870 --> 01:23:00,860
+则 refcnt 会是 10 。
 the refcnt can be 10.
 
 1324
 01:23:01,640 --> 01:23:02,810
+是的，好的。
 Yeah, okay.
 
 1325
 01:23:03,380 --> 01:23:07,460
+所以，这一行代码，
 And so, is this only this only line of code
 
 1326
 01:23:07,460 --> 01:23:08,090
+它所做的，
 what it does is
 
 1327
 01:23:08,090 --> 01:23:10,760
+就是更新一个 refcnt ，
 basically it updates the refcnt for just one guy
 
 1328
 01:23:10,790 --> 01:23:12,860
+就是执行释放的进程，
 which is one process that actually did the release
 
 1329
 01:23:12,860 --> 01:23:15,620
+并且它将 refcnt 减少 1 。
 and it reduces the refcnt by 1.
 
 1330
 01:23:16,490 --> 01:23:18,500
+如果其他人在等待，
 And if other people were waiting
 
 1331
 01:23:18,620 --> 01:23:21,080
+refcnt 肯定不是 0 ，
 and never refcnt was definitely not 0,
 
 1332
 01:23:21,080 --> 01:23:22,970
+它永远不会执行这个代码。
 will do, it will never execute this code.
 
 1333
 01:23:25,640 --> 01:23:26,150
+好的?
 Okay?
 
 1334
 01:23:26,180 --> 01:23:28,130
+好的，好的，我明白了，
 Okay, Okay, I see,
 
 1335
 01:23:28,160 --> 01:23:29,810
+我想我明白了。
 I I think I see okay.
 
 1336
 01:23:30,380 --> 01:23:32,000
+一个更进一步的问题是，
 A rather question was
 
 1337
 01:23:32,000 --> 01:23:39,500
+为什么两个字节对于 inode 编号是足够的。
 why is why is two bits, two byte enough for inode number.
 
 1338
 01:23:39,590 --> 01:23:43,310
+它不是，它小得离谱，对吧，
 It's not, it's ridiculously small, correct,
 
 1339
 01:23:43,520 --> 01:23:45,470
+因为你可以拥有多少个 inode ？
 because how many inodes can you have?
 
 1340
 01:23:46,800 --> 01:23:49,020
+2 的 8 次方？
 Two to the power of eight?
 
 1341
 01:23:49,520 --> 01:23:53,330
+是的，随便吧，两个字节。
 Yeah, yeah yeah yeah, whatever two byte.
 
 1342
 01:23:53,570 --> 01:23:54,860
+16 位。
 Sixteen bit.
 
 1343
 01:23:55,640 --> 01:23:58,640
+[] [] ，32000 个 inode 。
 [] [], thirty two thousand inodes.
 
 1344
 01:23:59,540 --> 01:24:03,200
+对于 20 世纪 60 年代或 70 年代来说，这是很多的 inode ，
 That's a lot inode for 1960s or the 60s and 70s,
 
 1345
 01:24:03,230 --> 01:24:05,360
+但对今天来说肯定是不够的。
 but certainly would not be sufficient for today.
 
 1346
 01:24:06,700 --> 01:24:11,110
+所以，今天的文件系统使用更大的数字或更多的位。
 And so, today's file systems use a bigger number or more bits.
 
 1347
 01:24:12,140 --> 01:24:13,800
+好的，我明白了。
 Okay, I see.
 
 1348
 01:24:13,800 --> 01:24:14,970
+我想我的问题是
 I guess my question was
 
 1349
 01:24:15,090 --> 01:24:20,240
+关于 xv6 的架构，
 in the architecture that we have for xv6,
 
 1350
 01:24:20,930 --> 01:24:24,680
+这 16 位的 inode ，
 the those two 16 bit for inodes,
 
 1351
 01:24:25,160 --> 01:24:27,080
+它们在哪里，
 like where where else do they,
 
 1352
 01:24:27,320 --> 01:24:30,680
+我们还能在哪里看到这个数字出现。
 where else can we see this number show up.
 
 1353
 01:24:31,490 --> 01:24:34,640
+好的，它是两个字节，
 Well, the the one that is two bytes
 
 1354
 01:24:34,850 --> 01:24:37,820
+在磁盘上，它是两个字节。
 is really on disk that it is two bytes.
 
 1355
 01:24:38,420 --> 01:24:41,390
+任何数字，
 Any number in
 
 1356
 01:24:41,870 --> 01:24:43,070
+当它编译时，
 when it's compiled,
 
 1357
 01:24:43,070 --> 01:24:46,040
+当它位于寄存器或内存中时。
 when it's sitting in a register or sit in memory.
 
 1358
 01:24:46,580 --> 01:24:49,130
+磁盘 inode 是，
 The disk inode is,
 
 1359
 01:24:49,160 --> 01:24:55,510
+让我看看，
 look at it, let's see,
 
 1360
 01:24:56,170 --> 01:24:59,590
+正如之前所说的，磁盘 inode 实际上是，
 so this disk inode as we said before actually the,
 
 1361
 01:25:03,900 --> 01:25:05,130
+使用一个直接条目，
 use a direct entry
 
 1362
 01:25:05,130 --> 01:25:06,840
+我们看到是一个无符号短整型，
 where we see is unsigned short
 
 1363
 01:25:06,870 --> 01:25:08,880
+而[另一个]则是两个字节的 16 位。
 and others there's two byte sixteen bits.
 
 1364
 01:25:09,520 --> 01:25:12,790
+inode 在内存中表示形式，
 The in-memory representation of an inode,
 
 1365
 01:25:13,540 --> 01:25:16,660
+好的，是在，
 you know, okay, that's in,
 
 1366
 01:25:18,910 --> 01:25:21,400
+在内存中表示的 inode ，
 you're doing in-memory representation of an inode,
 
 1367
 01:25:21,940 --> 01:25:26,840
+这个数字是整型，
 that actually number is integer
 
 1368
 01:25:26,840 --> 01:25:29,750
+你知道我们编译 C 代码的方式，
 and you know the way we compile C code
 
 1369
 01:25:29,750 --> 01:25:31,760
+而整型恰好是 4 个字节。
 and integer happens to be 4 bytes.
 
 1370
 01:25:34,480 --> 01:25:38,050
+好的，我明白了，谢谢，非常感谢。
 Okay, okay I see, thank you, thank you so much.
 
