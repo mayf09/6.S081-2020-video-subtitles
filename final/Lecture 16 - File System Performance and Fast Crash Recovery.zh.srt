@@ -1,2797 +1,3496 @@
 1
 00:00:02,020 --> 00:00:04,150
+好的，是时候开始了。
 Alright, actually, it's time to start.
 
 2
 00:00:05,740 --> 00:00:09,370
+好的，就想 Frans 所说的，
 Alright, okay as Frans were saying for you,
 
 3
 00:00:09,370 --> 00:00:11,650
+随时可以打断进行提问，
 feel free to interrupt with questions
 
 4
 00:00:11,650 --> 00:00:14,740
+并且可以让你的摄像头开着，
 and feel free to leave your camera on,
 
 5
 00:00:14,740 --> 00:00:17,450
+这样我们就可以看到彼此。
 so that we can see each other people.
 
 6
 00:00:18,320 --> 00:00:20,870
+这将是另一节关于日志的课，
 This is going to be another lecture about logging,
 
 7
 00:00:21,230 --> 00:00:26,540
+这一次对 Linux 中现在的日志系统的研究，
 this time a case study of the current logging system in Linux's
 
 8
 00:00:26,810 --> 00:00:28,580
+ext3 文件系统，
 ext3 file system,
 
 9
 00:00:28,580 --> 00:00:30,260
+它应用非常广泛，
 which is extremely widely used
 
 10
 00:00:30,620 --> 00:00:35,480
+而且我们尝试涉足一些现实世界的设计问题，
 and we'll try to dip into some of the kind of real-world design problems,
 
 11
 00:00:35,510 --> 00:00:39,870
+高性能文件系统必须处理的，
 that a high performance file system has to deal with,
 
 12
 00:00:39,870 --> 00:00:41,940
+当它将日志添加到文件系统时。
 when it adds logging to the file system.
 
 13
 00:00:42,550 --> 00:00:44,740
+我要花几分钟，
 I'm just gonna go spend a few minutes,
 
 14
 00:00:44,920 --> 00:00:47,890
+回顾一下为什么我们谈论日志，
 basically reviewing why we're talking about logging,
 
 15
 00:00:48,820 --> 00:00:53,500
+我们觉得日志很重要的原因是，
 the reason, that we feel logging is pretty important is that,
 
 16
 00:00:53,500 --> 00:00:56,800
+它是一个非常成功和重要的想法，
 it's been a tremendously successful and important idea,
 
 17
 00:00:57,550 --> 00:01:01,210
+日志是一种神奇的方式，
 it's almost like logging is kind of a magic way
 
 18
 00:01:01,210 --> 00:01:07,270
+将崩溃恢复添加到几乎任何现有存储系统。
 to add crash recovery to any almost any existing storage system.
 
 19
 00:01:07,940 --> 00:01:11,070
+在很多方面是不相关的，
 Sort of, in many ways pretty orthogonal
 
 20
 00:01:11,070 --> 00:01:12,990
+无论你想存储的是什么。
 to whatever it is you're actually trying to store.
 
 21
 00:01:13,410 --> 00:01:18,660
+所以，你可以看到日志应用于大量不同的存储情况，
 And so you see logging applied in a huge number of different storage situations,
 
 22
 00:01:19,200 --> 00:01:21,000
+当然有数据库和文件系统，
 certainly databases and file systems,
 
 23
 00:01:21,000 --> 00:01:23,190
+而且还有许多非常专业的系统，
 but also many very specialized systems,
 
 24
 00:01:23,670 --> 00:01:26,190
+它们需要存储东西并在崩溃后恢复。
 that need to store things and recover after crashes.
 
 25
 00:01:26,460 --> 00:01:30,780
+你还可以看到在分布式系统中大量使用日志，
 You also see logging used a lot in distributed systems,
 
 26
 00:01:30,780 --> 00:01:34,620
+作为从故障中恢复的一种方式，
 as a way of organizing the recovery from failure,
 
 27
 00:01:34,860 --> 00:01:37,980
+因为与其他东西相比，日志是一种结构化的方式，
 because among other things, logging is a structured way of saying,
 
 28
 00:01:37,980 --> 00:01:40,770
+这是崩溃前发生的所有事情，
 well here's all the things that happened just before the crash
 
 29
 00:01:40,770 --> 00:01:42,360
+如果我们能理解它们，
 and if we can understand them,
 
 30
 00:01:42,360 --> 00:01:45,120
+也许我们就能更容易地从崩溃中恢复。
 then maybe we can recover from the crash more easily.
 
 31
 00:01:46,700 --> 00:01:50,180
+再加上有大量有趣的东西可以细想，
 Plus there's a huge amount of interesting stuff to chew on,
 
 32
 00:01:50,210 --> 00:01:56,820
+当你尝试构建高性能日志系统时。
 when you try to build high performance logging systems.
 
 33
 00:01:57,560 --> 00:01:59,060
+就像我几分钟前提到的，
 And as I mentioned a few minutes ago,
 
 34
 00:01:59,060 --> 00:02:03,590
+作为术语，当我们讨论日志时，
 just as a point of terminology when we talk about log,
 
 35
 00:02:03,680 --> 00:02:06,770
+它谈论的事情和今天的读物完全一样，
 it's talking about this exactly the same thing as today's reader,
 
 36
 00:02:06,860 --> 00:02:09,680
+读物说的是 journal 这个词，
 reading was talking about when it said use the word journal,
 
 37
 00:02:09,710 --> 00:02:11,150
+它们是同义词。
 they're just synonyms.
 
 38
 00:02:12,200 --> 00:02:14,630
+此外，今天的读物谈到了
 And furthermore the today's reading talked about
 
 39
 00:02:14,660 --> 00:02:16,700
+在 ext2 中增加 journal ，
 adding a journal to ext2,
 
 40
 00:02:16,970 --> 00:02:20,720
+结果文件系统的现代名称是 ext3 ，
 the modern name for the resulting file system is ext3,
 
 41
 00:02:22,810 --> 00:02:24,820
+我就是这么称呼它的。
 which is how I'm going to refer to it.
 
 42
 00:02:25,840 --> 00:02:29,570
+好的，我想花点时间，
 Okay, I want to spend,
 
 43
 00:02:29,600 --> 00:02:34,700
+我要谈论 ext3 的方式是
 the way I'm going to talk about ext3 is
 
 44
 00:02:35,630 --> 00:02:38,150
+将它与 xv6 进行某种程度的对比，
 by contrasting it to some extent with xv6
 
 45
 00:02:38,150 --> 00:02:42,830
+并解释 ext3 修复一些性能问题的方法，
 and explaining ways in which ext3 fixes some performance problems,
 
 46
 00:02:43,010 --> 00:02:46,640
+xv6 日志具有的问题，
 that xv6 logging has
 
 47
 00:02:46,640 --> 00:02:49,730
+并在过程中改变一些语义，
 and along the way changes a few of the semantic of,
 
 48
 00:02:52,220 --> 00:02:53,720
+在崩溃中会发生什么。
 what happens during crashes.
 
 49
 00:02:55,380 --> 00:03:01,410
+好的，这是 xv6 的日志回顾，
 Alright, so this is xv6 log review,
 
 50
 00:03:01,560 --> 00:03:02,580
+应该记住，
 should remember,
 
 51
 00:03:09,500 --> 00:03:13,640
+这个 xv6 的文件系统磁盘，
 this disk, the file system disk for xv6,
 
 52
 00:03:13,820 --> 00:03:16,850
+你可以认为它有两个部分，
 there's you know you can think of it as having two parts,
 
 53
 00:03:16,850 --> 00:03:19,340
+它上面有一个文件系统树，
 it's got a file system tree on it,
 
 54
 00:03:19,340 --> 00:03:20,960
+有一个根目录，
 with a root directory
 
 55
 00:03:20,960 --> 00:03:25,070
+在根目录下，可能还有其他目录，
 and under the root directory, maybe there's other directories in those,
 
 56
 00:03:25,100 --> 00:03:28,760
+可能是目录一和目录二，
 this might be directory one and directory two,
 
 57
 00:03:28,760 --> 00:03:31,610
+我们可以认为文件系统只是一个数据结构，
 we can think of this as file system is just a data structure,
 
 58
 00:03:31,610 --> 00:03:33,380
+是一个树形结构的数据结构，
 is a tree structure data structure,
 
 59
 00:03:33,650 --> 00:03:38,000
+可能它有文件，位于目录中，
 may be it has files, sitting in the directories
 
 60
 00:03:38,120 --> 00:03:42,950
+每个文件中都有一些块编号，
 and each file has a block number of a bunch of blocks in it
 
 61
 00:03:43,100 --> 00:03:46,130
+还有一些其他的数据，不是树形结构，
 and there's some other data, that's not really tree structure,
 
 62
 00:03:46,130 --> 00:03:50,450
+比如，这里有一个位图，表示每个块，
 like, there's the bitmap, that indicates for every block,
 
 63
 00:03:50,480 --> 00:03:53,750
+它是空闲的还是分配的。
 whether that block is you know free or allocated.
 
 64
 00:03:54,540 --> 00:04:00,420
+索引结点，目录内容和位图块
 And the inodes and the directory contents and the bitmap blocks
 
 65
 00:04:00,420 --> 00:04:02,070
+被称为元数据，
 are going to refer to as metadata,
 
 66
 00:04:02,760 --> 00:04:07,740
+对比保存文件内容的块，我们称为文件内容块。
 contrast blocks that hold file content which we'll call file content blocks.
 
 67
 00:04:08,640 --> 00:04:10,920
+好的，那么除了文件系统，
 Okay, so in addition to the file system,
 
 68
 00:04:11,370 --> 00:04:15,240
+xv6 日志，在磁盘的开头附近，
 xv6 log, near the beginning of the disk
 
 69
 00:04:15,240 --> 00:04:17,640
+xv6 日志相对简单，
 and xv6 log is relatively simple,
 
 70
 00:04:17,640 --> 00:04:19,470
+它有 header 块，
 it has this header block,
 
 71
 00:04:20,990 --> 00:04:27,830
+然后是一些区块，包含块的更新版本。
 and then some number of blocks, that contain updated versions of blocks
 
 72
 00:04:27,830 --> 00:04:31,310
+来自文件系统数据块和元数据块。
 from the file system data blocks and metadata blocks.
 
 73
 00:04:33,510 --> 00:04:36,030
+在这个开始的 header 块中，
 And in this [initial] header block,
 
 74
 00:04:36,060 --> 00:04:38,940
+有一个块编号，
 there's a block numbers,
 
 75
 00:04:39,060 --> 00:04:45,190
+那些日志中的块应该写入的位置，
 where these blocks in the log ought to be written to,
 
 76
 00:04:45,190 --> 00:04:47,530
+比如，第一个应该去块 17 ，
 like maybe the first one should go to block 17
 
 77
 00:04:47,530 --> 00:04:50,260
+然后是 29 ，无论是什么。
 and then 29, who knows whatever it maybe.
 
 78
 00:04:51,550 --> 00:04:52,750
+然后在计算机中，
 And then in the computer,
 
 79
 00:04:54,310 --> 00:04:58,300
+我们有一些用户进程可能调用 write create ，
 we have some user process, that's maybe calling write, create,
 
 80
 00:04:58,300 --> 00:05:00,430
+某些其他修改文件系统的系统调用。
 some other system call that modifies the file system.
 
 81
 00:05:03,110 --> 00:05:06,890
+而且，计算机中有一个块缓存，
 And, there's a block cache in the computer
 
 82
 00:05:06,890 --> 00:05:09,530
+最初 write 只会进入块缓存，
 and initially the writes just go to the block cache,
 
 83
 00:05:13,470 --> 00:05:16,560
+它只是磁盘上块的拷贝，
 it's just copies of block from the disk,
 
 84
 00:05:17,410 --> 00:05:21,880
+所以最初 write 更新文件块或索引节点
 so initially write updates file blocks or inodes
 
 85
 00:05:21,880 --> 00:05:24,190
+或其他写入到那里的任何东西，
 or whatever those writes go there,
 
 86
 00:05:24,190 --> 00:05:26,320
+然后在操作结束时，
 and then at the end of an operation,
 
 87
 00:05:27,490 --> 00:05:28,900
+这些数据块被复制到日志中，
 these blocks are copied to the log
 
 88
 00:05:28,900 --> 00:05:30,550
+当我们复制完所有数据块时，
 and when we've copied all the block's log,
 
 89
 00:05:30,550 --> 00:05:33,540
+然后我们将块编号写入 header 块，
 then we write the block numbers to the header block,
 
 90
 00:05:33,540 --> 00:05:37,980
+表示这个事务更新已完成。
 to indicate that this transactions where is updates is complete.
 
 91
 00:05:39,060 --> 00:05:41,430
+在文件系统的代码中，你会看到，
 And in the code for the file system, you'll see,
 
 92
 00:05:43,240 --> 00:05:47,470
+每个修改文件系统的系统调用，
 that every system call that modifies the file system,
 
 93
 00:05:48,070 --> 00:05:49,420
+某处有一个 begin_op ，
 somewhere has a begin_op,
 
 94
 00:05:49,420 --> 00:05:54,610
+表示将要开始对文件系统的一组更新，
 which says about to start a group of updates to the file system,
 
 95
 00:05:54,790 --> 00:05:57,670
+在我做完之前，不要做它们中的任何一个，
 please don't do any of them until I finished,
 
 96
 00:05:57,790 --> 00:05:58,480
+所以我们有，
 so we have
 
 97
 00:05:58,480 --> 00:06:01,060
+然后有些读取和写入块，
 and then there's a bunch of block reads writes
 
 98
 00:06:01,060 --> 00:06:03,830
+然后是 end_op ，
 and then end_op,
 
 99
 00:06:04,690 --> 00:06:06,760
+它告诉文件系统日志系统
 which tells the file system logging system
 
 100
 00:06:06,970 --> 00:06:09,310
+完全完成我要执行的所有写入。
 completely done all the writes I'm gonna do.
 
 101
 00:06:09,550 --> 00:06:12,940
+所以，在 begin_op 和 end_op 之间，
 So between the begin_op and the end_op,
 
 102
 00:06:12,940 --> 00:06:15,160
+写入仅进入缓存，
 the writes only go to the cache
 
 103
 00:06:15,400 --> 00:06:18,970
+当系统调用进行 end_op 调用时，
 and when the system call makes this end_op call,
 
 104
 00:06:19,180 --> 00:06:24,220
+然后，文件系统将修改后的块从缓存复制到日志中。
 then the file system copies the modified blocks from the cache into the log.
 
 105
 00:06:24,670 --> 00:06:28,780
+在将所有这些修改过的数据块写入日志后，
 And after it's written all these modified blocks into the log,
 
 106
 00:06:28,810 --> 00:06:32,290
+只有这样，文件系统才会将块编号写入
 only then, does the file system write the block numbers
 
 107
 00:06:32,590 --> 00:06:36,040
+单个磁盘中，写入到 header 块。
 in a single disk, right, to the header block.
 
 108
 00:06:36,760 --> 00:06:38,740
+这称为提交点，
 And that's called the commit point,
 
 109
 00:06:38,770 --> 00:06:42,880
+这是文件系统将这些块编号写入 header 块之前的点，
 this is the point before the file system wrote these block numbers to the header block,
 
 110
 00:06:43,120 --> 00:06:44,530
+如果发生了崩溃，
 if the crash had happened,
 
 111
 00:06:44,650 --> 00:06:47,680
+这些写入都不会应用，
 then none of these writes would have been applied,
 
 112
 00:06:48,130 --> 00:06:50,110
+在崩溃和重新启动之后。
 after the crash and reboot.
 
 113
 00:06:50,750 --> 00:06:54,050
+在文件系统写入 header 块的块编号之后，
 After the file system writes these block numbers of the header block,
 
 114
 00:06:54,470 --> 00:06:56,360
+在这个写入完成后，
 after that this write is complete,
 
 115
 00:06:56,390 --> 00:06:57,830
+那么可以保证，
 then it's guaranteed that,
 
 116
 00:06:57,860 --> 00:06:59,390
+即使在这一点上发生崩溃，
 even if there's a crash at this point,
 
 117
 00:06:59,630 --> 00:07:01,820
+恢复软件也会查看日志，
 the recovery software will look at the log,
 
 118
 00:07:01,850 --> 00:07:04,520
+看到在 header 块中有块编号，
 see that there's block numbers in the header block
 
 119
 00:07:04,580 --> 00:07:08,150
+将这些在 header 块中提到的块写入
 and write all these blocks that are mentioned in the header block
 
 120
 00:07:08,180 --> 00:07:11,990
+它们在文件系统的原位置。
 to their home locations in the file system.
 
 121
 00:07:12,960 --> 00:07:15,450
+所以这里是一种技术，
 And so what's going on here is a technique
 
 122
 00:07:15,600 --> 00:07:17,430
+允许所有的写入，
 to allow all of the writes,
 
 123
 00:07:17,430 --> 00:07:20,910
+在 begin_op 和 end_op 之间的系统调用中发生
 that happen in the system call between the begin_op and the end_op
 
 124
 00:07:21,780 --> 00:07:24,540
+是原子的，关于崩溃，
 to be atomic with respect to crashes,
 
 125
 00:07:25,160 --> 00:07:27,440
+要么所有的事情都发生，
 that is either all of them happen,
 
 126
 00:07:28,380 --> 00:07:31,860
+因为文件系统在崩溃之前只写 header 块，
 because the file system got as far as writing the header block before the crash
 
 127
 00:07:32,100 --> 00:07:33,360
+或者它们都没有发生，
 or none of them happen,
 
 128
 00:07:33,980 --> 00:07:37,670
+因为崩溃发生在文件系统写入 header 块之前。
 because the crash happened before the file system wrote the header block.
 
 129
 00:07:39,620 --> 00:07:41,720
+所以重要的是，在崩溃和重启之后，
 And so it's important that after a crash and restart,
 
 130
 00:07:41,720 --> 00:07:44,330
+有一些恢复软件可以运行来读取日志，
 there's some recovery software that runs that reads the log,
 
 131
 00:07:44,420 --> 00:07:45,680
+查看 header 块，
 looks at the header block
 
 132
 00:07:45,710 --> 00:07:49,490
+并确定块编号是不是在 header 块中，
 and decides is the header block actually block numbers in it or not,
 
 133
 00:07:49,580 --> 00:07:50,510
+如果是，
 if it does,
 
 134
 00:07:50,990 --> 00:07:55,400
+写操作可能会将所有这些数据块重写到它们的原位置，
 writes possibly rewrite all these blocks to their home locations,
 
 135
 00:07:55,580 --> 00:07:58,130
+如果 header 块中没有任何块编号，
 if the header blocks doesn't have any block numbers in it,
 
 136
 00:07:58,130 --> 00:07:59,570
+则恢复软件不会执行任何操作。
 then the recovery software does nothing.
 
 137
 00:08:02,260 --> 00:08:03,790
+关于这个快速复习，有什么问题？
 Any questions about this quick review?
 
 138
 00:08:10,740 --> 00:08:14,790
+好的，有几点非常重要，
 Okay, there's a couple of super important points,
 
 139
 00:08:16,660 --> 00:08:21,820
+记住 xv6 ，甚至大多数日志记录系统。
 to remember about xv6 and indeed most logging systems.
 
 140
 00:08:21,850 --> 00:08:24,610
+一个是 xv6 以及所有日志系统
 One is that xv6 all logging systems,
 
 141
 00:08:24,610 --> 00:08:27,280
+都遵循所谓的预写规则。
 essentially obey what's called the write-ahead rule.
 
 142
 00:08:28,530 --> 00:08:35,510
+也就是说，当你有一些操作的一些写入，
 That is whenever you have a bunch of writes done by some operation
 
 143
 00:08:35,510 --> 00:08:37,550
+而这些写入都需要是原子的，
 and those writes all need to be atomic,
 
 144
 00:08:39,760 --> 00:08:47,220
+系统必须将所有这些更新的的数据写入日志，
 the system has to write all of these updated, all the updated data to the log,
 
 145
 00:08:47,340 --> 00:08:50,730
+在允许将应用这些更新之前，
 before it is allowed to apply any of those updates
 
 146
 00:08:50,760 --> 00:08:52,590
+到文件系统中的原位置，
 to the home locations in the file system,
 
 147
 00:08:52,770 --> 00:08:56,520
+也就是说，我们需要预先声明所有更新，
 that is that we're required to sort of pre declare all the updates
 
 148
 00:08:56,520 --> 00:08:59,400
+我们想要是原子的，
 that we want to have the atomic,
 
 149
 00:08:59,430 --> 00:09:00,570
+在日志中预先声明它们，
 pre declare them in the log,
 
 150
 00:09:00,570 --> 00:09:03,060
+在我们可以将任何一个应用到文件系统之前，
 before we can apply any of them to the file system,
 
 151
 00:09:03,270 --> 00:09:04,650
+即所谓的预写规则。
 as called the write-ahead rule.
 
 152
 00:09:05,970 --> 00:09:11,790
+这是日志允许崩溃恢复的基础。
 This is really the foundation of how logging allows crash recovery.
 
 153
 00:09:12,360 --> 00:09:15,660
+所以，预先规则允许这些更新
 So the write-head rule allows this collection of updates
 
 154
 00:09:15,660 --> 00:09:18,610
+相对于崩溃看起来是原子的。
 to appear atomic with respect to crashes.
 
 155
 00:09:18,970 --> 00:09:21,310
+还有一条我没有谈到的规则，
 There's another rule I haven't talked about,
 
 156
 00:09:23,800 --> 00:09:28,910
+那就是我们不能释放或重复使用日志，
 which is that we can't free or reuse the log,
 
 157
 00:09:28,910 --> 00:09:31,730
+xv6 对每个系统调用反复使用日志，
 you know we xv6 use the log over and over again,
 
 158
 00:09:31,730 --> 00:09:32,930
+每个系统调用一次，
 ones for every system call,
 
 159
 00:09:32,990 --> 00:09:34,970
+我们不允许重用日志，
 we cannot allow to reuse the log,
 
 160
 00:09:35,000 --> 00:09:37,370
+在日志中的所有写入
 until all of the writes that are in the log
 
 161
 00:09:37,370 --> 00:09:40,070
+都已经写入磁盘上的原位置之前。
 have actually been written to their home locations on the disk.
 
 162
 00:09:40,510 --> 00:09:43,570
+所以这也是我所说的释放法则，
 So this is also what I called freeing rule,
 
 163
 00:09:47,690 --> 00:09:54,580
+也就是说，我们不能覆盖或重用日志，直到，
 which says, we can't overwrite or reuse the log until,
 
 164
 00:09:54,580 --> 00:09:58,330
+或者部分日志包含指定事务，
 or the part of log that holds a particular transaction,
 
 165
 00:09:58,570 --> 00:10:00,340
+一组需要原子的写入，
 you know set of writes that need to be atomic,
 
 166
 00:10:00,400 --> 00:10:01,930
+我们不能重用这部分日志，
 we can't reuse that part of the log
 
 167
 00:10:01,930 --> 00:10:03,340
+直到所有写入，
 until all the writes,
 
 168
 00:10:03,520 --> 00:10:04,690
+不是部分日志，
 that are not part of the log,
 
 169
 00:10:04,690 --> 00:10:08,060
+所有它们都被反映到
 all of them have been reflected into
 
 170
 00:10:08,060 --> 00:10:13,070
+文件系统中的原位置。
 the actual home location in the file system.
 
 171
 00:10:13,280 --> 00:10:15,200
+所以， xv6 中的事务，
 So the deal in xv6 that,
 
 172
 00:10:15,200 --> 00:10:18,740
+end_op 触发了大量工作，
 what end_op does actually triggers a whole lot of work, first
 
 173
 00:10:18,740 --> 00:10:22,640
+而文件系统，正如我提到的那样，写入所有日志，
 and the file system, you know as I mentioned writes all the logs,
 
 174
 00:10:22,640 --> 00:10:25,600
+日志写入 header 日志，写入 header 块，
 the log writes the header log, writes the header block,
 
 175
 00:10:25,630 --> 00:10:30,700
+然后文件系统将所有这些块写入它们的原始位置，
 and then the file system writes all these blocks their home locations,
 
 176
 00:10:30,700 --> 00:10:33,310
+这是假设不发生崩溃的情况下。
 this is assuming no crash which is the ordinary case.
 
 177
 00:10:33,670 --> 00:10:36,550
+所以文件系统第二次写入时，
 So then the file system write the second time
 
 178
 00:10:36,550 --> 00:10:39,400
+所有块到它们在磁盘上的原位置，
 you know all these blocks to the home locations on the disk,
 
 179
 00:10:39,400 --> 00:10:42,700
+然后在所有原位置都被更新之后，
 and then after all the home locations have been updated,
 
 180
 00:10:42,760 --> 00:10:44,740
+只有在那时，文件系统才继续，
 only then does the file system go,
 
 181
 00:10:45,040 --> 00:10:50,230
+xv6 文件系统从 header 块中擦除这些块编号，
 xv6 file system erase these block numbers from the header block,
 
 182
 00:10:50,230 --> 00:10:52,930
+表明我们已完成这个事务，
 to indicate that we're done with this transaction
 
 183
 00:10:53,170 --> 00:10:54,670
+并且可以重用日志。
 and we can reuse the log.
 
 184
 00:10:54,880 --> 00:10:57,670
+删除块编号是至关重要的，
 And it's critical to erase the block numbers,
 
 185
 00:10:57,730 --> 00:10:59,710
+在向日志中写入任何新内容之前，
 before writing anything new to the log,
 
 186
 00:10:59,710 --> 00:11:01,240
+因为我们不想处于这样的情况，
 because we wouldn't want to be in a position,
 
 187
 00:11:01,240 --> 00:11:04,960
+在 header 中先前事务的一些块编号，
 where there were some block numbers from a previous transaction in the header,
 
 188
 00:11:05,110 --> 00:11:08,710
+但是块来自新的事务，
 but blocks from a new transaction,
 
 189
 00:11:09,260 --> 00:11:11,840
+可能是不同的块编号在日志中，
 presumably different block numbers sitting in the log,
 
 190
 00:11:12,170 --> 00:11:15,590
+因为崩溃可能会应用这些内容
 because then a crash would might apply these contents
 
 191
 00:11:15,890 --> 00:11:20,120
+应用留在 header 块中过期的块编号。
 to the stale block numbers left over in the header block.
 
 192
 00:11:20,150 --> 00:11:21,740
+所以你先删除 header 块，
 So if you erase the header block first,
 
 193
 00:11:21,920 --> 00:11:23,180
+所以这是一条释放规则，
 so this is freeing rule,
 
 194
 00:11:23,180 --> 00:11:27,680
+规定在我们被允许从日志中删除事务之前，
 that says before we're allowed to erase a transaction from the log,
 
 195
 00:11:27,710 --> 00:11:29,660
+我们必须将所有这些块写入文件系统。
 we have to write all these blocks to the file system.
 
 196
 00:11:31,920 --> 00:11:33,870
+好的，这样做的最终效果是
 Okay, so the net effect of this is
 
 197
 00:11:33,870 --> 00:11:39,550
+复杂的或需要多次写入的文件系统更新，
 to make file system updates which can be complicated and require many writes
 
 198
 00:11:39,580 --> 00:11:42,580
+实际效果是使每个系统调用是原子的，
 and the net effect is to make each system call essentially be atomic,
 
 199
 00:11:43,060 --> 00:11:45,610
+对于崩溃来说，全部写入或没有写入。
 all its writes or none of them with respect to crashes.
 
 200
 00:11:47,680 --> 00:11:55,130
+好的，日志方案通向 Linux 的桥梁是
 Okay, so, so the sort of bridge to Linux is logging scheme,
 
 201
 00:11:55,130 --> 00:11:58,220
+是关于 xv6 日志有什么问题，
 is the question of what's wrong with xv6 logging,
 
 202
 00:11:58,220 --> 00:12:02,090
+为什么 Linux 不使用与 xv6 完全相同的方案。
 why doesn't Linux just use exactly the same scheme, the xv6 does.
 
 203
 00:12:02,720 --> 00:12:04,370
+答案是它很慢，
 And the answer is basically that it's slow,
 
 204
 00:12:04,490 --> 00:12:06,710
+xv6 方案相当慢，
 the xv6 scheme is quite slow,
 
 205
 00:12:08,240 --> 00:12:09,140
+每个系统调用，
 every system call,
 
 206
 00:12:09,140 --> 00:12:12,830
+在 xv6 中，比如 write 或 create 这样的系统调用返回前，
 before a system call like write or create can return in xv6,
 
 207
 00:12:12,920 --> 00:12:16,850
+我刚才说的这些东西都要完成，
 all of this stuff I just talked about has to complete,
 
 208
 00:12:16,910 --> 00:12:22,340
+所以，在你的文件创建系统调用返回用户空间之前，
 so before your file creation system call can return to user space,
 
 209
 00:12:22,990 --> 00:12:25,810
+它必须完成 end_op 所做的所有工作，
 the it has to finish all the stuff that end_op does,
 
 210
 00:12:25,810 --> 00:12:27,610
+这意味着将每个块写入日志，
 which means write every block to the log,
 
 211
 00:12:27,610 --> 00:12:28,780
+写入 header 块，
 write the header block,
 
 212
 00:12:28,840 --> 00:12:31,090
+写入所有块到这里的位置，
 write all those blocks to the locations here,
 
 213
 00:12:31,090 --> 00:12:32,200
+并删除 header 块，
 and erase the header block,
 
 214
 00:12:32,200 --> 00:12:33,370
+然后就可以返回了。
 and then you can return.
 
 215
 00:12:33,400 --> 00:12:34,840
+在此期间，
 And during that time,
 
 216
 00:12:35,360 --> 00:12:38,330
+不仅每个系统调用需要很长时间，
 not only does each system call take a long time,
 
 217
 00:12:38,330 --> 00:12:41,210
+而且文件系统中不会发生其他事情，
 but nothing else can happen in the file system,
 
 218
 00:12:41,240 --> 00:12:44,330
+当所有系统调用提交，
 while any system call is committing
 
 219
 00:12:44,660 --> 00:12:47,300
+将其块写入其原位置。
 and then writing its blocks to their home location.
 
 220
 00:12:47,300 --> 00:12:49,820
+所以系统调用一次只发生一个，
 So the system calls really occur one at a time
 
 221
 00:12:49,940 --> 00:12:53,600
+并且每个系统调用都需要许多磁盘写入。
 and each system call requires many disk writes.
 
 222
 00:12:54,500 --> 00:12:58,520
+每个系统调用必须
 And the technical term for every system call has to
 
 223
 00:12:58,520 --> 00:13:02,360
+等待其所有磁盘写入完成的术语称为同步。
 wait for all of its disk writes to complete is called synchronous.
 
 224
 00:13:02,840 --> 00:13:10,940
+嗯，这个，可能拼写不一样。
 Um, this, probably spelled differently from that.
 
 225
 00:13:11,210 --> 00:13:14,180
+无论如何，对于磁盘来说， xv6 系统调用是同步的。
 Anyway, xv6 system call are synchronous with respect to disk.
 
 226
 00:13:14,180 --> 00:13:15,140
+所以它们非常慢，
 So they're very very slow,
 
 227
 00:13:15,350 --> 00:13:19,220
+对于机械磁盘更是慢的可怕，
 and they were horribly slow with mechanical hard drives,
 
 228
 00:13:19,220 --> 00:13:23,090
+因为每一次写入都需要 10 毫秒。
 because each write you know basically take ten milliseconds.
 
 229
 00:13:23,270 --> 00:13:24,980
+我们谈论的是许多写入的系统调用，
 We're talking about many writes for system calls,
 
 230
 00:13:24,980 --> 00:13:30,680
+所以， xv6 在一秒钟内只能执行几个文件系统修改系统调用。
 so xv6 could only do a few file system modifying system calls for a second.
 
 231
 00:13:31,240 --> 00:13:35,260
+我想如果我们运行 xv6 固态硬盘速度更快，
 And I wonder if we ran xv6 solid state drive to be faster,
 
 232
 00:13:35,260 --> 00:13:38,050
+但仍然没有达到应有的效率。
 but still not nearly as efficient as it could be.
 
 233
 00:13:39,260 --> 00:13:42,200
+另一个需要注意的更详细的事情是，
 Another more detail thing to notice about this is
 
 234
 00:13:42,200 --> 00:13:44,990
+每个块在 xv6 方案中写入两次，
 that every block is written twice in the xv6 scheme,
 
 235
 00:13:45,710 --> 00:13:47,120
+它第一次写入日志，
 it's written once to the log
 
 236
 00:13:47,120 --> 00:13:49,310
+然后第二次写入磁盘。
 and then at second time to the disk.
 
 237
 00:13:49,790 --> 00:13:51,140
+所以这也是，
 And so this is also something that,
 
 238
 00:13:51,820 --> 00:13:53,020
+有好的理由，
 there's good reasons for that,
 
 239
 00:13:53,020 --> 00:13:57,640
+但是 ext3 可以部分修复这个问题。
 but it's something that ext3 partially fixes.
 
 240
 00:13:59,730 --> 00:14:02,250
+好的，那么在 Linux 上，
 Okay, so on the Linux is,
 
 241
 00:14:02,280 --> 00:14:05,820
+根据今天的论文，它是，
 under the today's reading and it's sort of,
 
 242
 00:14:06,420 --> 00:14:12,050
+我要谈谈这个 ext3 文件系统，
 I'm going to talk about the this ext3 file system,
 
 243
 00:14:12,050 --> 00:14:16,790
+今天的论文经过几年的变化，
 which is what the today's reading had turned into a few years later
 
 244
 00:14:16,790 --> 00:14:18,110
+在更多的发展之后，
 after a bit more development,
 
 245
 00:14:19,020 --> 00:14:21,000
+并得到广泛应用。
 and was widely used.
 
 246
 00:14:22,520 --> 00:14:27,000
+好的，所以 ext3 ，
 Okay, so ext3,
 
 247
 00:14:29,660 --> 00:14:34,640
+它是对之前的无日志文件系统的修改。
 it's actually a modification previous logless file system.
 
 248
 00:14:34,640 --> 00:14:39,640
+所以，他们真的利用现有存储系统，
 So they really did play this game of taking existing storage system
 
 249
 00:14:39,640 --> 00:14:41,620
+并在它上面加上日志，
 and sort of layering logging on top of it,
 
 250
 00:14:41,620 --> 00:14:48,610
+使底层 ext2 文件系统几乎没有修改，
 in a way that left the underlying ext2 file system almost unmodified,
 
 251
 00:14:48,610 --> 00:14:50,800
+虽然不是完全没有。
 although not quite.
 
 252
 00:14:50,950 --> 00:14:54,970
+所以，从某种意义上说，日志是一种非常容易，
 So in a sense, the logging was a very kind of easy,
 
 253
 00:14:55,240 --> 00:14:57,700
+至少，对它们来说升级很容易。
 you know at least in principle, easy upgrade for them.
 
 254
 00:14:58,490 --> 00:15:10,240
+ex3 保持着类似于 xv6 的数据结构，
 Ex3 keeps data structures that are similar to xv6's,
 
 255
 00:15:10,240 --> 00:15:15,790
+在内存中，有一个块缓存，一个回写缓存，
 in memory, there's a block cache, a write back cache,
 
 256
 00:15:19,450 --> 00:15:21,100
+这里有一些缓存块，
 there's a bunch of cache blocks,
 
 257
 00:15:21,920 --> 00:15:22,970
+其中一些是干净的，
 some of them are clean,
 
 258
 00:15:22,970 --> 00:15:24,290
+因为它们没有被修改，
 in the sense that they haven't been modified,
 
 259
 00:15:24,290 --> 00:15:26,000
+因为它们与磁盘上的内容完全相同，
 since you know identical to what's on the disk,
 
 260
 00:15:26,000 --> 00:15:26,870
+有一些是脏的，
 some of them dirty,
 
 261
 00:15:26,870 --> 00:15:28,640
+它们被写入，
 in the sense that they've been written to,
 
 262
 00:15:28,880 --> 00:15:30,320
+自从从磁盘读取它们，
 since they were read from the disk
 
 263
 00:15:30,560 --> 00:15:31,940
+有一些人是固定的，
 and some of them were pinned
 
 264
 00:15:31,940 --> 00:15:34,520
+因为它们不允许被写回磁盘，
 and that they're not allowed to be written back to disk,
 
 265
 00:15:34,670 --> 00:15:36,200
+因为回写规则，
 because of the write back rule,
 
 266
 00:15:36,440 --> 00:15:40,520
+我是说因为释放规则，预写规则。
 I mean because of the freeing rule, the write-ahead rule.
 
 267
 00:15:41,130 --> 00:15:46,800
+ext2 还维护一些事务信息，
 Ext2 also cause maintain some transaction information,
 
 268
 00:15:49,840 --> 00:15:55,060
+你可以维护多个事务的信息，
 you can maintain information actually about multiple transactions
 
 269
 00:15:55,060 --> 00:15:58,420
+它们在不同运行阶段并行。
 that are concurrently in different stages of execution.
 
 270
 00:15:58,570 --> 00:16:01,960
+所以，可能有许多不同的事务，
 So, there might be a number of different transactions,
 
 271
 00:16:01,960 --> 00:16:05,740
+ext3 系统跟踪着，
 that the ext3 system is keeping track of,
 
 272
 00:16:06,250 --> 00:16:08,860
+每个事务都有一个序列号，
 each one, each transaction has a sequence number,
 
 273
 00:16:12,460 --> 00:16:16,780
+事务系统的一些块编号，
 a set of block numbers that the transaction system is
 
 274
 00:16:16,810 --> 00:16:21,880
+日志系统记住事务修改的块，
 logging system is remembering are blocks modified by that transaction,
 
 275
 00:16:22,210 --> 00:16:26,600
+所以这是一组块编号。
 so these are set of block numbers.
 
 276
 00:16:27,400 --> 00:16:29,800
+这是缓存块，
 And this really refers to cache blocks,
 
 277
 00:16:29,800 --> 00:16:33,280
+因为任何修改至少开始只发生在缓存中。
 because any modifications at least initially you know happen only in the cache.
 
 278
 00:16:33,820 --> 00:16:36,280
+然后是一组被称为 handle 的东西，
 And then a set of what are called handles,
 
 279
 00:16:39,970 --> 00:16:44,380
+它们是有关仍在并发执行的系统调用的信息，
 which are information about system calls that are still concurrently executing
 
 280
 00:16:44,470 --> 00:16:46,540
+并且作为事务的一部分，
 and as part of this transaction
 
 281
 00:16:46,540 --> 00:16:49,480
+以及读取和写入缓存块。
 and reading and writing cache blocks.
 
 282
 00:16:51,000 --> 00:16:56,840
+在磁盘上，
 And on the disk, on the disk,
 
 283
 00:16:56,840 --> 00:17:00,140
+就像 xv6 一样，有通常的文件系统树，
 just like xv6, there's the usual file system tree,
 
 284
 00:17:00,720 --> 00:17:03,810
+索引节点目录块和文件等等，
 inode directory blocks and files and whatnot,
 
 285
 00:17:04,050 --> 00:17:07,500
+还有一些位图块
 and there's bitmap blocks
 
 286
 00:17:07,650 --> 00:17:13,050
+表示每个数据块是否已分配，
 indicating you know whether each block is data block is allocated or free
 
 287
 00:17:13,530 --> 00:17:17,190
+这些就是我所说的文件系统数据块的原位置，
 and so these are what I'll be calling the home locations of file system blocks
 
 288
 00:17:17,580 --> 00:17:23,270
+然后在磁盘的指定部分，是日志。
 and then on a sort of designated part of the disk, there's the log.
 
 289
 00:17:25,510 --> 00:17:27,760
+目前为止，这与 xv6 非常相似，
 And so, so far this is pretty similar to xv6,
 
 290
 00:17:27,790 --> 00:17:32,160
+主要区别在于 ext3 能够
 the main difference is the ext3's ability
 
 291
 00:17:32,160 --> 00:17:36,270
+同时跟踪多个事务
 to keep track of multiple transactions at the same time
 
 292
 00:17:36,270 --> 00:17:39,060
+在其执行的不同阶段。
 in different stages of their execution.
 
 293
 00:17:42,290 --> 00:17:47,960
+现在我想更仔细地看看 ext3 中的日志，
 Now, I want to look more closely at what's inside the log in ext3,
 
 294
 00:17:47,960 --> 00:17:51,770
+与 xv6 日志略有不同。
 is a bit different from what's in the xv6 log.
 
 295
 00:17:58,730 --> 00:18:00,260
+有一种日志格式，
 There's a log format,
 
 296
 00:18:04,010 --> 00:18:08,000
+在日志的开头，有一些东西叫做超级块，
 at the beginning of the log, there's something called the super block,
 
 297
 00:18:11,080 --> 00:18:14,820
+这是日志超级块，
 and the super block, this is the log super block
 
 298
 00:18:14,820 --> 00:18:17,010
+与文件系统的超级块不同。
 different from the file system super block.
 
 299
 00:18:18,290 --> 00:18:27,020
+日志超级块包含日志中第一个有效事务的偏移量和序列号，
 The log super block contains the offset and sequence number of the first valid transaction in the log,
 
 300
 00:18:27,050 --> 00:18:28,340
+所以会有一个偏移量，
 so it's gonna have an offset,
 
 301
 00:18:28,990 --> 00:18:31,780
+只是在日志中的一个字节数，块编号，
 just a byte number, block number in the log
 
 302
 00:18:31,780 --> 00:18:33,730
+然后是这个序列号，
 and then this lo- sequence number,
 
 303
 00:18:33,730 --> 00:18:37,060
+记得我说过每个事务都有自己的序列号，
 remember I said that every transaction has its own sequence number,
 
 304
 00:18:37,240 --> 00:18:38,950
+然后剩下的日志，
 and then the rest of the log,
 
 305
 00:18:38,950 --> 00:18:43,570
+日志只是磁盘上已知大小的一串连续数据块。
 the log is just a bunch of sequential blocks on disks of a known size.
 
 306
 00:18:46,150 --> 00:18:49,180
+每个事务，剩下的日志包含事务，
 Every transaction, the rest of the log consists of transactions,
 
 307
 00:18:49,210 --> 00:18:52,420
+每个事务包含一个描述块，
 each transaction consists of a descriptor block,
 
 308
 00:18:55,510 --> 00:18:59,440
+包含块编号，
 which contains block numbers just as in the,
 
 309
 00:19:00,300 --> 00:19:04,180
+非常像 xv6 中的 header 块。
 much like the header block in the xv6.
 
 310
 00:19:04,180 --> 00:19:05,830
+然后，
 And then the set of,
 
 311
 00:19:05,830 --> 00:19:07,630
+对于每个块编号，
 for each of these block numbers,
 
 312
 00:19:07,630 --> 00:19:13,370
+实际更新的内容块对应于块编号，
 the actual updated content block corresponding that block number
 
 313
 00:19:13,370 --> 00:19:17,180
+最后，对于完成并提交的事务，
 and then finally for transaction that's actually finished and committed,
 
 314
 00:19:17,600 --> 00:19:19,250
+这里会有一个提交块，
 there'll be a commit block,
 
 315
 00:19:22,590 --> 00:19:25,410
+这是日志中一个单独的块。
 this is a separate block in the log.
 
 316
 00:19:26,380 --> 00:19:30,430
+因为可以有多个事务日志，
 And because there can be more than one transaction log,
 
 317
 00:19:30,430 --> 00:19:36,310
+那个提交块后面可能是下一个描述块，
 that commit block may be followed by the next transaction's descriptor block
 
 318
 00:19:36,580 --> 00:19:38,110
+然后是一些数据块，
 and then some data blocks
 
 319
 00:19:38,110 --> 00:19:43,150
+然后也许下一个事务的提交块。
 and then maybe the next transmission, transaction's commit block.
 
 320
 00:19:44,610 --> 00:19:45,720
+所以我们有多个，
 So we have multiple,
 
 321
 00:19:46,110 --> 00:19:47,250
+日志文件可能相当长，
 log file can be quite long
 
 322
 00:19:47,250 --> 00:19:49,770
+并包含多个事务。
 and contain many transactions in it.
 
 323
 00:19:52,600 --> 00:19:54,430
+所以我们可以可以，
 So this we can think of this
 
 324
 00:19:54,460 --> 00:19:56,980
+它们之间的偏移量和序列号，
 offset and sequence numbers basically between them,
 
 325
 00:19:57,100 --> 00:20:00,810
+指向最开始的，
 pointing to at the very, the first
 
 326
 00:20:00,960 --> 00:20:06,750
+编号最小的有效事务日志的开头。
 the beginning of the earliest lowest numbered valid transaction log.
 
 327
 00:20:10,950 --> 00:20:15,180
+这里的一些小细节会很重要，
 A little detail here that will become important a little while,
 
 328
 00:20:15,180 --> 00:20:19,230
+这些是描述符块和提交块，
 is that these the descriptor blocks and the commit blocks,
 
 329
 00:20:20,760 --> 00:20:24,510
+为了能够将它们与数据块区分，
 in order to be able to help distinguish them from data, from data blocks,
 
 330
 00:20:24,600 --> 00:20:27,570
+如果它们在崩溃和恢复后扫描日志时，
 if when they're scanning log after a crash and recovery,
 
 331
 00:20:27,660 --> 00:20:31,830
+提交块的描述以魔数开始，
 the description of the commit blocks start with a magic number,
 
 332
 00:20:31,830 --> 00:20:34,810
+它是一个 32 位数，
 which is just some 32 bit number,
 
 333
 00:20:34,810 --> 00:20:40,230
+在数据中不太可能发生，
 that is unlikely to occur in data,
 
 334
 00:20:41,350 --> 00:20:48,320
+帮助日志软件区分描述符和提交块与数据块。
 and that helps the log software distinguish descriptor and commit blocks from data blocks.
 
 335
 00:20:52,460 --> 00:20:55,670
+好的，记住这个结构，
 Okay, with this in mind, with this structure in mind,
 
 336
 00:20:55,670 --> 00:21:00,950
+我要谈谈 ext3 获得良好性能的高级方法。
 I'm going to talk about the high-level the ways, that ext3 gets good performance.
 
 337
 00:21:00,950 --> 00:21:02,660
+有三个主要原因。
 And there's really three main.
 
 338
 00:21:02,780 --> 00:21:04,940
+但是，有一个问题，
 But, a question,
 
 339
 00:21:05,090 --> 00:21:10,370
+是否有可能至少该系统在提交块之前有描述符块，
 is it possible for at least this system to have a descriptor block before they commit block,
 
 340
 00:21:10,370 --> 00:21:12,800
+比如两个事务同时进行。
 let's say two transactions going on at the same time.
 
 341
 00:21:13,930 --> 00:21:18,120
+日志中可以有多个事务。
 There can be multiple transactions in the log.
 
 342
 00:21:19,160 --> 00:21:22,730
+在下一个事务开始之前，这个事务完成。
 That's a transaction to finish before the next one can start.
 
 343
 00:21:23,210 --> 00:21:25,490
+是的，我们正在讨论这件事，
 Yeah, we're talking a moment about that,
 
 344
 00:21:25,490 --> 00:21:27,230
+但是是这样的，
 but it is the case,
 
 345
 00:21:27,230 --> 00:21:33,760
+是的，一次只有一个未完成事务，
 yes, that there's there's only one open transaction at a time,
 
 346
 00:21:34,150 --> 00:21:38,160
+这张图片不太合适，
 and this is really not quite the right picture for that,
 
 347
 00:21:38,160 --> 00:21:39,840
+因为当前打开的事务，
 because the current open transaction,
 
 348
 00:21:40,140 --> 00:21:46,470
+当前打开的事务是系统调用正在向其中执行写入的事务，
 the current open transaction is the transaction into which system calls are performing their writes
 
 349
 00:21:47,310 --> 00:21:50,550
+所以当前打开的事务只存在于内存中，
 and so the current open transaction really only exists in memory,
 
 350
 00:21:51,670 --> 00:21:54,760
+因为当前的系统调用是更新，
 and because current system calls are sort of updating,
 
 351
 00:21:54,820 --> 00:21:59,110
+它们只是更新内存中的文件系统块缓存块，
 their just updating block the cached block file system blocks in memory,
 
 352
 00:21:59,470 --> 00:22:06,770
+当 ext3 系统决定结束当前打开的事务时，
 when the ext3 system decides to finished the current open transaction,
 
 353
 00:22:07,370 --> 00:22:08,750
+在它决定结束时，
 you know after it decides to finish it,
 
 354
 00:22:08,930 --> 00:22:10,400
+它会做两件事，
 it'll do two things,
 
 355
 00:22:10,400 --> 00:22:12,470
+一个是它启动一个新的打开的事务，
 one is it will start a new open transaction,
 
 356
 00:22:12,470 --> 00:22:13,790
+也就是下一个事务，
 which will be the next transaction
 
 357
 00:22:13,880 --> 00:22:19,130
+然后它写入刚刚完成的事务，
 and it will then write the the just finished transaction,
 
 358
 00:22:19,370 --> 00:22:21,890
+开始将刚刚完成的事务写入磁盘，
 start writing with just finished transactions to disk,
 
 359
 00:22:21,890 --> 00:22:23,030
+可能需要相当长的时间。
 may actually take quite a while.
 
 360
 00:22:24,080 --> 00:22:29,690
+所以，整个故事是，
 So, so you know the full story is that,
 
 361
 00:22:29,690 --> 00:22:31,610
+有一些更老的事务在磁盘上，
 there's a bunch of older transactions on disk,
 
 362
 00:22:31,610 --> 00:22:33,020
+所有都是关闭的，
 that all of which are closed
 
 363
 00:22:33,200 --> 00:22:37,430
+加上一个在内存中打开的事务。
 plus one open transaction really only exists in memory.
 
 364
 00:22:38,690 --> 00:22:39,620
+并且至少最开始，
 And at least initially,
 
 365
 00:22:39,620 --> 00:22:41,840
+磁盘上的这些事务
 these transactions that are on disk,
 
 366
 00:22:42,520 --> 00:22:46,450
+可能仅以日志记录的形式存在，
 may only exist in the form of the log records
 
 367
 00:22:46,480 --> 00:22:49,540
+还没有写到它们的原地址，
 and haven't initially at least been written to their home locations
 
 368
 00:22:49,540 --> 00:22:51,340
+然后一段时间后，
 and then after a while in the background,
 
 369
 00:22:51,580 --> 00:22:54,610
+从最早的事务开始，
 the starting with the oldest transaction,
 
 370
 00:22:54,820 --> 00:22:58,540
+日志系统会写入，
 the logging system will you know write these,
 
 371
 00:22:59,380 --> 00:23:02,080
+将日志中的这些更新块写入它们的原位置，
 update blocks in the log to their home locations
 
 372
 00:23:02,080 --> 00:23:05,500
+然后，一旦每个完整的事务完成，
 and then once that's been done for each complete transaction,
 
 373
 00:23:05,560 --> 00:23:10,760
+然后，日志系统可以释放并重用日志中的这些空间，
 then the logging system can free and reuse this space in the log
 
 374
 00:23:11,120 --> 00:23:12,770
+所以这是一个环形的日志，
 and so this is really a circular log,
 
 375
 00:23:12,770 --> 00:23:15,590
+当你到达日志末尾时，
 when you get to the end of the log,
 
 376
 00:23:15,590 --> 00:23:20,660
+日志系统开始使用开头的块，
 the logging system start using the blocks at the beginning
 
 377
 00:23:20,720 --> 00:23:23,450
+你必须释放它们，
 and you have to free them,
 
 378
 00:23:24,050 --> 00:23:26,150
+将它们写入原位置来释放这些块，
 free these blocks by writing them to their home locations,
 
 379
 00:23:26,150 --> 00:23:27,080
+然后才能使用它们。
 before it can be used.
 
 380
 00:23:29,590 --> 00:23:30,160
+好的。
 Okay.
 
 381
 00:23:31,110 --> 00:23:35,790
+好的，有三种方式可以让 ext3 获得良好性能，
 Okay, so there's three ways that the system gets ext3 gets good performance,
 
 382
 00:23:36,210 --> 00:23:40,410
+一个是它有异步系统调用，
 one is that it has asynchronous system calls,
 
 383
 00:23:40,410 --> 00:23:44,580
+也就是系统调用在写磁盘之前就返回，
 that is system calls return before they've written the disk,
 
 384
 00:23:44,610 --> 00:23:49,020
+系统调用只是更新内存中的缓存块，然后返回，
 the system call just updates cache blocks in memory, and then returns,
 
 385
 00:23:49,020 --> 00:23:50,640
+不需要写入磁盘，
 never never has to write the disk,
 
 386
 00:23:50,640 --> 00:23:52,140
+不需要等待磁盘写入，
 never has to wait for disk writes,
 
 387
 00:23:52,680 --> 00:23:54,330
+虽然需要等待磁盘读取。
 although may wait for disk reads.
 
 388
 00:23:55,470 --> 00:23:58,860
+下一个获得高性能方法是批处理，
 The next big idea for performance is batching,
 
 389
 00:24:01,690 --> 00:24:05,560
+我们可以将多个系统调用在单个事务中批量处理。
 we can batch many system calls into a single transaction.
 
 390
 00:24:06,010 --> 00:24:08,980
+最后一个获得高性能的方法是并发。
 And the final big idea for performance is concurrency.
 
 391
 00:24:12,480 --> 00:24:13,560
+这些是所有的事情，
 And these are all the things,
 
 392
 00:24:13,560 --> 00:24:18,900
+ext3 做的，而 xv6 没有做的事情。
 these are basically the things that ext3 does, that xv6 doesn't do.
 
 393
 00:24:20,270 --> 00:24:24,560
+好的，我将分别谈谈这三个高性能技术。
 Okay, so I'm gonna talk about each one of these three performance techniques.
 
 394
 00:24:28,170 --> 00:24:31,530
+抱歉，我想问一下批处理的事，
 Oh, sorry, I wanted to ask about batching,
 
 395
 00:24:32,640 --> 00:24:36,450
+我想 xv6 允许多个系统调用
 I think xv6 allow for there to be multiple system calls
 
 396
 00:24:36,450 --> 00:24:42,720
+同时执行 start_op end_op ，
 that do start_op end_op, like at kind of the same time,
 
 397
 00:24:42,780 --> 00:24:46,110
+然后它们一起提交。
 so then they will commit together.
 
 398
 00:24:46,230 --> 00:24:49,050
+是的， xv6 是有限数量的批处理。
 Yeah, that's true, xv6 is a limited amount of batching.
 
 399
 00:24:50,370 --> 00:24:52,110
+好的，谢谢。
 Right, thank you.
 
 400
 00:24:56,340 --> 00:25:03,920
+好的，那么第一个，异步系统调用，
 Okay, so first, asynchronous system calls,
 
 401
 00:25:08,520 --> 00:25:10,350
+这意味着系统调用返回，
 this just means the system calls return,
 
 402
 00:25:10,410 --> 00:25:13,020
+但是它们修改了缓存中的块，然后返回，
 but they were modified blocks in the cache then return,
 
 403
 00:25:13,590 --> 00:25:17,020
+没有触发磁盘写入。
 don't particularly, don't trigger disk writes.
 
 404
 00:25:18,280 --> 00:25:21,940
+所以，这对系统调用快速返回是一个明显的优势。
 So this has the obvious advantage of the system calls return quickly.
 
 405
 00:25:22,800 --> 00:25:25,620
+它也支持 IO 并发，
 It also allows for IO concurrency,
 
 406
 00:25:25,890 --> 00:25:30,840
+即应用程序可以进行一些文件系统调用，
 that is the application can make some file system system calls,
 
 407
 00:25:30,840 --> 00:25:35,010
+这意味着文件系统要做大量的磁盘写入，
 that imply that the file system to do a bunch of disk operations, disk writes,
 
 408
 00:25:35,610 --> 00:25:38,580
+但是应用可以返回到计算
 but the application can then return to computing
 
 409
 00:25:39,140 --> 00:25:43,460
+与文件系统执行写入并行，
 at in parallel with the file system doing whatever the writes are
 
 410
 00:25:43,460 --> 00:25:45,650
+那些系统调用所需的写入，
 that are required by those system calls,
 
 411
 00:25:46,670 --> 00:25:48,500
+这就是 IO 并发。
 so this called IO concurrency.
 
 412
 00:25:49,600 --> 00:25:51,730
+如果没有异步系统调用，
 And without asynchronous system calls,
 
 413
 00:25:51,820 --> 00:25:54,190
+就很难获得 IO 并发性，
 it's hard to get IO concurrency,
 
 414
 00:25:55,520 --> 00:26:00,590
+很难在磁盘操作和应用程序计算之间重叠，
 hard to get overlap between disk operations and application computing,
 
 415
 00:26:00,590 --> 00:26:04,130
+如果应用程序必须等待磁盘写入完成。
 if the applications always have to wait for the disk writes to complete.
 
 416
 00:26:05,070 --> 00:26:10,110
+异步系统调用的另一个好处是，
 The other thing that's nice about asynchronous system calls is that
 
 417
 00:26:10,290 --> 00:26:13,950
+它们使执行大量批处理变得更容易，
 they allow, they make it easier to do large amounts of batching,
 
 418
 00:26:14,250 --> 00:26:15,900
+可以帮助批处理。
 so there's help batching.
 
 419
 00:26:19,080 --> 00:26:24,720
+异步系统调用的缺点是，
 The downside of asynchronous system calls is that,
 
 420
 00:26:25,690 --> 00:26:28,540
+这意味着因为系统调用返回，
 it means that just because the system calls return,
 
 421
 00:26:28,570 --> 00:26:31,630
+并不意味着工作，
 doesn't mean that the work that,
 
 422
 00:26:31,840 --> 00:26:36,820
+（并不意味着）系统调用应该做的工作已经完成，
 that system call ought to have done, has actually been completed,
 
 423
 00:26:36,880 --> 00:26:38,770
+所以，如果你编写一个程序，
 so for example if you write a program
 
 424
 00:26:38,770 --> 00:26:41,380
+它创建文件并写入一些数据，
 that creates a file and write some data,
 
 425
 00:26:41,380 --> 00:26:42,700
+然后关闭该文件，
 and then closes the file,
 
 426
 00:26:42,700 --> 00:26:46,030
+然后在控制台上打印完成给用户，
 and then prints done on the console to the user,
 
 427
 00:26:46,470 --> 00:26:49,590
+然后你拔下电脑电源，
 and then you pull out the power plug on your computer,
 
 428
 00:26:50,650 --> 00:26:51,820
+重新启动电脑，
 have to restart the computer,
 
 429
 00:26:51,820 --> 00:26:53,170
+你的数据可能不在那里了，
 your data may not be there,
 
 430
 00:26:53,200 --> 00:26:55,120
+即使所有系统调用都返回了，
 even though all the system calls returned
 
 431
 00:26:55,120 --> 00:26:57,220
+即使程序说，
 and even though the programs are just said
 
 432
 00:26:57,250 --> 00:26:59,620
+我调用了那些系统调用，而且它们返回了。
 look, you know I called those system calls they return.
 
 433
 00:27:00,140 --> 00:27:05,810
+这意味着在一个异步系统调用的世界里，
 And this means that in a world with asynchronous system calls,
 
 434
 00:27:05,870 --> 00:27:08,330
+应用程序必须写得更仔细，
 applications have to be written more carefully,
 
 435
 00:27:08,330 --> 00:27:13,310
+如果它们关心自己在崩溃中的行为，
 if they if they care about their behavior with respect to crashes,
 
 436
 00:27:13,340 --> 00:27:15,200
+这是一个很大的问题，
 this is actually kind of a big deal in,
 
 437
 00:27:17,360 --> 00:27:20,840
+在 xv6 中，如果一个写入返回，
 in xv6, if a write returned,
 
 438
 00:27:21,420 --> 00:27:22,950
+数据就在磁盘上，
 the data was on the disk
 
 439
 00:27:22,950 --> 00:27:25,020
+并且在崩溃后还在那里，
 and would be there after a crash,
 
 440
 00:27:25,020 --> 00:27:27,180
+在 ext3 中，如果写入返回，
 in ext3, if a write returns,
 
 441
 00:27:27,900 --> 00:27:30,870
+你对崩溃后会发生什么一无所知，
 just, you don't know anything about what will happen after a crash,
 
 442
 00:27:30,900 --> 00:27:31,860
+可能在那里，也可能不在那里。
 may or may not be there.
 
 443
 00:27:32,440 --> 00:27:37,750
+所以，尽管异步系统调用可能编写谨慎的程序，
 So it is possible despite asynchronous system calls to write careful programs,
 
 444
 00:27:37,750 --> 00:27:39,700
+比如数据库就需要小心，
 like databases need to be careful,
 
 445
 00:27:39,910 --> 00:27:41,740
+文本编辑器需要小心，
 text editors need to be careful,
 
 446
 00:27:41,770 --> 00:27:42,880
+如果我写一个文件，
 if I write out a file,
 
 447
 00:27:42,880 --> 00:27:44,260
+我不想，
 you know I do not want,
 
 448
 00:27:44,590 --> 00:27:47,710
+如果我在文本编辑器里写一个文件的时候停电了，
 if there's a power failure while I'm writing out a file in my text editor,
 
 449
 00:27:47,740 --> 00:27:51,820
+我不想在启动之后看到乱码或部分文件，
 that I don't want after be starting to see garbage or a partial file
 
 450
 00:27:51,850 --> 00:27:54,400
+我想看的是旧文件或新文件。
 and I want to see either the old file or the new file.
 
 451
 00:27:54,920 --> 00:27:59,720
+所以文件系统还提供了一些用于谨慎应用的技术，
 And so the file system also provides some techniques for careful applications,
 
 452
 00:27:59,750 --> 00:28:05,170
+在崩溃的情况下获得可预测的行为，
 to get predictable behavior despite crashes,
 
 453
 00:28:05,170 --> 00:28:10,990
+主要工具是系统调用 fsync ，
 and the main tool for that is called, system call called fsync,
 
 454
 00:28:10,990 --> 00:28:14,230
+所有 Unix 系统都有，
 which you know all Unix systems have,
 
 455
 00:28:14,230 --> 00:28:16,060
+这里说的是，
 and what this basically says is that
 
 456
 00:28:17,200 --> 00:28:18,670
+你向它传递一个文件描述符，
 you pass it a file descriptor,
 
 457
 00:28:19,240 --> 00:28:22,810
+它告诉文件系统，执行所有写入，
 and it tells the file system, look actually do all of the writes,
 
 458
 00:28:22,900 --> 00:28:25,420
+我可能调用了写入很多东西并调用 fsync ，
 I may have called write a bunch of things and call fsync,
 
 459
 00:28:25,450 --> 00:28:27,640
+我现在想让你真正写入，
 I now want you to actually do the writes
 
 460
 00:28:27,670 --> 00:28:31,480
+不要在写入到磁盘之前从系统调用返回，
 and don't return from this system call until the writes are on disk
 
 461
 00:28:31,480 --> 00:28:35,410
+保证它们还在那里，如果发生崩溃。
 and are guaranteed to be still there, if there's a crash.
 
 462
 00:28:35,530 --> 00:28:39,550
+所以，如果你查看数据库或文本编辑器的代码，
 So if you look at the source code for databases or text editors,
 
 463
 00:28:39,550 --> 00:28:42,190
+还有其他关心它们数据的程序，
 a number of other programs that really care about their data,
 
 464
 00:28:42,310 --> 00:28:45,430
+你会看到一些对 fsync 的调用，
 you'll see sort of carefully place calls to fsync,
 
 465
 00:28:45,810 --> 00:28:49,960
+为了克服这个，
 in order to sort of overcome this,
 
 466
 00:28:50,620 --> 00:28:52,960
+为了避免这些异步系统调用。
 to fight that against these asynchronous system calls.
 
 467
 00:28:52,990 --> 00:28:55,300
+大多数程序，比如编译器，
 Most programs are like your compiler,
 
 468
 00:28:55,300 --> 00:28:56,380
+这不是大问题，
 it's no big deal,
 
 469
 00:28:56,380 --> 00:29:00,130
+如果发生崩溃，编译器的输出消失了，
 if a the output of the compiler goes away, if there's a crash,
 
 470
 00:29:00,130 --> 00:29:01,720
+有很多很多程序，
 there for many many programs,
 
 471
 00:29:01,900 --> 00:29:03,010
+不会调用 fsync ，
 you know don't call fsync
 
 472
 00:29:03,010 --> 00:29:06,550
+很高兴得到异步系统调用的良好性能，
 are very happy to get the good performance of asynchronous system calls
 
 473
 00:29:06,970 --> 00:29:08,980
+并不担心它们的崩溃行为。
 and are not worried about their crash behavior.
 
 474
 00:29:12,530 --> 00:29:13,280
+好的，那么。
 Okay, so.
 
 475
 00:29:13,400 --> 00:29:16,910
+这是不是有时也叫 flush ，
 This, is this also called like flush sometimes,
 
 476
 00:29:16,910 --> 00:29:20,390
+因为我以前听过这个词。
 because I think that that words, I've heard that word before.
 
 477
 00:29:20,450 --> 00:29:21,830
+是的，你可以，
 Yeah, you could,
 
 478
 00:29:21,890 --> 00:29:24,410
+一种合理的解释 fsync 作用的方式是，
 a reasonable way to explain what fsync does is that
 
 479
 00:29:24,470 --> 00:29:28,280
+它将这个文件的所有写入刷新到磁盘，
 it flushes all previous writes to this file to the disk
 
 480
 00:29:28,370 --> 00:29:29,300
+并且返回，
 and only returns that,
 
 481
 00:29:30,080 --> 00:29:31,760
+flush 是一个合理的词，
 flush is a reasonable word for this,
 
 482
 00:29:31,940 --> 00:29:33,320
+flush 写入到磁盘中。
 flush writes to disk.
 
 483
 00:29:37,090 --> 00:29:38,710
+好的，这就是异步系统调用。
 Okay, so that's the asynchronous system calls.
 
 484
 00:29:38,710 --> 00:29:43,690
+ext3 使用的下一种技术是批处理。
 The next technique the ext3 uses is batching.
 
 485
 00:29:46,560 --> 00:29:51,270
+这里的做法是，
 And, the game here is that,
 
 486
 00:29:51,270 --> 00:29:52,590
+在任何时候，
 there's at any one time,
 
 487
 00:29:52,590 --> 00:30:00,560
+ext3 中总是有一个打开的事务，
 there's always one open transaction in the ex3 ext3,
 
 488
 00:30:01,480 --> 00:30:04,150
+ext3 中的事务可以
 a transaction in ext3 can
 
 489
 00:30:04,150 --> 00:30:08,650
+保存许多不同系统调用的写入，
 actually hold the writes of many different many distinct system calls,
 
 490
 00:30:08,890 --> 00:30:13,360
+所以 ext3 要做的是启动一个新事务，
 so the what ext3 does is going to start a new transaction now
 
 491
 00:30:13,360 --> 00:30:15,850
+然后在接下来的几秒钟内，
 and then for the next couple of seconds,
 
 492
 00:30:15,850 --> 00:30:18,040
+执行的所有系统调用都是，
 all system calls that execute are,
 
 493
 00:30:18,130 --> 00:30:21,970
+它们的写入都是那个大事务的一部分，
 their writes are part of that one big transaction,
 
 494
 00:30:22,210 --> 00:30:23,110
+我认为默认情况下，
 I think by default,
 
 495
 00:30:23,200 --> 00:30:27,010
+ext3 只在每 5 秒创建一个新事务，
 ext3 only creates a new transaction every five seconds,
 
 496
 00:30:27,040 --> 00:30:30,970
+所以每个事务可能有最多 5 秒的系统调用，
 so each transaction may have up to five seconds worth of system calls in it,
 
 497
 00:30:31,300 --> 00:30:32,740
+所以作为一个大的批处理，
 all as a huge batch,
 
 498
 00:30:32,740 --> 00:30:34,660
+然后在 5 秒钟结束时，
 and then at the end of the five seconds,
 
 499
 00:30:36,480 --> 00:30:39,450
+ext3 提交这个单个的大事务，
 ext3 will commit the single big transaction
 
 500
 00:30:39,450 --> 00:30:41,610
+可能包含上百个更新块，
 that may have hundreds of updated blocks in it,
 
 501
 00:30:43,020 --> 00:30:46,020
+将这个事务作为单个事务提交。
 commit this transaction to disk as a single transaction.
 
 502
 00:30:46,440 --> 00:30:48,060
+所以这个有优势的的原因，
 And so the reason why this is a win,
 
 503
 00:30:48,930 --> 00:30:52,320
+首先，它分散了一些固定的事务成本，
 first of all, it spreads some fixed transaction costs,
 
 504
 00:30:52,350 --> 00:30:55,950
+摊销了很多系统调用中固定的事务成本，
 amortizes some fixed transaction costs across many system calls,
 
 505
 00:30:55,950 --> 00:30:59,700
+比如，你必须写入描述符块和提交块，
 so, for example, you have to write the descriptor block and the commit block
 
 506
 00:31:00,030 --> 00:31:02,760
+你必须在机械驱动器上寻找，
 and you have to seek on a mechanical drive,
 
 507
 00:31:02,760 --> 00:31:03,750
+至少你必须寻找，
 at least you have to seek
 
 508
 00:31:03,810 --> 00:31:06,300
+让驱动器旋转到日志所在的位置，
 and let the drive rotate to the place where the log is,
 
 509
 00:31:06,300 --> 00:31:07,860
+这些都是很大的开销，
 and those are significant costs
 
 510
 00:31:08,160 --> 00:31:10,890
+而它们对于批处理只需要做一次，
 and they only have to be done once for batch,
 
 511
 00:31:10,890 --> 00:31:12,210
+而不是每个系统调用一次。
 instead of once per system call.
 
 512
 00:31:12,540 --> 00:31:17,100
+因此，它降低了这些成本的影响。
 So, it lowers the impact of those those costs.
 
 513
 00:31:17,580 --> 00:31:18,990
+另一个大事是，
 The other big deal is that,
 
 514
 00:31:19,320 --> 00:31:22,800
+另一个大事是它允许写入吸收，
 another big deal is that it allows write absorption,
 
 515
 00:31:23,850 --> 00:31:25,860
+也就是说，
 that is,
 
 516
 00:31:29,000 --> 00:31:30,410
+它是这种情况，
 it's often the case,
 
 517
 00:31:30,440 --> 00:31:33,110
+你有一个完整的系统调用序列，
 that you have a whole sequence of system calls,
 
 518
 00:31:33,110 --> 00:31:36,590
+一次又一次地修改完全相同的块，
 that end up modifying the very same blocks over and over again,
 
 519
 00:31:36,740 --> 00:31:39,890
+比如，如果我创建了一大堆文件，
 so for example if I create a whole bunch of files,
 
 520
 00:31:40,070 --> 00:31:42,350
+我需要分配一堆 inode ，
 I need to allocate a bunch of inodes
 
 521
 00:31:42,350 --> 00:31:46,040
+所有的 inode 都很小，可能只有 64 个字节，
 and that means all inodes are small, maybe 64 bytes,
 
 522
 00:31:46,040 --> 00:31:47,840
+这么多 inode 可以放在一个块中，
 so many, many inodes fit in a block,
 
 523
 00:31:48,050 --> 00:31:50,180
+所以，连续创建一堆文件
 so creating a bunch of files in a row
 
 524
 00:31:50,330 --> 00:31:54,320
+会使几个块中的许多 inode 变脏，
 is gonna dirty many inodes in a few blocks,
 
 525
 00:31:54,600 --> 00:31:57,090
+因为有很多块的 inode 。
 because there's many inodes for block.
 
 526
 00:31:57,120 --> 00:32:01,680
+类似地，如果我要将大量数据写入文件，
 Similarly, if I'm writing a bunch of data to a file,
 
 527
 00:32:01,680 --> 00:32:03,630
+我可能需要分配很多数据块，
 I may need to allocate a lot of data blocks,
 
 528
 00:32:03,660 --> 00:32:08,910
+我可能会翻转空闲位图中的许多位，
 I may flip many of the bits in the block free map
 
 529
 00:32:09,630 --> 00:32:11,790
+如果我分配彼此相邻的块，
 and if I allocate blocks that are next to each other,
 
 530
 00:32:11,910 --> 00:32:14,160
+它们的位将放在同一个块中，
 their bits are going to be in the same block,
 
 531
 00:32:14,520 --> 00:32:17,340
+所以，我可能在一个块中放很多位，
 and so I may put many bits in just one block,
 
 532
 00:32:17,430 --> 00:32:23,250
+所以，许多系统调用可能会一次又一次地操作相同的块。
 so many system calls again may operating the same blocks over and over again.
 
 533
 00:32:23,250 --> 00:32:25,880
+在使用批处理的系统中，
 And in the system with batching,
 
 534
 00:32:25,910 --> 00:32:28,820
+这些很多写入相同的数据块，
 those many many writes the same blocks,
 
 535
 00:32:28,820 --> 00:32:31,790
+只是对缓存发生得非常快，
 just happen very quickly to the cached,
 
 536
 00:32:31,940 --> 00:32:34,100
+只是数据块的缓存拷贝，
 just the cache copies of blocks,
 
 537
 00:32:34,100 --> 00:32:35,390
+因为我们还没有写入磁盘，
 because we're not writing the disk
 
 538
 00:32:35,600 --> 00:32:40,360
+然后，我们将这些少量数据块写入磁盘，
 and then we write the those small number of blocks to the disk
 
 539
 00:32:40,390 --> 00:32:42,460
+只在事务结束时写入一次，
 only once at the end of the transaction
 
 540
 00:32:42,610 --> 00:32:47,110
+而单个块写入日志，
 and the single block write into the, on the writing of the log,
 
 541
 00:32:47,170 --> 00:32:51,610
+将许多修改的系统调用放入同一个块中。
 reflects many many system calls with modifications to the same block.
 
 542
 00:32:51,640 --> 00:32:53,050
+所以，这种写入吸收可以减少总次数的数量，
 So this write absorption could be
 
 543
 00:32:54,940 --> 00:33:00,280
+明显减少我们必须写入块的总次数，
 reduce the amount of the total number times we have to write the block dramatically
 
 544
 00:33:00,280 --> 00:33:04,020
+与类似 xv6 的同步系统相比。
 compared to a synchronous system, like xv6.
 
 545
 00:33:05,870 --> 00:33:10,790
+最后的重大优势是磁盘调度，
 And the final big win is disk scheduling,
 
 546
 00:33:12,530 --> 00:33:17,810
+一般来说，即使我们，
 in general, even if we are,
 
 547
 00:33:18,590 --> 00:33:21,800
+假设我们必须向磁盘写入一千个块，
 suppose we have to write a thousand blocks to the disk,
 
 548
 00:33:22,340 --> 00:33:24,230
+它的效率要高得多，
 it turns out to be much more efficient,
 
 549
 00:33:24,260 --> 00:33:25,520
+当然是在机械磁盘上，
 certainly in mechanical drives,
 
 550
 00:33:25,520 --> 00:33:27,110
+但是即使在固态驱磁盘中，
 but even in solid state drives,
 
 551
 00:33:27,170 --> 00:33:32,090
+为了在顺序位置中一次写入一千个块，
 to write a thousand blocks all at once in sequential locations,
 
 552
 00:33:32,150 --> 00:33:33,380
+就像你对日志所做的那样，
 as you would do to a log,
 
 553
 00:33:33,800 --> 00:33:35,240
+做这个要快的多，
 as much faster to do that
 
 554
 00:33:35,240 --> 00:33:39,980
+跟写入一千个块每次都在不同的地方比较，
 than to write a thousand blocks one at a time to different locations
 
 555
 00:33:40,370 --> 00:33:42,290
+甚至一千个块，
 or even a thousand blocks,
 
 556
 00:33:42,320 --> 00:33:46,490
+甚至在日志中写入相同的块一千次。
 you know even write the same block a thousand times in a log.
 
 557
 00:33:47,860 --> 00:33:51,910
+所以，通过让磁盘进行大批量写入，
 So by handing up the disk large batches of writes to do,
 
 558
 00:33:52,240 --> 00:33:54,490
+这样可以更有效率，
 this can be much more efficient,
 
 559
 00:33:55,660 --> 00:33:58,000
+我们不仅获得效率
 there's also not only do we get an efficiency
 
 560
 00:33:58,000 --> 00:34:01,030
+从顺序写入日志中的很多块，
 from writing a large number of blocks sequentially in the log,
 
 561
 00:34:01,180 --> 00:34:04,150
+但是即使我们要写入原位置，
 but even when we go to write the home locations
 
 562
 00:34:04,150 --> 00:34:07,540
+为一批写入，
 for this, for a batch of writes,
 
 563
 00:34:07,540 --> 00:34:11,200
+由单个大事务中的一批操作产生，
 resulting from a batch of operations in a single big transaction,
 
 564
 00:34:11,530 --> 00:34:16,090
+如果我们可以向该驱动器大量的写入，
 even then if we can hand a very large number of writes to that drive,
 
 565
 00:34:16,090 --> 00:34:17,530
+即使有不同的位置，
 even if there are different locations,
 
 566
 00:34:17,530 --> 00:34:19,060
+因为有原位置，
 because there to the home locations,
 
 567
 00:34:19,680 --> 00:34:22,020
+涉及多个不同的系统调用，
 you know referred to by many different system calls,
 
 568
 00:34:22,290 --> 00:34:28,020
+如果我们允许磁盘调度大量不同的写入，
 if we allow the disk to schedule a large number of distinct writes,
 
 569
 00:34:28,050 --> 00:34:29,760
+它可以选一个顺序把它们放进去，
 it can pick an order to do them in,
 
 570
 00:34:29,760 --> 00:34:32,520
+这在机械磁盘上特别有效率，
 that's particularly efficient on a mechanical drive,
 
 571
 00:34:32,520 --> 00:34:36,930
+这对它们进行排序，
 this would done involve sorting them
 
 572
 00:34:36,930 --> 00:34:39,750
+按驱动器上的磁道号进行排序，
 and sorting them by track number on the drive
 
 573
 00:34:39,750 --> 00:34:43,740
+从一个到另一个只需一次小的寻找，
 and doing you know just a little seek from one to the next,
 
 574
 00:34:43,800 --> 00:34:45,090
+它们可以进行这种排序，
 and they can do this sort,
 
 575
 00:34:45,180 --> 00:34:48,080
+如果你同时得到所有的块。
 if you get all of the blocks at the same time.
 
 576
 00:34:48,500 --> 00:34:50,060
+即使是在固态硬盘上，
 And but even on a solid state drive,
 
 577
 00:34:50,060 --> 00:34:53,240
+这里也有一些小优势，
 it turns out there's a smaller win to be gotten
 
 578
 00:34:53,240 --> 00:34:55,430
+给磁盘大量的工作去做。
 from giving the disk lots of work to do.
 
 579
 00:34:56,150 --> 00:34:59,990
+不管怎么说，你能得到这种磁盘调度，
 Anyway, so this you can only really get this kind of disk scheduling,
 
 580
 00:35:00,500 --> 00:35:03,590
+如果你有非常大批量写入交给磁盘，
 if you have very large batches of write to give to drive,
 
 581
 00:35:03,650 --> 00:35:05,270
+所以这是批处理的又一个优势。
 so there's another win from batch.
 
 582
 00:35:09,180 --> 00:35:10,590
+好的，
 Alright,
 
 583
 00:35:11,410 --> 00:35:17,770
+ext3 的最后一个重大优势是并发，
 and, a final big win from the ext3 gets concurrency,
 
 584
 00:35:18,190 --> 00:35:22,310
+它有两种并发性，
 it's really get two kinds of concurrency
 
 585
 00:35:22,310 --> 00:35:29,310
+与 xv6 比较。
 that it benefits from compared to xv6.
 
 586
 00:35:34,340 --> 00:35:38,660
+一个是，它可以允许多个系统调用同时执行，
 One is that, it can allow many system calls to execute at the same time,
 
 587
 00:35:38,660 --> 00:35:43,520
+所以，我们可以并行进行多个系统调用。
 so we can have many individual system calls in parallel.
 
 588
 00:35:45,520 --> 00:35:47,620
+因为至少，
 Because at least,
 
 589
 00:35:49,340 --> 00:35:56,670
+在 ext3 决定关闭并提交当前事务之前，
 until ext3 decides to close out and commit the current transaction,
 
 590
 00:35:58,110 --> 00:35:59,670
+系统调用不必相互等待，
 the system call don't have to wait for each other,
 
 591
 00:35:59,670 --> 00:36:02,190
+它们都可以修改属于当前事务的块，
 they can all modify blocks that are part of the current transaction
 
 592
 00:36:02,190 --> 00:36:06,910
+并且所有这些系统调用都可以并行执行，
 and all these many many system calls can execute in parallel
 
 593
 00:36:06,910 --> 00:36:09,370
+并向当前事务添加块，
 and contribute blocks to the current transaction,
 
 594
 00:36:09,610 --> 00:36:11,980
+这在多核计算机上尤为重要，
 that's particularly important on a multi-core machine,
 
 595
 00:36:12,040 --> 00:36:13,690
+在没有不同内核的地方，
 where we don't want to have the different cores,
 
 596
 00:36:13,690 --> 00:36:14,980
+我们等待锁，
 we're waiting for a lock,
 
 597
 00:36:15,850 --> 00:36:19,690
+在 xv6 经常是不允许的，
 in xv6 we often, it's often the case that you're not allowed,
 
 598
 00:36:19,720 --> 00:36:20,920
+系统调用不能进行，
 system call can't proceed,
 
 599
 00:36:20,920 --> 00:36:26,010
+因为当前事务正忙于做其他事情。
 because the current transaction is busy doing something else.
 
 600
 00:36:26,690 --> 00:36:28,580
+在 ext3 中的大多数情况下，
 Most of the time in ext3,
 
 601
 00:36:29,780 --> 00:36:32,840
+许多系统调用都可以修改当前事务。
 many system calls can modify the current transaction.
 
 602
 00:36:33,860 --> 00:36:37,520
+ext3 获得并发性的另一种方式是
 The other way that ext3 gets concurrency is that
 
 603
 00:36:37,730 --> 00:36:40,040
+可以有多个事务，
 there can be multiple transactions,
 
 604
 00:36:40,070 --> 00:36:43,640
+处于不同执行阶段的旧事务。
 older transactions in different stages of execution.
 
 605
 00:36:46,670 --> 00:36:51,620
+所以，只有一个打开的事务可以接收系统调用，
 So it's true, system calls only the one open transaction can receive system calls,
 
 606
 00:36:51,620 --> 00:36:54,800
+但是其他正在向磁盘写入内容的事务可以并行进行，
 but the other transactions that are writing things to disk can go on in parallel,
 
 607
 00:36:55,040 --> 00:36:58,250
+所以很多老的事务，
 so many older transactions
 
 608
 00:37:00,470 --> 00:37:04,880
+在事务生命周期中的不同阶段，
 and the different sort of stages in a transaction's life,
 
 609
 00:37:04,880 --> 00:37:06,500
+可以并行进行。
 that can go on in parallel.
 
 610
 00:37:07,820 --> 00:37:09,860
+首先，这里有一个打开的事务，
 First, there's the one open transaction,
 
 611
 00:37:12,220 --> 00:37:15,790
+可以有一些最近的事务，
 there can be some number of transactions that are recent
 
 612
 00:37:15,940 --> 00:37:18,640
+文件系统正在提交它们，
 and the file system is committing them,
 
 613
 00:37:18,640 --> 00:37:21,400
+但它们仍在将数据块写入磁盘，
 but they're still writing their blocks to the disk,
 
 614
 00:37:21,430 --> 00:37:26,460
+所以，我们有一些事务正在提交到日志中。
 so we have some number of transactions are currently committing to the log.
 
 615
 00:37:30,280 --> 00:37:32,020
+我们不用等这些结束，
 And we don't have to wait for these to finish,
 
 616
 00:37:32,080 --> 00:37:36,250
+我们可以在新的打开事务中继续系统调用，
 that is we can continue with system calls in the new open transaction,
 
 617
 00:37:36,250 --> 00:37:39,400
+虽然之前仍在写入日志的事务
 while the previous transactions still writing to the log
 
 618
 00:37:39,430 --> 00:37:42,250
+还没有完成，仍在提交中。
 hasn't actually finished, committing yet.
 
 619
 00:37:42,730 --> 00:37:43,930
+当然，这个阶段结束，
 Of course, this stage ends,
 
 620
 00:37:43,930 --> 00:37:48,010
+当事务将提交块写入磁盘中的日志时。
 when the transaction writes its commit block to the disk, the log.
 
 621
 00:37:49,790 --> 00:37:52,130
+可以存在事务，
 There can be transactions,
 
 622
 00:37:52,130 --> 00:37:55,340
+甚至更旧的事务正在写入，
 that are even older transactions that are writing,
 
 623
 00:37:56,250 --> 00:38:00,630
+它们的块缓存到原位置，
 their blocks from the cache to the home locations,
 
 624
 00:38:01,830 --> 00:38:03,090
+修改后的数据块，
 the modified blocks
 
 625
 00:38:03,150 --> 00:38:07,470
+最后，没有更多工作，
 and finally this doesn't take much work,
 
 626
 00:38:07,470 --> 00:38:12,030
+那么最老的事务可以被释放。
 but there can be, the oldest transactions are being freed.
 
 627
 00:38:13,960 --> 00:38:15,700
+这并不需要工作本身，
 This doesn't really take work itself,
 
 628
 00:38:15,700 --> 00:38:16,600
+工作是，
 the work is,
 
 629
 00:38:17,860 --> 00:38:21,760
+它在写事务到它们的原位置，
 it's really writing transactions to their home, the blocks of their home locations,
 
 630
 00:38:21,790 --> 00:38:24,580
+不管怎样，通常存在多个事务，
 but anyway, there's typically multiple transactions
 
 631
 00:38:25,270 --> 00:38:27,430
+存在于不同的阶段。
 existence in these different stages.
 
 632
 00:38:28,450 --> 00:38:30,400
+所以，特别是，
 And so in particular,
 
 633
 00:38:30,520 --> 00:38:34,240
+新的系统调用可以在不等待较旧事务的情况下执行，
 new system calls can execute without waiting for older transactions
 
 634
 00:38:34,240 --> 00:38:36,370
+完成对日志的提交，
 to either finish committing to the log
 
 635
 00:38:36,400 --> 00:38:39,610
+或完成写入它们的原位置，
 or finish writing their blocks, their home locations,
 
 636
 00:38:40,180 --> 00:38:41,500
+与 xv6 不同的是，
 in contrast to xv6,
 
 637
 00:38:41,500 --> 00:38:45,490
+新的系统调用必须等待所有完成，
 where new system calls had to wait for this to complete for all,
 
 638
 00:38:46,710 --> 00:38:48,330
+对于之前的事务。
 for the one previous transaction.
 
 639
 00:38:49,100 --> 00:38:50,000
+我有一个问题，
 I have a quick question,
 
 640
 00:38:50,540 --> 00:38:51,620
+那么它是如何工作的，
 so how does it work,
 
 641
 00:38:51,620 --> 00:38:53,300
+当有操作时，
 when there's an operation
 
 642
 00:38:53,300 --> 00:38:56,120
+或者当有东西写入缓存块时，
 or when something is writing to a cache block
 
 643
 00:38:56,150 --> 00:38:58,700
+而块也在被写入到磁盘中。
 and the block is also being writing to the disk.
 
 644
 00:38:59,260 --> 00:39:01,870
+好的，所以这，
 Okay, so there's,
 
 645
 00:39:01,870 --> 00:39:03,610
+这确实是个问题，
 so that is indeed a problem,
 
 646
 00:39:03,640 --> 00:39:09,300
+而且，
 and the,
 
 647
 00:39:10,660 --> 00:39:12,550
+这里有一个潜在的困难，
 there's a potential difficulty here,
 
 648
 00:39:12,550 --> 00:39:17,860
+因为事务写入日志的内容
 because a transaction you know stuff that a transaction writes to the log
 
 649
 00:39:17,860 --> 00:39:23,170
+应该仅包括由该事务中的系统调用进行的更新，
 should only include updates made by a system calls that were in that transaction,
 
 650
 00:39:23,410 --> 00:39:26,590
+不应包括其他块更新，
 shouldn't include any any block updates
 
 651
 00:39:26,620 --> 00:39:29,440
+由事务后的系统调用所做的，
 made by system calls that came after that transaction,
 
 652
 00:39:29,680 --> 00:39:32,380
+因为如果你这样做了，
 because if you did,
 
 653
 00:39:32,410 --> 00:39:36,670
+你可能会有提交的风险，
 you risk sort of committing,
 
 654
 00:39:36,670 --> 00:39:42,580
+日志更新只表示了部分系统调用，
 but having the log updates that only represent partial system calls,
 
 655
 00:39:42,790 --> 00:39:44,500
+因为我们希望确保
 as we want to make sure
 
 656
 00:39:44,500 --> 00:39:50,250
+事务只包含所有给定的系统调用更新，
 that a transaction only contains all of any given system calls updates,
 
 657
 00:39:50,400 --> 00:39:52,800
+所以，我们不能允许事务
 so we can't afford to have a transaction
 
 658
 00:39:53,130 --> 00:39:59,310
+包含事务开始关闭后发生的任何更新，
 include updates made by anything that happened after the transaction started to close
 
 659
 00:39:59,880 --> 00:40:01,710
+ext3 解决它的方法，
 and the way ext3 deals with that,
 
 660
 00:40:02,350 --> 00:40:04,210
+至少在理论上，
 is that at least notionally,
 
 661
 00:40:04,210 --> 00:40:05,230
+它制作一个副本，
 it makes a copy,
 
 662
 00:40:05,530 --> 00:40:08,530
+当它决定结束当前打开的事务时，
 when it decides to wrap up the current open transaction,
 
 663
 00:40:08,830 --> 00:40:12,640
+它会复制该事务的所有块，
 it makes a copy of all the blocks for that transaction
 
 664
 00:40:12,640 --> 00:40:15,130
+直到它结束该事务为止。
 as of the time it closed out this transaction.
 
 665
 00:40:15,730 --> 00:40:18,530
+所以它在某种程度上复制了所有的块，
 So it sort of makes copies of all the blocks
 
 666
 00:40:18,530 --> 00:40:20,750
+然后，通过复制的块，
 and then it's though that copy of the blocks
 
 667
 00:40:20,930 --> 00:40:24,230
+那个事务提交它的日志，
 that the transaction commits into its log
 
 668
 00:40:24,560 --> 00:40:29,670
+任何较新的事务都有它们自己修改的块副本，
 and any newer transactions have their own copy of that block that they modify,
 
 669
 00:40:29,670 --> 00:40:32,760
+与提交到日志的副本不同。
 it's different copy from the moment committing to the log.
 
 670
 00:40:34,570 --> 00:40:36,520
+为了让这个更高效，
 And in order to make this efficient,
 
 671
 00:40:36,520 --> 00:40:39,130
+系统使用了写入时复制方案，
 the system actually uses a kind of copy-on-write scheme
 
 672
 00:40:39,130 --> 00:40:42,820
+避免复制，直到它注意到
 to avoid making the copies until it actually notices
 
 673
 00:40:42,820 --> 00:40:45,430
+更新的事务需要写入那个块。
 that a newer transaction needs to write that block.
 
 674
 00:40:46,080 --> 00:40:47,130
+酷，理解了。
 Cool, that make sense.
 
 675
 00:40:51,730 --> 00:40:53,020
+好的。
 Okay.
 
 676
 00:40:54,590 --> 00:40:57,950
+很好，并发可以提高性能的原因，
 Good, and so the the reason why concurrency helps performance again
 
 677
 00:40:57,950 --> 00:41:00,620
+它可以帮助我们，
 is that it can help us,
 
 678
 00:41:01,070 --> 00:41:02,660
+如果我们可以并行运行系统调用，
 if we can run system calls in parallel,
 
 679
 00:41:02,660 --> 00:41:04,670
+我们得到了多核并行，
 we get multi-core parallelism,
 
 680
 00:41:04,880 --> 00:41:10,340
+如果我们可以同时运行应用程序和系统调用，
 and if we can run applications and system calls at the same time,
 
 681
 00:41:10,340 --> 00:41:11,210
+我们正在写入磁盘，
 we're writing a disk,
 
 682
 00:41:11,210 --> 00:41:13,520
+我们可以获得 IO 并发性，
 then we can get IO concurrency,
 
 683
 00:41:13,520 --> 00:41:16,160
+它可以在 CPU 之间重叠，
 that is overlap between CPU,
 
 684
 00:41:16,520 --> 00:41:19,520
+CPU 执行和磁盘 IO 。
 and CPU execution and disk IO.
 
 685
 00:41:19,670 --> 00:41:20,990
+所有这些帮助，
 And all these sort of help,
 
 686
 00:41:21,290 --> 00:41:25,310
+更有效地利用硬件资源和使用机器。
 use the hardware resources, the machine more efficiently, more intensively.
 
 687
 00:41:27,370 --> 00:41:30,070
+好的，有没有关于并发性的问题？
 Alright, any questions about concurrency?
 
 688
 00:41:35,810 --> 00:41:38,390
+好的，我想让你感受一下
 Alright, I want to just give you a taste of
 
 689
 00:41:38,390 --> 00:41:41,120
+实际的文件系统代码，
 what the actual file system code,
 
 690
 00:41:41,180 --> 00:41:46,050
+如果你查看文件系统的 Linux 源码，
 if you look at the Linux source for the file system,
 
 691
 00:41:46,990 --> 00:41:48,850
+从抽象的层次，
 sort of somewhat abstract level,
 
 692
 00:41:49,300 --> 00:41:51,850
+这是每个系统调用的样子。
 this is the way each system call looks.
 
 693
 00:41:52,030 --> 00:41:55,180
+你可能有 unlink 系统调用，
 So you might have unlink system call,
 
 694
 00:41:57,710 --> 00:42:03,110
+这在 xv6 中非常熟悉，
 and this is you know pretty familiar from xv6,
 
 695
 00:42:03,350 --> 00:42:05,420
+每个系统调用需要说，
 we need to every system call needs to say,
 
 696
 00:42:05,450 --> 00:42:08,060
+这是写入序列的开始，
 here's the beginning of the sequence of writes,
 
 697
 00:42:08,090 --> 00:42:09,710
+我即将执行一系列写入操作，
 I'm about to do a sequence of writes
 
 698
 00:42:09,710 --> 00:42:11,720
+它们需要关于崩溃是原子的。
 and they need to be atomic with respect to crash.
 
 699
 00:42:11,720 --> 00:42:12,710
+所以，任何系统调用，
 So every system call,
 
 700
@@ -2800,3654 +3499,4567 @@ on any transaction system,
 
 701
 00:42:14,900 --> 00:42:17,510
+必须有一个清晰的开头和结尾，
 there has to be a clear sort of begin and end,
 
 702
 00:42:17,810 --> 00:42:21,680
+这两点之间的一切都需要是原子的。
 everything between these two points needs to be atomic.
 
 703
 00:42:22,270 --> 00:42:27,980
+这里有一个名为 start 的系统调用，
 And there's a start call the system call code makes,
 
 704
 00:42:30,620 --> 00:42:31,940
+事实证明，
 and it turns out that,
 
 705
 00:42:32,030 --> 00:42:36,350
+ext3 必须知道处于活动状态的不同系统调用，
 ext3 has to be aware of the different system calls that are active,
 
 706
 00:42:36,770 --> 00:42:39,500
+原因我会马上解释。
 for reasons I'll explain that in a minute or two.
 
 707
 00:42:39,710 --> 00:42:41,420
+所以，每个系统调用，
 So every system call,
 
 708
 00:42:41,420 --> 00:42:43,760
+当我调用 start 时，会得到一个所谓的句柄，
 when I call start actually gets what's called a handle,
 
 709
 00:42:44,240 --> 00:42:48,500
+这是这个特定系统调用的唯一标识符，
 this is a unique identifier of this particular system call,
 
 710
 00:42:48,920 --> 00:42:53,330
+它创建的写入是日志，
 and the writes that it makes are logging,
 
 711
 00:42:53,330 --> 00:42:54,770
+文件系统用于跟踪，
 the file systems sort of keep track of,
 
 712
 00:42:54,770 --> 00:42:58,650
+那个写入是由这个特定的系统调用完成的，
 yeah that write was done by this particular system calls
 
 713
 00:42:59,070 --> 00:43:01,530
+然后系统调用这些读写块，
 and then the system call these read and write blocks
 
 714
 00:43:01,560 --> 00:43:04,050
+所以它获得块，
 and so it makes a get hold of a block,
 
 715
 00:43:04,050 --> 00:43:08,760
+或者一个块缓冲器缓存，
 or really a buffer, a block cache buffer,
 
 716
 00:43:08,910 --> 00:43:10,790
+调用它，
 makes it get call
 
 717
 00:43:11,000 --> 00:43:12,590
+它给出句柄，
 and it tells the handle
 
 718
 00:43:12,590 --> 00:43:14,690
+然后是它需要读写的块。
 and then the block number it needs to read or write.
 
 719
 00:43:18,090 --> 00:43:19,500
+然后它可能会执行大量这样的写入操作。
 Then it may do a bunch of these write,
 
 720
 00:43:19,500 --> 00:43:22,140
+如果你需要修改很多块。
 if you need to modify many blocks.
 
 721
 00:43:22,600 --> 00:43:27,220
+然后修改缓存中的块。
 And then modifies, so then modify the blocks in the cache.
 
 722
 00:43:31,680 --> 00:43:32,940
+当它完成时，
 And when it's done,
 
 723
 00:43:33,180 --> 00:43:35,280
+这个特定的系统调用完成时，
 this, this particular system calls done,
 
 724
 00:43:35,640 --> 00:43:37,320
+它发出一个 stop 调用，
 it makes a stop call,
 
 725
 00:43:39,970 --> 00:43:42,040
+并传递句柄给 stop 调用。
 and pass the handle to stop call.
 
 726
 00:43:45,490 --> 00:43:52,570
+所以，这些是为了通知日志系统，
 So, a lot of what this is about is informing the logging system,
 
 727
 00:43:52,570 --> 00:43:54,850
+一旦系统调用开始，
 you know once a system call starts,
 
 728
 00:43:54,970 --> 00:43:56,980
+不允许提交事务，
 a transaction is not allowed to commit
 
 729
 00:43:57,010 --> 00:44:00,970
+直到该事务中开始的所有系统调用都已完成。
 until all the system calls that started in that transaction have finished.
 
 730
 00:44:01,180 --> 00:44:06,490
+因为它们是多个事务，
 So and because they're gonna be multiple transactions,
 
 731
 00:44:07,210 --> 00:44:09,160
+系统必须能够联系，
 the system has to be able to associate,
 
 732
 00:44:09,160 --> 00:44:10,540
+使用句柄的一个原因，
 one of the reasons for the handles,
 
 733
 00:44:10,540 --> 00:44:13,090
+文件系统可以记得
 so the system the file system can remember
 
 734
 00:44:13,090 --> 00:44:16,000
+对于每个系统调用是哪个事务的一部分。
 for each system call which transaction it was part of.
 
 735
 00:44:16,000 --> 00:44:18,430
+所以它知道，哦，这个刚结束，
 So it knows, oh and this just finishes,
 
 736
 00:44:19,810 --> 00:44:22,960
+这是特定事务等待的系统调用之一，
 that's one of the system calls a particular transaction was waiting for,
 
 737
 00:44:22,960 --> 00:44:24,370
+在它可以提交之前。
 before it could actually commit.
 
 738
 00:44:26,850 --> 00:44:28,830
+我们将句柄传递给 get 系统调用，
 We pass the handle to the get system call,
 
 739
 00:44:28,830 --> 00:44:32,670
+每个事务都有一堆块，
 so that every system every transaction has a bunch of blocks,
 
 740
 00:44:32,670 --> 00:44:36,810
+与作为该事务的一部分的被修改的块相关。
 that are associated with with blocks modified as part of that transaction.
 
 741
 00:44:37,140 --> 00:44:38,430
+所以，我们在这里要说的，
 So what we're saying here,
 
 742
 00:44:38,430 --> 00:44:41,010
+除了获得块的指针之外，
 among as well as getting a pointer to the block
 
 743
 00:44:41,070 --> 00:44:42,510
+我们告诉日志系统，
 is we're telling the logging system,
 
 744
 00:44:42,510 --> 00:44:46,050
+这个块编号是这个事务的一部分，
 look, this block number is part of the transaction,
 
 745
 00:44:46,050 --> 00:44:48,090
+这个句柄所关联的（事务）。
 that this handle refers to.
 
 746
 00:44:51,110 --> 00:44:53,570
+这个 stop 调用并不会调用提交，
 This stop call doesn't actually calls a commit,
 
 747
 00:44:53,840 --> 00:44:55,220
+它只是告诉日志系统，
 it just tells that logging system,
 
 748
 00:44:55,220 --> 00:45:01,040
+在这个事务中活动的系统调用减少了一个。
 look, you know you have one fewer system calls that are active in this transaction.
 
 749
 00:45:01,860 --> 00:45:03,990
+所以，一个事务可以提交，
 And so a transaction can only commit,
 
 750
 00:45:03,990 --> 00:45:09,090
+只有这个事务中启动的所有系统调用都调用了 stop 时，
 if all of the system calls that started in this transaction have called stops,
 
 751
 00:45:09,090 --> 00:45:10,980
+事务必须做一些记录，
 the transaction has to do some bookkeeping,
 
 752
 00:45:10,980 --> 00:45:12,840
+记住开始的所有句柄，
 has remember all the handles that started,
 
 753
 00:45:12,840 --> 00:45:17,190
+这样，当它们调用 stop 时，可以进行检查。
 so that it can sort of check them off as those calls finish.
 
 754
 00:45:20,440 --> 00:45:22,630
+所以考虑到这个结构，
 So with this structure in mind,
 
 755
 00:45:22,630 --> 00:45:25,240
+我将展示完整的序列，
 I'm just going to lay out the complete sequence
 
 756
 00:45:25,240 --> 00:45:28,270
+提交事务需要什么。
 of what it takes to commit a transaction.
 
 757
 00:45:28,450 --> 00:45:30,670
+所以，在某个时候，当所有的，
 So you know at some point when all the,
 
 758
 00:45:31,030 --> 00:45:34,780
+每隔 5 秒，文件系统会考虑，
 every five seconds, the file system is going to think to itself,
 
 759
 00:45:34,780 --> 00:45:37,900
+哦，现在是提交当前打开的事务的好时机。
 oh, now would be a good time to commit the current open transaction.
 
 760
 00:45:38,600 --> 00:45:40,820
+所以，这是会发生的事，
 And so here's what happens when the,
 
 761
 00:45:42,180 --> 00:45:47,280
+当文件系统提交事务时。
 here's what's involved in the file system committing a transaction.
 
 762
 00:45:47,280 --> 00:45:48,720
+所以，有这些步骤。
 So, these are like steps.
 
 763
 00:45:55,810 --> 00:46:01,110
+所以，首先，我们必须阻塞所有新的系统调用，
 So first, we have to block any new system calls,
 
 764
 00:46:01,230 --> 00:46:08,630
+我们需要让我们的事务只反映整个系统调用，
 we need to have our transaction reflect only entire system calls,
 
 765
 00:46:08,630 --> 00:46:11,540
+所以我们不想让任何新的开始，
 so we don't want to let anything new start,
 
 766
 00:46:12,620 --> 00:46:14,900
+当我们试图提交事务时，
 when we're trying to commit the transaction,
 
 767
 00:46:15,020 --> 00:46:18,200
+我们希望只包括已经开始的系统调用，
 we want to only include system calls that have already started,
 
 768
 00:46:19,100 --> 00:46:21,020
+所以你需要阻塞新的系统调用。
 so you need to block new system calls.
 
 769
 00:46:21,020 --> 00:46:22,820
+还有另一个原因，我要谈一谈，
 There's actually another reason, I'll talk about,
 
 770
 00:46:25,630 --> 00:46:27,550
+为什么我们需要阻塞新的系统调用。
 why we need to block new system calls.
 
 771
 00:46:29,980 --> 00:46:32,110
+这是一个小的性能缺陷，
 This is actually a little bit of a performance defect,
 
 772
 00:46:32,110 --> 00:46:34,510
+这里会有一段时间，
 there's going to be a period of time here,
 
 773
 00:46:34,510 --> 00:46:38,410
+系统调用必须等待并且不允许执行，
 when system calls have to wait and are not allowed to execute,
 
 774
 00:46:38,440 --> 00:46:39,400
+所以那太糟糕了。
 so that's too bad.
 
 775
 00:46:40,040 --> 00:46:41,570
+第二步是，
 The second step is that,
 
 776
 00:46:42,400 --> 00:46:44,140
+有一些已经启动的系统调用，
 there are a bunch of system calls have already started
 
 777
 00:46:44,140 --> 00:46:45,430
+它们是该事务的一部分，
 that are part of this transaction,
 
 778
 00:46:46,510 --> 00:46:48,370
+我们需要等它们完成，
 that we need to wait for them to finish,
 
 779
 00:46:48,610 --> 00:46:53,140
+所以我们需要等待未完成的系统调用，
 so we need to wait for the outstanding system calls,
 
 780
 00:46:54,850 --> 00:46:55,960
+它们在这个事务中。
 that are in this transaction.
 
 781
 00:46:59,440 --> 00:47:02,740
+因为我们当然希望事务反映它们的所有写入，
 Because of course we want the transaction to reflect all of their writes,
 
 782
 00:47:03,220 --> 00:47:04,660
+所以我们需要等它们完成。
 so we need to wait for them to finish.
 
 783
 00:47:05,170 --> 00:47:07,180
+接下来发生的事情是，
 The next thing that happens is
 
 784
 00:47:07,180 --> 00:47:10,240
+一旦该事务的所有系统调用都完成，
 you know once all the system calls for this transaction are finished,
 
 785
 00:47:10,300 --> 00:47:11,860
+并且完成对缓存的写入，
 and have done their writes into the cache,
 
 786
 00:47:11,920 --> 00:47:14,230
+就可以启动新事务，
 it turns out then it's okay to start a new transaction
 
 787
 00:47:14,230 --> 00:47:16,270
+并让这些被阻塞的系统调用继续进行。
 and let these blocked system calls continue.
 
 788
 00:47:16,540 --> 00:47:19,090
+所以现在我们要打开一个新的事务，
 So now we're gonna open a new transaction
 
 789
 00:47:19,580 --> 00:47:23,120
+为任何后续的系统调，
 for these, for any subsequent system calls,
 
 790
 00:47:28,710 --> 00:47:29,790
+但是现在，
 but now this,
 
 791
 00:47:29,820 --> 00:47:32,160
+我继续我们最初的事务，
 I'm continuing the story with our original transaction
 
 792
 00:47:32,160 --> 00:47:33,690
+它现在已经结束。
 which is now closed.
 
 793
 00:47:34,860 --> 00:47:38,010
+所以记住 ext3 中的日志
 So remember the log in ext3
 
 794
 00:47:38,010 --> 00:47:41,010
+包含描述符、数据块和提交块。
 contains descriptors and data blocks and commit blocks.
 
 795
 00:47:41,850 --> 00:47:48,640
+现在，我们知道修改的全部数据块，
 So now, we know the full set of blocks modified
 
 796
 00:47:48,670 --> 00:47:51,010
+这个事务中的所有系统调用（所修改的），
 by all the system calls that were in this transaction,
 
 797
 00:47:51,430 --> 00:47:53,830
+因为它们都使用一个句柄调用了 get ，
 because they all called get with a handle,
 
 798
 00:47:53,830 --> 00:47:57,400
+告诉我们是哪个事务的一部分，
 that told us about what transactions are part of,
 
 799
 00:47:57,490 --> 00:48:00,220
+我们知道该事务的全部修改块，
 we know the full set of modified blocks for this transaction,
 
 800
 00:48:00,370 --> 00:48:02,350
+所以现在我们可以写一个描述符块，
 so now we can write a descriptor block,
 
 801
 00:48:05,960 --> 00:48:08,180
+有所有块编号，
 that has all the block numbers
 
 802
 00:48:09,460 --> 00:48:12,490
+对于这个事务的的所有脏块。
 for all the blocks dirty to this transaction.
 
 803
 00:48:17,770 --> 00:48:21,460
+我们还将写入修改的块，
 We're also going to write the actual modified blocks
 
 804
 00:48:21,460 --> 00:48:25,600
+从磁盘缓存到日志中，
 from the disk cache into the log
 
 805
 00:48:25,720 --> 00:48:28,240
+事实上，如果有人问一个问题，
 and in fact if somebody somebody asks a question about,
 
 806
 00:48:28,240 --> 00:48:30,520
+如果下一个事务修改了这个会发生什么，
 oh, what happens if the next transaction modifies this,
 
 807
 00:48:30,520 --> 00:48:32,650
+我们在这个阶段实际写入的是
 what we're actually writing in this stage is
 
 808
 00:48:32,650 --> 00:48:38,150
+这个事务块保存的副本，
 the sort of saved copies of this transactions blocks
 
 809
 00:48:38,150 --> 00:48:39,920
+在它完成时。
 as of the time when it finished.
 
 810
 00:48:41,050 --> 00:48:46,240
+所以，我要把块写入日志。
 So I'm gonna write the actual blocks to the log.
 
 811
 00:48:52,070 --> 00:48:56,900
+现在，我们要等这些写入结束，
 Now, we're gonna wait for these writes to finish,
 
 812
 00:49:02,630 --> 00:49:06,830
+这些需要完成，然后我们才能继续。
 these need to finish before we can proceed.
 
 813
 00:49:07,980 --> 00:49:11,970
+一旦确保描述符和数据块在磁盘上，
 Once the descriptor and the data blocks are guaranteed to be on the disk,
 
 814
 00:49:12,000 --> 00:49:14,730
+然后，我们可以将提交记录写入日志。
 then we can write the commit record to the log.
 
 815
 00:49:21,180 --> 00:49:25,620
+一旦写入完成，我们就必须等待它完成。
 And once that write is finished, we have to wait for it to finish.
 
 816
 00:49:31,420 --> 00:49:34,030
+所以我们在等待提交写入完成，
 So we're waiting for the waiting for the commit write to finish,
 
 817
 00:49:34,150 --> 00:49:36,940
+一旦提交写入完成，
 at this point, once the commit write is finished,
 
 818
 00:49:37,600 --> 00:49:38,770
+这个事务，
 this transaction,
 
 819
 00:49:38,770 --> 00:49:41,170
+用技术术语来说，
 with the sort of technical term is
 
 820
 00:49:41,170 --> 00:49:44,530
+就是这个事务达到了提交点，
 that this transaction has reached its commit point that is,
 
 821
 00:49:46,060 --> 00:49:50,530
+在这一点上保证写入和事务在崩溃中幸存下来，
 it's guaranteed the writes and transaction are guaranteed to survive a crash at this point,
 
 822
 00:49:50,710 --> 00:49:54,850
+如果崩溃发生在写提交块之前，
 if the crash had occurred before this before writing the commit block,
 
 823
 00:49:55,560 --> 00:49:59,850
+事务的写入不会出现在崩溃并重启之后，
 the writes of the transaction would not appear after a crash and reboot
 
 824
 00:50:00,240 --> 00:50:01,680
+并运行恢复软件，
 and running the recovery software,
 
 825
 00:50:01,800 --> 00:50:03,030
+如果崩溃现在发生，
 if a crash occurs now,
 
 826
 00:50:03,030 --> 00:50:07,110
+在提交块已经写入磁盘之后，
 after the commit point after the commit block has written to the disk,
 
 827
 00:50:07,530 --> 00:50:09,990
+然后可以保证
 then they're guaranteed to
 
 828
 00:50:10,460 --> 00:50:13,940
+保证事务中的所有写入
 those writes all the writes in the transaction are guaranteed
 
 829
 00:50:13,940 --> 00:50:16,520
+在崩溃、重启和恢复之后出现。
 to appear after crash reboot and recovery.
 
 830
 00:50:18,010 --> 00:50:20,920
+好的，现在，
 Okay, and now and only now,
 
 831
 00:50:21,040 --> 00:50:24,850
+所有这些事情都是在幕后发生的，
 in the background, all this kind of happened in the background,
 
 832
 00:50:24,850 --> 00:50:27,220
+没有进程在等待这些东西，
 no process was really waiting for this stuff,
 
 833
 00:50:28,540 --> 00:50:31,720
+现在，我们可以将事务块写入
 now we can write the transactions blocks
 
 834
 00:50:32,390 --> 00:50:34,310
+它们在文件系统中的原位置。
 to their home locations in the file system.
 
 835
 00:50:43,540 --> 00:50:47,320
+我将在几分钟后讨论，
 And, I ll talk about in a few minutes
 
 836
 00:50:47,620 --> 00:50:50,620
+在这些写入都完成后，
 after all of these writes have completed,
 
 837
 00:50:51,200 --> 00:50:55,430
+作为该事务一部分的所有块，
 for all the blocks that are part of this transaction,
 
 838
 00:50:55,550 --> 00:51:00,860
+只有那时，我们才能重用那部分日志。
 then only then can we reuse that part of the log.
 
 839
 00:51:03,760 --> 00:51:05,590
+所以在一个非常繁忙的系统中，
 So in a very busy system,
 
 840
 00:51:05,860 --> 00:51:08,050
+如果日志头赶上了尾，
 if the head of the log catches up with the tail,
 
 841
 00:51:08,050 --> 00:51:10,960
+可能无法启动新事务，
 there may actually may not be able to start a new transaction
 
 842
 00:51:10,960 --> 00:51:14,140
+直到最旧的事务的所有这些写入完成，
 until all of these writes have finished for the oldest transaction,
 
 843
 00:51:14,170 --> 00:51:16,510
+因为我们可能需要日志空间，
 because we may need log space,
 
 844
 00:51:16,510 --> 00:51:17,740
+所以我们不会，
 so we won't,
 
 845
 00:51:17,950 --> 00:51:20,290
+我们可能需要重用最旧的事务日志空间，
 we may need to reuse the oldest transaction log space,
 
 846
 00:51:20,290 --> 00:51:21,370
+我们必须进行写入
 we have to write for it to
 
 847
 00:51:21,370 --> 00:51:24,970
+写入所有缓存块到它们的原位置，
 write all the cache cache blocks to their home locations,
 
 848
 00:51:25,600 --> 00:51:28,540
+通常人们尽量把日志做得足够大，
 this usually you people try to make the log big enough,
 
 849
 00:51:28,540 --> 00:51:30,280
+这种情况很少发生，
 this happens pretty rarely,
 
 850
 00:51:30,370 --> 00:51:33,130
+所以，这些东西可以在后台进行。
 so that this stuff can go on in the background.
 
 851
 00:51:35,490 --> 00:51:36,810
+任何关于这些步骤，有什么问题吗？
 Any questions about these steps?
 
 852
 00:51:39,600 --> 00:51:41,730
+哦，抱歉，那些东西在哪里运行？
 Oh, sorry, where are those run?
 
 853
 00:51:42,560 --> 00:51:43,130
+它们什么？
 Those what?
 
 854
 00:51:43,130 --> 00:51:48,290
+我们写入这些文件系统的东西。
 We write for doing this file system stuff.
 
 855
 00:51:51,480 --> 00:51:57,570
+哦，你说没有程序等着这些事情做完，
 Oh, so you said that no process is waiting for those things to get done,
 
 856
 00:51:57,600 --> 00:52:01,680
+那么它们在哪里运行？
 so where, where are they scheduled where they run?
 
 857
 00:52:02,520 --> 00:52:05,700
+哦，有一个后台线程，
 Oh, there's a background thread,
 
 858
 00:52:07,270 --> 00:52:11,380
+在内核中专门有一个后台线程。
 there's a background thread, in the kernel dedicated.
 
 859
 00:52:12,130 --> 00:52:13,540
+我明白了，谢谢。
 I see thank you.
 
 860
 00:52:18,500 --> 00:52:22,930
+我有关于重用部分日志的问题，
 I have question actually about reusing part of the log,
 
 861
 00:52:23,110 --> 00:52:23,890
+所以，让我们，
 so let's,
 
 862
 00:52:24,550 --> 00:52:28,540
+比如，最终我们开始使用日志的特定部分，
 let's say eventually we start using a particular section of log,
 
 863
 00:52:29,880 --> 00:52:33,600
+而日志那个特定的部分，
 and log, the that particular, as I think just mentioned,
 
 864
 00:52:33,720 --> 00:52:36,690
+日志的特定部分，
 that particular log of particular part of the log
 
 865
 00:52:36,690 --> 00:52:39,360
+在我的新事务中，
 actually in my new transaction,
 
 866
 00:52:39,360 --> 00:52:44,220
+最终使用刚刚被释放的日志部分，
 actually, end up using the whole log part was just freed up
 
 867
 00:52:44,250 --> 00:52:45,570
+没有其他的了，
 and there's nothing else,
 
 868
 00:52:45,600 --> 00:52:48,380
+没有空间给日志了，
 there's no more space for the log,
 
 869
 00:52:48,680 --> 00:52:52,010
+然后系统只是等待，
 what the log, then like with the system just wait
 
 870
 00:52:52,250 --> 00:52:56,170
+直到日志的另一部分被释放，
 until the another portion of log is freed up,
 
 871
 00:52:56,200 --> 00:52:58,270
+或者它会做一些其他事情？
 or would it do something else too?
 
 872
 00:52:58,690 --> 00:53:01,090
+是的，它会等待，
 Yes, it'll wait,
 
 873
 00:53:01,840 --> 00:53:04,540
+让我来画一张图，
 let me though, let me just draw a picture
 
 874
 00:53:04,570 --> 00:53:07,930
+确定我回答的问题是对的。
 to help me make sure I'm answering the right question here.
 
 875
 00:53:08,200 --> 00:53:11,800
+我们可以把日志看作是这条线，
 We can think of the log as just this linear,
 
 876
 00:53:11,800 --> 00:53:12,580
+是磁盘的一部分，
 part of the disk
 
 877
 00:53:12,700 --> 00:53:13,840
+在任何给定的时间，
 and any given time,
 
 878
 00:53:13,840 --> 00:53:19,940
+也许最老的有效事务是 t7 ，
 you know maybe maybe the oldest valid transaction is you know t7,
 
 879
 00:53:20,180 --> 00:53:23,210
+然后这个地区有 t8 ，
 then there's t8 in this region
 
 880
 00:53:23,690 --> 00:53:25,130
+然后我们有 t9 ，
 and we have t9
 
 881
 00:53:25,160 --> 00:53:27,050
+我们想要开始，
 and we want to start,
 
 882
 00:53:27,850 --> 00:53:30,010
+我们想把 t10 放在这里。
 you know, we want to put t10 here.
 
 883
 00:53:33,120 --> 00:53:33,900
+这个。
 The.
 
 884
 00:53:39,140 --> 00:53:39,530
+让我们看看，
 Let's see,
 
 885
 00:53:39,530 --> 00:53:44,090
+首先，我们想开始一个新的事务，把它放在这里。
 what one you know we'd like to start a new transaction put it here.
 
 886
 00:53:44,870 --> 00:53:48,720
+我们可能要等待 t7
 The, we may have to wait for t7
 
 887
 00:53:49,740 --> 00:53:54,720
+把它的所有块写到原位置上，
 to write all it's blocks to their home locations,
 
 888
 00:53:54,720 --> 00:53:55,890
+这样我们才能释放它。
 so that we can free it.
 
 889
 00:53:57,100 --> 00:54:02,920
+这可能意味着事务 10 中的东西不得不暂停，
 And that may mean that the transaction stuff in transaction 10 may have to pause,
 
 890
 00:54:03,480 --> 00:54:07,160
+等待日志中的这些空间释放。
 waiting for this space in the log to free up.
 
 891
 00:54:08,180 --> 00:54:09,110
+这是你说的吗？
 Is that what you're talking about?
 
 892
 00:54:09,710 --> 00:54:11,150
+是的，这么说吧，
 Yeah, so let's say that,
 
 893
 00:54:11,840 --> 00:54:13,610
+所以一开始可能是这种情况，
 so it could be the case at the beginning,
 
 894
 00:54:13,730 --> 00:54:19,730
+我可以把事务 10 的块放在可用空间中，
 you I can put in blocks for a transaction 10 in the actual free space right now,
 
 895
 00:54:19,730 --> 00:54:22,400
+但是最终，如果日志变得足够大，
 but eventually, if log grows big enough,
 
 896
 00:54:22,400 --> 00:54:24,320
+它就会耗尽空闲空间，
 it's just going to run out of free space
 
 897
 00:54:24,320 --> 00:54:24,770
+在这一点上，
 and at that point,
 
 898
 00:54:24,770 --> 00:54:26,840
+它需要等待事务 7 。
 it's just going to wait for transaction 7 to.
 
 899
 00:54:27,170 --> 00:54:27,800
+是的。
 Yes.
 
 900
 00:54:27,860 --> 00:54:28,880
+被记录下来，好的。
 Be recorded, okay.
 
 901
 00:54:28,880 --> 00:54:32,120
+是的，是的，如果有足够的活动进行，
 Yes, yes, certainly if there's enough activity going on
 
 902
 00:54:32,210 --> 00:54:34,220
+而日志绕回得足够快，
 and the log wraps around quickly enough,
 
 903
 00:54:34,340 --> 00:54:39,500
+你可能不得不等待新的新系统调用，
 you may end up having to wait for a new new system calls,
 
 904
 00:54:41,080 --> 00:54:43,270
+我们甚至可能无法启动系统调用，
 we may not even be able to start the system calls,
 
 905
 00:54:43,270 --> 00:54:47,050
+在我们释放日志中的空间之前，
 because before we can free up space in the log
 
 906
 00:54:47,050 --> 00:54:49,180
+为它们修改的块。
 for the blocks that they're going to modify.
 
 907
 00:54:49,360 --> 00:54:52,360
+如果你关心这件事的细节，
 And you know if you care about the details of this
 
 908
 00:54:52,360 --> 00:54:55,690
+就会发现这里有死锁的可能，
 it turns out there's some potential deadlocks here,
 
 909
 00:54:56,510 --> 00:55:02,510
+意思是 ext3 最终，
 that require that mean ext3 ends up,
 
 910
 00:55:02,720 --> 00:55:06,320
+系统调用必须预先声明它们将需要多少块，
 system calls have to pre declare how many blocks they're going to need,
 
 911
 00:55:06,470 --> 00:55:10,940
+这样日志系统能知道需要多少，
 so that the logging system knows how much,
 
 912
 00:55:11,300 --> 00:55:16,710
+你可以推论这个事务是否有足够的空间，
 you can reason about whether or there's enough space for this transaction,
 
 913
 00:55:17,010 --> 00:55:19,860
+因为我们不想让事务开始，
 because we don't want to allow a transaction to start that,
 
 914
 00:55:20,710 --> 00:55:22,780
+我们不能提交到日志中。
 we wouldn't actually be able to commit into the log.
 
 915
 00:55:26,390 --> 00:55:27,020
+好的。
 Okay.
 
 916
 00:55:27,260 --> 00:55:28,610
+假设，
 Let's, let's say,
 
 917
 00:55:28,610 --> 00:55:32,720
+你试图放入的新日志或新事务，
 it's the new log or the new transaction you're trying to put,
 
 918
 00:55:32,720 --> 00:55:35,690
+要到事务 8 ，
 goes to like 8 transaction 8,
 
 919
 00:55:36,080 --> 00:55:39,170
+所以你必须等待 7 和 8 ，对吧，
 so you will have to wait for 7 and 8 right,
 
 920
 00:55:39,170 --> 00:55:40,700
+那么这是怎么运作的？
 so how does that work?
 
 921
 00:55:40,730 --> 00:55:41,660
+你的意思是，
 You mean,
 
 922
 00:55:42,920 --> 00:55:43,520
+好的，
 okay so,
 
 923
 00:55:44,720 --> 00:55:47,780
+事务 7 ，事务 8 和事务 9 ，
 it's transaction 7 and transaction 8 transaction 9,
 
 924
 00:55:47,780 --> 00:55:49,880
+至少在这张图中的都必须完成，
 at least in this diagram have all completed
 
 925
 00:55:50,000 --> 00:55:52,430
+或者所有系统调用都已完成。
 or that all the system calls have finished.
 
 926
 00:55:53,180 --> 00:55:56,900
+这些事务在日志中提交，
 And these transactions are committed in the log,
 
 927
 00:55:56,930 --> 00:55:58,610
+因为这些是旧事务。
 because these are the old transactions.
 
 928
 00:55:59,000 --> 00:56:01,470
+所以，在这张图中，
 So, in this picture,
 
 929
 00:56:01,470 --> 00:56:04,020
+我们刚开始事务 10 ，
 at least we're just starting transaction 10,
 
 930
 00:56:05,230 --> 00:56:08,560
+所以，新的系统调用将写入事务 10 。
 and so new system calls are going to be writing into a transaction 10.
 
 931
 00:56:11,750 --> 00:56:13,580
+是的，但是你说过，
 Right, but you said that,
 
 932
 00:56:14,460 --> 00:56:17,810
+事务 10 太大不能放入那个空间，
 transaction 10 is not big enough to fill that space,
 
 933
 00:56:17,810 --> 00:56:21,650
+所以你需要释放事务 7 ，
 so you need to free transactions 7 right,
 
 934
 00:56:21,860 --> 00:56:24,860
+你需要等待它提交到磁盘中。
 you need to wait for that to like commit to disk.
 
 935
 00:56:26,200 --> 00:56:27,640
+是的。
 Yes.
 
 936
 00:56:27,670 --> 00:56:28,870
+但是，会发生什么，
 But what happens if you,
 
 937
 00:56:28,870 --> 00:56:32,770
+如果事务 10 比事务 7 大，
 if it's, if 10 is like bigger than like 7,
 
 938
 00:56:32,770 --> 00:56:34,450
+它要到事务 8 。
 like it goes to 8 transaction.
 
 939
 00:56:34,450 --> 00:56:35,740
+我们必须等待，
 We have to wait for to,
 
 940
 00:56:36,970 --> 00:56:38,680
+是的，我们必须等待，
 yeah, we may have to wait for,
 
 941
 00:56:38,890 --> 00:56:41,110
+不管事务 10 有多大，
 however big transaction 10 is,
 
 942
 00:56:41,800 --> 00:56:45,580
+我们需要足够的磁盘空间来容纳它，
 you know we need, we need enough space on the disk to fit it
 
 943
 00:56:45,970 --> 00:56:48,250
+而不是足够的日志来容纳它，
 and not enough space in the log to fit it
 
 944
 00:56:48,490 --> 00:56:51,940
+所以，如果事务 10 很大，
 and so indeed if transaction 10 and it turns out being big,
 
 945
 00:56:52,300 --> 00:56:55,210
+它可能需要强制多个事务，
 it may need to force multiple transactions,
 
 946
 00:56:55,330 --> 00:57:01,280
+多个最旧事务写入它们的原位置，
 multiple of the oldest transactions to write to their home locations
 
 947
 00:57:01,580 --> 00:57:02,960
+并释放它们自己。
 and free themselves.
 
 948
 00:57:03,110 --> 00:57:05,720
+我猜它的代码是怎么工作的，
 I guess how, how does code for that work,
 
 949
 00:57:05,750 --> 00:57:08,540
+比如，它是不是查看它有多大，
 like does it just run through how big it is
 
 950
 00:57:08,540 --> 00:57:11,480
+这里有一个事务，这里也有一个事务，
 and like say hey there's a transaction here and a transaction here
 
 951
 00:57:11,480 --> 00:57:13,310
+我必须等待它们两个。
 and it's like I have to wait for both of them.
 
 952
 00:57:15,300 --> 00:57:22,000
+文件系统知道日志中的所有事务有多大，
 The file system knows, knows how big all the transactions in the log are,
 
 953
 00:57:23,110 --> 00:57:24,460
+它记得，
 and it remembers
 
 954
 00:57:24,460 --> 00:57:26,440
+记得我的意思是文件系统记得
 and remember I mean actually the file system remembers
 
 955
 00:57:26,440 --> 00:57:28,720
+相当多关于每个较旧事务的信息，
 quite a bit about each of these older transactions,
 
 956
 00:57:28,720 --> 00:57:31,630
+它知道每一个都是不是可写，
 it knows for each one whether it's written,
 
 957
 00:57:32,530 --> 00:57:35,290
+文件系统跟踪所有这些块
 for file system keeps track of for every block
 
 958
 00:57:35,290 --> 00:57:37,600
+在每个旧事务中的（块），
 in all of each of these older transactions
 
 959
 00:57:37,600 --> 00:57:40,420
+它是否已经把那个块写到原位置，
 whether it has written that block to the home location,
 
 960
 00:57:41,230 --> 00:57:42,490
+这样它就可以知道，
 so that it can know,
 
 961
 00:57:42,490 --> 00:57:45,580
+哦，我已经写好了，它可以知道是不是。
 oh, I've written, it could know whether or not.
 
 962
 00:57:46,360 --> 00:57:48,040
+并识别完成点，
 And recognize the point at which is finished
 
 963
 00:57:48,040 --> 00:57:50,770
+写入所有事务 7 的块或事务 8 的块。
 writing all the transactions 7 blocks or transactions 8 blocks.
 
 964
 00:57:50,770 --> 00:57:52,870
+所以这里有相当多的记录，
 So there's quite a lot of bookkeeping going on here,
 
 965
 00:57:53,880 --> 00:58:00,410
+帮助文件系统了解每个旧事务的状态。
 help the file system to understand in detail the state of every old transaction.
 
 966
 00:58:07,420 --> 00:58:07,930
+好的。
 Okay.
 
 967
 00:58:09,880 --> 00:58:11,140
+好的，那么，
 Okay, so,
 
 968
 00:58:11,260 --> 00:58:15,370
+这是关于如何重用日志空间的主题，
 indeed there's there's on the topic of how to reuse log space,
 
 969
 00:58:15,370 --> 00:58:18,640
+这里有一个小细节需要说。
 there's one little detail here that needs to be said.
 
 970
 00:58:18,700 --> 00:58:21,280
+如果你记得，一开始的时候。
 If you remember, at the beginning of the.
 
 971
 00:58:21,310 --> 00:58:24,400
+让我来写一下图表，
 Let me, let me writing diagram,
 
 972
 00:58:24,880 --> 00:58:27,970
+是一个超级块，
 is actually a super block though,
 
 973
 00:58:28,360 --> 00:58:31,420
+日志超级块在日志的开头。
 log super block at the beginning of the log.
 
 974
 00:58:32,470 --> 00:58:35,620
+所以在任何给定的时间里，
 And so in any given time,
 
 975
 00:58:35,620 --> 00:58:37,300
+你可能会有日志超级块，
 you might have the log super block,
 
 976
 00:58:37,330 --> 00:58:41,900
+然后是一些事务，
 and then some set of transactions,
 
 977
 00:58:43,410 --> 00:58:47,520
+可能事务 4 是最新的事务，
 you know, maybe those transaction 4 which is the newest transaction
 
 978
 00:58:47,520 --> 00:58:53,370
+然后是事务 1 ，较旧的事务，
 and then a transaction 1, the older transactions,
 
 979
 00:58:53,370 --> 00:58:54,360
+这意味着，
 so what this means is that,
 
 980
 00:58:54,510 --> 00:58:56,220
+当然，日志是环绕在一起的。
 of course the log is wrapped around.
 
 981
 00:59:01,200 --> 00:59:02,070
+你知道，
 And you know the,
 
 982
 00:59:03,060 --> 00:59:06,980
+我们是否可以重复使用一部分日志的规则，
 yeah, the rule for whether we could reuse a part of the log,
 
 983
 00:59:07,730 --> 00:59:09,890
+我已经提到了，再说一遍，
 now I've mentioned this before I just want to say it again
 
 984
 00:59:09,950 --> 00:59:11,360
+我们可以重用日志，
 is that we can reuse the log,
 
 985
 00:59:11,360 --> 00:59:15,140
+我们就可以重用日志中事务 2 的这一部分，
 so we can reuse this part of the log that transaction 2 is in,
 
 986
 00:59:15,200 --> 00:59:16,970
+如果 t2 已经提交，
 if t2 has committed
 
 987
 00:59:17,360 --> 00:59:22,850
+并且所有 t2 的块已写入它们在文件系统中的原位置，
 and all of t2 blocks have been written to their home locations in the file system,
 
 988
 00:59:23,600 --> 00:59:30,380
+这样在崩溃之后就不需要重播这些块了。
 so that there can never be any need after a crash replay these blocks, right.
 
 989
 00:59:31,160 --> 00:59:36,890
+并且如果在事务 2 之前的所有事务也被释放。
 And if all transactions prior to transaction 2 have also been freed.
 
 990
 00:59:37,510 --> 00:59:39,250
+如果这些条件都是真的，
 So if those conditions are all true,
 
 991
 00:59:39,280 --> 00:59:44,890
+然后我们可以释放并重用 t2 所在的那部分日志，
 then we can free and reuse the part of the log that t2 sits in,
 
 992
 00:59:45,610 --> 00:59:47,320
+所以我们能使用 t2 ，
 so we can only use t2
 
 993
 00:59:47,320 --> 00:59:52,000
+在 t2 t1 完成提交之后，
 and after t2 is, after t1 is finished all committing
 
 994
 00:59:52,000 --> 00:59:54,910
+并且写入日志块到原位置中，
 and writing its blocks to log to the home locations also,
 
 995
 00:59:55,210 --> 00:59:57,880
+然后这个超级块，
 and then this super block,
 
 996
 00:59:58,120 --> 01:00:01,750
+为了方便崩溃后的恢复软件，
 for the convenience of the recovery software after a crash,
 
 997
 01:00:01,960 --> 01:00:03,760
+如果我们决定我们可以，
 if we decide that we can,
 
 998
 01:00:04,180 --> 01:00:05,380
+如果文件系统决定
 if the file system decides
 
 999
 01:00:05,380 --> 01:00:09,660
+它可以释放和重用日志的特定部分，
 it can free and reuse a particular part of the log,
 
 1000
 01:00:09,960 --> 01:00:12,930
+它也重写超级块，
 it rewrites the super block too,
 
 1001
 01:00:13,380 --> 01:00:19,740
+超级块作为第一个事务日志的指针，
 super block as a pointer to the begin the first transaction log
 
 1002
 01:00:19,770 --> 01:00:22,890
+所以，作为释放部分日志的一部分，
 and so as part of freeing part of the log,
 
 1003
 01:00:23,160 --> 01:00:25,620
+文件系统修改超级块指向
 file system modifies super block point to
 
 1004
 01:00:25,620 --> 01:00:31,350
+日志中当前最旧事务的开始。
 the new beginning of the of the now oldest transaction in the log.
 
 1005
 01:00:32,540 --> 01:00:33,920
+然后发生崩溃，
 And then there's crash,
 
 1006
 01:00:34,740 --> 01:00:38,550
+恢复软件读取超级块，找到开始的日志。
 at the recovery software reads the super block, finds the beginning log.
 
 1007
 01:00:42,160 --> 01:00:44,800
+好的，如果发生崩溃，
 Okay, so if there's a crash,
 
 1008
 01:00:44,950 --> 01:00:52,690
+当然崩溃导致 RAM 中的所有东西都消失了，
 of course a crash causes everything in RAM to evaporate,
 
 1009
 01:00:52,780 --> 01:00:54,220
+所以，所有记录，
 so all that bookkeeping
 
 1010
 01:00:54,220 --> 01:00:58,660
+文件系统记录着哪些块已写入原位置，
 that the file system is keeping about what blocks have been written to the home locations,
 
 1011
 01:00:58,660 --> 01:01:01,330
+如果发生崩溃或停电，这些都会丢失，
 that's all lost if there's a crash or power failure,
 
 1012
 01:01:01,360 --> 01:01:04,120
+然而，其中一个假设是
 however so that one of the assumptions is
 
 1013
 01:01:04,120 --> 01:01:05,650
+RAM 中没有任何有用的东西，
 there's nothing useful in RAM,
 
 1014
 01:01:05,830 --> 01:01:10,090
+在崩溃过程中唯一能保存下来的东西是
 the only stuff that's can be preserved across the crash is
 
 1015
 01:01:10,090 --> 01:01:11,380
+磁盘上的任何东西，
 whatever's on the disk,
 
 1016
 01:01:12,460 --> 01:01:16,270
+我们参与了所有这些关于日志的讨论，
 but we are absolutely in all these discussions about logging,
 
 1017
 01:01:16,330 --> 01:01:19,030
+假设盘完全完好无损，
 assuming that the disk is completely intact,
 
 1018
 01:01:19,030 --> 01:01:20,710
+磁盘没有任何问题。
 that nothing went wrong with the disk.
 
 1019
 01:01:22,360 --> 01:01:24,100
+所以，也许你们应该考虑的正确模型是，
 So, so maybe the right model for you to think
 
 1020
 01:01:24,100 --> 01:01:25,840
+出现电源故障，
 in terms of is that there was a power failure,
 
 1021
 01:01:25,840 --> 01:01:27,940
+所有的东西都在嗡嗡作响，然后停电了，
 that everything was humming along and then the power failed,
 
 1022
 01:01:27,940 --> 01:01:29,740
+系统在某个点上停止了，
 the system just stopped at some point
 
 1023
 01:01:30,040 --> 01:01:33,190
+在电源恢复后，
 and the disk is after power is restored,
 
 1024
 01:01:33,190 --> 01:01:35,080
+这上面有所有东西，
 this just has whatever it had on it,
 
 1025
 01:01:35,320 --> 01:01:37,120
+在断电时的（东西）。
 at the point of the power failure.
 
 1026
 01:01:37,620 --> 01:01:40,770
+所以我们绝对不会考虑
 So we're absolutely not considering situations
 
 1027
 01:01:40,770 --> 01:01:46,800
+磁盘不知何故被崩溃损坏或损坏。
 in which the disk was somehow corrupted or destroyed by the crash.
 
 1028
 01:01:51,740 --> 01:01:53,930
+所以崩溃当然可能会中断，
 And so the crash of course may interrupt,
 
 1029
 01:01:55,740 --> 01:01:59,820
+是的，事务正在提交或还没有提交，
 yeah whatever transactions were in the middle of committing are not yet committing yet
 
 1030
 01:01:59,820 --> 01:02:02,640
+或者不管崩溃打断什么，
 or whatever the crash may interrupt,
 
 1031
 01:02:03,000 --> 01:02:05,790
+无论是事务的提交
 either the commit of a transaction
 
 1032
 01:02:05,820 --> 01:02:10,560
+或者写入事务块到它们的原位置。
 or the writing of a transactions blocks into their home locations.
 
 1033
 01:02:11,130 --> 01:02:14,700
+所以，这意味着磁盘上的日志，
 So, what that means is that the on disk log,
 
 1034
 01:02:14,790 --> 01:02:17,160
+当电力恢复，回复运转时，
 when the power is restored and recovery sufferers run,
 
 1035
 01:02:17,160 --> 01:02:21,480
+它会有一堆旧的完整的事务，
 it's going to have a bunch of complete transactions, older complete transactions,
 
 1036
 01:02:21,600 --> 01:02:23,160
+可能是 t1 和 t2 。
 you know may be t1 and t2.
 
 1037
 01:02:24,600 --> 01:02:30,060
+让我举一个新的例子，用于恢复。
 Let me take a new example, for for recovery.
 
 1038
 01:02:30,840 --> 01:02:34,470
+比如我们有一个超级块，
 Let's say we have the again the super block,
 
 1039
 01:02:37,470 --> 01:02:41,420
+而且，也许在崩溃的时候，
 and, maybe at the time of the crash,
 
 1040
 01:02:41,420 --> 01:02:48,420
+最老的事务是 t6 ，
 the oldest transaction was t6
 
 1041
 01:02:48,420 --> 01:02:49,710
+然后是 t7 ，
 and then there's t7,
 
 1042
 01:02:49,710 --> 01:02:52,830
+然后我们绕回来，还在崩溃之前 t8 ，
 then we wrapped around still before the crash t8
 
 1043
 01:02:54,150 --> 01:02:58,500
+而且这里曾经有一个 t5 ，
 and there was a t5,
 
 1044
 01:02:59,480 --> 01:03:06,560
+但是 t8 已经已经重写了 t5 的第一部分，
 but t8 has, let us imagine has started has overwritten the first part of t5,
 
 1045
 01:03:06,590 --> 01:03:10,940
+因为我们知道 t5 在崩溃之前已经释放了，
 because t5 was, we know that t5 was freed before the crash,
 
 1046
 01:03:10,940 --> 01:03:15,140
+但是恢复软件不一定知道这一点。
 but the recovery software doesn't necessarily know that.
 
 1047
 01:03:16,650 --> 01:03:21,210
+假设超级块指向 t6 ，
 And let's say the super block points to t6
 
 1048
 01:03:21,210 --> 01:03:24,960
+作为最老的有效事务的开始，
 as being the start of the oldest valid transaction,
 
 1049
 01:03:26,100 --> 01:03:27,930
+t5 已经释放。
 t5 is free.
 
 1050
 01:03:28,490 --> 01:03:32,480
+我们要重新启动，
 We're going to reboot with an [attack] disk,
 
 1051
 01:03:32,480 --> 01:03:34,430
+恢复软件读取超级块，
 the recovery software reads the super block
 
 1052
 01:03:34,430 --> 01:03:38,000
+然后，它知道日志的开始位置，
 and so then it knows the where the beginning of the log is,
 
 1053
 01:03:38,030 --> 01:03:41,420
+然后恢复软件将在日志中向前扫描，
 then the recover software's going to scan forward in the log
 
 1054
 01:03:41,450 --> 01:03:43,700
+试图找到日志的末尾。
 to try to find the end of the log.
 
 1055
 01:03:44,190 --> 01:03:47,640
+我们需要找到解决问题的方法，
 We need to have a way for it,
 
 1056
 01:03:48,600 --> 01:03:52,350
+真正弄清楚日志的末尾，
 to actually figure out, oh you know that's the end of the log,
 
 1057
 01:03:52,440 --> 01:03:56,100
+它做到这一点的方法是，
 the way it does that is
 
 1058
 01:03:56,340 --> 01:04:01,380
+我们知道每个事务都包含一个描述符块，
 we know that every transaction consists of a descriptor block
 
 1059
 01:04:01,470 --> 01:04:04,890
+它指示事务上有多少数据块，
 that indicates how many data blocks are on the transaction,
 
 1060
 01:04:05,190 --> 01:04:07,830
+比如描述符块说有 17 个数据块，
 such as descriptor blocks says, oh yeah there's 17 data blocks
 
 1061
 01:04:07,830 --> 01:04:10,710
+我们预计会有 17 个数据块最终提交记录。
 and we expect 17 data blocks and finally commit record.
 
 1062
 01:04:11,120 --> 01:04:13,640
+然后是另一个描述符记录，
 And then another descriptor record
 
 1063
 01:04:13,640 --> 01:04:17,330
+然后描述符块包含的数据块的数量，
 and then the number of data blocks implied by the descriptor block
 
 1064
 01:04:17,450 --> 01:04:18,920
+然后是另一个提交块。
 and then another commit block.
 
 1065
 01:04:19,160 --> 01:04:22,640
+所以，正向扫描中的日志软件，
 And so the log software in the scan forward,
 
 1066
 01:04:23,200 --> 01:04:25,300
+可能 t6 和 t7 都没问题，
 maybe t6 and t7 are fine,
 
 1067
 01:04:25,300 --> 01:04:28,150
+然后它看一下 t8 ， t8 有一些描述符块。
 then it's going to look at t8 t8 got some descriptor block.
 
 1068
 01:04:29,800 --> 01:04:34,420
+然后，恢复软件查找
 And, then the recovery suffers gonna look forward to
 
 1069
 01:04:35,540 --> 01:04:37,820
+事务的结尾在哪里，
 where the end of transaction it should be
 
 1070
 01:04:37,820 --> 01:04:42,440
+并寻找一个提交块。
 and look for a commit block.
 
 1071
 01:04:42,560 --> 01:04:45,890
+所以这里可能发生几件事，
 And so there's a couple of things that may have happened here,
 
 1072
 01:04:45,890 --> 01:04:49,800
+可能是事务确实提交了，
 it could be that transaction it did commit
 
 1073
 01:04:49,800 --> 01:04:52,230
+恢复软件找到提交块，
 and that the recovery software finds the commit block,
 
 1074
 01:04:53,040 --> 01:04:56,070
+然后它会寻找另一个，
 it'll then look for another,
 
 1075
 01:04:56,370 --> 01:04:59,880
+它不知道事务是最后一个事务，
 you know it doesn't know that transaction is last transactions
 
 1076
 01:05:00,030 --> 01:05:01,080
+需要找出这一点，
 needs to figure that out,
 
 1077
 01:05:01,080 --> 01:05:03,390
+所以，它查找接下来的一个块，
 so it's going to look at the very next block
 
 1078
 01:05:03,540 --> 01:05:07,570
+查看这是否是有效的描述符块，
 to see if this is a valid descriptor block,
 
 1079
 01:05:08,620 --> 01:05:12,820
+我们知道这个块只是一个随机的块，
 now we know that this block was really just a random block
 
 1080
 01:05:12,820 --> 01:05:14,080
+在事务 5 中，
 in the middle of transaction 5
 
 1081
 01:05:14,080 --> 01:05:15,670
+完全不是描述符块，
 and not a descriptor block at all,
 
 1082
 01:05:15,910 --> 01:05:16,690
+那么问题是
 then the question is
 
 1083
 01:05:16,690 --> 01:05:20,350
+恢复软件如何能够可靠地区分，
 how can the recovery software reliably distinguish between,
 
 1084
 01:05:20,350 --> 01:05:23,010
+这是一个数据块，
 oh, this is a, just some data block
 
 1085
 01:05:23,370 --> 01:05:24,810
+在旧事务中间，
 in the middle of an old transaction
 
 1086
 01:05:24,810 --> 01:05:28,950
+或者是事务 9 的描述符块。
 or it's the maybe the descriptor block for transaction nine.
 
 1087
 01:05:30,850 --> 01:05:33,490
+有人知道有什么可靠的方法，可以做到这个吗？
 Any guesses for a reliable method to do that?
 
 1088
 01:05:33,970 --> 01:05:35,530
+是魔术数吗？
 Is that the magic number.
 
 1089
 01:05:36,040 --> 01:05:36,580
+是的。
 Yeah.
 
 1090
 01:05:36,580 --> 01:05:38,290
+还是有一个保留位。
 Or is there just a reserved bit.
 
 1091
 01:05:39,110 --> 01:05:39,980
+的确，
 There is indeed,
 
 1092
 01:05:39,980 --> 01:05:45,050
+每个描述符提交块都以某个魔术数开头，
 every descriptor commit block starts with some magic number,
 
 1093
 01:05:45,080 --> 01:05:46,580
+只是一个 32 位的值，
 just just a 32 bit value,
 
 1094
 01:05:46,580 --> 01:05:48,290
+这是恢复软件寻找的，
 that the recovery software is looking for,
 
 1095
 01:05:48,470 --> 01:05:49,790
+我其实不知道是什么。
 I don't actually know what it is.
 
 1096
 01:05:49,790 --> 01:05:53,650
+所以，游戏肯定是
 So, definitely the game is
 
 1097
 01:05:53,650 --> 01:05:55,780
+我们到了事务 8 的末尾，
 that we come to the end of transaction 8,
 
 1098
 01:05:55,780 --> 01:05:58,510
+如果下一个块以魔术数开头，
 if the very next block starts with the magic number,
 
 1099
 01:05:58,870 --> 01:06:01,810
+然后恢复软件会假设，
 then the recovery software's gonna assume that,
 
 1100
 01:06:01,900 --> 01:06:03,820
+哦，这是一个有效的描述符块。
 oh this is a valid descriptor block.
 
 1101
 01:06:06,200 --> 01:06:09,110
+你能不能，抱歉，有个问题，
 Could you, sorry, quick question,
 
 1102
 01:06:09,350 --> 01:06:11,030
+它是不是不可靠的，
 would it be unreliable
 
 1103
 01:06:11,030 --> 01:06:17,360
+它理解为一个描述符块，
 to try to like, interpret it as a descriptor block,
 
 1104
 01:06:17,390 --> 01:06:21,170
+尝试读取指定它们的数据块的数量，
 try to read the number of data blocks that specifies them,
 
 1105
 01:06:21,170 --> 01:06:25,070
+比如，查看是否在指定的位置有提交块，
 like see if there's a commit block at the expected location
 
 1106
 01:06:25,520 --> 01:06:26,720
+在一定数量的块之后。
 after the number of blocks.
 
 1107
 01:06:27,630 --> 01:06:31,230
+当然，如果这个日志看起来像一个描述符块，
 Well, certainly if this log does look like a descriptor block,
 
 1108
 01:06:31,500 --> 01:06:33,330
+那么它会继续，
 then it will skip forward
 
 1109
 01:06:33,330 --> 01:06:35,490
+并尝试读取对应的提交块，
 and try to read the corresponding commit block,
 
 1110
 01:06:35,880 --> 01:06:37,890
+如果提交块看起来不是提交块，
 and if that commit block doesn't look like a commit block
 
 1111
 01:06:37,890 --> 01:06:38,850
+有正确魔术数，
 with the right magic number,
 
 1112
 01:06:38,850 --> 01:06:41,010
+它不会认为在这个事务中。
 it will not believe in this transaction.
 
 1113
 01:06:43,760 --> 01:06:48,800
+这里剩下的一点细节就是，
 The the the the the thing that's one little remaining detail here is that,
 
 1114
 01:06:48,920 --> 01:06:52,070
+我们查找的块，
 this block that we're looking at here and we're wondering
 
 1115
 01:06:52,070 --> 01:06:54,580
+或者恢复软件怀疑的，
 or the recovery software wondering,
 
 1116
 01:06:54,580 --> 01:06:56,170
+这是否是描述符块，
 if it's a descriptor block,
 
 1117
 01:06:56,350 --> 01:07:00,520
+这可以是事务 5 中间的块，
 this could be just a block right in the middle of transaction 5
 
 1118
 01:07:00,520 --> 01:07:03,190
+包含任意位模式，
 containing any arbitrary bit pattern,
 
 1119
 01:07:03,730 --> 01:07:06,190
+它可能就是文件中的数据块，
 it could be just like the data block from a file,
 
 1120
 01:07:06,190 --> 01:07:08,830
+恰好是从这个神奇的数字开始的。
 that just happens to begin with the magic number.
 
 1121
 01:07:10,940 --> 01:07:12,920
+所以，作为最后的细节，
 So you know as a final detail,
 
 1122
 01:07:12,920 --> 01:07:15,650
+日志记录系统需要能够区分
 the logging system needs to be able to distinguish
 
 1123
 01:07:15,650 --> 01:07:18,740
+以魔术数开头的有效描述符块，
 between a valid descriptor block that starts with this magic number
 
 1124
 01:07:18,770 --> 01:07:22,910
+还是一些以魔术数开头的数据块。
 and just some data block that starts with the magic number.
 
 1125
 01:07:24,920 --> 01:07:27,470
+你可以想象不同的方式来做到这一点，
 And you can imagine various ways of doing that,
 
 1126
 01:07:27,620 --> 01:07:30,440
+在 ext3 所做的是，
 in fact, what ext3 does is,
 
 1127
 01:07:30,500 --> 01:07:32,390
+当它要向日志中写入块时，
 whenever it's going to write a block to the log,
 
 1128
 01:07:32,390 --> 01:07:34,580
+这不是一个描述符块或提交块，
 that's not a descriptor block or commit block,
 
 1129
 01:07:34,640 --> 01:07:38,570
+如果块以魔术数开头，它将其替换为零，
 if that block starts with the magic number, it replaces that with zero
 
 1130
 01:07:38,840 --> 01:07:44,330
+并在该事务描述符块中设置与该块对应的位，
 and sets a bit corresponding to that block in that transaction descriptor block,
 
 1131
 01:07:44,390 --> 01:07:48,290
+这个位意味着这个特殊的数据块
 then that bit means this particular data block
 
 1132
 01:07:48,980 --> 01:07:51,500
+以魔术数开始，我们用零代替它。
 started with the magic number and we replace it with zero.
 
 1133
 01:07:52,130 --> 01:07:56,150
+如果恢复软件需要重放那个块，
 And then if the recovery software ever needs to replay that block,
 
 1134
 01:07:56,180 --> 01:07:58,430
+我们假设事务 8 有一个这样的块，
 so let's say transaction 8 had one of these blocks,
 
 1135
 01:07:58,430 --> 01:08:00,590
+它最初是以魔术数开始的，
 that originally started with the magic number,
 
 1136
 01:08:00,590 --> 01:08:02,930
+它将设置这个魔术标志位，
 it's going to set the bit this magic flag,
 
 1137
 01:08:03,600 --> 01:08:07,770
+对应描述符块替换魔术数为零，
 corresponding that block and the descriptor block and replace magic number was zero,
 
 1138
 01:08:07,950 --> 01:08:09,990
+如果恢复重放这个块，
 if recovery has to replay this block,
 
 1139
 01:08:09,990 --> 01:08:11,070
+它将看到这个标志，
 it'll see that flag
 
 1140
 01:08:11,100 --> 01:08:13,710
+在将这个块重放到原位置之前，
 and before replaying this block to its home location
 
 1141
 01:08:13,770 --> 01:08:16,320
+使用魔术数替换零。
 will replace the zero with the magic number.
 
 1142
 01:08:17,350 --> 01:08:22,930
+所以，除了描述符或提交块之外，
 And therefore, no block other than a descriptor or commit block
 
 1143
 01:08:22,930 --> 01:08:24,880
+没有任何块可能以魔术数开头，
 can possibly start with a magic number,
 
 1144
 01:08:25,380 --> 01:08:26,850
+在这个记录系统中。
 in this logging system.
 
 1145
 01:08:26,850 --> 01:08:28,350
+所以我们从来没有模棱两可，
 So we never have this ambiguity,
 
 1146
 01:08:28,620 --> 01:08:32,100
+如果块在提交块之后，并以一个魔术数开头，
 if the block after a commit block, starts with a magic number,
 
 1147
 01:08:32,100 --> 01:08:35,040
+那么它一定是一个描述符块。
 then it must be a descriptor block.
 
 1148
 01:08:39,320 --> 01:08:41,300
+好的，
 Okay, alright,
 
 1149
 01:08:41,300 --> 01:08:42,980
+我们在做恢复，
 so recovery, we were doing recovery,
 
 1150
 01:08:42,980 --> 01:08:46,640
+它从块开始，
 it starts at the block,
 
 1151
 01:08:46,640 --> 01:08:51,500
+从超级块表示最老的事务的块向前扫描，
 that the super block says is the beginning of the oldest transaction scans forward,
 
 1152
 01:08:51,680 --> 01:08:55,730
+它向前扫描，直到，
 and it'll scan forward until you, you know it,
 
 1153
 01:08:56,460 --> 01:08:59,280
+查找描述符或其对应的提交块，
 look at the descriptor or is their corresponding commit block
 
 1154
 01:08:59,400 --> 01:09:01,980
+它停止在，
 and it'll stop as soon as it sees
 
 1155
 01:09:01,980 --> 01:09:05,730
+后面的是提交块，而不是描述符块，
 oh the log following a commit block, wasn't a descriptor block at all,
 
 1156
 01:09:06,360 --> 01:09:11,340
+或者，在提交块之后的块是一个描述符块，
 or yeah the block following a commit block is a descriptor block,
 
 1157
 01:09:11,340 --> 01:09:16,620
+但是应该有对应的提交块，
 but the what should have been the corresponding commit block,
 
 1158
 01:09:16,620 --> 01:09:19,710
+是有效的提交块，没有魔术数。
 is now in fact a valid commit block, doesn't have the magic number.
 
 1159
 01:09:19,740 --> 01:09:21,270
+所以在这一点上它会停止，
 So at that point it will stop,
 
 1160
 01:09:21,540 --> 01:09:24,990
+恢复软件清除日志到结尾，
 recovery software will clear the log to the ended,
 
 1161
 01:09:25,770 --> 01:09:30,570
+在最后一个有效提交块的地方。
 at the point where the last valid commit block.
 
 1162
 01:09:30,980 --> 01:09:31,790
+我们会忽略，
 And we'll ignore,
 
 1163
 01:09:31,790 --> 01:09:34,040
+这之后可能会有部分事务，
 there may be a partial transaction after this,
 
 1164
 01:09:34,070 --> 01:09:35,780
+开始提交，但没有结束，
 that started to commit but didn't finish,
 
 1165
 01:09:36,530 --> 01:09:39,380
+但是恢复软件忽略那部分事务，
 but the recovery software ignores that partial transaction,
 
 1166
 01:09:39,380 --> 01:09:41,180
+因为它没有所有的写入，
 because it doesn't have all the writes,
 
 1167
 01:09:41,330 --> 01:09:43,130
+所以不能自动恢复它，
 so it can't restore it atomically,
 
 1168
 01:09:43,730 --> 01:09:47,600
+然后恢复软件将返回到日志的开头，
 and then the recovery software will go through go back to the beginning of the log
 
 1169
 01:09:47,660 --> 01:09:52,160
+重放每个块，将每个块重写到其原位置，
 and replay each block, rewrite each block to its home location,
 
 1170
 01:09:52,550 --> 01:09:54,020
+一直贯穿日志，
 all through the log,
 
 1171
 01:09:54,910 --> 01:09:57,730
+到最后最后一个有效的提交块。
 to the last, up to the last valid commit block.
 
 1172
 01:10:00,550 --> 01:10:04,600
+然后它可以重启剩下的操作系统，
 And then it can restart the rest of the operating system,
 
 1173
 01:10:04,630 --> 01:10:08,560
+启动剩下的操作系统和可以运行的普通程序，
 start the rest of the operating system and ordinary programs can run,
 
 1174
 01:10:09,250 --> 01:10:12,670
+在恢复完成之前，你不能运行任何程序，
 before recovery finishes, you can't you can't run any programs,
 
 1175
 01:10:12,670 --> 01:10:16,980
+因为文件系统无效。
 because the file system isn't valid.
 
 1176
 01:10:19,780 --> 01:10:21,130
+关于恢复，有什么问题吗？
 Any questions about recovery?
 
 1177
 01:10:22,690 --> 01:10:24,310
+我有一个简短的问题，
 I I have a quick question,
 
 1178
 01:10:24,310 --> 01:10:27,010
+我想以前提到过这一点，
 I think you mentioned this before,
 
 1179
 01:10:27,010 --> 01:10:33,640
+但是在 xv6 中缺少这个日志事务方案的哪些部分呢？
 but what parts of this logging transaction scheme is missing in xv6?
 
 1180
 01:10:33,700 --> 01:10:37,060
+在 xv6 中缺少的主要功能是
 The main thing, it's missing in xv6 is
 
 1181
 01:10:37,060 --> 01:10:39,820
+在日志中有多个事务的能力，
 the ability to have multiple transactions in the log,
 
 1182
 01:10:40,330 --> 01:10:44,410
+在 xv6 中，日志最多只有一个事务，
 so xv6 there's only ever at most one transaction in the log
 
 1183
 01:10:44,860 --> 01:10:49,360
+所以你不能在 xv6 中得到这个并发性，
 and so you you can't you don't get this concurrency in xv6,
 
 1184
 01:10:49,360 --> 01:10:55,180
+当我执行来自事务 7 的系统调用时，
 where while I'm executing system calls from transaction 7,
 
 1185
 01:10:55,650 --> 01:10:57,570
+这将并行进入事务 7 ，
 you know that are going to go into transaction 7,
 
 1186
 01:10:57,600 --> 01:11:03,750
+同时， ext3 可以将事务 6 提交到磁盘。
 in parallel, with that ext3 can be committing transactions 6 to the disk.
 
 1187
 01:11:04,830 --> 01:11:13,430
+这个并发性在 xv6 中是不可用的，
 That's not available of concurrency, is not possible in ext-, in xv6,
 
 1188
 01:11:13,640 --> 01:11:17,210
+因为日志只保存一个事务，
 because the the log holds just one transaction,
 
 1189
 01:11:17,240 --> 01:11:19,940
+所以我们必须完成一个事务的所有工作，
 so we have to completely do all the work for one transaction,
 
 1190
 01:11:19,940 --> 01:11:23,630
+在我们允许开始下一个事务之前。
 before we're allowed to start anything with the next transaction.
 
 1191
 01:11:24,690 --> 01:11:25,980
+所以它是正确而简单的，
 So it's correct and simple,
 
 1192
 01:11:25,980 --> 01:11:29,760
+但是你不会从 xv6 中获得太多的并行性。
 but you don't get a lot of parallelism out of xv6.
 
 1193
 01:11:30,730 --> 01:11:31,600
+好的，谢谢,
 Okay, thank you,
 
 1194
 01:11:31,630 --> 01:11:33,130
+你是说，
 are you saying that,
 
 1195
 01:11:33,680 --> 01:11:35,840
+它仍然可以有多个事务块，
 it can still have multiple transaction blocks,
 
 1196
 01:11:35,840 --> 01:11:38,540
+但是它不能异步执行它们，
 but it just can't execute them asynchronously,
 
 1197
 01:11:40,540 --> 01:11:41,920
+对吗？
 would that be correct?
 
 1198
 01:11:42,390 --> 01:11:43,950
+xv6 ？
 xv6?
 
 1199
 01:11:43,950 --> 01:11:44,760
+xv6 。
 xv6.
 
 1200
 01:11:45,000 --> 01:11:48,150
+是的，它只有，
 Yeah, it, it only has the,
 
 1201
 01:11:48,820 --> 01:11:50,500
+一旦它决定，
 once it decides to,
 
 1202
 01:11:52,730 --> 01:11:54,560
+我的意思是图片有点混乱，
 I mean the picture a little bit confused,
 
 1203
 01:11:54,560 --> 01:12:00,740
+因为 xv6 可以允许一个以上的系统调用进入单个事务，
 because xv6 can allow more than one system call into a single transaction,
 
 1204
 01:12:00,770 --> 01:12:03,830
+所以 xv6 确实有一些并发性，
 so xv6 does have some of this concurrency in it,
 
 1205
 01:12:04,420 --> 01:12:05,860
+还有一些批处理，
 and some of this batching,
 
 1206
 01:12:05,950 --> 01:12:09,430
+但是一旦 xv6 决定开始提交事务，
 but once xv6 decides to start committing a transaction,
 
 1207
 01:12:10,360 --> 01:12:13,150
+它必须完全完成那个事务，
 it has to completely finish with that transaction,
 
 1208
 01:12:13,270 --> 01:12:14,530
+提交到磁盘，
 committed to disk,
 
 1209
 01:12:14,530 --> 01:12:18,100
+写入块到原位置，
 you know write the header block write the blocks to the home locations
 
 1210
 01:12:18,340 --> 01:12:21,640
+然后从日志中擦除该事务，
 and then erase the transaction from the log,
 
 1211
 01:12:21,670 --> 01:12:22,810
+它必须完成所有这些事情，
 it has to do all that stuff,
 
 1212
 01:12:22,810 --> 01:12:25,600
+在执行任何新的系统调用之前。
 before it can execute any new system calls.
 
 1213
 01:12:26,200 --> 01:12:28,810
+因为没有什么地方
 Because there's nowhere you know there's nowhere
 
 1214
 01:12:28,810 --> 01:12:30,580
+可以放置新系统调用的修改，
 to put the modifications for the new system calls
 
 1215
 01:12:30,580 --> 01:12:33,070
+直到前一事务完全完成，
 until the previous transaction is completely finished,
 
 1216
 01:12:33,700 --> 01:12:35,950
+所以， xv6 之间的某种交替，
 so xv6 sort of alternates,
 
 1217
 01:12:35,950 --> 01:12:40,120
+可以运行几个系统调用，然后提交事务，
 between it can run a few system calls and then commit the transaction,
 
 1218
 01:12:40,520 --> 01:12:41,750
+然后再运行几个系统调用，
 and then run a few more system calls,
 
 1219
 01:12:41,750 --> 01:12:43,580
+但是它不能重叠这两个。
 but it can't serve overlap those two.
 
 1220
 01:12:44,790 --> 01:12:45,000
+好的。
 Alright.
 
 1221
 01:12:45,000 --> 01:12:46,290
+ext3 可以。
 ext3 can.
 
 1222
 01:12:47,210 --> 01:12:47,870
+谢谢。
 Thank you.
 
 1223
 01:12:57,830 --> 01:13:05,600
+好的，这是 ext3 设计中相对简单的部分，
 Okay, so that was a relatively straightforward part of ext3 design,
 
 1224
 01:13:06,520 --> 01:13:10,510
+它还有一堆棘手的细节，
 it turns out there's also a bunch of a tricky details,
 
 1225
 01:13:10,540 --> 01:13:12,070
+其中有几点我想谈谈。
 a few of which I want to talk about.
 
 1226
 01:13:12,520 --> 01:13:17,050
+我之前提到过，有一个打开的事务，
 So I mentioned before, that you know there's an open transaction,
 
 1227
 01:13:17,410 --> 01:13:21,730
+但是当 ext3 决定想要关闭打开的事务时，
 but when ext3 decides that it wants to close the open transaction,
 
 1228
 01:13:22,660 --> 01:13:26,350
+它必须等待所有系统调用完成，
 it has to wait for all system calls that transaction to finish
 
 1229
 01:13:26,680 --> 01:13:30,800
+在任何新的事务可以开始前，
 before it, any trans-, any new transactions are allowed to start,
 
 1230
 01:13:30,920 --> 01:13:33,110
+所以可能有这样一张图片，
 so that maybe a picture for that is that,
 
 1231
 01:13:33,530 --> 01:13:39,070
+我们有原始的旧事务 t1 ，
 you know we had original old transaction t1,
 
 1232
 01:13:39,400 --> 01:13:44,980
+在事务 1 中执行多个系统调用，
 then there were multiple system calls executing in transaction 1,
 
 1233
 01:13:45,070 --> 01:13:47,260
+如果我们想要关闭事务 1 ，
 if we want to close transaction 1,
 
 1234
 01:13:47,260 --> 01:13:49,420
+我们必须停止接受新的系统调用，
 we have to stop accepting new system calls,
 
 1235
 01:13:49,420 --> 01:13:52,540
+因为我们想等现有的调用完成后才能提交，
 because we want to wait for the existing ones to finish before we can commit,
 
 1236
 01:13:52,870 --> 01:13:56,080
+但在所有这些系统调用完成之前，
 but until these all these system calls finished,
 
 1237
 01:13:56,650 --> 01:13:59,860
+在ext3 中不允许启动新的系统调用。
 no new system calls are allowed to start in ext3.
 
 1238
 01:13:59,980 --> 01:14:02,170
+所以如果这里有事务 2 ，
 So if there's some transaction 2 here,
 
 1239
 01:14:02,470 --> 01:14:04,750
+在事务 2 中不允许发生任何事情，
 nothing is allowed to happen in transaction 2,
 
 1240
 01:14:05,250 --> 01:14:06,540
+任何事情都不允许，
 nothing allows to,
 
 1241
 01:14:06,600 --> 01:14:10,350
+系统调用允许开始，直到这些系统调用已经完成，
 system calls are allowed to start until these system calls have finished,
 
 1242
 01:14:10,770 --> 01:14:16,080
+并且只有在那时，事务 2 才能开始接受系统调用。
 and only then can transaction 2 start accepting system calls.
 
 1243
 01:14:16,500 --> 01:14:19,720
+所以，这里有一段时间，
 So, there's a period of time here,
 
 1244
 01:14:19,900 --> 01:14:23,500
+其中新的系统调用都被阻塞，
 in which new system calls are all blocked,
 
 1245
 01:14:23,920 --> 01:14:25,060
+这降低了性能，
 that reduces performance,
 
 1246
 01:14:25,060 --> 01:14:27,370
+因为它可以执行系统调用，
 because it could have been executing system calls,
 
 1247
 01:14:27,370 --> 01:14:28,300
+但我们不允许这样做，
 but we're not allowed to,
 
 1248
 01:14:28,630 --> 01:14:30,430
+那么问题是，
 then the question is,
 
 1249
 01:14:30,940 --> 01:14:36,850
+为什么 ext3 不允许在事务 2 中启动新的系统调用，
 how come ext3 doesn't allow new system calls to start in transaction 2,
 
 1250
 01:14:37,030 --> 01:14:40,680
+直到事务 1 中的所有系统调用都完成。
 until all system calls in transaction finished.
 
 1251
 01:14:43,330 --> 01:14:45,880
+这是一个好问题，因为它限制了性能，
 And you know it's a good question, because it limits performance,
 
 1252
 01:14:46,210 --> 01:14:48,040
+让我给你们举个例子，
 so let me give you an example,
 
 1253
 01:14:48,040 --> 01:14:51,160
+如果 ext3 没有做到这一点，
 if if the ext3 didn't do this,
 
 1254
 01:14:51,160 --> 01:14:54,550
+那么可能会出现以下糟糕的情况。
 then the following bad situation could arise.
 
 1255
 01:14:55,810 --> 01:14:59,290
+那么，让我们假设事务 1 说其中有一个系统调用，
 So let's suppose transaction 1 says one system call in it,
 
 1256
 01:15:01,040 --> 01:15:05,360
+它是 create ，创建文件的系统调用，
 and it's a create, a system call the create file,
 
 1257
 01:15:05,360 --> 01:15:06,950
+可能是一个名为 x 的文件，
 maybe a file called x
 
 1258
 01:15:07,250 --> 01:15:11,000
+想法是，在这个 create 完成之前，
 and the idea is that before this create is finished,
 
 1259
 01:15:11,060 --> 01:15:14,690
+文件系统决定要启动一个新事务，
 the file system decides it wants to start a new transaction,
 
 1260
 01:15:14,720 --> 01:15:16,100
+打开一个新事务，
 open up a new transaction
 
 1261
 01:15:16,100 --> 01:15:18,710
+并且它将在 create 之后接受任何系统调用，
 and it's going to accept any system calls after the create
 
 1262
 01:15:18,710 --> 01:15:21,530
+在这个新的事务 t2 中，
 in in this new transaction, transaction t2
 
 1263
 01:15:21,950 --> 01:15:25,990
+事务 t2 开始，在 t1 结束之前，
 is going to say t2 starts, before t1 finishes,
 
 1264
 01:15:26,140 --> 01:15:29,500
+我们现在开始执行事务 2 中的系统调用，
 and we start executing system calls now in transaction 2,
 
 1265
 01:15:31,450 --> 01:15:34,870
+可能事务 t2 在某个其他文件上调用 unlink ，
 maybe transaction t2 calls unlink on some other file,
 
 1266
 01:15:34,870 --> 01:15:40,050
+那么 unlink 将释放与 y 相关联的 inode ，
 well then unlink will free the inode associated with y, right,
 
 1267
 01:15:40,050 --> 01:15:41,730
+所以可能，
 and so maybe maybe,
 
 1268
 01:15:42,390 --> 01:15:45,570
+在图中，我的时间是这个方向。
 I'm having time go this way in my diagram.
 
 1269
 01:15:47,550 --> 01:15:52,770
+可能在这个时间点，事务 2 标记 inode 空闲，
 Maybe at this point in time transaction 2 marks the inode is free,
 
 1270
 01:15:52,800 --> 01:15:54,510
+标记 y 的 inode 空闲，
 marks the inode for y is free,
 
 1271
 01:15:54,750 --> 01:15:57,870
+create 当然必须为 x 分配 inode ，
 create of course has to allocate an inode for x,
 
 1272
 01:15:57,960 --> 01:16:00,390
+也许它在这个时间点分配了一个 inode ，
 maybe it allocates an inode at this point in time,
 
 1273
 01:16:01,200 --> 01:16:05,400
+因为 create 是在 unlink 释放之后分配的，
 well, because the create is allocating after the unlink freed,
 
 1274
 01:16:05,460 --> 01:16:07,980
+它可能重复使用相同的 inode ，
 it might reuse the same inode,
 
 1275
 01:16:08,010 --> 01:16:11,790
+所以也许 x 会得到与 y 相同的 inode ，
 so maybe x gets going to get the same inode that y had,
 
 1276
 01:16:11,790 --> 01:16:15,160
+比如 inode 17 ，
 say maybe inode 17, right,
 
 1277
 01:16:15,220 --> 01:16:16,000
+然后，
 and then,
 
 1278
 01:16:16,660 --> 01:16:19,330
+这是可以的，因为 unlink 释放了这个 inode 。
 which is okay, because unlink free this inode.
 
 1279
 01:16:19,330 --> 01:16:21,540
+所以，看起来还不是问题，
 So, doesn't look like a problem yet,
 
 1280
 01:16:21,810 --> 01:16:23,100
+关键是，
 you know the point is,
 
 1281
 01:16:23,100 --> 01:16:24,360
+我们在试着关闭事务 1 ，
 we're trying to close transaction 1,
 
 1282
 01:16:24,360 --> 01:16:26,790
+所以，当 create 完成时，我们关闭事务 1 ，
 so then when the create finishes, we close transaction 1
 
 1283
 01:16:26,940 --> 01:16:28,350
+我们要写入，
 and we're going to write,
 
 1284
 01:16:28,350 --> 01:16:30,030
+假设事务提交，
 let's say transaction actually commits,
 
 1285
 01:16:30,030 --> 01:16:32,040
+我们将其所有修改写入磁盘。
 we write all of its modifications to disk.
 
 1286
 01:16:32,660 --> 01:16:33,620
+太棒了，
 Fantastic,
 
 1287
 01:16:33,650 --> 01:16:40,040
+不过假设 unlink 需要一段时间，还没有结束，
 however supposing after the unlink takes a while hasn't finished yet,
 
 1288
 01:16:40,070 --> 01:16:42,140
+假设提交完成后，
 supposing after this commit finishes,
 
 1289
 01:16:42,170 --> 01:16:45,390
+这里发生崩溃。
 there's a crash, right.
 
 1290
 01:16:47,790 --> 01:16:49,800
+当恢复软件运行时，
 When the recovery software runs,
 
 1291
 01:16:49,860 --> 01:16:52,350
+它将看到事务 1 已提交，
 it's going to see that transaction 1 committed,
 
 1292
 01:16:53,080 --> 01:16:55,540
+而事务 2 没有，
 and that transaction two didn't,
 
 1293
 01:16:55,660 --> 01:16:58,540
+所以恢复软件会完全忽略事务 2 ，
 so the recovery software gonna just completely ignore transaction two,
 
 1294
 01:16:58,930 --> 01:17:02,800
+所以这意味着 unlink 写入从来没有发生过，
 so that means the unlink never took place it's writes,
 
 1295
 01:17:02,800 --> 01:17:07,990
+恢复软件不会执行对磁盘的 unlink 写入，
 the recovery software won't won't perform the unlink writes to the disk,
 
 1296
 01:17:08,020 --> 01:17:10,030
+所以不会释放 inode ，
 therefore won't free the inode,
 
 1297
 01:17:10,630 --> 01:17:12,610
+不会删除 y ，
 won't won't delete y,
 
 1298
 01:17:12,820 --> 01:17:15,430
+在崩溃和恢复后 y 仍然存在，
 after the crash and recovery y still exist,
 
 1299
 01:17:15,580 --> 01:17:17,620
+它仍将使用 inode 17 ，
 it will still be using inode 17,
 
 1300
 01:17:17,710 --> 01:17:20,590
+但是 create 事务确实完成了，
 however the create transaction did complete
 
 1301
 01:17:20,590 --> 01:17:23,830
+所以 x 也将使用 inode 17 ，
 and therefore x is going to be using inode 17 as well
 
 1302
 01:17:23,830 --> 01:17:26,980
+所以，现在我们错误地有两个文件
 and so now we mistakenly have two files
 
 1303
 01:17:27,730 --> 01:17:29,620
+恰好使用相同的 inode ，
 that happen to be using the same inode,
 
 1304
 01:17:30,200 --> 01:17:31,430
+这意味着我将共享内容，
 which means I'll share content
 
 1305
 01:17:31,430 --> 01:17:36,140
+或者向其中一个文件写入，内容会神秘地出现在另一个文件中。
 or write to one will mysteriously show up in the other file.
 
 1306
 01:17:36,870 --> 01:17:39,350
+这完全是错误的，对吧。
 Which is completely the wrong thing, right.
 
 1307
 01:17:39,350 --> 01:17:41,570
+重点是我们想要 unlink y ，
 The whole point was we wanted to unlink y
 
 1308
 01:17:41,780 --> 01:17:43,610
+并使用释放的 inode x ，
 and use a freed inode x,
 
 1309
 01:17:43,610 --> 01:17:45,500
+而不是已经在使用的 inode ，
 not inode that was already in use,
 
 1310
 01:17:46,010 --> 01:17:48,440
+所以这里出了严重的问题。
 so something's gone terribly wrong here.
 
 1311
 01:17:49,970 --> 01:17:52,970
+思考这件事的一种方式是，
 And you know the one way of thinking about it is
 
 1312
 01:17:52,970 --> 01:17:58,170
+unlink 应该在事务 2 ，
 that the unlink in transaction in what should have been transaction 2,
 
 1313
 01:17:58,170 --> 01:18:00,540
+写入一个块，修改一个块，
 wrote a block modified a block
 
 1314
 01:18:01,140 --> 01:18:06,300
+本质上，修改后的块被更早的事务使用，
 and essentially that modified block was used by an earlier transaction,
 
 1315
 01:18:06,330 --> 01:18:08,580
+所以，更晚的事务修改了块，
 so a later transaction, modified a block
 
 1316
 01:18:08,970 --> 01:18:12,570
+而修改后的块被更早的事务看到，
 and that modified block was seen by an earlier transaction
 
 1317
 01:18:12,720 --> 01:18:18,630
+来自事务 2 的修改信息
 and indeed information base on this modification from transaction 2
 
 1318
 01:18:18,660 --> 01:18:20,970
+被合并到事务 1 中。
 was incorporated into transaction one.
 
 1319
 01:18:23,260 --> 01:18:26,350
+这意味着我们在这里失去了原子性，
 But that means that we've lost atomicity here,
 
 1320
 01:18:26,350 --> 01:18:29,170
+因为这件事的整个目标是，
 because the whole goal of this was
 
 1321
 01:18:29,170 --> 01:18:32,530
+unlink 的所有修改都应该发生，或者一个也不发生，
 that all the modifications for the unlink should occur or none of them,
 
 1322
 01:18:33,240 --> 01:18:34,500
+不是它们中的一部分，
 not just some of them,
 
 1323
 01:18:34,500 --> 01:18:36,510
+但这里本质上发生的是，
 but what's essentially happened here is,
 
 1324
 01:18:36,570 --> 01:18:40,260
+因为事务 1 提交了这个 inode 的空闲，
 because transaction 1 committed the free of this inode,
 
 1325
 01:18:40,560 --> 01:18:45,300
+这意味着一些修改事务发生了，
 it means that some of transaction to modify modifications actually occurred,
 
 1326
 01:18:45,570 --> 01:18:47,310
+但其他没有发生，
 but others did not,
 
 1327
 01:18:47,580 --> 01:18:54,500
+我们通过在较早的事务中包含较晚事务的写入打破了原子性。
 we broke atomicity by including a later transaction's write in an earlier transaction.
 
 1328
 01:18:55,040 --> 01:19:00,410
+你可以想象有多种不同的方式来处理这个，
 And you can actually imagine multiple different ways of dealing with this, right,
 
 1329
 01:19:01,700 --> 01:19:07,470
+也许 create 可以注意到 17 是被一个未来的事务释放了的，
 maybe create could notice that 17 had been freed by a you know a future transaction
 
 1330
 01:19:07,470 --> 01:19:09,000
+并且不使用这个 inode ，
 and not use that inode,
 
 1331
 01:19:09,390 --> 01:19:14,070
+事实上， ext3 对此采取了非常简单的方法，
 in fact ext3 takes a pretty simple approach to this,
 
 1332
 01:19:14,670 --> 01:19:17,340
+它不允许启动任何系统调用，
 it doesn't allow any system call to start
 
 1333
 01:19:18,210 --> 01:19:22,380
+直到来自前一事务的所有系统调用都已完成，
 until all system calls from the previous transaction have finished,
 
 1334
 01:19:22,410 --> 01:19:25,200
+所以，这不可能，
 so there's no possibility of a transaction,
 
 1335
 01:19:25,410 --> 01:19:28,650
+事务的系统调用看到修改，
 a system call from transaction when seeing a modify,
 
 1336
 01:19:28,710 --> 01:19:32,990
+看到来自未来事务系统调用的更新。
 seeing an update from a system call the future transaction.
 
 1337
 01:19:33,650 --> 01:19:37,400
+本质上， unlink 被阻塞，
 Essentially, all of the unlink is pushed, is blocked
 
 1338
 01:19:37,400 --> 01:19:40,910
+在 t1 提交之前不允许开始。
 not allowed to start until t1 commits.
 
 1339
 01:19:42,390 --> 01:19:43,650
+对于这个，有什么问题吗？
 Any questions about this?
 
 1340
 01:19:46,660 --> 01:19:49,510
+所以我有一个问题，
 So I have a question about
 
 1341
 01:19:49,660 --> 01:19:55,870
+当你关闭一个打开的事务时，到底会发生什么，
 what exactly happens, when you close an open transaction,
 
 1342
 01:19:55,960 --> 01:19:57,430
+它是否像快照，
 does it like snapshot,
 
 1343
 01:19:58,540 --> 01:20:02,560
+比如当前状态缓存。
 like the current state of like the cache.
 
 1344
 01:20:02,590 --> 01:20:04,720
+是的，完全正确，
 Yes, that's exactly right,
 
 1345
 01:20:04,810 --> 01:20:06,490
+所以，当我们关闭这个事务时，
 so when we close this transaction,
 
 1346
 01:20:06,610 --> 01:20:08,050
+至少在原则上，
 at least in principle,
 
 1347
 01:20:08,260 --> 01:20:10,780
+系统会复制所有的块，
 the system makes a copy of all the blocks,
 
 1348
 01:20:10,780 --> 01:20:13,390
+在这个事务中系统调用所修改的块，
 that were modified by system calls in this transaction,
 
 1349
 01:20:14,200 --> 01:20:16,750
+日志系统将它们复制到缓存中，
 logging system makes a copy of them in the cache,
 
 1350
 01:20:17,230 --> 01:20:21,370
+这是一种仅用于事务提交它们的私有副本。
 sort of private copy just for this transaction commit them.
 
 1351
 01:20:22,170 --> 01:20:26,580
+然后，未来的事务在实际缓存的块上执行某种操作，
 And then future transactions execute sort of on the real cached blocks,
 
 1352
 01:20:26,700 --> 01:20:30,780
+这个事务从其修改的块的私有副本进行提交。
 this transaction commits from its private copy of the blocks it modified.
 
 1353
 01:20:31,690 --> 01:20:35,410
+然后，当它完成提交这些私有数据块复制到磁盘后，
 And then when it's done committing those it's private copy those blocks to disk,
 
 1354
 01:20:35,740 --> 01:20:37,420
+可以把那些复制扔掉。
 you can throw those copies away.
 
 1355
 01:20:43,150 --> 01:20:43,840
+是的。
 Yes.
 
 1356
 01:20:46,610 --> 01:20:47,690
+好的。
 Okay.
 
 1357
 01:20:48,690 --> 01:20:50,880
+这个，这是
 There's, it turns out this is
 
 1358
 01:20:50,880 --> 01:20:57,140
+大约六个或十几个类似的小的怪事之一，
 one of about half a dozen or a dozen sort of similar little quirks,
 
 1359
 01:20:57,140 --> 01:20:59,420
+ext3 必须解决，
 that ext3 has to deal with,
 
 1360
 01:20:59,420 --> 01:21:02,450
+因为为了支持并发，
 because in order to support concurrency,
 
 1361
 01:21:02,540 --> 01:21:07,040
+有一大堆类似的排序的琐事，
 there's a whole bunch of kind of similar little ordering niggles,
 
 1362
 01:21:07,040 --> 01:21:11,030
+这是 ext3 必须正确处理的特殊情况，
 that have to be the special cases that ext3 has to get right,
 
 1363
 01:21:13,370 --> 01:21:15,380
+我们没时间讨论这个，
 which we don't have time to talk about,
 
 1364
 01:21:15,440 --> 01:21:16,850
+但是要点，
 but the take home points
 
 1365
 01:21:16,850 --> 01:21:20,120
+我想人们记住的关于日志 ext3 的，
 that I want people to remember about logging about ext3,
 
 1366
 01:21:20,600 --> 01:21:22,610
+首先，一般的观点，
 first, the general point that,
 
 1367
 01:21:22,940 --> 01:21:27,860
+日志是关于使多步磁盘更新成为原子的，
 what logs are all about is making multi-step disk updates atomic,
 
 1368
 01:21:27,860 --> 01:21:30,080
+对于崩溃，全部发生或全部没有，
 all or nothing with respect to crashes,
 
 1369
 01:21:30,080 --> 01:21:33,110
+这是关于日志最需要记住的一件事，
 like, yeah, that's the main thing to remember about logging,
 
 1370
 01:21:34,070 --> 01:21:37,760
+日志的正确性取决于预写规则。
 the logging the correctness of logging depends on the write-ahead rule.
 
 1371
 01:21:37,850 --> 01:21:39,920
+另一件需要记住的重要事情是，
 It's another critical thing to remember
 
 1372
 01:21:39,950 --> 01:21:43,430
+你会经常听到预写日志和预写规则，
 you'll hear write-ahead log and write-ahead rule a lot
 
 1373
 01:21:43,430 --> 01:21:45,980
+在崩溃恢复业务中。
 in the kind of crash recovery business.
 
 1374
 01:21:46,450 --> 01:21:48,040
+预写规则规定
 And the write-ahead rule says that
 
 1375
 01:21:48,040 --> 01:21:51,010
+你必须提交对日志的所有更改，
 you have to commit all changes to the log,
 
 1376
 01:21:51,040 --> 01:21:55,480
+在允许对主位置进行任何修改之前，
 before you're allowed to make any of the modifications to the home locations
 
 1377
 01:21:55,690 --> 01:21:56,830
+在文件系统中。
 in the file system.
 
 1378
 01:21:58,780 --> 01:22:01,330
+而且恢复也依赖于这条规则，
 And recovery absolutely relies on this rule,
 
 1379
 01:22:01,930 --> 01:22:03,730
+很多要点，
 a lot of the point,
 
 1380
 01:22:03,730 --> 01:22:05,830
+至少对于文件系统，
 at least for file systems,
 
 1381
 01:22:05,830 --> 01:22:09,130
+日志的要点是简单快速恢复，
 a lot of the point of logging is simply fast recovery,
 
 1382
 01:22:09,790 --> 01:22:11,650
+日志中可能有几百个块，
 log may have a couple hundred blocks in it,
 
 1383
 01:22:11,770 --> 01:22:15,490
+你可以在不到一秒的时间里重放几百个块，
 you can replay a couple hundred blocks in way under a second
 
 1384
 01:22:15,760 --> 01:22:18,160
+然后启动你的文件系统，
 and then boom your file system,
 
 1385
 01:22:18,220 --> 01:22:21,220
+即使是一个非常大的，现在也可以使用了。
 even a very large one is, now fit for use.
 
 1386
 01:22:21,880 --> 01:22:25,060
+现在，最后关于 ext3 的更详细的一点是，
 Now the final point for a more detailed point about the ext3 is
 
 1387
 01:22:25,060 --> 01:22:26,920
+它使用批处理和并发
 that it uses batching and concurrency
 
 1388
 01:22:26,920 --> 01:22:32,020
+来获得比 xv6 好得多的性能，
 to get considerably better performance than xv6 does,
 
 1389
 01:22:32,020 --> 01:22:37,330
+尽管在很高的复杂性的情况下，
 although at the case of considerable considerably higher complexity,
 
 1390
 01:22:37,830 --> 01:22:40,380
+为了支持比 xv6 更高的并发。
 to support concurrency than xv6 has.
 
 1391
 01:22:42,910 --> 01:22:43,990
+今天就到这里，
 And that's all for today,
 
 1392
 01:22:44,080 --> 01:22:46,450
+我很高兴回答大家的问题。
 I'm happy to take questions.
 
 1393
 01:22:49,560 --> 01:22:53,850
+嗯，嗨，我还有一个问题是关于，
 Um, hi, I had another question is about,
 
 1394
 01:22:54,060 --> 01:22:55,110
+所以你说，
 so you said that,
 
 1395
 01:22:55,260 --> 01:22:59,370
+靠着有一个文件系统调用，
 thinks that there's a file system
 
 1396
 01:22:59,370 --> 01:23:02,220
+文件系统线程来做所有这些事情，
 like a file system thread that does all this stuff,
 
 1397
 01:23:02,720 --> 01:23:06,290
+这些线程中必须只有一个，
 there must be only one of these threads,
 
 1398
 01:23:06,290 --> 01:23:11,960
+否则它可以完成刚才所说的事情。
 because otherwise it could it could do basically what it just talked about, right.
 
 1399
 01:23:15,400 --> 01:23:17,320
+可能确实只有一个，
 It may indeed be that there's just one,
 
 1400
 01:23:17,650 --> 01:23:19,540
+我其实不知道有多少个，
 I actually don't know how many there are,
 
 1401
 01:23:19,720 --> 01:23:22,750
+一当然是一个特别有吸引力的数字，
 one is certainly a particularly attractive number,
 
 1402
 01:23:22,780 --> 01:23:27,820
+因为日志是正确的很多基本原理是，
 because you know a lot of the rationale for why the logging is correct is
 
 1403
 01:23:27,820 --> 01:23:34,040
+较旧的事务在较新的事务之前提交，
 that you know the older transactions or you know committed before newer transactions,
 
 1404
 01:23:34,400 --> 01:23:40,470
+我不认为这是只有一个线程的合乎逻辑的必然性，
 I I don't think it's a logical necessity that there be only one thread,
 
 1405
 01:23:40,470 --> 01:23:47,500
+你可以想象，旧的事务以重叠的方式提交，
 so you could imagine, old transactions committing in an overlapped way,
 
 1406
 01:23:48,080 --> 01:23:53,200
+本质上是使用多个线程，每个事务一个线程。
 you know essentially using multiple threads, one for each transaction.
 
 1407
 01:23:54,410 --> 01:23:55,640
+好的，我明白了。
 Oh, okay, I see.
 
 1408
 01:23:57,450 --> 01:23:58,350
+好的，我知道了。
 Okay, I see.
 
 1409
 01:23:59,540 --> 01:24:00,410
+我有个问题，
 I have a question,
 
 1410
 01:24:00,470 --> 01:24:03,260
+当你谈论崩溃的时候，
 in when you're talking about crashes
 
 1411
 01:24:03,260 --> 01:24:07,130
+你有一张 t8 重写 t5 的图，
 and you had that diagram of t8 rewriting t5
 
 1412
 01:24:08,130 --> 01:24:09,330
+它正在被释放，
 that was being freed,
 
 1413
 01:24:10,520 --> 01:24:17,480
+那么，如果 t8 在崩溃时没有真正被提交，会发生什么，
 so what happens if t8 hasn't actually committed at the point of the crash,
 
 1414
 01:24:17,780 --> 01:24:21,170
+因为可能 t5 ，
 because there could be maybe t5,
 
 1415
 01:24:21,170 --> 01:24:25,010
+如果它因为需要重写而被释放的话，
 if it's being freed as something needs to rewrite it,
 
 1416
 01:24:25,340 --> 01:24:28,790
+那么可能存在来自 t5 的提交块，
 then there could be a commit block from t5 that exists,
 
 1417
 01:24:30,690 --> 01:24:34,290
+它可能是 t8 预测它存在的位置，
 it may be a location where t8 would have predicted it to exist,
 
 1418
 01:24:34,950 --> 01:24:37,500
+那么这是不是能准确地表示
 and then couldn't that inaccurately represent
 
 1419
 01:24:37,500 --> 01:24:39,660
+t8 已经被提交了吗？
 that t8 was actually had actually been committed.
 
 1420
 01:24:40,050 --> 01:24:43,110
+好的，让我试着画出出这个场景，
 Okay, so let me try to draw out the scenario,
 
 1421
 01:24:44,370 --> 01:24:51,940
+所以我们有这个古老的事务 t5 ，
 so we have this ancient transaction t5, right,
 
 1422
 01:24:52,990 --> 01:24:56,230
+也许这里是 t6 ，
 and you know maybe t6 here,
 
 1423
 01:24:56,230 --> 01:24:59,230
+然后绕回来是 t8 ，
 and then we're, you've wrapped around t8,
 
 1424
 01:24:59,860 --> 01:25:01,870
+t8 现在开始在某个地方，
 and you know t8 started somewhere now,
 
 1425
 01:25:01,870 --> 01:25:04,600
+因为 t5 是空闲的，
 it's because t5 is free,
 
 1426
 01:25:04,600 --> 01:25:07,300
+t8 开始增长，
 t8 is starting the eat up,
 
 1427
 01:25:10,960 --> 01:25:12,490
+t5 是，
 t5 that is,
 
 1428
 01:25:13,090 --> 01:25:16,360
+t8 的末尾超过 t5 的开始。
 the end of t8 is overrun the beginning of t5 is that.
 
 1429
 01:25:17,330 --> 01:25:19,490
+好的，令人担忧的是，
 Okay, and the worry is,
 
 1430
 01:25:19,490 --> 01:25:20,990
+好的，当然如果 t8 提交了，
 okay, of course if t8 did commit,
 
 1431
 01:25:20,990 --> 01:25:22,340
+然后它将以提交块结束，
 then it'll end up in a commit block,
 
 1432
 01:25:22,340 --> 01:25:24,770
+而且看起来都很合理，
 and it all look pretty reasonable,
 
 1433
 01:25:25,790 --> 01:25:27,080
+如果恢复出现崩溃，
 if there's a crash in recovery
 
 1434
 01:25:27,260 --> 01:25:30,110
+而担心的情况是 t8 没有提交。
 and the scenario worried about t8 did not commit.
 
 1435
 01:25:33,590 --> 01:25:33,980
+是的。
 Right.
 
 1436
 01:25:33,980 --> 01:25:35,930
+是的，好的，
 Yeah, okay,
 
 1437
 01:25:35,930 --> 01:25:38,210
+所以，[]确实如此，
 so the [] yeah exactly,
 
 1438
 01:25:38,210 --> 01:25:43,840
+所以 t8 碰巧会把它的提交块放在
 so t8, t8 just happens to be going to put its commit block
 
 1439
 01:25:43,840 --> 01:25:46,780
+和 t5 放提交块完全相同的地方，
 in exactly the same place where t5 puts commit block,
 
 1440
 01:25:46,810 --> 01:25:48,610
+但是它没有写入提交块，
 but it didn't quite get the write the commit block,
 
 1441
 01:25:48,610 --> 01:25:50,020
+所有都是好的，除了，
 it's all good, except,
 
 1442
 01:25:50,350 --> 01:25:53,050
+我们有一个完全正确的 t8 ，
 this we have a totally correct t8,
 
 1443
 01:25:53,050 --> 01:25:54,730
+但它是 t5 的提交块。
 but it's t5's commit block.
 
 1444
 01:25:55,160 --> 01:25:55,880
+嗯。
 Yeah.
 
 1445
 01:25:56,590 --> 01:25:57,280
+你在想，
 You're wondering,
 
 1446
 01:25:57,280 --> 01:25:58,960
+天哪，看起来像一个提交块，
 gosh looks just like a commit block,
 
 1447
 01:25:59,230 --> 01:26:00,730
+好的，答案是
 okay, the answer is that
 
 1448
 01:26:00,730 --> 01:26:03,440
+描述符块和提交块
 the descriptor blocks and commit blocks
 
 1449
 01:26:03,440 --> 01:26:06,800
+以及其他所有内容都具有事务的序列号，
 as well as everything else have the sequence number of the transactions,
 
 1450
 01:26:06,800 --> 01:26:09,650
+所以这个描述符块有一个 8 ，
 so this descriptor block has an 8 in it,
 
 1451
 01:26:10,900 --> 01:26:15,110
+但是 t5 的提交描述符，
 and but t5's commit descriptor, doesn't matter,
 
 1452
 01:26:15,110 --> 01:26:17,300
+但是 t5 提交块中有一个 5 。
 but t5 commit block has a 5 in it.
 
 1453
 01:26:18,070 --> 01:26:19,450
+好的，好的。
 Okay, yeah.
 
 1454
 01:26:19,450 --> 01:26:22,510
+是的，它查看 8 像魔术数一样。
 And so yeah it's looking 8 as well as the magic number.
 
 1455
 01:26:22,660 --> 01:26:23,290
+好问题。
 Good question.
 
 1456
 01:26:25,440 --> 01:26:27,060
+等等，但在这种情况下，
 Wait, but in this case,
 
 1457
 01:26:27,060 --> 01:26:30,420
+你也有 t5 的描述符块，
 would you also have the descriptor block of t5,
 
 1458
 01:26:30,420 --> 01:26:33,210
+所以你并不需要这些数字。
 so you don't really need the numbers.
 
 1459
 01:26:35,290 --> 01:26:37,150
+嗯，在这个特殊的案例中，
 Well, in this particular case,
 
 1460
 01:26:37,150 --> 01:26:42,250
+t5 过去有一个描述符块，里面有一个 5 ，
 so yeah t5 used to have a descriptor block here, with a 5 in it,
 
 1461
 01:26:42,280 --> 01:26:44,890
+然而， t8 太大，
 however t8 is so large,
 
 1462
 01:26:44,890 --> 01:26:47,830
+t8 重写了描述符块，
 that t8 overwrote this descriptor block,
 
 1463
 01:26:47,830 --> 01:26:50,320
+使用它自己的数据块。
 with one of its own data blocks.
 
 1464
 01:26:51,140 --> 01:26:54,020
+所以 t5 描述符块就没了，
 So that t5 descriptor blocks have gone
 
 1465
 01:26:54,020 --> 01:26:56,420
+取而代之的是 t8 的块。
 and been replaced by t8 block.
 
 1466
 01:26:57,180 --> 01:26:59,730
+所以，是的，曾经是事务 5 ，
 So, yeah used to be evidence for transaction 5,
 
 1467
 01:26:59,730 --> 01:27:01,200
+但现在它不见了。
 but now it's now it's gone.
 
 1468
 01:27:05,100 --> 01:27:09,060
+那么，在我们开始之前，我们知道事务 8 的大小吗？
 So do we know the size of transaction 8 before we started.
 
 1469
 01:27:14,800 --> 01:27:17,350
+嗯。
 Mhm mm, um.
 
 1470
 01:27:21,800 --> 01:27:23,180
+抱歉，这是个复杂的问题，
 Sorry, this is a complex question,
 
 1471
 01:27:24,230 --> 01:27:27,960
+很可能是，
 the it's probably the case that ex- that,
 
 1472
 01:27:31,160 --> 01:27:35,560
+好的，当 t8 作为活动事务打开时，
 okay, when t8 was opened as the active transaction,
 
 1473
 01:27:35,560 --> 01:27:37,150
+系统调用正在写入，
 the system calls were writing into
 
 1474
 01:27:37,180 --> 01:27:38,380
+在那个时间点上，
 at that point in time,
 
 1475
 01:27:38,380 --> 01:27:41,020
+系统不知道 t8 会有多大，
 the system didn't know how big t8 was going to be,
 
 1476
 01:27:41,660 --> 01:27:45,020
+当系统开始提交 t8 时，
 when the system starts committing t8,
 
 1477
 01:27:45,350 --> 01:27:50,890
+它确实知道 t8 是多少，
 it does know, it does know, it does know how t8 be t8 is,
 
 1478
 01:27:51,010 --> 01:27:53,290
+系统没有开始提交 t8 ，
 the system doesn't start committing t8,
 
 1479
 01:27:53,320 --> 01:27:55,060
+在 t8 关闭之后，
 until after t8 is closed,
 
 1480
 01:27:55,060 --> 01:27:56,830
+它的所有系统调用都已完成。
 all of its system calls are finished.
 
 1481
 01:27:57,880 --> 01:27:59,590
+在这一点上，系统知道，
 And at that point the system knows,
 
 1482
 01:27:59,590 --> 01:28:01,570
+我的意思是，所有的写入都已完成，
 I mean it's all the writes that were done,
 
 1483
 01:28:01,720 --> 01:28:03,610
+t8 的所有写入都已完成，
 all the writes for t8 have completed,
 
 1484
 01:28:03,610 --> 01:28:04,690
+所有的系统调用都已完成，
 all the system calls are completed,
 
 1485
 01:28:04,690 --> 01:28:06,940
+所以系统知道它有多大。
 so the system knows how big it is.
 
 1486
 01:28:08,290 --> 01:28:10,030
+必须这样做的一个原因是，
 One reason why that must be is that
 
 1487
 01:28:10,150 --> 01:28:15,010
+描述符块持有该事务中的完整块列表，
 the descriptor block holds the complete list of blocks in that transaction
 
 1488
 01:28:15,100 --> 01:28:16,780
+所以在描述符块写入的时候，
 and so at the time the descriptor block was written,
 
 1489
 01:28:16,780 --> 01:28:19,570
+这是第一次，日志系统知道
 which is first the logging system knew
 
 1490
 01:28:19,570 --> 01:28:22,210
+我们将在 t8 中有多少个块。
 how many blocks that we're going to be in t8.
 
 1491
 01:28:24,550 --> 01:28:25,270
+是的。
 Yeah.
 
 1492
 01:28:25,610 --> 01:28:26,900
+哦，好的，我知道了，
 Oh, okay, I see, I see,
 
 1493
 01:28:27,440 --> 01:28:28,130
+谢谢。
 thank you.
 
 1494
 01:28:30,260 --> 01:28:32,480
+为什么我们不
 Why don't we just kind of
 
 1495
 01:28:32,480 --> 01:28:37,280
+把提交信息放到描述符块中来避免这类问题，
 like have the commit information into the descriptor block and avoid this kind of problem,
 
 1496
 01:28:37,640 --> 01:28:39,500
+我知道这不太好，
 because I know I know it's not great,
 
 1497
 01:28:39,500 --> 01:28:40,670
+我们必须回去，
 that we have to go back
 
 1498
 01:28:40,670 --> 01:28:44,890
+比如不是按顺序写入的，
 and like write back to the location, like not in sequence,
 
 1499
 01:28:44,890 --> 01:28:46,390
+但那会不会有帮助？
 but wouldn't that help?
 
 1500
 01:28:46,660 --> 01:28:48,250
+好的，所以建议是，
 Okay, so the proposal is that,
 
 1501
 01:28:48,310 --> 01:28:49,990
+与其有一个提交块，
 instead of having a commit block,
 
 1502
 01:28:51,240 --> 01:28:54,360
+我们让描述符块当作提交块，
 we basically have the descriptor block act as a commit block
 
 1503
 01:28:54,720 --> 01:28:57,630
+而且 xv6 与此非常相似。
 and xv6 actually is very much like this.
 
 1504
 01:29:00,470 --> 01:29:02,810
+你知道你能这样做，
 And I, you know you could do it,
 
 1505
 01:29:03,470 --> 01:29:06,710
+事实上，我认为你能这样做，
 and and and in fact I think you can do it,
 
 1506
 01:29:06,710 --> 01:29:11,360
+至少 ext3 不降低效率，
 without at least an ext3 without sacrificing efficiency,
 
 1507
 01:29:11,390 --> 01:29:13,280
+然而，你必须同样，
 however, you have to play the same,
 
 1508
 01:29:13,280 --> 01:29:16,340
+你必须以与 xv6 相同的方式构建它，
 you have to structure this in the same way that xv6 does,
 
 1509
 01:29:16,340 --> 01:29:20,320
+也就是说，
 namely you, you, you,
 
 1510
 01:29:20,350 --> 01:29:21,490
+如果有一个，
 if there's a,
 
 1511
 01:29:21,730 --> 01:29:23,590
+你必须在描述符块中有一些东西，
 you have to be something in the descriptor block,
 
 1512
 01:29:23,590 --> 01:29:25,930
+表明这是一个提交事务，
 that indicates this is a commit transaction
 
 1513
 01:29:26,410 --> 01:29:29,590
+我们不允许设置任何标志，
 and we're not allowed to set whatever that flag is,
 
 1514
 01:29:29,740 --> 01:29:32,560
+在所有数据块写入之前，
 until after all of the data blocks have been written,
 
 1515
 01:29:32,770 --> 01:29:34,270
+所以顺序是，
 so the routine would have to be,
 
 1516
 01:29:34,330 --> 01:29:36,610
+我们不先写提交挡路，
 we don't write the commit block first,
 
 1517
 01:29:36,790 --> 01:29:39,820
+相反，我们首先写入事务 8 的所有数据块，
 instead we write all the data blocks for transaction 8 first,
 
 1518
 01:29:39,970 --> 01:29:44,270
+然后我们回去写下提交块和块编号，
 and then we go back and write the commit block with the block numbers,
 
 1519
 01:29:44,810 --> 01:29:47,360
+这个描述符块，不管它现在是什么，
 with a descriptor block, whatever it is now
 
 1520
 01:29:47,390 --> 01:29:52,490
+还有某种魔力，这是一个提交的事务。
 and some kind of magic, this is really a committed transaction.
 
 1521
 01:29:52,850 --> 01:29:54,290
+所以我们可以写入所有数据块，
 So we can write all the data blocks
 
 1522
 01:29:54,290 --> 01:29:56,210
+然后返回并写入提交块，
 and then go back and write the commit block,
 
 1523
 01:29:56,360 --> 01:30:00,090
+这个描述符提交块，不管是什么，
 that descriptor commit block, whatever,
 
 1524
 01:30:00,150 --> 01:30:01,650
+我不知道，
 I don't know any,
 
 1525
 01:30:03,120 --> 01:30:05,580
+我不知道为什么这个不能工作。
 I don't know any reason why this couldn't be made to work.
 
 1526
 01:30:07,670 --> 01:30:09,200
+我不认为它，
 It I I don't think it,
 
 1527
 01:30:11,300 --> 01:30:11,900
+它没有，
 it doesn't,
 
 1528
 01:30:11,930 --> 01:30:15,500
+我认为它没有真正消除我们讨论过的任何问题，
 I don't think it really eliminates any of the problems we've discussed,
 
 1529
 01:30:15,500 --> 01:30:17,330
+因为我们还有这个问题，
 because we still have this problem,
 
 1530
 01:30:17,870 --> 01:30:19,160
+最初的问题是，
 the original problem was,
 
 1531
 01:30:19,160 --> 01:30:21,890
+天哪，我们如何区分这个提交块，
 gosh how do we distinguish this commit block,
 
 1532
 01:30:21,890 --> 01:30:24,740
+这个来自事务 5 的旧提交块，
 this stale commit block from transaction 5
 
 1533
 01:30:24,740 --> 01:30:26,900
+来自事务 8 的真实提交块，
 from a true commit block for transaction 8,
 
 1534
 01:30:26,930 --> 01:30:28,460
+我们在这里也会遇到同样的问题，
 we're going to have the same problem here,
 
 1535
 01:30:28,790 --> 01:30:31,490
+这可能是在这里的东西，
 you know this it could be that what's sitting here,
 
 1536
 01:30:31,820 --> 01:30:35,960
+恰好是事务 5 中的描述符块。
 you know just happens to be the descriptor block from transaction 5.
 
 1537
 01:30:36,500 --> 01:30:37,910
+所以，也许我们继续，
 And so you know maybe we've gone ahead
 
 1538
 01:30:37,910 --> 01:30:39,710
+写入事务的所有数据块，
 and written all the data blocks for transaction data
 
 1539
 01:30:39,710 --> 01:30:40,820
+然后发生了崩溃，
 and then there was a crash,
 
 1540
 01:30:40,940 --> 01:30:44,540
+恢复软件仍然需要能够区分，
 the recovery software still needs to be able to tell the difference between,
 
 1541
 01:30:45,500 --> 01:30:47,240
+查看这个描述符块，
 to be able to look at this descriptor block
 
 1542
 01:30:47,240 --> 01:30:48,020
+然后等一下，
 and say wait a minute,
 
 1543
 01:30:49,190 --> 01:30:50,420
+这里有些不对劲，
 you know there's something wrong here,
 
 1544
 01:30:50,750 --> 01:30:53,090
+尽管这看起来是一个有效的描述符块，
 even though this looks like a valid descriptor block,
 
 1545
 01:30:53,090 --> 01:30:53,840
+但实际上并非如此。
 it's not really.
 
 1546
 01:30:54,550 --> 01:30:57,040
+所以我们仍然需要魔术数，
 And so we still have to have the magic number
 
 1547
 01:30:57,040 --> 01:30:59,950
+事务号，序列号。
 and the transaction number, the sequence number.
 
 1548
 01:31:01,310 --> 01:31:02,840
+哦，是的，理解了，
 Oh, yeah, that makes sense,
 
 1549
 01:31:02,840 --> 01:31:03,740
+是的，我只是在想，
 yeah, I was just thinking,
 
 1550
 01:31:03,740 --> 01:31:04,820
+比如我们应该有，
 like we'd have,
 
 1551
 01:31:04,850 --> 01:31:07,730
+我们提交描述符块的一部分，
 we kind of have like to commit part in the description block,
 
 1552
 01:31:07,730 --> 01:31:09,380
+但很明显，当我们开始 t8 时，
 but obviously like when we start t8,
 
 1553
 01:31:09,710 --> 01:31:12,080
+我们写入描述符块，它是未提交的，
 we write the description block saying it's uncommitted,
 
 1554
 01:31:12,080 --> 01:31:13,250
+然后我们写入数据块，
 then we write the data blocks,
 
 1555
 01:31:13,250 --> 01:31:16,520
+那么我们现在就说它是一个提交块。
 then we say it's a committed block, now.
 
 1556
 01:31:16,730 --> 01:31:18,770
+这里可以节省的是
 The thing that could be saved here is
 
 1557
 01:31:18,770 --> 01:31:21,320
+等待这些写入的花费，
 the expense of waiting for these writes
 
 1558
 01:31:21,320 --> 01:31:23,780
+然后写入一个提交块，
 and then writing a commit block right,
 
 1559
 01:31:23,780 --> 01:31:25,430
+等待的花费很高，
 that wait is quite expensive,
 
 1560
 01:31:25,430 --> 01:31:27,200
+我们不允许开始写入提交块，
 we're not allowed to start the write of the commit block
 
 1561
 01:31:27,200 --> 01:31:29,750
+直到数据块位于磁盘上，
 until the data blocks are on the disk
 
 1562
 01:31:29,960 --> 01:31:32,930
+我不认为，
 and I I I don't think,
 
 1563
 01:31:33,500 --> 01:31:36,230
+我们必须有相同的等待，
 we have to have the same wait before we end here,
 
 1564
 01:31:36,230 --> 01:31:38,390
+在新的单个块方案中，
 in this sort of new single block scheme,
 
 1565
 01:31:38,570 --> 01:31:40,730
+我们必须有相同的等待，
 we have to have the same wait,
 
 1566
 01:31:40,790 --> 01:31:43,190
+在我们写入这个新的描述符块之前，
 before we're allowed to write this new descriptor block,
 
 1567
 01:31:43,370 --> 01:31:44,600
+所以它省了一个块，
 so it saves a block,
 
 1568
 01:31:44,630 --> 01:31:47,240
+但是我不认为它省了时间。
 but it doesn't save, I don't think I would save much time.
 
 1569
 01:31:47,840 --> 01:31:50,330
+技巧，
 The trick I,
 
 1570
 01:31:50,920 --> 01:31:54,460
+更高版本的 Linux 文件系统的技巧，
 the trick that later versions of the Linux file system play that,
 
 1571
 01:31:54,760 --> 01:31:57,130
+确实达到了你想要的效果。
 sort of does do what I think you're hoping for.
 
 1572
 01:31:59,000 --> 01:32:00,470
+你知道，
 You know the the,
 
 1573
 01:32:01,100 --> 01:32:05,360
+查看 ext4 完成了以下（操作）
 this is looking into the ext4 does the following
 
 1574
 01:32:05,420 --> 01:32:07,700
+用来更高效地写入提交块。
 for better efficiency of writing the commit blocks.
 
 1575
 01:32:09,840 --> 01:32:17,670
+ext4 同时写入所有数据块和提交块，
 It ext4 will write out the all the data blocks and the commit block at the same time,
 
 1576
 01:32:18,370 --> 01:32:20,470
+也就是说，它不等待，
 that is it doesn't wait,
 
 1577
 01:32:21,060 --> 01:32:23,730
+数据块写入完成，在写入提交块之前，
 for the data block writes to finish before writes the commit block,
 
 1578
 01:32:23,760 --> 01:32:25,290
+所以它不会有这么长的暂停时间，
 so it doesn't have this long pause,
 
 1579
 01:32:25,440 --> 01:32:28,350
+但是有一个严重的问题，
 but then there's this terrible issue,
 
 1580
 01:32:28,350 --> 01:32:29,550
+如果磁盘，
 what happens if the disk,
 
 1581
 01:32:29,610 --> 01:32:31,710
+磁盘盘可以自由地进行无序写入，
 the disk is free to do writes out of order,
 
 1582
 01:32:32,070 --> 01:32:35,430
+如果磁盘首先写入提交块，
 what if the disk writes the commit block first,
 
 1583
 01:32:35,430 --> 01:32:38,280
+在它执行数据块写入之前，
 before it actually performs the writes for the data blocks
 
 1584
 01:32:38,280 --> 01:32:39,120
+然后发生崩溃，
 and then there's a crash,
 
 1585
 01:32:39,120 --> 01:32:40,200
+然后我们有一个提交块，
 then we have a commit block
 
 1586
 01:32:40,320 --> 01:32:42,900
+而没有写入的数据块，
 without having to discover having written the data blocks
 
 1587
 01:32:43,170 --> 01:32:45,330
+而 ext4 解决这个问题的方式，
 and the way ext4 solves that,
 
 1588
 01:32:48,050 --> 01:32:52,740
+它在提交块中有一个校验和，
 is it has a checksum in the commit block,
 
 1589
 01:32:53,130 --> 01:32:55,470
+对所有数据块进行校验和。
 over a checksum over all the data blocks.
 
 1590
 01:32:57,300 --> 01:33:00,960
+所以，如果在写入提交块后发生崩溃，
 And so if there's a crash happens after the commit block was written,
 
 1591
 01:33:00,960 --> 01:33:02,280
+在写入数据块之前，
 before the data blocks were written,
 
 1592
 01:33:02,280 --> 01:33:03,720
+校验和将不起作用。
 the checksum won't work out.
 
 1593
 01:33:04,380 --> 01:33:06,000
+恢复软件查看校验和，
 The recovery software look at this checksum
 
 1594
 01:33:06,000 --> 01:33:09,700
+然后它计算日志中数据块的校验和，
 and then it'll compute the checksum over the data blocks that are actually in the log,
 
 1595
 01:33:09,700 --> 01:33:10,480
+如果它们不相同，
 if they're not the same,
 
 1596
 01:33:10,480 --> 01:33:12,040
+它就知道出了问题。
 it knows that something went wrong.
 
 1597
 01:33:12,630 --> 01:33:14,040
+所以，通过这样做，
 And so by doing this,
 
 1598
 01:33:14,640 --> 01:33:19,380
+ext4 在机械硬盘上，节省了一个旋转，
 ext4 basically saves on a mechanical drive saves an entire rotations,
 
 1599
 01:33:21,010 --> 01:33:21,970
+它会发生，
 that would happen,
 
 1600
 01:33:21,970 --> 01:33:25,180
+如果必须在提交之前等待数据块。
 if it had to wait for the data blocks before it commits.
 
 1601
 01:33:27,820 --> 01:33:28,720
+好的，谢谢。
 Okay, thanks.
 
 1602
 01:33:34,800 --> 01:33:36,300
+哦，太酷了。
 Oh that's cool.
 
 1603
 01:33:38,980 --> 01:33:40,450
+我喜欢这些东西。
 I love this stuff.
 
 1604
 01:33:41,900 --> 01:33:44,300
+这太酷了，
 This is very cool,
 
 1605
 01:33:44,450 --> 01:33:46,850
+我还想问一下数据块，
 I wanted to ask also about the data blocks,
 
 1606
 01:33:46,850 --> 01:33:49,010
+只是内容块。
 just the content blocks.
 
 1607
 01:33:49,310 --> 01:33:50,870
+所以我想疑问的，
 So I think I got confused,
 
 1608
 01:33:50,870 --> 01:33:54,140
+但是在我们讨论的步骤中，
 but where in the steps that we were talking about,
 
 1609
 01:33:54,720 --> 01:33:57,270
+在你之前的一块板上，
 on your one of your previous boards,
 
 1610
 01:33:57,300 --> 01:33:59,700
+那个是在哪里做的？
 where would that be done?
 
 1611
 01:34:01,020 --> 01:34:01,860
+在哪里哪个做呢？
 Where would which be done.
 
 1612
 01:34:02,340 --> 01:34:07,560
+所以，不是元数据块，而是实际的。
 So like, not the metadata blocks, but the actual.
 
 1613
 01:34:07,560 --> 01:34:08,550
+文件内容，
 File content,
 
 1614
@@ -6456,381 +8068,476 @@ alright, okay this is, sort of multiple answers to this,
 
 1615
 01:34:14,790 --> 01:34:22,000
+在 ext3 中有多种模式，
 in ext3 has multiple modes,
 
 1616
 01:34:23,380 --> 01:34:26,680
+对于数据块发生的情况，
 for what happens to the data blocks,
 
 1617
 01:34:26,680 --> 01:34:31,220
+我记得有两三个，
 I think there's three or two of which I remember,
 
 1618
 01:34:31,840 --> 01:34:39,820
+有日志数据和顺序数据，
 there's journal data and order data, in the,
 
 1619
 01:34:40,030 --> 01:34:42,730
+当你配置 ext3 文件系统时，
 and when you configure an ext3 file system,
 
 1620
 01:34:42,730 --> 01:34:44,770
+你告诉 Linux 你想要什么，
 you tell Linux which you want,
 
 1621
 01:34:47,240 --> 01:34:50,540
+如果你要求日志数据，
 if you ask for journal data,
 
 1622
 01:34:50,630 --> 01:34:52,700
+文件内容只是直接写入日志，
 then file content just goes write into the log,
 
 1623
 01:34:52,700 --> 01:34:53,900
+没有什么特别的，
 there's nothing special going on,
 
 1624
 01:34:53,900 --> 01:34:55,880
+如果你将数据写入文件，
 if you write data to a file
 
 1625
 01:34:56,330 --> 01:34:58,460
+引起 inode 更新，
 and that causes the inode to be updated,
 
 1626
 01:34:58,610 --> 01:35:01,490
+然后日志将包含你的数据，
 then the log is gonna contain your data
 
 1627
 01:35:01,490 --> 01:35:03,320
+并更新 inode ，
 and the updated an inode,
 
 1628
 01:35:04,820 --> 01:35:07,310
+所有被修改的东西都会记入日志，
 you know everything, everything gets modified goes in the log,
 
 1629
 01:35:07,760 --> 01:35:09,770
+那就是日志数据。
 that's journal data.
 
 1630
 01:35:09,770 --> 01:35:11,030
+当然，它很慢，
 But, of course it's quite slow
 
 1631
 01:35:11,060 --> 01:35:12,290
+或者比你想象的要慢，
 or slower than you might hope,
 
 1632
 01:35:12,290 --> 01:35:15,860
+因为，
 because you know,
 
 1633
 01:35:16,530 --> 01:35:18,600
+如果你写一整串数据，
 now if you write a whole bunch of data,
 
 1634
 01:35:18,690 --> 01:35:20,160
+它必须写一次到日志，
 it has to be written once to the log
 
 1635
 01:35:20,160 --> 01:35:21,930
+然后第二次到原位置，
 and then a second time to the home location,
 
 1636
 01:35:21,930 --> 01:35:26,910
+所以，日志数据方案简单明了，但速度很慢。
 so the journal data scheme is straightforward, but slow.
 
 1637
 01:35:29,320 --> 01:35:31,090
+然后，还有另一种顺序数据方案，
 Then there's this other order data scheme,
 
 1638
 01:35:31,870 --> 01:35:34,540
+那就是人们最流行的模式，
 that people that's actually the most popular mode,
 
 1639
 01:35:35,970 --> 01:35:38,910
+避免，不将数据写入日志，
 avoid, that doesn't write the data to the log,
 
 1640
 01:35:39,440 --> 01:35:40,550
+在顺序数据方案中，
 in the order data scheme,
 
 1641
 01:35:40,580 --> 01:35:44,870
+只有像 inode 和目录块这样的元数据才会写入日志，
 only metadata like inodes and directory blocks are written to the log
 
 1642
 01:35:45,050 --> 01:35:50,120
+而文件内容块直接写入文件系统中的原位置，
 and file content block is just written directly to the home locations in the file system
 
 1643
 01:35:51,320 --> 01:35:52,640
+所以它的速度要快得多，
 and so it's a lot faster,
 
 1644
 01:35:52,640 --> 01:35:55,690
+因为你不必写入文件内容两次，
 because you don't have to write the file content twice,
 
 1645
 01:35:56,440 --> 01:35:58,000
+这确实会导致更复杂的情况，
 it does lead to more complexity though,
 
 1646
 01:35:58,000 --> 01:36:03,150
+因为如果，
 because if you,
 
 1647
 01:36:03,150 --> 01:36:06,450
+你不能随时写文件数据，
 you can't just write the file data anytime you want,
 
 1648
 01:36:06,630 --> 01:36:08,610
+因为这样会有风险，
 because then there's a risk that,
 
 1649
 01:36:10,360 --> 01:36:13,210
+如果你不担心你写 inode 的顺序，
 if you don't worry about the order in which you write the inodes,
 
 1650
 01:36:13,210 --> 01:36:15,160
+文件数据存在这样的风险，
 there's the file data, there's the risk,
 
 1651
 01:36:15,160 --> 01:36:18,160
+你可能执行写入操作，
 that you might do a write,
 
 1652
 01:36:18,160 --> 01:36:21,790
+导致为文件分配新的块，
 that causes a new block to be allocated for file
 
 1653
 01:36:22,030 --> 01:36:26,920
+并将更新后的 inode 写入日志并提交，
 and have the updated inode be written into the log and committed
 
 1654
 01:36:26,980 --> 01:36:28,450
+然后发生崩溃，
 and then have a crash happen,
 
 1655
 01:36:28,450 --> 01:36:32,500
+在你写入实际文件内容到磁盘之前，
 before you get around to writing the actual file content to the disk,
 
 1656
 01:36:32,710 --> 01:36:34,030
+然后在恢复之后，
 and then after recovery,
 
 1657
 01:36:34,510 --> 01:36:35,830
+你将看到的是，
 what you would see is
 
 1658
 01:36:35,860 --> 01:36:39,040
+包含新分配的数据块的 inode ，
 the inode with the new newly allocated data block,
 
 1659
 01:36:39,340 --> 01:36:42,100
+但是数据块的旧内容
 but the old contents of that data block
 
 1660
 01:36:42,100 --> 01:36:45,340
+来自之前使用该数据块的文件，
 from whatever file previously used that data block,
 
 1661
 01:36:45,890 --> 01:36:50,450
+所以，如果你运行的系统有多个用户，比如 Athena ，
 and so if you're running a system that has multiple users, like Athena system,
 
 1662
 01:36:50,660 --> 01:36:53,480
+可能是一个用户最终
 then it could be that one user will end up
 
 1663
 01:36:53,480 --> 01:36:57,740
+拥有的文件包含另一个用户已删除文件的内容。
 having a file that contains contents from another user's deleted file.
 
 1664
 01:36:58,650 --> 01:37:00,150
+如果我们不注意顺序，
 If we're not careful about the order
 
 1665
 01:37:00,150 --> 01:37:04,350
+写入数据与 inode 的顺序。
 in which we write the data versus the inode.
 
 1666
 01:37:06,550 --> 01:37:09,310
+ext3 顺序数据模式解决这个，
 A ext3 order data mode solves this,
 
 1667
 01:37:09,460 --> 01:37:14,050
+通过不提交修改的 inode ，
 by not committing a modified inode
 
 1668
 01:37:14,050 --> 01:37:17,800
+直到文件内容写入磁盘之后，
 until after the file content has been written to disk,
 
 1669
 01:37:18,040 --> 01:37:20,170
+所以，如果你的应用程序写入文件，
 so if your application and you write to a file
 
 1670
 01:37:20,710 --> 01:37:23,380
+那个写入导致分配新的块，
 and that write causes a new block to be allocated,
 
 1671
 01:37:23,800 --> 01:37:28,900
+文件系统将新文件内容写入新分配的块，
 the file system will write the new file content to the newly allocated block,
 
 1672
 01:37:29,080 --> 01:37:30,520
+一旦写入完成，
 and once that write is finished,
 
 1673
 01:37:30,550 --> 01:37:33,340
+它才会提交事务。
 only then will it commit the transaction.
 
 1674
 01:37:34,860 --> 01:37:38,670
+这导致 inode 更新为包含新的块编号，
 That causes the inode to be updated to have the new block number
 
 1675
 01:37:38,730 --> 01:37:41,130
+这意味着，崩溃，
 and that means that a crash,
 
 1676
 01:37:41,250 --> 01:37:42,780
+如果崩溃发生在，
 if there's a crash is going to happen
 
 1677
 01:37:42,780 --> 01:37:44,220
+写入数据时，
 between when you wrote the data,
 
 1678
 01:37:44,340 --> 01:37:46,650
+写入数据之后和写入 inode 之前，
 after you wrote the data and before you wrote the inode,
 
 1679
 01:37:46,710 --> 01:37:51,630
+不会显示别人删除的旧数据块
 therefore won't reveal somebody else's old deleted data block
 
 1680
 01:37:52,060 --> 01:37:53,590
+给新用户文件。
 to the new user file.
 
 1681
 01:37:56,790 --> 01:37:57,720
+好的，我明白了。
 Okay, I see.
 
 1682
 01:37:58,630 --> 01:37:59,410
+好的，我明白了，
 Okay, I see,
 
 1683
 01:37:59,410 --> 01:38:02,500
+但是它仍然可以有数据，而没有 inode 。
 but it could still have the data, but not the inode.
 
 1684
 01:38:03,310 --> 01:38:04,510
+是的，你可能分配。
 Yeah, you might allocate.
 
 1685
 01:38:04,510 --> 01:38:06,970
+是的，如果发生崩溃，
 Yeah, it was a crash,
 
 1686
 01:38:06,970 --> 01:38:09,850
+在你写入数据块之后，写入 inode 之前，
 after you after you wrote the data block before you wrote the inode,
 
 1687
 01:38:09,850 --> 01:38:12,160
+那么你已经更新了数据块，
 then you have updated the data block,
 
 1688
 01:38:12,160 --> 01:38:13,060
+但这并不重要，
 but it doesn't matter,
 
 1689
 01:38:13,060 --> 01:38:15,430
+因为你不仅没有写 inode ，
 because not only did you not write the inode,
 
 1690
 01:38:15,430 --> 01:38:20,870
+你也没有写更新块，空闲位图块，
 you also didn't write the updated block, free bitmap block,
 
 1691
 01:38:21,290 --> 01:38:24,170
+块是空闲的，并且可以分配给其他东西，
 blocks will be free and could be allocated for something else,
 
 1692
 01:38:24,200 --> 01:38:25,460
+所以一个块都不会丢。
 so would not even lose a block.
 
 1693
 01:38:26,730 --> 01:38:29,010
+好的，如果是老块，
 Alright, and if it's an old block,
 
 1694
 01:38:29,010 --> 01:38:31,620
+那还是可以的，对吧。
 then it's still okay, right.
 
 1695
 01:38:32,100 --> 01:38:32,490
+再说一遍。
 Say it again.
 
 1696
 01:38:32,910 --> 01:38:33,810
+如果只是，
 If it was just,
 
 1697
 01:38:34,360 --> 01:38:37,900
+它是一样的块，写入新的数据，
 it is the same, the same block just write some new data to it,
 
 1698
 01:38:37,930 --> 01:38:43,530
+但是一样的块，一样的大小，一样的位置，
 but same block, same size, same same location,
 
 1699
 01:38:44,900 --> 01:38:46,520
+但是我们已经写入，
 but we already wrote,
 
 1700
 01:38:46,520 --> 01:38:48,770
+比如不是我们创建一个新的块，
 like it's not that we created a new block,
 
 1701
 01:38:48,770 --> 01:38:53,180
+而是在旧的块，我们写入一些额外的数据，
 but in the old block, we just wrote some extra data,
 
 1702
 01:38:53,180 --> 01:38:54,380
+但它有一点，
 but it was a little bit,
 
 1703
 01:38:54,380 --> 01:38:56,180
+所以它不需要创造一个新的。
 so it didn't need to create a new one.
 
 1704
 01:38:57,220 --> 01:38:58,300
+是的，我们写入数据，
 Yeah, we wrote data,
 
 1705
 01:38:58,300 --> 01:39:01,240
+我们最终将数据写入块中，
 we ended up writing to a data to a block,
 
 1706
 01:39:01,240 --> 01:39:02,920
+它没有被任何文件使用，
 that was not in use by any file,
 
 1707
 01:39:03,830 --> 01:39:05,480
+它是不可见的。
 it's not visible.
 
 1708
 01:39:06,020 --> 01:39:07,340
+好的，我明白了，
 Right, okay I see,
 
 1709
 01:39:07,340 --> 01:39:09,870
+谢谢。再见。
 thank you, goodbye.
 
