@@ -34,7 +34,7 @@
 | 16   | &check; | &check; | &check; |
 | 17   | &check; | &check; |         |
 | 18   | &check; | &check; |         |
-| 19   | &check; | &check; |         |
+| 19   | &check; | &check; | &check; |
 | 20   | &check; | &check; |         |
 | 21   | &check; | &check; |         |
 | 22   | &check; | &check; |         |
