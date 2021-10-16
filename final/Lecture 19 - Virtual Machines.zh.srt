@@ -1,6120 +1,7650 @@
 1
 00:00:02,580 --> 00:00:06,430
+好的，我想开始了。
 Alright, I'd like to get started.
 
 2
 00:00:09,560 --> 00:00:11,450
+今天我将谈论虚拟机。
 Today I will talk about virtual machines.
 
 3
 00:00:12,090 --> 00:00:16,290
+我要讲的课会分成三个部分，
 And I'm gonna lecture is really going to be divided into three pieces,
 
 4
 00:00:16,290 --> 00:00:20,790
+第一部分是所谓的 trap 和模拟虚拟化，
 one is going to start with what's called trap and emulate virtualization,
 
 5
 00:00:20,790 --> 00:00:25,830
+它描述了如何构建自己的虚拟机方案，
 which is basically an overview of how you could build your own virtual machine scheme
 
 6
 00:00:26,370 --> 00:00:29,700
+比如 RISC-V 在 QEMU 中，
 RISC-V in QEMU,
 
 7
 00:00:30,000 --> 00:00:31,410
+然后我要讨论一下，
 then I'm gonna talk a bit about
 
 8
 00:00:31,560 --> 00:00:36,120
+最近的支持虚拟化的硬件和微处理器，
 recent hardware support and microprocessors for virtualization,
 
 9
 00:00:36,870 --> 00:00:39,090
+然后是关于今天的论文 Dune ，
 and then about today's paper Dune
 
 10
 00:00:39,090 --> 00:00:42,600
+它使用了这种现代的硬件支持。
 which uses this modern hardware support.
 
 11
 00:00:43,330 --> 00:00:47,140
+好的，那么首先什么是虚拟机，
 Alright, so first, what is a virtual machine,
 
 12
 00:00:47,770 --> 00:00:51,160
+你可以把它想象成一台计算机的模拟，
 it's really you can think of it as a simulation of a computer,
 
 13
 00:00:51,160 --> 00:00:54,850
+它的精确度足以运行操作系统，
 that's accurate enough to run an operating system,
 
 14
 00:00:55,180 --> 00:01:00,980
+所以 QEMU 是一个例子，
 so QEMU is a, a example of
 
 15
 00:01:00,980 --> 00:01:03,740
+你可以认为是一个虚拟机的例子，
 you could consider to be an example of a virtual machine,
 
 16
 00:01:04,130 --> 00:01:07,580
+我要说的是，
 the way I'm going to talk about it is that,
 
 17
 00:01:10,880 --> 00:01:14,000
+位于硬件之上的最底层，
 down at the lowest level sitting on top of the hardware,
 
 18
 00:01:14,450 --> 00:01:19,520
+我们想象一个虚拟机监视器或 VMM ，
 we're gonna imagine a virtual machine monitor or VMM,
 
 19
 00:01:20,000 --> 00:01:24,740
+这或多或少取代了标准操作系统内核，
 and this more or less takes the place of the standard operating system kernel,
 
 20
 00:01:26,700 --> 00:01:28,890
+虚拟机监视器的工作是
 and the virtual machine monitor's job is
 
 21
 00:01:28,890 --> 00:01:34,670
+为客户操作系统模拟一组计算机，
 to simulate a bunch of computers for guest operating systems,
 
 22
 00:01:34,760 --> 00:01:42,260
+所以，在我们通常的表中，在用户空间中，
 so said, appear in in you know what used to be user space in our usual diagrams,
 
 23
 00:01:42,260 --> 00:01:44,240
+但现在有了客户空间。
 but has now guest space.
 
 24
 00:01:44,540 --> 00:01:49,260
+这里是的客户空间，
 So this is we call this guest space
 
 25
 00:01:49,260 --> 00:01:52,020
+在这里下面是主机空间。
 and down here host space.
 
 26
 00:01:52,830 --> 00:01:57,480
+我们会有一个或多个客户操作系统内核，
 We're gonna have a bunch of, one or more guest operating systems kernels,
 
 27
 00:01:57,480 --> 00:02:05,990
+我们可能有一个 Linux 内核作为一个客户内核，
 so we might have a Linux kernel as one guest,
 
 28
 00:02:07,340 --> 00:02:09,590
+而这个 Linux 内核，
 and this Linux kernel is gonna
 
 29
 00:02:09,950 --> 00:02:12,620
+它只是认为自己是一个普通的内核，
 you know it's just it thinks of itself as an ordinary kernel,
 
 30
 00:02:12,620 --> 00:02:14,060
+它运行一系列进程，
 and it runs a bunch of processes,
 
 31
 00:02:14,060 --> 00:02:17,120
+可能是 VI 和 C 编译器。
 maybe VI and a C compiler.
 
 32
 00:02:17,750 --> 00:02:20,540
+然后我们可能会有其他客户机，
 Then we might have other guest,
 
 33
 00:02:21,900 --> 00:02:25,380
+我有其他客户机在这里运行，
 I have other guest two guest virtual machines running here,
 
 34
 00:02:25,380 --> 00:02:27,600
+也许有另一个 Linux ，
 there might be maybe another Linux
 
 35
 00:02:27,600 --> 00:02:30,870
+甚至可能是 Windows 这样的其他操作系统，
 or maybe even some other operating system like Windows,
 
 36
 00:02:32,670 --> 00:02:34,230
+都在同一台机器上运行，
 all running on the same machine,
 
 37
 00:02:34,830 --> 00:02:38,830
+并且有 Windows 进程运行，
 and there would be windows processes running
 
 38
 00:02:38,830 --> 00:02:42,880
+在这个客户机操作系统中。
 within as within this guest operating system.
 
 39
 00:02:43,060 --> 00:02:49,180
+所以虚拟机监视器运行的地方是主机世界，
 So the host, the host world where the virtual machine monitor runs,
 
 40
 00:02:49,180 --> 00:02:53,800
+这些普通操作系统运行的是客户机世界，
 and guest world where these ordinary operating systems run,
 
 41
 00:02:53,860 --> 00:02:58,870
+此外，我们还会讲到很多，
 and furthermore, we're going to talk about a lot about in
 
 42
 00:02:58,870 --> 00:03:09,810
+在客户机世界中，客户机管理程序是内核运行的模式，
 within the guest world, a guest supervisor mode which is mode that kernels running,
 
 43
 00:03:09,810 --> 00:03:13,170
+客户机内核运行在客户用户模式。
 the guest kernels running at guest user mode.
 
 44
 00:03:16,680 --> 00:03:22,920
+同样，虚拟机监视器的一般目标是，
 And again, the the kind of classical goal of virtual machine monitor is
 
 45
 00:03:22,950 --> 00:03:25,020
+为了提供机器的模拟，
 to provide an emulation of a machine,
 
 46
 00:03:25,020 --> 00:03:25,650
+这很好，
 that's so good,
 
 47
 00:03:25,650 --> 00:03:29,370
+你可以不加修改地启动普通的 Linux ，普通的 Windows ，
 that you can just boot ordinary Linux, ordinary Windows unmodified
 
 48
 00:03:29,820 --> 00:03:32,550
+并让它在这个虚拟机内运行，
 and have it run inside this virtual machine,
 
 49
 00:03:32,550 --> 00:03:36,060
+永远不用怀疑会有什么奇怪的事情发生。
 never suspecting that anything funny is going on.
 
 50
 00:03:36,820 --> 00:03:40,300
+所以，虚拟机监视器必须位于
 So, for example, the virtual machine monitor has to be in a position
 
 51
 00:03:40,300 --> 00:03:43,750
+在某种程度上模拟主管模式和用户模式之间的差异，
 to emulate the difference between supervisor mode and user mode in a way
 
 52
 00:03:43,750 --> 00:03:48,340
+它完全模拟实际硬件的工作，
 that is just completely convincing simulation of how the actual hardware does it,
 
 53
 00:03:49,000 --> 00:03:49,840
+即使那是，
 even though that's,
 
 54
 00:03:50,540 --> 00:03:52,520
+你不可能真的是这样，
 you can't really be exactly what's going on,
 
 55
 00:03:53,210 --> 00:03:56,270
+这就是我们讨论的客户机管理者模式和客户机用户模式，
 so that's why we talk about guest supervisor mode and guest user mode,
 
 56
 00:03:56,510 --> 00:03:59,060
+VMM 对这两种模式进行模拟。
 VMM's emulation of those two modes.
 
 57
 00:03:59,960 --> 00:04:04,640
+那么你为什么要使用虚拟机，
 So so why would you want to use a virtual machine,
 
 58
 00:04:05,330 --> 00:04:06,740
+有很多原因，
 it turns out there's a lot of reasons
 
 59
 00:04:06,740 --> 00:04:12,350
+在一台计算机上运行许多不同的客户操作系统，
 to run lots of a distinct guest operating systems on a single computer,
 
 60
 00:04:13,010 --> 00:04:16,010
+也许你在经营一家大公司，
 sometimes maybe you're running a big company
 
 61
 00:04:16,010 --> 00:04:18,650
+你需要很多很多的服务器，
 and you, you need to have lots and lots of servers,
 
 62
 00:04:18,650 --> 00:04:22,040
+也许域名服务器和安全服务器，或者其他的，
 maybe you know name servers and security servers, who knows what
 
 63
 00:04:22,190 --> 00:04:25,010
+而且它们中的每一个都不会使用太多的资源，
 and each one of them doesn't use many resources,
 
 64
 00:04:25,040 --> 00:04:28,850
+所以为它购买一台物理机器有点浪费时间，
 so it's sort of a waste of time to have to buy a physical machine for it,
 
 65
 00:04:29,090 --> 00:04:31,340
+但是你想要运行，
 but you want to run, you know you want to
 
 66
 00:04:31,340 --> 00:04:34,880
+想在单个硬件上运行大量这样的低强度服务器，
 run lots of these low intensity servers on a single piece of hardware,
 
 67
 00:04:34,880 --> 00:04:37,940
+你可以通过使用虚拟机来省钱。
 you can save money by using a virtual machine.
 
 68
 00:04:39,190 --> 00:04:45,460
+虚拟机在云计算中的应用也非常非常广泛，
 It turns out virtual machines are also very, very widely used in cloud computing
 
 69
 00:04:45,550 --> 00:04:48,550
+比如一个像亚马逊 AWS 这样的机构，
 where it's an outfit like Amazon Amazon AWS,
 
 70
 00:04:48,850 --> 00:04:52,540
+他们不想把实体机租给人们，
 they don't want to rent out physical machines to people,
 
 71
 00:04:52,540 --> 00:04:55,300
+因为这是一个很难管理的，
 because that turns out to be a difficult to manage,
 
 72
 00:04:55,300 --> 00:04:59,380
+他们想要做的是租给他们的客户，
 what they want to do is rent their customers, their cloud customers
 
 73
 00:04:59,470 --> 00:05:06,850
+一台机器，亚马逊决定在什么硬件上运行，
 just a machine that Amazon can on the fly you know decide what hardware run it on
 
 74
 00:05:06,850 --> 00:05:08,890
+是运行一台大一点还是小一点的机器，
 whether to run a bigger or smaller machine,
 
 75
 00:05:08,890 --> 00:05:10,270
+亚马逊可以决定，
 Amazon can decide,
 
 76
 00:05:11,920 --> 00:05:15,070
+这是目前的客户，
 you know, it's a it's current customers,
 
 77
 00:05:15,070 --> 00:05:18,040
+也许在这块硬件上有两个客户，
 maybe there's two customers on this piece of hardware right here,
 
 78
 00:05:18,040 --> 00:05:19,510
+但是他们不太使用计算机，
 but they're not using the computer very much,
 
 79
 00:05:19,510 --> 00:05:23,110
+也许它可以把第三个第四个客户放到同一台硬件上，
 maybe it can pack a third or fourth customer onto that same piece of hardware
 
 80
 00:05:23,230 --> 00:05:26,170
+不花费额外的成本，但是可以获得更多的收入。
 without spending extra money, but get more revenue.
 
 81
 00:05:26,500 --> 00:05:32,020
+所以，这个虚拟机提供了某种额外的灵活性，
 So this virtual machines allow kind of extra level of flexibility
 
 82
 00:05:32,920 --> 00:05:35,830
+这是一种使用的技巧，
 and you know it's kind of trick that's being used is
 
 83
 00:05:35,830 --> 00:05:40,810
+我们提升现有的操作系统内核和用户空间，
 that we're kind of shifting up the existing operating system kernels and user space
 
 84
 00:05:40,810 --> 00:05:46,090
+并且在下面增加一个新的层来提供这种灵活性。
 and adding a new layer underneath to provide this flexibility.
 
 85
 00:05:47,220 --> 00:05:50,880
+人们使用虚拟机还有其他原因，
 It turns out there's there's other reasons why people use virtual machines,
 
 86
 00:05:50,880 --> 00:05:52,350
+一个当然是内核开发，
 one is certainly kernel development,
 
 87
 00:05:52,350 --> 00:05:54,690
+这就是为什么我们使用 QEMU ，
 which is why we all use QEMU,
 
 88
 00:05:55,260 --> 00:05:59,160
+一种在虚拟环境中运行 xv6 的能力，
 the ability to run xv6 in a kind of virtual environment,
 
 89
 00:05:59,160 --> 00:06:01,190
+而不是在真实计算机中，
 rather than a real computer,
 
 90
 00:06:01,190 --> 00:06:04,700
+使这门课程对我们所有人都更方便，
 makes this course much more convenient for all of us,
 
 91
 00:06:04,880 --> 00:06:06,920
+它还使调试变得更容易，
 it also makes it a little bit easier to debug,
 
 92
 00:06:06,920 --> 00:06:09,050
+这是因为，
 because we can turns out that
 
 93
 00:06:09,260 --> 00:06:13,400
+一旦你运行 xv6 和这个虚拟机环境，
 once you're running xv6 and this virtual machine environment,
 
 94
 00:06:13,400 --> 00:06:16,550
+QEMU 使我们更容易提供 GDB 访问，
 QEMU provides us easier to provide GDB access,
 
 95
 00:06:17,690 --> 00:06:19,940
+比起在一台物理计算机上。
 than it would be on a physical computer.
 
 96
 00:06:21,140 --> 00:06:24,410
+人们使用虚拟机的最后一个原因是，
 And the final reason that people use virtual machines is that,
 
 97
 00:06:24,440 --> 00:06:26,480
+可以有很多技巧可以使用，
 there's a bunch of tricks that can be played
 
 98
 00:06:26,840 --> 00:06:30,920
+利用虚拟机监视器提供的这层额外的间接层，
 using this extra layer of indirection provided by the virtual machine monitor,
 
 99
 00:06:30,920 --> 00:06:37,790
+比如，你可以对整个正在运行的操作系统和用户进程设置检查点，
 for example, you can checkpoint an entire running operating system and user processes,
 
 100
 00:06:37,790 --> 00:06:39,560
+你可以获取它的一个检查点，
 you can take a checkpoint of it,
 
 101
 00:06:40,010 --> 00:06:42,170
+将其隐藏在某个地方，比如磁盘上，
 stash it away somewhere maybe on disk,
 
 102
 00:06:42,170 --> 00:06:44,120
+然后恢复这个检查点，
 and then later restore that checkpoint,
 
 103
 00:06:44,300 --> 00:06:48,870
+完全相同的操作系统和进程，
 sort of exactly the state of that operating system and its processes
 
 104
 00:06:48,900 --> 00:06:50,310
+像它在检查点时那样，
 as it was at the time of the checkpoint,
 
 105
 00:06:50,310 --> 00:06:52,980
+它对于调试可靠性，
 it's useful for reliability for debugging
 
 106
 00:06:53,100 --> 00:06:56,340
+对于克隆虚拟机的内存是有用的，
 for maybe cloning the image of a virtual machine,
 
 107
 00:06:56,340 --> 00:06:58,350
+所以你可以多次运行它。
 so you can run it multiple times.
 
 108
 00:06:58,620 --> 00:07:00,180
+另一个你可以玩的游戏是，
 Another game you can play is
 
 109
 00:07:00,180 --> 00:07:06,060
+你可以把一个客户机迁移到另一台计算机上，
 you can might migrate a guest an entire guest to another computer,
 
 110
 00:07:06,150 --> 00:07:09,000
+如果你在物理计算机上运行客户机操作系统，
 if you have a guest operating system running on a physical computer
 
 111
 00:07:09,150 --> 00:07:11,970
+你需要关闭或更换物理计算机，
 and you need to shut down or replace that physical computer,
 
 112
 00:07:12,120 --> 00:07:16,890
+你可以移动正在运行的虚拟机映像，
 you can actually turns out move the running virtual machine image
 
 113
 00:07:16,890 --> 00:07:19,740
+在不干扰它的情况下，到另一台物理机上，
 without disturbing it to another physical computer,
 
 114
 00:07:19,740 --> 00:07:21,390
+这样你就可以关闭第一个了。
 so that you can shut down the first one.
 
 115
 00:07:22,330 --> 00:07:26,020
+这是一些例子，说明为什么人们喜欢虚拟机，
 There's just examples of why people really like virtual machines
 
 116
 00:07:26,020 --> 00:07:29,170
+人们确实非常广泛地使用虚拟机，
 and people really do virtual machines are very, very widely used,
 
 117
 00:07:29,500 --> 00:07:31,540
+而且它们也有很长的历史，
 and they also have a long history,
 
 118
 00:07:31,540 --> 00:07:34,060
+这个想法最早是在二十世纪六十年代提出的，
 this ideas first came up in the 1960s,
 
 119
 00:07:34,060 --> 00:07:36,520
+它们是随着时间的推移而发展，
 and they've been developed over time
 
 120
 00:07:36,640 --> 00:07:41,190
+直到它们变得非常普遍，很容易使用。
 until they're, they're quite pervasive easy to use.
 
 121
 00:07:42,690 --> 00:07:46,890
+对于这门课，我们调查它们的原因是，
 For this course, the reason why we're looking into them is
 
 122
 00:07:46,890 --> 00:07:51,240
+虚拟机监视器提供了一种不同的角度，
 that virtual machine monitors provide sort of different view
 
 123
 00:07:51,240 --> 00:07:53,220
+关于操作系统，
 on what an operating system can be,
 
 124
 00:07:53,640 --> 00:07:56,640
+与我们习惯的进程抽象不同，
 instead of the process abstraction we're all used to,
 
 125
 00:07:56,640 --> 00:07:58,560
+我们这里有一些类似的结构，
 you know we have some analogous structures here,
 
 126
 00:07:58,560 --> 00:08:02,130
+而是提供了一种不同类型的容器，
 but a sort of providing a different kind of container,
 
 127
 00:08:02,130 --> 00:08:06,030
+它不是进程，而是一种模拟机器，
 it's not a process, it's a sort of simulated machine,
 
 128
 00:08:06,690 --> 00:08:10,920
+允许我们考虑我们讨论的所有东西，
 allows us to kind of think about all the stuff we've been talking about,
 
 129
 00:08:11,490 --> 00:08:16,470
+从不同的角度思考内存分配、调度保护，
 memory allocation, scheduling protection, from a different point of view,
 
 130
 00:08:17,790 --> 00:08:18,870
+或许能给我们一些建议，
 maybe give us some ideas,
 
 131
 00:08:18,870 --> 00:08:21,750
+我们可以带回到传统的操作系统内核，
 which we can take back to traditional operating system kernels,
 
 132
 00:08:22,050 --> 00:08:24,570
+实际上很多方案，
 and indeed much of the action
 
 133
 00:08:24,900 --> 00:08:28,770
+开发设计、开发研究的方案，
 sort of development design, development research action
 
 134
 00:08:28,800 --> 00:08:32,880
+已经从传统内核
 has shifted from conventional kernels
 
 135
 00:08:33,600 --> 00:08:36,930
+向下转移到虚拟机监视器本身，
 down into the virtual machine monitors themselves,
 
 136
 00:08:36,930 --> 00:08:38,760
+随着它们变得越来越普遍，
 as they've gotten more and more prevalent,
 
 137
 00:08:38,760 --> 00:08:42,330
+所以，在某种意义上，操作系统的话题
 so in some sense kind of the topic of operating systems
 
 138
 00:08:42,330 --> 00:08:45,660
+向下漂移了一层。
 is drifting downwards a bit by one layer.
 
 139
 00:08:48,090 --> 00:08:52,260
+好的，这节课我想讨论的第一部分，
 Okay, for the first part of this lecture I want to talk about
 
 140
 00:08:52,440 --> 00:08:59,520
+介绍一下我们如何实现自己的虚拟机，
 a bit about how we could implement our own virtual machine,
 
 141
 00:08:59,550 --> 00:09:03,570
+我将使用 RISC-V 作为一种，
 and I'm gonna use RISC-V as that sort of,
 
 142
 00:09:04,280 --> 00:09:08,720
+假设我们正在尝试模拟 RISC-V 硬件，
 assume that we're trying to emulate RISC-V hardware,
 
 143
 00:09:08,720 --> 00:09:12,650
+让我们可以运行为 RISC-V 设计的 xv6 操作系统。
 so we can run operating systems designed for RISC-V xv6.
 
 144
 00:09:14,420 --> 00:09:18,800
+再重复一下具体的目标，
 And just to repeat the specific goals,
 
 145
 00:09:19,610 --> 00:09:24,020
+我们所希望的是一种典型的虚拟机，
 what we'd like we're for kind of classical virtual machines,
 
 146
 00:09:24,200 --> 00:09:25,280
+我们想要构建的是
 what we'd like to build is
 
 147
 00:09:25,280 --> 00:09:30,800
+客户机软件完全没有意识到，
 something in which the guest software is just completely not aware,
 
 148
 00:09:30,980 --> 00:09:32,990
+它在虚拟机中运行，
 that it's running inside a virtual machine,
 
 149
 00:09:33,230 --> 00:09:35,210
+我们想要构建一些东西，
 we want to build something
 
 150
 00:09:35,570 --> 00:09:38,600
+使客户机软件不可能区分，
 that makes it impossible for the guest software to distinguish
 
 151
 00:09:38,780 --> 00:09:42,710
+确定是在真实机器上运行还是在虚拟机上运行，
 to decide whether is this am I running on a real machine or a virtual machine, right,
 
 152
 00:09:42,710 --> 00:09:44,660
+我们希望模拟能有那么好的效果。
 we want the emulation to be that good.
 
 153
 00:09:45,090 --> 00:09:47,400
+原因是，我们不想，
 And the reason for that is that we don't want,
 
 154
 00:09:47,910 --> 00:09:49,800
+我们希望能够，
 we want to be able to,
 
 155
 00:09:49,830 --> 00:09:52,080
+我们希望能够在我们的虚拟机中运行任何东西，
 we'd like to be able to run anything in our virtual machine,
 
 156
 00:09:52,170 --> 00:09:55,200
+任何操作系统，甚至可能是我们没有听说过的操作系统，
 any operating system even maybe an operating system we haven't heard of,
 
 157
 00:09:55,440 --> 00:09:57,330
+这意味着，
 and that means that you know,
 
 158
 00:09:57,330 --> 00:10:00,510
+无论操作系统做什么有趣的事情，
 whatever funny stuff the operating system does
 
 159
 00:10:00,510 --> 00:10:01,800
+无论它使用硬件的方式是什么，
 and the way it uses hardware,
 
 160
 00:10:02,010 --> 00:10:08,620
+虚拟机必须提供精确的硬件模拟，
 the virtual machine has to provide that an emulation of exactly the hardware,
 
 161
 00:10:08,620 --> 00:10:11,230
+所以，在真实硬件上起作用的任何技巧
 so that any tricks that work on the real hardware
 
 162
 00:10:11,230 --> 00:10:12,850
+也将在虚拟机上起作用。
 are also going to work on the virtual machine.
 
 163
 00:10:14,620 --> 00:10:20,290
+我们想要的类似目标是，
 Sort of similar goal that we'd like is,
 
 164
 00:10:20,350 --> 00:10:21,670
+我们希望没有办法，
 we want there to be no way,
 
 165
 00:10:21,670 --> 00:10:26,020
+不仅客户机无法决定它是否在虚拟机上运行，
 not only no way for a guest to decide if it's running on virtual machine,
 
 166
 00:10:26,050 --> 00:10:29,530
+而且客户机也无法从虚拟机中逃脱，
 but no way for guests to be able to escape from the virtual machine,
 
 167
 00:10:29,560 --> 00:10:32,530
+人们使用虚拟机的很多原因是
 a lot of the reason why people use virtual machines is
 
 168
 00:10:32,530 --> 00:10:37,120
+为了对不可信的软件提供严格的限制，
 to provide strict confinement for untrusted software,
 
 169
 00:10:37,240 --> 00:10:40,240
+即使不可信操作系统在虚拟机中运行，
 even untrusted operating systems running inside the virtual machine,
 
 170
 00:10:40,420 --> 00:10:43,750
+比如，如果你是亚马逊，并且销售云服务器，
 for example if you're Amazon and you're selling cloud servers,
 
 171
 00:10:44,110 --> 00:10:47,770
+你的客户通常提供操作系统，
 your customers often who provide the operating system
 
 172
 00:10:47,800 --> 00:10:50,290
+在虚拟机上运行的（操作系统）和应用程序，
 that runs on the virtual machine as well as the applications
 
 173
 00:10:50,530 --> 00:10:53,620
+天哪，你的客户不是在运行普通的 Linux ，
 and gosh for all you know your customers are not running ordinary Linux,
 
 174
 00:10:53,680 --> 00:10:55,960
+他们正在运行一个特殊版本的 Linux ，
 they're running a special hacked version of Linux,
 
 175
 00:10:55,990 --> 00:11:00,880
+他们试图突破它的虚拟机，
 whose intended to try to break out of its virtual machine
 
 176
 00:11:00,880 --> 00:11:05,590
+并闯入亚马逊或其他用户的虚拟机，
 and break into Amazon's either the virtual machines of Amazon's or other customer's
 
 177
 00:11:05,590 --> 00:11:10,690
+或者进入 Amazon 用来实施隔离的虚拟机监视器。
 or into the virtual machine monitor that Amazon uses to enforce isolation.
 
 178
 00:11:10,960 --> 00:11:13,130
+所以，这很重要，
 So, it's quite important
 
 179
 00:11:13,370 --> 00:11:16,520
+客户机不能突破它们的虚拟机，
 that guest and not be able to break out of their virtual machines,
 
 180
 00:11:16,520 --> 00:11:18,290
+它们能够使用内存，
 they be able to use the memory,
 
 181
 00:11:18,650 --> 00:11:21,590
+那些虚拟机监视器允许它们使用的内存，
 that they're allowed to use by the virtual machine monitor, for example,
 
 182
 00:11:21,770 --> 00:11:23,630
+但不能使用其他内存，
 but not other memory,
 
 183
 00:11:24,350 --> 00:11:26,360
+同样，它们不应该接触到，
 similarly that they shouldn't be able to reach out
 
 184
 00:11:26,600 --> 00:11:31,760
+没有权限使用存储设备或网卡之类的东西，
 without permission and use things like storage devices or network interface cards,
 
 185
 00:11:32,120 --> 00:11:34,010
+所以你有非常严格的隔离。
 so you're gonna have very strict isolation.
 
 186
 00:11:34,250 --> 00:11:36,800
+并且在许多方面
 And in many ways
 
 187
 00:11:36,830 --> 00:11:42,650
+虚拟机提供了比普通 Unix 进程更严格的隔离，
 virtual machines provides stricter isolation than ordinary Unix processes,
 
 188
 00:11:42,860 --> 00:11:44,990
+普通的 Unix 进程通常可以交互，
 ordinary Unix processes can often interact,
 
 189
 00:11:44,990 --> 00:11:46,400
+它们可以杀死对方，
 they can kill each other
 
 190
 00:11:46,400 --> 00:11:50,540
+它们也可以读写相同的文件或通过管道进行通信，
 or they can read or write the same files or communicate over pipes,
 
 191
 00:11:50,600 --> 00:11:56,090
+但是，在一种通常的虚拟机中，这些都是不可能的，
 but, in a sort of ordinary virtual machines, none of that's possible,
 
 192
 00:11:56,510 --> 00:12:00,650
+不同的虚拟机运行在同一台计算机上，
 the different virtual machines running on the same computer
 
 193
 00:12:01,580 --> 00:12:05,420
+通过虚拟机监视器彼此完全隔离。
 completely isolated from each other by the virtual machine monitors.
 
 194
 00:12:05,420 --> 00:12:06,950
+所以人们因为安全喜欢它们，
 So people like them for security,
 
 195
 00:12:07,160 --> 00:12:09,740
+这是一种能够运行不可信软件的方式，
 it's a way of being able to run untrusted software
 
 196
 00:12:10,790 --> 00:12:13,040
+而不必担心它有漏洞或是恶意的。
 without having to worry if it's buggy or malicious.
 
 197
 00:12:14,480 --> 00:12:16,730
+在实践中，
 You know in practice,
 
 198
 00:12:17,590 --> 00:12:24,610
+我将目标定位为完全忠实地模拟物理机，
 I've pitched the goal as being sort of completely faithful emulation of a physical machine,
 
 199
 00:12:24,610 --> 00:12:30,340
+事实上，由于性能原因，这通常是模糊的，
 in fact, it turns out that for performance reasons, this is often blurred
 
 200
 00:12:30,340 --> 00:12:32,170
+比如，你会发现，
 and you'll find for example that
 
 201
 00:12:32,770 --> 00:12:37,810
+Linux 和常见的虚拟机监视器有点协同发展，
 Linux and the most common virtual machine monitors have co-evolved a little bit,
 
 202
 00:12:37,810 --> 00:12:39,580
+所以在现实生活中，
 so that in real life,
 
 203
 00:12:39,640 --> 00:12:42,850
+Linux 实际上可能意识到它是在虚拟机监视器上运行，
 Linux may actually be aware that it's running on a virtual machine monitor
 
 204
 00:12:42,850 --> 00:12:46,060
+并且利用虚拟机监视的权限达到效率，
 and with the virtual machine monitors permission for efficiency,
 
 205
 00:12:46,870 --> 00:12:51,100
+Linux 有时会与虚拟机监视器交互，
 Linux sometimes knowingly talks down to the virtual machine monitors
 
 206
 00:12:51,100 --> 00:12:53,920
+做一些事情，比如高速访问设备，
 to do things like get high-speed access to devices,
 
 207
 00:12:54,160 --> 00:12:56,290
+但这是一个精心控制的例外情况，
 but that's a carefully controlled exception
 
 208
 00:12:56,530 --> 00:13:01,940
+总体策略是完全忠实的模拟。
 and the general strategy is completely faithful simulation.
 
 209
 00:13:05,870 --> 00:13:09,410
+好的，那么我们怎么才能建造我们自己的虚拟机监视器。
 Okay, so how could we build our own virtual machine monitor.
 
 210
 00:13:11,760 --> 00:13:15,120
+好的，一种可能性是完全用软件来做，
 Well, one possibility would be to do it entirely in software,
 
 211
 00:13:15,150 --> 00:13:19,200
+你可以想象写一些像 QEMU 这样的东西，
 you can imagine writing something like QEMU,
 
 212
 00:13:19,350 --> 00:13:23,070
+它解释机器指令，
 that interpreted the machine instructions,
 
 213
 00:13:23,070 --> 00:13:27,150
+也就是说你可以编写一个程序来打开 xv6 ，
 that is you could write a program that would open up the xv6
 
 214
 00:13:27,210 --> 00:13:30,870
+读取包含 xv6 指令的文件，
 to read the file that has the xv6 instructions in it
 
 215
 00:13:30,990 --> 00:13:33,000
+你的程序可以查看这些指令，
 and your program could look at these instructions,
 
 216
 00:13:33,000 --> 00:13:36,390
+说，那是一条加载指令或一条移动指令，
 say oh that's a load instruction or a move instruction
 
 217
 00:13:36,390 --> 00:13:41,250
+你的程序可以模拟 RISC-V 状态，
 and your program could you know sort of simulate RISC-V state,
 
 218
 00:13:41,250 --> 00:13:45,060
+可以有以软件实现的 32 个寄存器，
 may have 32 registers implemented in software,
 
 219
 00:13:45,770 --> 00:13:48,650
+当你的软件读取每条指令并将其拆分时，
 and as your software sort of reads each instruction and picks it apart,
 
 220
 00:13:48,650 --> 00:13:50,090
+它会弄清楚是什么指令，
 it figures out what kind of instruction is,
 
 221
 00:13:50,090 --> 00:13:56,810
+它会将指令应用于这 32 个寄存器和控制寄存器，
 it would apply the effects of that instruction to the 32 registers and control registers,
 
 222
 00:13:56,810 --> 00:13:58,730
+这些寄存器都是用软件模拟的。
 that it was simulating all in software.
 
 223
 00:13:59,710 --> 00:14:01,210
+人们这样做，
 And people do this
 
 224
 00:14:01,660 --> 00:14:05,590
+理论上上很简单让它发挥作用，
 and it's conceptually straightforward to make it work,
 
 225
 00:14:05,590 --> 00:14:09,020
+尽管可能要做很多工作才能把所有的细节都做好，
 although it maybe a lot of work to get all the details right,
 
 226
 00:14:09,500 --> 00:14:21,530
+纯软件解释型虚拟机之所以没有被广泛使用，
 the reason why sort of pure software interpretive virtual machines aren't widely used
 
 227
 00:14:21,530 --> 00:14:22,520
+是因为它们速度慢，
 is that they're slow,
 
 228
 00:14:23,380 --> 00:14:24,670
+如果你这么做，
 if you play this game,
 
 229
 00:14:24,760 --> 00:14:27,340
+你的虚拟机将运行客户机软件
 your virtual machine is going to run guest software
 
 230
 00:14:27,340 --> 00:14:32,110
+以一个比你使用的硬件慢得多的速度运行，
 at a small fraction of the speed of the hardware that you're using,
 
 231
 00:14:32,110 --> 00:14:35,260
+因为你的虚拟机监控软件必须
 because for every your virtual machine monitor software has to
 
 232
 00:14:35,260 --> 00:14:37,540
+查看每条它要执行的指令，
 look at every instruction as it's executed up here,
 
 233
 00:14:37,720 --> 00:14:41,110
+你的机器监视器可能运行数十条指令，
 your machine monitor is going to maybe run dozens of instructions
 
 234
 00:14:41,380 --> 00:14:44,680
+在解释每一条客户机指令的过程中，
 in the process of interpreting each one of the guest instructions
 
 235
 00:14:44,680 --> 00:14:48,740
+所以它会比实际的计算机慢几个数量级，
 and so it's going to be orders of magnitude slower than a real computer
 
 236
 00:14:48,740 --> 00:14:51,050
+对于云计算之类的东西，
 and for something like cloud computing,
 
 237
 00:14:51,790 --> 00:14:53,770
+这是不现实的。
 it really would not be a practical.
 
 238
 00:14:53,860 --> 00:14:58,730
+所以，人们不会使用软件解释
 So people don't use the software interpretation
 
 239
 00:14:59,090 --> 00:15:01,610
+来为生产系统构建虚拟机，
 to build virtual machines for production systems,
 
 240
 00:15:02,000 --> 00:15:09,810
+取而代之的是，某种核心的，
 instead, sort of core of,
 
 241
 00:15:10,080 --> 00:15:15,840
+被广泛使用的主要策略之一是
 one of the main widely used strategies is
 
 242
 00:15:15,900 --> 00:15:21,030
+在实际的 CPU 上运行客户机指令。
 to run the actually run the guest instructions on the real CPU.
 
 243
 00:15:24,000 --> 00:15:29,340
+所以，如果你要在虚拟机监视器中运行 xv6 ，
 So if you were going to run xv6 in your virtual machine monitor,
 
 244
 00:15:29,430 --> 00:15:33,840
+你实际上会加载 xv6 内核的指令，
 you would actually load xv6 its instructions the kernel,
 
 245
 00:15:33,870 --> 00:15:37,880
+一开始，内存中有完整的 xv6 指令，
 the beginning, you know entire xv6 instructions in a memory
 
 246
 00:15:37,880 --> 00:15:43,970
+然后跳到 xv6 中的第一条指令。
 and then jump to the first instruction in xv6, right.
 
 247
 00:15:45,410 --> 00:15:49,430
+为了让你的计算机实际运行 xv6 中的指令，
 In order to have your computer actually run the instructions in xv6
 
 248
 00:15:49,430 --> 00:15:51,200
+当然，这需要你的计算机
 and of course this requires that your computer
 
 249
 00:15:51,200 --> 00:15:55,520
+具有与 xv6 期望的相同的微处理器，
 has the same microprocessor in it that xv6 is expecting,
 
 250
 00:15:55,520 --> 00:15:58,490
+但那很容易安排。
 but that's easy to arrange.
 
 251
 00:15:59,570 --> 00:16:02,770
+现在，事实证明你不能真的这么做，
 Now, it turns out you can't literally do this,
 
 252
 00:16:02,800 --> 00:16:05,470
+你会遇到麻烦的地方是，
 point at which you run into trouble is
 
 253
 00:16:05,470 --> 00:16:12,470
+当你的客户机操作系统第一次执行特权指令时。
 when your guest operating system first executed a privileged instruction, right.
 
 254
 00:16:12,500 --> 00:16:17,760
+内核和普通用户代码之间的真正区别是，
 If, and you know that's really the difference between the kernel and ordinary user code is
 
 255
 00:16:17,760 --> 00:16:20,280
+我们试图在这里运行的内核，
 that kernels which is what we're trying to run here
 
 256
 00:16:20,280 --> 00:16:22,950
+在虚拟机中，内核使用特权指令，
 in our virtual machine kernels use privileged instructions,
 
 257
 00:16:23,250 --> 00:16:26,220
+你的客户机内核，
 guest your guest kernel might for example
 
 258
 00:16:26,280 --> 00:16:31,110
+会尝试将新的页表加载到 RISC-V 的 satp 寄存器中。
 try to load a new page table into the satp register RISC-V.
 
 259
 00:16:32,670 --> 00:16:34,500
+所以这开始出现出一个难题，
 So that's starting to present a puzzle,
 
 260
 00:16:35,540 --> 00:16:39,440
+如果我们将客户机内核作为普通用户进程运行，
 if we're executing our guest kernel as an ordinary user process
 
 261
 00:16:39,440 --> 00:16:45,410
+比如 Linux 在用户模式中加载 satp 是非法指令，
 and Linux for example boy loading satp an illegal instruction in user mode,
 
 262
 00:16:45,470 --> 00:16:47,210
+那么我们的程序就会崩溃，
 then so our programs going to crash,
 
 263
 00:16:47,750 --> 00:16:49,040
+如果我们愚蠢到
 if we are so foolish as
 
 264
 00:16:49,040 --> 00:16:54,740
+将客户机内核加载并在管理模式下运行它，
 to load our guest kernel into and run it in supervisor mode,
 
 265
 00:16:55,880 --> 00:17:00,440
+有时候，我们的客户机内核将能够修改实际的页表，
 somehow then our guest kernel will now be able to modify the real page table
 
 266
 00:17:00,440 --> 00:17:03,620
+将能够逃离它的虚拟机，
 and would be able to escape from its virtual machine,
 
 267
 00:17:03,980 --> 00:17:11,020
+因为它可以控制 PTE 的内容，读写任何内存。
 because it controls the contents of PTEs read and write any memory.
 
 268
 00:17:11,050 --> 00:17:14,980
+所以我们不能使用这种简单的策略，
 So we can't use a strategy that's as simple as
 
 269
 00:17:14,980 --> 00:17:17,770
+只是直接运行客户机内核，
 just running the guest kernel directly,
 
 270
 00:17:18,610 --> 00:17:20,680
+相反，我们要使用一些技巧。
 instead we're going to start playing some tricks.
 
 271
 00:17:21,340 --> 00:17:28,240
+第一步，是在用户模式下运行客户机内核，
 The first step is to run the guest kernel in user mode,
 
 272
 00:17:32,240 --> 00:17:39,900
+所以，这是一种基本策略，
 so, this is sort of the fundamental strategy here,
 
 273
 00:17:39,960 --> 00:17:42,030
+我们在用户模式下运行客户机内核，
 what we're run the guest kernel in user mode,
 
 274
 00:17:42,770 --> 00:17:46,340
+在 RISC-V 用户模式下，
 you know in RISC-V user mode
 
 275
 00:17:46,460 --> 00:17:48,350
+这意味着，
 and so what that means,
 
 276
 00:17:48,880 --> 00:17:52,510
+我们编写自己的虚拟机监视器，
 you know we're writing, we're writing our own virtual machine monitor
 
 277
 00:17:52,930 --> 00:17:55,180
+当我们告诉它启动 xv6 时，
 and when we tell it look please boot xv6,
 
 278
 00:17:55,300 --> 00:17:59,890
+它会将 xv6 的内核指令加载到内存中的某个地方，
 it's going to load xv6's kernel instructions into memory somewhere,
 
 279
 00:18:02,120 --> 00:18:03,980
+或许设置一个页表，
 maybe set up a page table appropriately,
 
 280
 00:18:03,980 --> 00:18:07,100
+这使得 xv6 中，
 that makes it look to xv6 like
 
 281
 00:18:07,130 --> 00:18:11,240
+它的内存从 0 开始到任何较高的内存，
 its memory starts at 0 and goes up to whatever high memory is,
 
 282
 00:18:11,360 --> 00:18:15,170
+然后是虚拟机监视器，
 and then the virtual machine monitor,
 
 283
 00:18:15,170 --> 00:18:20,830
+我们使用 xv6 上遇到的 trap sret 指令，
 we use a trap sret instruction as [evolved] come across on xv6
 
 284
 00:18:20,950 --> 00:18:31,180
+在用户模式下，跳转到客户机操作系统的第一条指令，
 to jump into the first instruction of the guest OS in user mode,
 
 285
 00:18:31,600 --> 00:18:33,790
+所以，客户机操作系统将单独执行，
 so the guest operating system will execute along
 
 286
 00:18:33,790 --> 00:18:35,710
+很多指令都可以很好地工作，
 and many instructions will work fine,
 
 287
 00:18:35,710 --> 00:18:39,100
+如果客户机操作系统将两个寄存器加在一起，
 if the guest operating systems just adding two registers together,
 
 288
 00:18:39,640 --> 00:18:42,100
+从内存中读取、加载或存储就可以了，
 reading loading or storing from memory that'll just work
 
 289
 00:18:42,370 --> 00:18:46,180
+并且一旦客户机操作系统使用特权指令，
 and as soon as the guest operating system uses privilege instruction,
 
 290
 00:18:46,210 --> 00:18:48,790
+接下来会发生的是它会 trap ，
 what's gonna happen is it's going to trap,
 
 291
 00:18:48,850 --> 00:18:50,710
+RISC-V 硬件引起它，
 the RISC-V hardware cause it,
 
 292
 00:18:50,890 --> 00:18:53,410
+由于它在用户模式下运行，而不是在管理者模式，
 since it's running in user mode, not supervisor mode,
 
 293
 00:18:53,560 --> 00:18:56,740
+会导致它 trap 回到我们的虚拟机监视器，
 will cause it to trap back into the our virtual machine monitor
 
 294
 00:18:56,740 --> 00:18:58,030
+我们将获得控制权，
 and will get control,
 
 295
 00:18:58,450 --> 00:19:03,730
+所以如果客户操作系统试图修改 satp 页表指针，
 so if the guest operating system, for example tries to change satp, the page table pointer,
 
 296
 00:19:03,910 --> 00:19:07,990
+RISC-V CPU 将 trap 进入我们的虚拟机监视器，
 boom, the RISC-V CPU will trap into our virtual machine monitor
 
 297
 00:19:07,990 --> 00:19:09,970
+我们的软件就会夺回控制权。
 and our software will get control back.
 
 298
 00:19:10,890 --> 00:19:12,720
+而我们的软件能够查看
 And our software we're able to look and see
 
 299
 00:19:12,720 --> 00:19:17,130
+什么指令导致了 trap ，并采取适当的措施，
 what instruction caused the trap and do something appropriate,
 
 300
 00:19:17,850 --> 00:19:19,260
+但这里最酷的是，
 but the cool thing here is that,
 
 301
 00:19:19,260 --> 00:19:24,340
+客户及操作系统实际上并没有设置页表指针。
 the guest operating system didn't actually get to set the page table pointer.
 
 302
 00:19:24,460 --> 00:19:28,900
+但是 VMM 是如何拦截这个，
 But how does how does the VMM intercept this,
 
 303
 00:19:28,900 --> 00:19:31,480
+它必须设置 trap 处理程序，对吗，
 like it has to set the trap handler, right,
 
 304
 00:19:31,510 --> 00:19:35,020
+这不是只有特权进程才能做的事情吗，
 isn't that something only a privileged process can do,
 
 305
 00:19:35,680 --> 00:19:39,100
+VMM 只是主机操作系统上的用户程序，对吧。
 VMM is a user program on the host OS right.
 
 306
 00:19:39,100 --> 00:19:40,720
+好的，我假设，
 Okay, what I'm assuming,
 
 307
 00:19:41,940 --> 00:19:46,170
+我假设虚拟机监视器在管理者模式下运行，
 what I'm assuming is that the virtual machine monitor runs in supervisor mode,
 
 308
 00:19:46,170 --> 00:19:48,150
+所以，在这个简单的图中，
 so in this simple picture,
 
 309
 00:19:48,420 --> 00:19:53,310
+虚拟机监视器是在这块硬件上启动的内核，
 the virtual machine monitor is the kernel that boots on this piece of hardware,
 
 310
 00:19:53,700 --> 00:19:57,720
+所以，不是启动 Linux ，而是你要启动的虚拟机监视器，
 so instead of booting Linux or whatever you would boot this virtual machine monitor,
 
 311
 00:19:57,840 --> 00:19:59,280
+它在管理模式下启动，
 it boots in supervisor mode,
 
 312
 00:19:59,280 --> 00:20:01,080
+它完全控制硬件，
 it has complete control over the hardware,
 
 313
 00:20:01,500 --> 00:20:06,120
+所以我们可以设置 stvec 和所有其他东西。
 so we can set up you know stvec and all this other stuff, however it likes.
 
 314
 00:20:06,540 --> 00:20:07,350
+理解了。
 That makes sense.
 
 315
 00:20:07,710 --> 00:20:11,910
+实际上有些虚拟机监视器就是这样工作的，
 You know, and actually some virtual machine monitors work exactly that way,
 
 316
 00:20:11,910 --> 00:20:13,230
+你只需在硬件上启动它们，
 you just boot them on the hardware
 
 317
 00:20:13,230 --> 00:20:17,160
+只有虚拟机监视器在管理程序模式下运行。
 and its just the virtual machine monitor only that's running in supervisor mode.
 
 318
 00:20:17,940 --> 00:20:21,210
+事实上，还有很多虚拟机方案，
 In fact, there's also many many virtual machines schemes out there,
 
 319
 00:20:21,210 --> 00:20:24,270
+事实上，启动 Linux ，
 in fact, boot Linux,
 
 320
 00:20:25,940 --> 00:20:28,010
+然后一旦 Linux 启动并运行，
 and then once Linux is up and running,
 
 321
 00:20:28,250 --> 00:20:32,300
+你加载虚拟的，
 you load, load the virtual
 
 322
 00:20:32,330 --> 00:20:36,830
+实际上 Linux 带有一个虚拟机监视器，
 actually Linux, actually Linux comes with a virtual machine monitor,
 
 323
 00:20:36,830 --> 00:20:38,660
+你加载虚拟机监视器，
 or you load the virtual machine monitor
 
 324
 00:20:38,660 --> 00:20:42,830
+所谓的可加载内核模块加载到 Linux 中，
 as what's called loadable kernel module into Linux
 
 325
 00:20:43,100 --> 00:20:46,370
+并且它以管理者模式在内核中运行。
 and it runs in the kernel in supervisor mode.
 
 326
 00:20:47,040 --> 00:20:49,800
+这就是今天的文件所说的方式，
 And that's the way actually today's paper says,
 
 327
 00:20:49,860 --> 00:20:54,220
+启动 Linux ，然后运行这个可加载的内核模块，
 boot Linux, then run this little loadable kernel module,
 
 328
 00:20:54,430 --> 00:20:57,460
+但重点是虚拟机监控软件，
 but the main point is the virtual machine monitor software
 
 329
 00:20:57,460 --> 00:21:01,120
+我们重写的信任的软件运行管理者模式下，
 and the software rewriting that we trust runs in supervisor mode,
 
 330
 00:21:01,620 --> 00:21:04,770
+现在，我们可以在用户模式下运行客户机，
 now we're going to run the guest in user mode,
 
 331
 00:21:05,540 --> 00:21:09,530
+但是要安排它看起来像是在管理者模式下运行。
 but arrange for it to look like it's running in supervisor mode as far as it's concerned.
 
 332
 00:21:12,540 --> 00:21:16,170
+好的，好消息是，
 Okay, so the good news is that
 
 333
 00:21:16,170 --> 00:21:22,950
+在 RISC-V 上，所有危险的 trap ，
 on RISC-V, everything dangerous traps,
 
 334
 00:21:22,950 --> 00:21:26,650
+如果你尝试在用户模式下执行此操作，
 if you try to do it in user mode,
 
 335
 00:21:26,740 --> 00:21:30,490
+这就是管理者模式可以执行的所有特权操作，
 that is all the sort of privilege things that supervisor mode can do
 
 336
 00:21:30,580 --> 00:21:34,870
+除了与页表或 PTE 有关的内容，
 with with the exception of stuff having to do with the page table or PTE
 
 337
 00:21:34,870 --> 00:21:35,950
+我们将在稍后讨论，
 which we'll talk about in a bit,
 
 338
 00:21:35,950 --> 00:21:42,050
+但每个管理者专用指令都会导致 trap ，
 but basically every every supervisor only instruction causes a trap,
 
 339
 00:21:42,050 --> 00:21:44,600
+如果你尝试在用户模式下执行。
 if you try to execute in user mode.
 
 340
 00:21:45,140 --> 00:21:46,850
+这意味着每次他们必须停止运行系统，
 So that means that every time they gotta stop running system,
 
 341
 00:21:46,850 --> 00:21:51,230
+执行读取 scause 或读写 stvec 或执行任何这些操作，
 does anything like reads scause or reads writes stvec or does any of those things,
 
 342
 00:21:51,230 --> 00:21:56,420
+xv6 用于配置 RISC-V 硬件的特权部分，
 that xv6 for example does to configure with the privileged part of RISC-V hardware
 
 343
 00:21:56,480 --> 00:21:58,790
+将导致 trap 进入虚拟机监视器，
 will cause a trap into the virtual machine monitor
 
 344
 00:21:59,990 --> 00:22:01,130
+我们将获得控制权。
 and we'll get control.
 
 345
 00:22:01,950 --> 00:22:05,000
+然后，游戏将成为
 And then, the game is going to be
 
 346
 00:22:05,000 --> 00:22:11,210
+虚拟机监视器将会维护虚拟状态，
 the virtual machine monitor is going to maintain virtual state,
 
 347
 00:22:11,450 --> 00:22:25,450
+客户机的虚拟状态信息的整个表，
 a whole table of virtual state information for for the guest,
 
 348
 00:22:25,480 --> 00:22:27,880
+所以虚拟机监视器将具有，
 so the virtual machine monitor will have,
 
 349
 00:22:27,880 --> 00:22:36,760
+比如，在软件中实现的虚拟 stvec 寄存器，
 for example and virtual stvec register just implemented, that's a variable in software
 
 350
 00:22:36,760 --> 00:22:42,000
+以及虚拟 sepc 寄存器，
 and a virtual sepc register
 
 351
 00:22:42,000 --> 00:22:44,520
+所有这些受保护的寄存器，
 and all these for all these protected registers,
 
 352
 00:22:44,520 --> 00:22:46,440
+这里有一整组的寄存器，
 there's a whole array of them down here,
 
 353
 00:22:46,590 --> 00:22:48,480
+由虚拟机监视器实现，
 implemented by the virtual machine monitor
 
 354
 00:22:48,630 --> 00:22:51,930
+当客户机操作系统运行指令时，
 and when the guest operating system for example runs the instruction,
 
 355
 00:22:51,930 --> 00:22:53,970
+它读取这些寄存器中的一个，
 that reads one of these registers,
 
 356
 00:22:54,090 --> 00:22:57,270
+它会设 trap ，因为这在用户空间是不合法的，
 boom it'll take a trap, because it's illegal in user space,
 
 357
 00:22:57,450 --> 00:22:59,970
+虚拟机监视器将检查指令，
 the virtual machine monitor will inspect the instruction
 
 358
 00:23:00,030 --> 00:23:04,290
+并说，这是一条指令读取 sepc 寄存器，
 and say aha, that's an instruction that's reading the sepc register,
 
 359
 00:23:04,680 --> 00:23:08,640
+所以虚拟机监视器随后将模拟这个指令，
 and so the virtual machine monitor will then emulate that instruction,
 
 360
 00:23:08,700 --> 00:23:13,770
+它将从数组中读取虚拟 sepc 的值，
 it will read the sepc virtual sepc value out of this array,
 
 361
 00:23:14,640 --> 00:23:18,090
+它会将其复制到硬件中，
 it'll copy that into the hardware,
 
 362
 00:23:18,510 --> 00:23:22,890
+好的，这里真正发生的事情是，
 well, what really happened here is that the,
 
 363
 00:23:26,750 --> 00:23:32,820
+嗯，我忘了它的名字，
 um, I forget the name of the,
 
 364
 00:23:34,400 --> 00:23:36,590
+有一条指令，我忘了它的名字，
 there's some instruction whose name I forget,
 
 365
 00:23:36,590 --> 00:23:38,900
+它是 ssread ，
 which is basically ssread,
 
 366
 00:23:39,380 --> 00:23:40,850
+虽然这不是它的名字，
 although that's not its name
 
 367
 00:23:40,850 --> 00:23:42,800
+你给它一个普通的寄存器，
 and you give it the name of an ordinary register
 
 368
 00:23:42,800 --> 00:23:45,650
+以及一个特权寄存器，比如 sepc ，
 and the name of a privilege register like sepc
 
 369
 00:23:46,070 --> 00:23:50,540
+所以 trap 虚拟机监视器将读取这个指令，
 and so what the virtual, trap the virtual machine monitor will read that instruction,
 
 370
 00:23:51,040 --> 00:23:52,750
+看到这是一个 ssread ，
 will see, oh, it's an ssread,
 
 371
 00:23:52,960 --> 00:24:00,190
+虚拟机监视器将复制虚拟 sepc 到 trapframe 的 a0 中，
 virtual machine monitor will copy the virtual copy of sepc into a0 in the trapframe,
 
 372
 00:24:00,640 --> 00:24:02,560
+最后，当进入 VMM 时，
 after all when entering the VMM,
 
 373
 00:24:02,560 --> 00:24:05,570
+会创建一个 trapframe ，
 that's gonna have created a trapframe,
 
 374
 00:24:05,570 --> 00:24:07,880
+复制所有客户机寄存器，
 copies of all the guests registers,
 
 375
 00:24:07,880 --> 00:24:10,880
+复制 sepc 到 trapframe 中的 a0 ，
 that will copy this sepc into a0 in the trapframe,
 
 376
 00:24:11,060 --> 00:24:14,300
+然后使用 sret 从 trap 返回，
 then return from the trap using sret,
 
 377
 00:24:17,000 --> 00:24:20,960
+在复制 trapframe 寄存器之后，真正的寄存器，
 you know, after copying the trapframe registers, the real registers
 
 378
 00:24:20,960 --> 00:24:25,750
+从 trap 返回到 ssread 指令之后，
 and return from this trap to the instruction after the ssread
 
 379
 00:24:25,750 --> 00:24:26,950
+并且继续在那里读取，
 and continue reading there
 
 380
 00:24:26,950 --> 00:24:33,170
+将 a0 设置为虚拟 sepc 。
 with now as a0 set to the virtual sepc.
 
 381
 00:24:33,950 --> 00:24:37,100
+现在客户机操作系统将继续运行，
 Now the guest operating system will proceed,
 
 382
 00:24:37,580 --> 00:24:41,030
+[]没有意识到这里发生了一些有趣的事情，
 you know [] not realizing that something funny happened here,
 
 383
 00:24:41,990 --> 00:24:46,490
+但它将获得虚拟 sepc 的复制，
 but it will have gotten a copy of the virtual sepc
 
 384
 00:24:46,490 --> 00:24:48,440
+保存在 VMM 之中。
 that the VMM was keeping on its behalf.
 
 385
 00:24:50,500 --> 00:24:53,470
+那么对这个策略，有什么问题吗？
 So any questions about this, about this strategy?
 
 386
 00:24:58,400 --> 00:25:02,930
+VMM 如何区分不同的客户机？
 How does the VMM differentiate between different guests?
 
 387
 00:25:04,880 --> 00:25:08,750
+它基本上是一样的，
 It, it, it's basically the same way,
 
 388
 00:25:08,750 --> 00:25:13,130
+它将为每个客户机保存一个虚拟状态表，
 it would keep one of these tables of virtual state per guest
 
 389
 00:25:13,520 --> 00:25:16,640
+就像 xv6 知道哪个进程正在运行一样，
 and it just knows just like xv6 knows which process is running
 
 390
 00:25:16,640 --> 00:25:19,490
+有一个变量，可能是每个核心的变量表示，
 as a variable, maybe a per core variable saying,
 
 391
 00:25:19,610 --> 00:25:21,290
+这是我正在运行的进程，
 here's the process I'm currently running,
 
 392
 00:25:22,260 --> 00:25:26,210
+类似地， VMM 将有每个核心的变量，
 similarly, a VMM would have a per core variable
 
 393
 00:25:26,210 --> 00:25:31,490
+它指示哪个虚拟机是这些状态结构，
 that indicated which virtual machine it will be multiple of these state structures,
 
 394
 00:25:31,520 --> 00:25:33,980
+VMM 将知道哪个虚拟机正在运行，
 VMM would know which virtual machine was executing
 
 395
 00:25:33,980 --> 00:25:37,580
+并且在适当的虚拟机状态结构中查找，
 and would look in the appropriate virtual machine state structure,
 
 396
 00:25:38,040 --> 00:25:42,960
+查找 sepc 或它正在寻找的任何东西。
 to find st, sepc or whatever it is looking for.
 
 397
 00:25:43,480 --> 00:25:49,630
+它可以为一个客户机分配多个核心吗？
 Can it run multiple, can it assign multiple cores to one of the guests?
 
 398
 00:25:49,810 --> 00:25:53,290
+是的，先进的虚拟机监视器可以做到这一点，是的。
 Yes, sophisticated virtual machine monitors can do that, yes.
 
 399
 00:25:56,870 --> 00:25:58,370
+所以，如果你，抱歉，请继续。
 So if you, sorry, go ahead.
 
 400
 00:25:58,820 --> 00:26:01,820
+哦，抱歉，所以客户机操作系统，
 Oh, sorry so the guest operating system,
 
 401
 00:26:02,150 --> 00:26:05,030
+它会有一些寄存器，
 it will have like some registers,
 
 402
 00:26:05,390 --> 00:26:10,070
+在实际硬件中是客户操作系统使用的寄存器，
 in the actual hardware will be the registers that the guest OS uses,
 
 403
 00:26:10,250 --> 00:26:15,830
+那么为什么我们不使用实际的 sepc ，而使用虚拟的？
 so why do we not use the actual sepc, but use a virtual one?
 
 404
 00:26:23,810 --> 00:26:27,560
+原因是虚拟机监视器需要使用这些寄存器，
 The reason is that the virtual machine monitor needs to use these registers,
 
 405
 00:26:27,560 --> 00:26:29,780
+需要使用真实寄存器，
 needs to use the real registers,
 
 406
 00:26:30,260 --> 00:26:32,270
+比如，考虑一下 scause ，
 so for example think about scause,
 
 407
 00:26:33,280 --> 00:26:35,920
+当 trap 发生时，会发生什么，
 when a trap occurs, what happens on,
 
 408
 00:26:35,950 --> 00:26:40,180
+当客户机操作系统尝试执行任何特权时，
 when you know when the guest operating system tries to do anything privilege,
 
 409
 00:26:40,180 --> 00:26:41,110
+将会发生 trap ，
 the trap will occur
 
 410
 00:26:41,140 --> 00:26:46,810
+而硬件设置真实的 scause 寄存器为 trap 的原因，
 and the hardware sets the real hardware scause register to the cause of the trap,
 
 411
 00:26:47,510 --> 00:26:52,190
+不管是非法指令还是非特权指令，
 which is illegal instruction or unprivileged instruction whatever it is,
 
 412
 00:26:52,250 --> 00:26:57,130
+但是如果客户机操作系统，
 but if the guest operating system,
 
 413
 00:26:57,340 --> 00:26:58,870
+假设客户操作系统
 you know supposing the guest operating system
 
 414
 00:26:58,870 --> 00:27:03,100
+刚刚接受了来自客户用户进程的系统调用，
 has just taken a system call from a guest user process,
 
 415
 00:27:03,190 --> 00:27:06,850
+客户机操作系统需要查看 scause ，
 the guest operating system needs to see an scause,
 
 416
 00:27:06,940 --> 00:27:12,760
+这才是系统调用的正确 scause 的值，
 that's whatever the right scause value is for system call, right,
 
 417
 00:27:12,790 --> 00:27:14,350
+即使可能最后一件事，
 even though maybe the last thing that
 
 418
 00:27:14,350 --> 00:27:18,940
+客户机操作系统将读取 scause ，
 you know, so the the guest operating system is going to read scause,
 
 419
 00:27:21,280 --> 00:27:23,080
+在 trap 处理程序中，
 you know in the trap handler
 
 420
 00:27:23,080 --> 00:27:23,950
+并且它认为，
 and what it thinks is
 
 421
 00:27:23,950 --> 00:27:28,990
+trap 处理程序处理来自其客户机进程的系统调用，
 the trap handler handling a system call from one of its guest processes,
 
 422
 00:27:29,050 --> 00:27:32,230
+客户操作系统需要查看的 scause ，
 the scause, that the guest operating system needs to see
 
 423
 00:27:32,260 --> 00:27:34,840
+那个值是不是系统调用，
 is the value that says that means system call,
 
 424
 00:27:35,340 --> 00:27:37,290
+但 scause 将会是，
 but the scause is going to be,
 
 425
 00:27:37,290 --> 00:27:40,440
+真正的 scause 寄存器是那个 scause ，
 the real scause register is the scause,
 
 426
 00:27:40,440 --> 00:27:42,960
+意味着非法指令或非特权指令，
 that means illegal instruction or unprivileged,
 
 427
 00:27:42,990 --> 00:27:46,500
+或者违反特权规则的指令，
 or you know instructions violating the privilege rules,
 
 428
 00:27:46,620 --> 00:27:52,990
+所以，有些时候你可以，
 so, there are actually some times when you could,
 
 429
 00:27:53,680 --> 00:28:02,180
+不管怎么说，一般说来， VMM 是需要看到真实的，
 well, anyway, in general the VMM, the VMM is the one that needs to see the real,
 
 430
 00:28:02,210 --> 00:28:05,150
+VMM 需要在真实寄存器中看到不同的值，
 VMM needs to see different values in the real registers,
 
 431
 00:28:05,150 --> 00:28:10,010
+而操作系统应该在它的寄存器中看到它。
 then the operating system should see it in its version of the registers.
 
 432
 00:28:11,950 --> 00:28:12,730
+这能理解吗？
 Does that make sense?
 
 433
 00:28:12,730 --> 00:28:13,720
+谢谢，是的。
 Thank you, yeah.
 
 434
 00:28:17,270 --> 00:28:19,970
+好的，这就是所谓的，
 Okay, so this is called,
 
 435
 00:28:19,970 --> 00:28:24,230
+这种风格的虚拟机实现的名称，
 the name for this style of a virtual machine implementation
 
 436
 00:28:24,230 --> 00:28:26,000
+客户机在用户级别运行，
 in which the guest runs at user level
 
 437
 00:28:26,330 --> 00:28:29,990
+每当试图做任何有特权的事情时，都会进入 trap ，
 and therefore traps whenever tries to do anything privileged
 
 438
 00:28:29,990 --> 00:28:32,570
+然后 VMM 可以模拟特权指令，
 and the VMM can emulate the privileged instruction
 
 439
 00:28:32,750 --> 00:28:35,660
+它的名字叫 TRAP-AND-EMULATE 。
 and the name for that is TRAP-AND-EMULATEE.
 
 440
 00:28:38,290 --> 00:28:40,360
+而且，它很好，
 And, it's nice,
 
 441
 00:28:40,360 --> 00:28:43,270
+因为你可以自己建造这个，
 because you can, you can build this for yourself,
 
 442
 00:28:43,270 --> 00:28:46,270
+实际上，你们完全可以用软件为自己建造这个，
 actually you can build this for yourselves entirely in software,
 
 443
 00:28:46,540 --> 00:28:53,230
+比如，你可以将 xv6 修改为 RISC-V 上的虚拟机监视器，
 and you could modify xv6 for example to be a virtual machine monitor on RISC-V,
 
 444
 00:28:53,860 --> 00:28:56,800
+运行虚拟机，也许是普通的 xv6 ，
 run over virtual machines, perhaps regular xv6,
 
 445
 00:28:57,820 --> 00:29:03,490
+只需编写在管理者模式下运行的软件。
 just by writing software or software does have to run in supervisor mode.
 
 446
 00:29:07,330 --> 00:29:10,630
+这里的状态，所有以 s 开头的寄存器，
 The state here, all the registers that begin with s,
 
 447
 00:29:10,630 --> 00:29:17,260
+所有那些管理程序控制寄存器必须是虚拟状态的一部分，
 all those supervisor control registers have to be part of this virtual state,
 
 448
 00:29:17,470 --> 00:29:21,040
+还有一些其他的东西是不能直接接触到的，
 there's also some other things that are not directly accessible,
 
 449
 00:29:22,020 --> 00:29:25,770
+那些不需要在这个状态下 s 寄存器，
 from those s registers that nevertheless need to be down in this state,
 
 450
 00:29:25,800 --> 00:29:27,090
+其中之一是模式，
 one of them is the mode,
 
 451
 00:29:27,120 --> 00:29:28,920
+虚拟机监视器需要知道，
 the virtual machine monitor needs to know
 
 452
 00:29:28,920 --> 00:29:35,280
+虚拟机运行在客户用户模式还是客户操作系统中，
 whether the virtual machines running in a guest user mode or guest operating system,
 
 453
 00:29:35,280 --> 00:29:41,370
+因为比如如果用户代码执行特权指令，
 because for example if if user code executes the privileged instruction
 
 454
 00:29:41,370 --> 00:29:42,960
+比如，尝试读取 scause ，
 like trying to read scause,
 
 455
 00:29:42,990 --> 00:29:45,090
+当然这也会导致 trap 进入 VMM ，
 sure that'll cause a trap into the VMM too,
 
 456
 00:29:45,180 --> 00:29:49,950
+但是在这种情况下， VMM 不应该仅仅模拟指令，
 but in that case, the VMM should not just emulate the instruction in return,
 
 457
 00:29:50,130 --> 00:29:52,350
+因为这不是用户模式下的合法指令，
 because that's not a legal instruction in user mode,
 
 458
 00:29:52,350 --> 00:29:53,880
+所以， VMM 必须跟踪
 so the VMM has to track
 
 459
 00:29:55,260 --> 00:29:59,220
+客户机是处于客户机管理者模式还是客户机用户模式，
 whether the guest is in guest supervisor mode or guest user mode
 
 460
 00:29:59,220 --> 00:30:03,090
+所以这里也会有一个模式插槽，
 and so there's going to be a mode slot down here as well
 
 461
 00:30:03,180 --> 00:30:04,230
+VMM 就会知道，
 and the VMM will know,
 
 462
 00:30:04,230 --> 00:30:10,120
+因为当客户机操作系统跳入用户空间时，
 because when the guest operating system jumps into a user space,
 
 463
 00:30:10,120 --> 00:30:12,310
+它将执行 sret 指令，
 it'll execute the sret instruction,
 
 464
 00:30:12,310 --> 00:30:13,930
+sret 是一条特权指令，
 sret is a privilege instruction,
 
 465
 00:30:13,930 --> 00:30:15,670
+所以， VMM 将在那里获得控制权，
 so the VMM will actually get control there
 
 466
 00:30:15,670 --> 00:30:18,520
+然后就会发现客户机正在运行一条 sret 指令，
 and will see, oh the guest is running an sret instruction,
 
 467
 00:30:18,910 --> 00:30:23,140
+在其他方面，我将把虚拟机模式从管理者改为用户。
 among other things I'm gonna change the virtual mode from supervisor to user.
 
 468
 00:30:25,490 --> 00:30:32,290
+另一个隐藏的状态是 hart 数，也就是核心数，
 And another hidden piece of state is the hart number, that is the core number,
 
 469
 00:30:34,250 --> 00:30:37,490
+即使有了特权指令，你也不能直接访问它，
 you can't get that directly even with the privileged instruction,
 
 470
 00:30:37,910 --> 00:30:43,850
+但是 VMM 管理器需要跟踪它现在正在模拟的 hart 。
 but the VMM manager needs to keep track of which hart it's emulating right now.
 
 471
 00:30:46,240 --> 00:30:54,450
+好的， RISC-V 证明不同的 CPU 有不同的难度，
 Okay, the RISC-V it turns out different CPUs are different levels of difficulty,
 
 472
 00:30:55,770 --> 00:31:00,750
+在 RISC-V 上编写 trap-and-emulate 虚拟机是多么困难，
 how hard it is to write a trap-and-emulate virtual machine on the RISC-V,
 
 473
 00:31:00,750 --> 00:31:03,060
+特别是适应它，
 particularly well suited to it,
 
 474
 00:31:03,060 --> 00:31:05,190
+因为设计者必须考虑这些，
 because the designers had that in mind
 
 475
 00:31:05,190 --> 00:31:07,020
+在他们设计指令集时，
 when they were designing the instruction set
 
 476
 00:31:07,350 --> 00:31:12,000
+所以，他们知道 trap-and-emulate 虚拟机的要求是什么，
 and so they knew what the requirements of a trap-and-emulate virtual machine were,
 
 477
 00:31:12,180 --> 00:31:15,930
+比如，他们非常努力地确保，
 and for example, they've been quite diligent in making sure that
 
 478
 00:31:15,930 --> 00:31:20,250
+管理者代码可以执行的每一项特权操作会导致 trap ，
 every single privilege thing that supervisor code can do will cause a trap,
 
 479
 00:31:20,250 --> 00:31:21,660
+如果你尝试在用户模式下执行它，
 if you try to do it in user mode,
 
 480
 00:31:21,690 --> 00:31:22,830
+这是你需要的，
 which is what you need,
 
 481
 00:31:23,040 --> 00:31:28,640
+确保虚拟机监视器看到每个特权指令的 trap 。
 in order to make sure the virtual machine monitor sees a trap for every privileged instructions.
 
 482
 00:31:32,820 --> 00:31:34,140
+我有一个简短的问题，
 I have a quick question,
 
 483
 00:31:34,170 --> 00:31:38,130
+那么，是否有任何运行在客户机操作系统本身中的，
 so does anything actually run in the guest OS itself
 
 484
 00:31:38,280 --> 00:31:40,860
+或者它总是 trap 进入虚拟机监视器中？
 or does it always trap into the virtual machine monitor?
 
 485
 00:31:41,400 --> 00:31:44,220
+所有普通指令，
 All ordinary instructions,
 
 486
 00:31:44,670 --> 00:31:47,460
+比如如果你只有一条加法指令，
 like if you just have an add instruction,
 
 487
 00:31:47,460 --> 00:31:51,750
+add ，我不知道这个用 RISC-V 汇编怎么写，
 that you know adds, I don't know how to write this RISC-V assembly,
 
 488
 00:31:51,750 --> 00:31:54,450
+但是假设你把 a0 加到 a1 上，
 but let's just say you add a0 to a1
 
 489
 00:31:54,450 --> 00:31:56,310
+你想把结果放到 a2 里，
 and you want to put the result in a2,
 
 490
 00:31:56,550 --> 00:32:01,170
+这个指令直接在硬件上执行，以全部硬件数度。
 that instruction just executes directly on the hardware at full hardware speed.
 
 491
 00:32:01,870 --> 00:32:05,980
+如果你使用一个普通的函数调用，
 If you make a function call, just an ordinary function call,
 
 492
 00:32:07,970 --> 00:32:09,200
+在客户机世界里，
 up here in the guest world,
 
 493
 00:32:09,410 --> 00:32:14,050
+它只是执行，没有什么特殊的，只是一个普通的，
 that just executes without anything special, just a ordinary,
 
 494
 00:32:14,080 --> 00:32:17,530
+所有指令在用户代码中都是合法的，
 you know all the instructions that are legal in user code,
 
 495
 00:32:18,240 --> 00:32:22,440
+这些指令以全速直接执行，
 [] these instructions just execute directly at full speed
 
 496
 00:32:22,650 --> 00:32:24,960
+当客户机执行它们的时候。
 when the guest operating system executes them.
 
 497
 00:32:25,890 --> 00:32:31,920
+好的，那么在客户机操作系统中有没有用户模式和内核模式的[外观]呢？
 Okay, so is there a [semblance] of like user mode and kernel mode in the guest OS.
 
 498
 00:32:32,920 --> 00:32:34,600
+是的，客户机操作系统是，
 Yes, the guest operating system is,
 
 499
 00:32:36,230 --> 00:32:40,010
+客户机操作系统没有改变，
 well, the guest operating system is unchanged,
 
 500
 00:32:40,560 --> 00:32:44,400
+我们在这里运行的就是 Linux 内核，
 so what we're running up here is exactly the Linux kernel,
 
 501
 00:32:44,400 --> 00:32:46,440
+就是 xv6 内核，
 are exactly the xv6 kernel
 
 502
 00:32:46,560 --> 00:32:49,350
+当然， xv6 知道，
 and of course xv6 all you know it knows the,
 
 503
 00:32:49,350 --> 00:32:54,140
+xv6 内核知道它在管理模式下运行，
 xv6 kernel knows it's running in supervisor mode, right,
 
 504
 00:32:54,140 --> 00:32:56,750
+当然它不在这里，
 just just is of course it's not here,
 
 505
 00:32:56,750 --> 00:32:58,550
+但就代码而言，
 but as far as the code is concerned,
 
 506
 00:32:58,640 --> 00:33:00,530
+它肯定是在运行管理模式，
 it's just definitely running in supervisor mode,
 
 507
 00:33:00,530 --> 00:33:03,920
+它做各种特权的事情，并期望它们能起作用，
 it just does all kinds of privilege things and expects them to work,
 
 508
 00:33:04,400 --> 00:33:08,180
+然后它知道何时执行 sret 进入用户空间，
 and then it knows when it executes sret to get into user space
 
 509
 00:33:08,180 --> 00:33:11,030
+知道现在要进入用户空间了。
 and knows aha, I'm gonna enter user space now.
 
 510
 00:33:13,000 --> 00:33:16,840
+VMM 让一切看起来都像是
 And you know the VMM sort of makes everything look like
 
 511
 00:33:16,960 --> 00:33:18,220
+这些真的在发生，
 that's indeed what's happening,
 
 512
 00:33:19,870 --> 00:33:23,080
+即使它是在真实的机器里，
 even though it's actually in in in in the real machine,
 
 513
 00:33:23,080 --> 00:33:26,170
+在这两个地方，它都处于用户模式，
 it's in user mode, in both places,
 
 514
 00:33:26,410 --> 00:33:28,630
+但这看起来是管理者模式，
 but this looks just like supervisor mode,
 
 515
 00:33:28,630 --> 00:33:29,710
+这看起来是用户模式。
 this looks just like user mode.
 
 516
 00:33:35,100 --> 00:33:36,780
+好的。
 Okay.
 
 517
 00:33:38,550 --> 00:33:41,490
+好的，当客户机，
 Okay, so when the, so for example when the guest
 
 518
 00:33:41,490 --> 00:33:44,130
+当我们执行 sret 进入用户空间时，
 when we execute sret to enter user space,
 
 519
 00:33:44,280 --> 00:33:51,690
+sret 特权被幸运地捕获到虚拟机监视器中，
 the sret privileged luckily traps into the virtual machine monitor,
 
 520
 00:33:52,290 --> 00:33:55,500
+虚拟机监视器将虚拟模式更改为用户模式，
 virtual machine monitor changes the virtual mode to user,
 
 521
 00:33:55,980 --> 00:33:57,960
+当然，真正的模式仍然是管理者模式，
 even though of course the real mode is still supervisor,
 
 522
 00:33:57,960 --> 00:33:59,250
+因为我们还在下面，
 because we're still going to be down here,
 
 523
 00:33:59,340 --> 00:34:01,350
+将虚拟模式改变为用户模式，
 change the virtual mode to the user,
 
 524
 00:34:03,810 --> 00:34:07,440
+在它从 trap 返回之前，
 it just before it returns from the trap,
 
 525
 00:34:07,470 --> 00:34:14,700
+虚拟机监视器将真实 sepc 设置为虚拟 sepc ，
 the virtual machine monitor sets the real sepc to the virtual sepc,
 
 526
 00:34:14,760 --> 00:34:20,880
+因为在虚拟机监视器使用自己的 sret 返回时，
 because in order that when the virtual machine monitor returns using its own sret,
 
 527
 00:34:21,030 --> 00:34:24,810
+程序计数器值，
 that the the program counter value,
 
 528
 00:34:24,810 --> 00:34:27,210
+它作为程序值返回是
 it returns to as a program value is
 
 529
 00:34:27,210 --> 00:34:30,810
+客户操作系统想要返回的程序计数器。
 the program counter that the guest operating system wanted to return to.
 
 530
 00:34:31,670 --> 00:34:33,770
+这里有一个非常简短的例子，
 So here's a case where very briefly
 
 531
 00:34:33,830 --> 00:34:37,880
+真实的 sepc 被设置为虚拟的 sepc ，
 the real sepc was set equal to the virtual sepc,
 
 532
 00:34:40,180 --> 00:34:41,920
+稍后我会谈到这一点，
 and I'll talk about this in a bit,
 
 533
 00:34:41,920 --> 00:34:45,130
+虚拟机监视器也会切换页表，
 a virtual machine monitor also is going to be switching page tables,
 
 534
 00:34:45,130 --> 00:34:48,700
+当它返回到虚拟机时，
 when it goes back into, into the virtual machine,
 
 535
 00:34:49,810 --> 00:34:52,540
+当客户机用户代码想要，
 when the guest user code wants to make it,
 
 536
 00:34:52,540 --> 00:34:56,290
+客户机代码普通指令执行机器，
 then the guest user code for ordinary instructions execute machine,
 
 537
 00:34:56,410 --> 00:34:58,030
+以全速执行它们，
 execute them directly at full speed,
 
 538
 00:34:58,570 --> 00:35:04,060
+当客户机代码想要进行系统调用时，
 when the guest code wants to make a system call,
 
 539
 00:35:04,330 --> 00:35:06,430
+执行 ecall 指令，
 executes the ecall instruction,
 
 540
 00:35:07,040 --> 00:35:08,750
+这会导致 trap ，
 that causes a trap,
 
 541
 00:35:08,780 --> 00:35:11,960
+这个 trap 会到达虚拟机监视器，
 that trap goes to the virtual machine monitor in this scheme,
 
 542
 00:35:12,050 --> 00:35:13,730
+虚拟机监视器会说，
 the virtual machine monitor says aha,
 
 543
 00:35:13,730 --> 00:35:18,140
+它的虚拟模式是用户空间，
 where in it [] the virtual mode, its virtual mode is user space,
 
 544
 00:35:18,560 --> 00:35:20,720
+它会查看指令，
 it looks at the instruction,
 
 545
 00:35:20,720 --> 00:35:23,240
+trap 导致 ecall ，
 the trap that faulted its ecall,
 
 546
 00:35:24,230 --> 00:35:25,940
+然后虚拟机监视器
 and then the virtual machine monitor,
 
 547
 00:35:26,030 --> 00:35:30,500
+修改所有需要修改的虚拟状态，
 sort of does all the virtual changes makes all the changes in the virtual state required
 
 548
 00:35:30,500 --> 00:35:34,910
+模拟系统调用 trap 到客户机操作系统中，
 to simulate a system call trap into the guest operating system,
 
 549
 00:35:35,030 --> 00:35:40,430
+所以它会将虚拟 sepc 设置为程序计数器，
 so it's going to set the virtual sepc to be whatever program counter,
 
 550
 00:35:40,760 --> 00:35:46,320
+ecall 指令将虚拟模式改回管理者模式，
 was the ecall instruction was that going to change the virtual mode back to supervisor,
 
 551
 00:35:46,470 --> 00:35:49,800
+它会将虚拟 scause 设置为系统调用，
 it's gonna set the virtual scause to be system call,
 
 552
 00:35:50,970 --> 00:35:56,580
+它会将真实的 ecp 设置为虚拟的 stvec ，
 it's gonna set the real epc to be equal to the virtual stvec,
 
 553
 00:35:57,020 --> 00:35:58,190
+然后调用 sret ，
 and then call sret,
 
 554
 00:35:58,460 --> 00:36:03,470
+从而完全跳转到客户机操作系统 trap 处理程序，
 so that all jump into the guest operating systems trap handler,
 
 555
 00:36:03,920 --> 00:36:07,560
+或者是 trampoline 还是别的什么，
 which is what or trampoline page or whatever it is
 
 556
 00:36:07,590 --> 00:36:10,440
+这就是虚拟 stvec 所指向的。
 which is what the virtual stvec was pointing to.
 
 557
 00:36:16,790 --> 00:36:17,420
+好的。
 Okay.
 
 558
 00:36:19,260 --> 00:36:23,730
+我们还有两个非常重要的东西，
 We have two remaining pieces of business which are quite important,
 
 559
 00:36:23,730 --> 00:36:26,910
+一个是，关于页表，
 one is, what about page tables,
 
 560
 00:36:27,440 --> 00:36:30,800
+另一个是，关于设备。
 and the other is, what about devices.
 
 561
 00:36:32,440 --> 00:36:39,960
+页表，这里有两个部分，
 So the page table sort of there's two pieces to that,
 
 562
 00:36:39,990 --> 00:36:41,550
+其一是在不同的时间点，
 one is that at various points,
 
 563
 00:36:41,550 --> 00:36:45,150
+客户机操作系统将修改 satp 寄存器，
 the guest operating system is going to modify the satp register
 
 564
 00:36:46,440 --> 00:36:49,530
+当然，它们会变成虚拟机监视器的 trap ，
 and of course you know that they'll turn into a trap at the virtual machine monitor
 
 565
 00:36:49,530 --> 00:36:52,440
+虚拟机监视器获得了做事的机会，
 and the virtual machine monitor gets a chance to do something,
 
 566
 00:36:52,950 --> 00:36:55,740
+但是我们不希望虚拟机监视器做的是，
 but what we don't want the virtual machine monitor to do is
 
 567
 00:36:55,740 --> 00:36:58,890
+简单地让客户机设置真正的 satp ，
 simply let the guest set the real satp,
 
 568
 00:36:59,600 --> 00:37:03,800
+然后在改变了真实的 satp 之后执行，
 and then execute after having changed the real satp,
 
 569
 00:37:03,800 --> 00:37:05,990
+因为这会让客户机得到任何内存，
 because that would let the guest get at any memory,
 
 570
 00:37:05,990 --> 00:37:09,950
+不仅是虚拟机监视器分配给它的内存，
 not just the memory that the virtual machine monitor has allocated to it,
 
 571
 00:37:10,280 --> 00:37:14,300
+所以，我们不能让客户机操作系统简单地设置 satp ，
 so we cannot let the guest operating system simply set the satp,
 
 572
 00:37:15,520 --> 00:37:17,320
+但我们确实需要对 satp 做点什么，
 but we do need to do something to the satp,
 
 573
 00:37:17,320 --> 00:37:21,550
+因为我们需要向客户操作系统提供某种幻觉，
 because we need to provide the illusion to the guest operating system,
 
 574
 00:37:21,550 --> 00:37:24,430
+是的，页表可以更改，
 that yes, indeed, the page tables can change
 
 575
 00:37:24,430 --> 00:37:25,510
+并且不仅仅是错觉，
 and more than an illusion,
 
 576
 00:37:25,510 --> 00:37:31,060
+当客户机软件运行加载和存储指令或取出指令来执行时，
 when the guest software runs load and store instructions or fetches instructions to execute,
 
 577
 00:37:31,240 --> 00:37:33,040
+我们需要这些东西来自正确的地方，
 we need those to come from the right place,
 
 578
 00:37:33,040 --> 00:37:38,620
+从客户机操作系统指向其页表条目的位置，
 from the place that the guest operating system pointed its page table entries too,
 
 579
 00:37:39,940 --> 00:37:43,630
+那么当客户机设置 satp 时到底会发生什么，
 so what actually happens when the guest sets the satp,
 
 580
 00:37:47,560 --> 00:37:50,200
+你知道我们不能，
 is, we you know we we can't,
 
 581
 00:37:50,200 --> 00:37:53,140
+我们不能直接使用客户机操作系统页表，
 we can't directly use the guest operating systems page table,
 
 582
 00:37:53,170 --> 00:37:58,300
+但是虚拟机监视器创建一个新的页表，
 but the virtual machine monitor cooks up a new page table,
 
 583
 00:37:58,480 --> 00:38:04,960
+用来模拟客户操作系统所需的页表，
 that simulates the guest operating systems desired page table,
 
 584
 00:38:05,200 --> 00:38:11,230
+所以现在页面转换的情况有点不一样，
 so, the, so now the page translation situation is a little bit different,
 
 585
 00:38:11,770 --> 00:38:13,120
+我们有客户机，
 we have the guest,
 
 586
 00:38:14,380 --> 00:38:17,770
+客户机试着设置页表，
 with the guest was trying to set the page table too,
 
 587
 00:38:17,770 --> 00:38:19,690
+所以这是客户机页表，
 so this is the guest page table,
 
 588
 00:38:19,690 --> 00:38:21,550
+当然是客户机内核，
 of course is the kernel guest kernel,
 
 589
 00:38:22,270 --> 00:38:32,180
+它将客户机虚拟地址映射到客户机物理地址，
 and that maps sort of guest virtual addresses to what I'll call guest physical addresses,
 
 590
 00:38:32,510 --> 00:38:34,430
+当然，客户机物理地址是
 of course the guest physical addresses are
 
 591
 00:38:35,630 --> 00:38:41,150
+虚拟机监视器给客户机的 32GB 或其他大小，
 the virtual machine monitor given the guest 32 gigabytes or however much,
 
 592
 00:38:41,180 --> 00:38:47,260
+模拟物理内存以供其使用，
 simulate physical memory for its use,
 
 593
 00:38:47,530 --> 00:38:53,500
+告诉客户机操作系统，
 presumably starting at, telling the guest operating system that
 
 594
 00:38:53,500 --> 00:38:56,740
+它的物理地址从 0 开始到 32MB ，
 its physical addresses start at 0 and go up for 32 megabytes,
 
 595
 00:38:56,740 --> 00:39:00,040
+当然，它们不是在真实的硬件上，
 but of course you know they don't in real life on the real hardware,
 
 596
 00:39:00,040 --> 00:39:03,700
+有 32GB 的页面，但不是连续的，
 there are just 32 gigabytes of pages somewhere not contiguous,
 
 597
 00:39:05,040 --> 00:39:08,220
+不能直接使用客户机物理地址，
 can't use, can't directly use the guest's physical addresses,
 
 598
 00:39:08,220 --> 00:39:12,030
+因为它们并不对应真实的物理地址，
 because they don't correspond to real physical addresses,
 
 599
 00:39:12,030 --> 00:39:23,710
+相反， VMM 将为每个虚拟机维护一个映射，
 so instead the VMM is going to maintain a map for each virtual machine,
 
 600
 00:39:23,740 --> 00:39:28,600
+将客户机物理地址映射到实际物理地址，
 that maps guest physical addresses to real physical addresses,
 
 601
 00:39:28,600 --> 00:39:31,550
+我将它称为主机物理地址，
 what I call host physical addresses,
 
 602
 00:39:32,090 --> 00:39:34,640
+这个映射就像是一个页表，
 so this map is like a page table
 
 603
 00:39:34,820 --> 00:39:37,760
+有每个页面的条目，
 has an entry for every page,
 
 604
 00:39:37,760 --> 00:39:41,100
+客户机认为存在的每个物理页面，
 every physical page the guests thinks exists
 
 605
 00:39:41,340 --> 00:39:46,230
+并指示客户机物理地址关联的实际物理页面，
 and indicates what real physical page that guest physical address refers to
 
 606
 00:39:46,230 --> 00:39:48,360
+由 VMM 为其分配的，
 that the VMM is allocated for it,
 
 607
 00:39:48,630 --> 00:39:54,810
+然后，当客户机将新页表写入 satp 时，
 and then, when the guest writes a new page table to satp,
 
 608
 00:39:55,110 --> 00:40:02,620
+在 trap 处理程序中， VMM 创建所谓的影子页表，
 in the trap handler, for that VMM creates what's called a shadow page table,
 
 609
 00:40:03,270 --> 00:40:09,860
+这是 VMM 在真正的 satp 中放入的内容，
 which is going to be what the VMM puts in the real satp,
 
 610
 00:40:10,650 --> 00:40:16,560
+这个影子页表由这两个页表的组合构成，
 and this shadow page table is constructed by the combination of these two page tables
 
 611
 00:40:16,560 --> 00:40:24,040
+所以它将客户机虚拟地址映射到主机物理地址，
 and so it maps guest virtual addresses to host physical addresses,
 
 612
 00:40:24,040 --> 00:40:27,310
+然后通过取得客户机页表中的每个条目，
 then is constructed by taking every entry in the guest page table,
 
 613
 00:40:27,460 --> 00:40:31,120
+查看期望的客户机物理地址，
 looking at the guest desired guest physical address,
 
 614
 00:40:31,420 --> 00:40:35,950
+使用 VMM 映射将客户机物理地址转换为实际主机物理地址，
 using the VMM map to translate that guest physical address to a real host physical address
 
 615
 00:40:35,950 --> 00:40:40,600
+将虚拟物理对放入影子页表中，
 and putting that virtual physical pair into the shadow page table
 
 616
 00:40:41,050 --> 00:40:46,870
+然后虚拟机监视器将这个设置为 satp 作为真实页表，
 and then the virtual machine monitor sets this to be in satp as the real page table,
 
 617
 00:40:46,870 --> 00:40:51,720
+在返回到客户内核之前，
 before returning back to the guest kernel,
 
 618
 00:40:53,840 --> 00:40:55,760
+所以客户机内核认为它是一个页表，
 so the guest kernel thinks it's one page table,
 
 619
 00:40:55,760 --> 00:40:59,690
+但实际上真正的硬件使用的是这个影子页表。
 but actually the real hardware is using this shadow page table instead.
 
 620
 00:41:01,290 --> 00:41:02,520
+这样一来，
 And this way there's the,
 
 621
 00:41:02,940 --> 00:41:07,980
+这防止客户机从允许使用的内存中逃脱，
 this is what prevents the guest from escaping from the memory it's allowed to use,
 
 622
 00:41:08,220 --> 00:41:13,800
+影子页表只能包含主机物理地址，
 the the the shadow page table can only contain host physical addresses,
 
 623
 00:41:14,320 --> 00:41:19,560
+VMM 为那个客户机分配的，
 that the VMM had allocated for that guest,
 
 624
 00:41:19,740 --> 00:41:22,650
+客户机没有什么可以放在页表中，
 guest theres nothing that guest can put in the page table,
 
 625
 00:41:22,650 --> 00:41:25,470
+允许它访问页面，
 asks for that allow it to access a page
 
 626
 00:41:25,470 --> 00:41:28,050
+虚拟机监视器没有分配给它的页面。
 that wasn't allocated to it by the virtual machine monitor.
 
 627
 00:41:30,940 --> 00:41:33,400
+这是这些隔离故事中的一个关键部分，
 That's a critical piece of those isolation story here,
 
 628
 00:41:34,090 --> 00:41:37,210
+关于 trap-and-emulate 的页面设置，有什么问题吗？
 any questions about the paging setup for trap-and-emulate?
 
 629
 00:41:40,070 --> 00:41:43,040
+抱歉，如果操作系统，
 Sorry, so if it's if the operating system,
 
 630
 00:41:43,040 --> 00:41:47,940
+客户机想要创建一个新的进程，
 the guest just wants to make a new, a new process,
 
 631
 00:41:47,940 --> 00:41:49,830
+一个进程的新的页表，
 a new page table for the process,
 
 632
 00:41:50,320 --> 00:41:52,420
+会发生什么？
 what does it do, what happens?
 
 633
 00:41:52,630 --> 00:41:55,090
+客户机像平常一样做，
 The guest, the guest does, does the usual
 
 634
 00:41:55,090 --> 00:41:58,120
+只是做 Linux 或 xv6 做的事情，
 just does exactly what Linux or xv6 does right now,
 
 635
 00:41:59,020 --> 00:42:01,840
+格式化页表条目以生成页表，
 formats up a page table entries to make a page table
 
 636
 00:42:01,930 --> 00:42:03,670
+然后它执行执行，
 and then it executes the instruction
 
 637
 00:42:03,670 --> 00:42:06,700
+将页表的地址分配给 satp ，
 to assign that address of the page table into satp,
 
 638
 00:42:06,790 --> 00:42:09,750
+这就是客户机操作系统所做的。
 so that's what the guest operating system does.
 
 639
 00:42:11,300 --> 00:42:14,870
+但它不能实际分配 satp ，
 And when the, but it can't actually assign the satp,
 
 640
 00:42:14,870 --> 00:42:17,180
+因为这是一个特权操作，
 because that's a privileged operation,
 
 641
 00:42:17,210 --> 00:42:19,700
+所以在虚拟机监视器中有一个 trap ，
 so there's a trap into the virtual machine monitor,
 
 642
 00:42:19,910 --> 00:42:22,760
+虚拟机监视器在 trap 中检查指令，
 the virtual machine monitor inspects the instruction in trap,
 
 643
 00:42:22,760 --> 00:42:27,140
+看到客户机正试图分配给 satp ，
 sees oh gosh that guest is trying to assign to satp,
 
 644
 00:42:27,660 --> 00:42:32,190
+然后虚拟机监视器将创建新的影子页表，
 and then the virtual machine monitor would create this new shadow page table
 
 645
 00:42:32,340 --> 00:42:37,320
+根据客户机想要设置的页表的组合，
 from the combination of the page table the guest ask, was trying to set up,
 
 646
 00:42:38,000 --> 00:42:40,400
+虚拟机监视器查看页表，
 the virtual machine monitor looks at the page table
 
 647
 00:42:40,610 --> 00:42:43,490
+客户机试图设置的页表中的所有 PTE ，
 all the PTEs in the page table the guests was trying to set up,
 
 648
 00:42:43,730 --> 00:42:48,410
+它转换每个客户机页表条目中的物理地址，
 it runs it translates the physical address in each guest page table entry
 
 649
 00:42:48,650 --> 00:42:55,070
+通过这个映射获得真实的物理地址或导致真实的错误，
 through this map to get a real physical address or to cause a real fault,
 
 650
 00:42:55,400 --> 00:42:59,450
+如果客户机尝试使用不允许的物理地址，
 if the guest is trying to use a physical address that is not allowed to
 
 651
 00:42:59,870 --> 00:43:04,070
+然后虚拟机监视器在真正的 satp 安装这个影子页表，
 and then the virtual machine monitor installs this shadow page table at the real satp
 
 652
 00:43:04,430 --> 00:43:06,470
+并返回给客户。
 and returns back to the guest.
 
 653
 00:43:08,780 --> 00:43:10,400
+哦，好的，好的，我明白了，
 Oh, okay, okay I see, I see,
 
 654
 00:43:10,490 --> 00:43:11,420
+好的，谢谢。
 okay, thank you.
 
 655
 00:43:11,960 --> 00:43:12,470
+好的。
 Yes.
 
 656
 00:43:19,160 --> 00:43:19,730
+好的。
 Okay.
 
 657
 00:43:23,070 --> 00:43:27,330
+好的，这个影子页表是一个棘手的方面，
 Okay, so this this shadow page table stuff is certainly one of the tricky aspects
 
 658
 00:43:31,510 --> 00:43:33,970
+实现虚拟机监视器。
 implementing a virtual machine monitor.
 
 659
 00:43:35,250 --> 00:43:37,710
+还有另一件事，
 There's actually another thing that,
 
 660
 00:43:37,710 --> 00:43:42,150
+客户操作系统可以通过另一种方式与页表交互，
 there's another way in which the guest operating system can interact with the page table,
 
 661
 00:43:42,150 --> 00:43:43,560
+客户机操作系统可能会，
 the guest operating system may actually,
 
 662
 00:43:43,770 --> 00:43:49,350
+xv6 有时会在页表中直接读写页表项，
 you know xv6 sometimes directly reads and writes page table entries in its page table,
 
 663
 00:43:50,200 --> 00:43:55,330
+xv6 可以修改页表条目，
 and you know so xv6 could can modify page table entry
 
 664
 00:43:55,330 --> 00:43:59,200
+或者读取页表条目中的脏位，
 or read the dirty bits, for example in a page table entry,
 
 665
 00:43:59,230 --> 00:44:05,950
+在 RISC-V 上，如果软件修改了页表条目，
 you know on the RISC-V, if, if a software modifies the page table entry,
 
 666
 00:44:06,370 --> 00:44:07,810
+如果你读过 RISC-V 规范，
 if you read the RISC-V spec,
 
 667
 00:44:07,960 --> 00:44:11,890
+RISC-V 在这一点上不需要做任何事情，
 RISC-V is not required to do anything at that point,
 
 668
 00:44:11,890 --> 00:44:13,750
+所以，如果你修改页表条目，
 so if you modify a page table entry,
 
 669
 00:44:14,170 --> 00:44:17,800
+RISC-V 微处理器不承诺
 the RISC-V microprocessor does not promise
 
 670
 00:44:17,800 --> 00:44:21,280
+立即观察对页表条目修改，
 to immediately observe that modification to a page table entry,
 
 671
 00:44:21,280 --> 00:44:23,260
+它可能会暂时完全忽略它，
 it may completely ignore it for the time being,
 
 672
 00:44:23,410 --> 00:44:25,480
+相反，手册所说的是，
 instead what the manual says is,
 
 673
 00:44:25,600 --> 00:44:27,730
+如果你修改页表条目，
 that if if you modify page table entries
 
 674
 00:44:27,730 --> 00:44:31,450
+你想让硬件 MMU 看到它们，
 and you actually want the hardware MMU to see them,
 
 675
 00:44:31,570 --> 00:44:40,620
+你必须执行 sfence.vma 指令，
 you have to execute, the sfence.vma instruction
 
 676
 00:44:40,770 --> 00:44:43,470
+而且规范只有这条指令，
 and the specs has only this instruction
 
 677
 00:44:43,470 --> 00:44:47,220
+可以让硬件注意你对页表的修改。
 that causes the hardware to pay attention to your page table modifications.
 
 678
 00:44:47,370 --> 00:44:49,410
+所以，如果你正在构建虚拟机监视器，
 And so if you're building a virtual machine monitor,
 
 679
 00:44:49,980 --> 00:44:51,720
+RISC-V 上的虚拟机监视器
 the virtual machine monitor on RISC-V
 
 680
 00:44:51,720 --> 00:44:57,430
+可以完全忽略客户机对页表条目的修改，
 can completely ignore the guest modifications to page table entries,
 
 681
 00:44:57,490 --> 00:45:00,490
+但是由于客户机会执行，
 but since you know the guest is going to issue,
 
 682
 00:45:00,670 --> 00:45:05,590
+在修改页表条目之后执行 sfence.vma 指令，
 is going to execute an sfence.vma instruction after modifying page table entries,
 
 683
 00:45:05,590 --> 00:45:07,270
+这是一条特权指令，
 and this is a privileged instruction,
 
 684
 00:45:07,300 --> 00:45:09,310
+因为它以 s 开头，
 you can tell because it starts with s,
 
 685
 00:45:09,310 --> 00:45:11,440
+这将 trap 进入虚拟机监视器，
 that's going to trap into the virtual machine monitor,
 
 686
 00:45:11,890 --> 00:45:18,560
+虚拟机监视器将知道 sfence 被执行，
 virtual machine monitor is gonna [] knows that an sfence was executed,
 
 687
 00:45:18,560 --> 00:45:19,520
+它查看这条指令，
 it looks the instruction,
 
 688
 00:45:19,580 --> 00:45:26,520
+它将重新扫描客户机的当前页表，
 it's gonna re-scan the guest, the guest version of the current page table, current page table
 
 689
 00:45:26,700 --> 00:45:29,130
+查找已经改变的页表条目，
 and look for page table entries that have changed
 
 690
 00:45:29,190 --> 00:45:33,990
+并且如果这些改变是合法的，则将它们反映到影子页表中，
 and reflect those changes if they're legal into the shadow page table,
 
 691
 00:45:35,840 --> 00:45:36,710
+重新设置，
 reset the,
 
 692
 00:45:36,890 --> 00:45:39,170
+得到了一个真正的 sfence.vma ，
 actually got a real sfence.vma
 
 693
 00:45:39,170 --> 00:45:42,320
+让真正的硬件关注影子页表，
 to get the real hardware to pay attention to the shadow page table,
 
 694
 00:45:42,320 --> 00:45:44,990
+然后返回到客户机操作系统。
 then return to the guest operating system.
 
 695
 00:45:45,410 --> 00:45:46,430
+所以这意味着，
 So this means that,
 
 696
 00:45:46,460 --> 00:45:51,470
+MMU 实际上只使用了一个页表，对吧，
 there's only like the MMU actually just uses one page table, right,
 
 697
 00:45:51,470 --> 00:45:52,280
+就是影子页表，
 which is the shadow,
 
 698
 00:45:52,280 --> 00:45:55,280
+它没有在使用 EPT 或类似的东西。
 it's not like it's using the EPT or anything like that.
 
 699
 00:45:55,730 --> 00:45:56,810
+现在还没有 EPT 。
 There's no EPT yet.
 
 700
 00:45:56,840 --> 00:46:01,340
+好的，所以客户机认为它有一个 gva 到 gpa 的页表，
 Okay, so the guest just thinks it has a page table like the gva to gpa,
 
 701
 00:46:01,340 --> 00:46:05,120
+但并不在 VMM 中进行任何转换，
 but that's not actually doing any translation in the VMM,
 
 702
 00:46:05,480 --> 00:46:09,530
+基于两者的结合制作自己的页表。
 yeah, makes its own page table based on both of them combined.
 
 703
 00:46:09,770 --> 00:46:11,150
+是的，
 That's right, that's right,
 
 704
 00:46:11,150 --> 00:46:13,850
+需要说明的是， EPT 是不同的，
 just to be clear the EPT is part of a different,
 
 705
 00:46:13,970 --> 00:46:17,870
+完全不同的虚拟机实现，
 quite different virtual machine implementation,
 
 706
 00:46:18,420 --> 00:46:21,120
+需要硬件支持的虚拟机设计，
 virtual machine design that requires hardware support,
 
 707
 00:46:21,390 --> 00:46:22,890
+假设这是一个故事，
 assuming this is a story about
 
 708
 00:46:22,890 --> 00:46:25,920
+如何在没有特殊硬件支持的情况下构建虚拟机，
 how to build a virtual machine with no special hardware support
 
 709
 00:46:25,920 --> 00:46:29,330
+而是使用 trap 特权指令。
 other than trapping on privileged instructions.
 
 710
 00:46:31,680 --> 00:46:35,280
+这有没有弄乱直接映射？
 Does this mess up direct mapping in anyway?
 
 711
 00:46:37,040 --> 00:46:38,990
+好的，不会有直接映射，
 Well, there won't be a direct map,
 
 712
 00:46:39,780 --> 00:46:43,260
+这允许客户机，
 this will allow the guest,
 
 713
 00:46:43,290 --> 00:46:49,790
+我的意思是，这里客户机内核会正确运行，
 I mean, this will cause the guest kernel to run correctly,
 
 714
 00:46:50,720 --> 00:46:53,300
+客户机内核认为是直接映射，
 with what the guest kernel thinks is the direct mapping,
 
 715
 00:46:55,680 --> 00:46:58,620
+但它是虚拟世界的直接映射，
 but it's a direct, a direct mapping in the virtual world,
 
 716
 00:46:58,620 --> 00:47:02,290
+但不是真实机器上的直接映射。
 but it's not a direct mapping on the, on the real machine.
 
 717
 00:47:05,130 --> 00:47:05,820
+但这无关紧要，
 But it doesn't matter,
 
 718
 00:47:05,820 --> 00:47:12,800
+因为，因为我们在对客户机耍花招
 because, because we're tricking, yeah we're tricking the guests,
 
 719
 00:47:13,160 --> 00:47:14,930
+一切看起来都像是直接映射。
 everything looks just like it was a direct mapping.
 
 720
 00:47:17,780 --> 00:47:18,920
+哦，还有一个问题，
 Oh, one more question,
 
 721
 00:47:19,220 --> 00:47:20,990
+你稍后可能会解决这个问题，
 you may be addressing this later,
 
 722
 00:47:20,990 --> 00:47:24,950
+但我想知道我们之前讨论 trap 机制的时候，
 but I wonder like when we discussed the trap mechanism earlier
 
 723
 00:47:24,950 --> 00:47:29,220
+我们提到了 trap 的高性能成本，
 and this must we mentioned the high performance cost to trapping,
 
 724
 00:47:29,670 --> 00:47:35,070
+但听起来我们使用 VMM 的性能要高得多。
 but this sounds like there's way more of performance [] when we use the VMM.
 
 725
 00:47:35,710 --> 00:47:38,410
+是的，是的，这里有所有的指令，
 Yes, yes, there's all these instructions,
 
 726
 00:47:38,410 --> 00:47:44,200
+如果你的操作系统执行很多特权指令，
 you know if you if your operating system may excuse a lot of privilege instructions, which may
 
 727
 00:47:44,410 --> 00:47:46,060
+而且你花了很多时间在操作系统上，
 and you spend a lot of time in the operating system,
 
 728
 00:47:46,060 --> 00:47:48,040
+你可能有相当多的 trap ，
 then the traps you may have quite a few traps,
 
 729
 00:47:48,580 --> 00:47:50,500
+这可能会耗费相当多的性能，
 that may cost you quite a bit of performance
 
 730
 00:47:50,500 --> 00:47:51,970
+这就是我们的动机，
 and that's what motivates
 
 731
 00:47:52,090 --> 00:47:56,020
+我们会稍微讨论一下现代硬件对虚拟机的支持，
 and a little bit we'll talk about modern hardware support virtual machines,
 
 732
 00:47:56,020 --> 00:47:57,700
+这就是今天的论文所使用的，
 which is what today's paper was using
 
 733
 00:47:58,030 --> 00:48:02,050
+高昂的 trap 成本是很大的动机，
 and there high cost of the traps is a lot of the motivation
 
 734
 00:48:02,200 --> 00:48:07,930
+为什么 Intel 和 AMD 觉得有必要增加硬件支持，
 for why Intel felt compelled to and AMD felt compelled to add hardware support
 
 735
 00:48:07,930 --> 00:48:09,490
+以实现更高效率，
 for a much more efficient,
 
 736
 00:48:10,220 --> 00:48:14,660
+或者用少得多的 trap 的虚拟机方案。
 or for virtual machine scheme that had much many fewer traps.
 
 737
 00:48:16,260 --> 00:48:18,390
+是的，这很重要，
 Yes, that's quite important,
 
 738
 00:48:18,510 --> 00:48:19,680
+但这实际上运行，
 but this actually ran,
 
 739
 00:48:19,680 --> 00:48:22,440
+我的意思是，很多年来，这就是人们对虚拟机所做的，
 I mean for many years, this is what people did for virtual machines
 
 740
 00:48:22,440 --> 00:48:24,870
+它非常成功，而且很管用，
 and it was very successful, and it works
 
 741
 00:48:24,870 --> 00:48:26,190
+它慢得多，
 and it's so much slower,
 
 742
 00:48:27,420 --> 00:48:29,400
+但不是慢到人们不喜欢它，
 but not so much slower that people didn't like it,
 
 743
 00:48:29,400 --> 00:48:30,210
+人们非常喜欢它。
 people like it a lot.
 
 744
 00:48:34,210 --> 00:48:39,340
+好的，关于页表的 trap-and-emulate 策略，还有什么问题吗？
 Okay, any more questions about the trap-and-emulate strategy for page tables?
 
 745
 00:48:44,140 --> 00:48:48,310
+好的，最后一段 trap-and-emulate 的故事，
 Okay, let me, final a piece of the trap-and-emulate story,
 
 746
 00:48:51,220 --> 00:48:52,900
+让我来谈谈设备。
 let me talk about devices.
 
 747
 00:48:56,240 --> 00:48:57,440
+所以我在这里说的是，
 So here I'm talking about,
 
 748
 00:48:57,470 --> 00:49:03,740
+普通的操作系统希望能够获得磁盘驱动来存储文件系统，
 you know ordinary operating system expects to be able to get a disk drive to storage file system on
 
 749
 00:49:03,740 --> 00:49:06,050
+或者是网卡，
 or maybe network interface card,
 
 750
 00:49:06,050 --> 00:49:08,450
+或许是在 xv6 中的 UART ，
 and maybe it's in xv6 UART,
 
 751
 00:49:08,480 --> 00:49:10,700
+我们可以和它的控制台交互，
 so we can talk to its console,
 
 752
 00:49:11,090 --> 00:49:16,190
+还有声卡，图形适配器，鼠标，键盘，各种各样的东西，
 who knows, the sound card, graphics adapter, mouse, keyboard, all kinds of stuff,
 
 753
 00:49:16,310 --> 00:49:18,620
+所以操作系统，我们需要，
 so the operating system, we need to,
 
 754
 00:49:18,620 --> 00:49:24,470
+虚拟机方案必须具有某些规定以允许客户机，
 a virtual machine scheme has to have some provision to allow allow guests,
 
 755
 00:49:24,860 --> 00:49:29,300
+至少欺骗让它们认为所有这些需要的设备都是真实存在的。
 to at least trick them into thinking that all these devices that they need really exist.
 
 756
 00:49:30,200 --> 00:49:35,960
+人们使用的策略主要有三种。
 And there's three main strategies that people use.
 
 757
 00:49:36,980 --> 00:49:42,290
+一种是挑选一些你需要的非常常用的设备，
 One is just pick some very commonly used device in the classic that you need,
 
 758
 00:49:42,290 --> 00:49:46,010
+比如磁盘驱动器，只需进行模拟，
 say a disk drive and just do emulation,
 
 759
 00:49:47,070 --> 00:49:50,520
+也就是说，你实际上并没有拥有一个真正的设备，
 that is, you're not actually having a real device,
 
 760
 00:49:51,030 --> 00:49:57,060
+VMM 只是让它看起来这种特定的磁盘驱动器存在，
 that VMM just makes it look like this particular kind of disk drive exists
 
 761
 00:49:57,060 --> 00:49:58,710
+让客户机和它交互。
 and that the guest is talking to it.
 
 762
 00:49:59,860 --> 00:50:03,070
+驱动这种模拟的方式，
 And the way you would drive this emulation,
 
 763
 00:50:03,130 --> 00:50:06,520
+通常客户操作系统将
 typically the guest operating system is gonna
 
 764
 00:50:07,450 --> 00:50:11,470
+通过内存映射控制寄存器与设备交互，
 try to talk to the device through memory mapped control registers,
 
 765
 00:50:11,500 --> 00:50:15,460
+这就是 xv6 与 UART 的交互方式，
 so this is how xv6 talks to, it's UA- UART
 
 766
 00:50:15,490 --> 00:50:21,820
+串行端口，控制台设备，
 you know the serial port, the console device,
 
 767
 00:50:22,710 --> 00:50:25,110
+你可以键入字符，它向你显示字符，
 that you type characters to and that displays characters to you,
 
 768
 00:50:25,320 --> 00:50:28,890
+xv6 与映射的控制寄存器交互，
 xv6 talking to control registers that are mapped,
 
 769
 00:50:28,890 --> 00:50:34,200
+假设硬件已经映射到已知地址，
 that assumes the hardware has mapped in a known address
 
 770
 00:50:34,590 --> 00:50:36,720
+在内核地址空间的地址中，
 in the address in the kernel's address space,
 
 771
 00:50:37,440 --> 00:50:39,840
+所以，你在虚拟机监视器中进行模拟的方式是
 and so the way you emulate that in a virtual machine monitor is
 
 772
 00:50:40,650 --> 00:50:43,920
+不是映射这些页面到客户机，
 actually not map those pages in the guest,
 
 773
 00:50:43,920 --> 00:50:47,490
+相反，你应该让这些页面非法，
 instead you would allow or have those pages be invalid
 
 774
 00:50:47,550 --> 00:50:52,230
+从而每次客户操作系统尝试使用 UART 硬件时，
 so that every time the guest operating system tried to use the UART hardware,
 
 775
 00:50:52,230 --> 00:50:53,910
+无论设备硬件是什么，
 whatever device hardware,
 
 776
 00:50:54,090 --> 00:50:56,310
+VMM 虚拟机监视器将获得 trap ，
 the VMM virtual machine monitor will get a trap
 
 777
 00:50:56,490 --> 00:50:58,740
+虚拟机监视器将查看指令，
 and the virtual machine monitor will going to look at the instructions,
 
 778
 00:50:58,740 --> 00:51:01,440
+哦，它试图在 UART 上发送一个字符，
 oh, it's trying to send a character on the UART
 
 779
 00:51:01,470 --> 00:51:04,500
+或者从磁盘读取，或者别的什么，
 or read from the disk or who knows what,
 
 780
 00:51:05,390 --> 00:51:09,020
+然后虚拟机监视器将模拟磁盘，
 and the virtual machine monitor would have some simulation of a disk,
 
 781
 00:51:09,020 --> 00:51:12,200
+模拟串行设备，
 a simulation of a serial device,
 
 782
 00:51:12,590 --> 00:51:16,940
+调用它的模拟
 and you know sort of invoke its simulation
 
 783
 00:51:16,940 --> 00:51:20,180
+来解决如何响应客户机的指令，
 to figure out how to respond to the guest instruction
 
 784
 00:51:20,180 --> 00:51:22,910
+然后让客户机继续。
 and then allow the guest to resume.
 
 785
 00:51:24,460 --> 00:51:25,270
+这基本上就是，
 And so this is basically
 
 786
 00:51:25,270 --> 00:51:31,630
+QEMU 如何实现 xv6 使用的 UART 控制台设备，
 how QEMU implements the UART console device, that xv6 uses,
 
 787
 00:51:31,780 --> 00:51:35,170
+实际上没有物理的串行端口，
 it just has, there's actually no physical serial port in side,
 
 788
 00:51:35,170 --> 00:51:39,910
+但是 QEMU 模仿了一个让 xv6 使用。
 but QEMU emulates one to keep xv6 happy.
 
 789
 00:51:40,360 --> 00:51:41,740
+所以这是一个普遍的策略，
 And so this is a common strategy,
 
 790
 00:51:42,400 --> 00:51:45,220
+它的性能可能会非常低，
 it's can be very low performance though,
 
 791
 00:51:45,220 --> 00:51:47,950
+因为它涉及 trap 和操作系统，
 because it involves a trap and the operating system,
 
 792
 00:51:47,950 --> 00:51:50,770
+对于每次客户机和设备硬件之间的交互，
 for every interaction between the guest and the device hardware,
 
 793
 00:51:51,770 --> 00:51:55,190
+但是对于低速的东西，它工作得很好。
 but for low speed stuff, it's works pretty well.
 
 794
 00:51:55,850 --> 00:51:58,400
+第二种经常使用的策略，
 The second strategy that's often used,
 
 795
 00:52:00,100 --> 00:52:01,540
+实际上，如果你的，
 and actually, but if your,
 
 796
 00:52:02,350 --> 00:52:06,400
+如果你的目标是提供能够启动操作系统，
 if your goal is to provide is to be able to boot operating systems,
 
 797
 00:52:06,400 --> 00:52:09,880
+它们不知道它们是在虚拟机上运行的，
 that have no idea they're running on a virtual machine,
 
 798
 00:52:10,090 --> 00:52:12,040
+这几乎就是你必须走的路，
 this is pretty much the way you have to go,
 
 799
 00:52:14,340 --> 00:52:15,510
+别无选择。
 there's really no other choice.
 
 800
 00:52:15,510 --> 00:52:17,610
+但在现代世界中，
 But in the modern world,
 
 801
 00:52:17,610 --> 00:52:21,690
+通常情况下，操作系统会意识到，
 you know, it's often the case that the operating systems are aware,
 
 802
 00:52:21,690 --> 00:52:23,670
+它们是在低水平运行，
 that they're actually running at a low level,
 
 803
 00:52:23,670 --> 00:52:26,580
+至少意识到它们是在虚拟机之上运行，
 at least aware that they're running on top of a virtual machine,
 
 804
 00:52:26,940 --> 00:52:31,410
+所以，一种不同的策略是提供虚拟设备，
 and so a different strategy is to provide virtual devices,
 
 805
 00:52:31,410 --> 00:52:35,180
+这并不是试图模仿真实的设备，
 that is not trying to emulate a real device,
 
 806
 00:52:35,240 --> 00:52:43,270
+而是设计一种特别有效的设备接口，
 but cook up a device interface that is particularly efficient for the,
 
 807
 00:52:43,990 --> 00:52:48,580
+为客户中的设备驱动程序提供有效的方式，
 provides efficient ways for the device driver in the guest,
 
 808
 00:52:48,640 --> 00:52:53,200
+能够与虚拟机监视器内部的设备进行交互，
 to be able to talk to a device support inside the virtual machine monitor,
 
 809
 00:52:53,590 --> 00:52:57,310
+所以，你可能没有内存映射控制寄存器，
 and so you might not have memory map control registers
 
 810
 00:52:57,310 --> 00:53:05,140
+你可能在内存中有一个命令结构的队列，
 and said you might have sort of a queue of command structures in memory,
 
 811
 00:53:05,140 --> 00:53:11,800
+客户机操作系统可以将命令写入到那个设备，
 in which the guest operating system would write its commands to the, to the device,
 
 812
 00:53:12,670 --> 00:53:15,460
+事实上， xv6 也使用了其中的一种，
 and in fact xv6 also uses one of these,
 
 813
 00:53:15,460 --> 00:53:23,750
+如果你查看 xv6 VIRTIO_DISK virtio_disk.c ，
 if you look at the xv6 VIRTIO_DISK, virtio_disk.c,
 
 814
 00:53:23,870 --> 00:53:29,750
+你将看到客户机和设备驱动程序
 you'll see the guest and the device driver
 
 815
 00:53:29,750 --> 00:53:34,400
+与 QEMU 实现的磁盘虚拟设备交互，
 intended to talk to a disk virtual device that's implemented by QEMU,
 
 816
 00:53:34,730 --> 00:53:40,040
+它使用很少或几乎不使用，
 and it uses either little or almost not,
 
 817
 00:53:40,070 --> 00:53:44,510
+很少或没有内存映射控制寄存器，
 either little or no memory mapped control registers
 
 818
 00:53:44,510 --> 00:53:46,400
+所以它并不依赖于 trap ，
 and so it doesn't really rely on traps,
 
 819
 00:53:46,520 --> 00:53:51,740
+而是，格式化这种命令内存队列，
 and instead it formats up this sort of queue of commands memory,
 
 820
 00:53:51,860 --> 00:53:52,820
+正如我提到的，
 as I mentioned,
 
 821
 00:53:53,980 --> 00:53:56,410
+然后 QEMU 查看内存中的这些命令，
 and then QEMU looks at these commands in memory
 
 822
 00:53:56,410 --> 00:53:58,810
+不将它们应用于真正的磁盘，
 and applies them not to a real disk,
 
 823
 00:53:58,810 --> 00:54:03,160
+而是到 fs.img 这样的文件，
 but to a file like for us fs.img,
 
 824
 00:54:03,460 --> 00:54:06,580
+QEMU 将命令应用到 fs.img ，
 QEMU applies commands to fs.img
 
 825
 00:54:06,580 --> 00:54:10,490
+而不是使用真正的设备硬件，
 instead of, instead of using a real piece of device hardware,
 
 826
 00:54:11,160 --> 00:54:12,540
+这是另一种策略。
 just another strategy.
 
 827
 00:54:13,020 --> 00:54:16,380
+人们使用的第三种策略，
 And the third strategy that people use,
 
 828
 00:54:16,440 --> 00:54:18,750
+所以，这是更高的性能和直接的仿真，
 so this is higher performance and straight emulation,
 
 829
 00:54:18,750 --> 00:54:22,230
+因为你可以设计接口，
 because you can design the interface,
 
 830
 00:54:22,260 --> 00:54:23,970
+所以不需要很多 trap ，
 so it doesn't require a lot of traps,
 
 831
 00:54:24,150 --> 00:54:31,110
+人们使用的最后一种策略是通过真实的设备，
 a final strategy people use is pass through a real device,
 
 832
 00:54:33,910 --> 00:54:37,390
+对于网络接口控制器来说，这是一种典型的情况，
 and that sort of classic situation for this network interface controllers,
 
 833
 00:54:37,390 --> 00:54:40,270
+它提供了对网络的访问，
 you know that provide access to the network,
 
 834
 00:54:40,510 --> 00:54:47,050
+现代网络设备具有硬件支持，
 and modern network devices actually have hardware support
 
 835
 00:54:47,050 --> 00:54:50,800
+用于与多个客户机操作系统交互，
 for talking to multiple guest operating systems
 
 836
 00:54:50,800 --> 00:54:52,480
+运行在虚拟机器监视器上，
 running under a virtual machine monitor,
 
 837
 00:54:52,570 --> 00:54:54,340
+所以，你可以配置现代网卡，
 so you can configure a modern NIC
 
 838
 00:54:54,400 --> 00:55:00,150
+像是多个独立网卡，
 to actually act as if it's multiple independent, apparently independent NICs,
 
 839
 00:55:00,150 --> 00:55:02,460
+每个客户机操作系统对应一个，
 one for each guest operating system,
 
 840
 00:55:02,610 --> 00:55:05,850
+然后客户机操作系统可以直接交互，
 and then the guest operating system can talk directly,
 
 841
 00:55:06,240 --> 00:55:08,460
+可以由虚拟机监视器配置，
 can be configured by the virtual machine monitors,
 
 842
 00:55:08,460 --> 00:55:15,150
+允许它以直接与它的那一部分网卡交互，
 so that is allowed to talk directly to its sort of slice of the network interface card hardware,
 
 843
 00:55:16,080 --> 00:55:17,370
+使用很高的效率，
 with very high efficiency,
 
 844
 00:55:17,840 --> 00:55:21,950
+这就是现代高性能的方式，
 so this is the modern high performance way.
 
 845
 00:55:22,650 --> 00:55:24,750
+客户机操作系统可能，
 The guest operating system probably,
 
 846
 00:55:25,440 --> 00:55:27,990
+从理论上讲，我认为你可以设计，
 in theory I think you could design,
 
 847
 00:55:28,020 --> 00:55:29,790
+你可以设置客户机操作系统，
 you could set this up to the guest operating system
 
 848
 00:55:29,790 --> 00:55:32,750
+不知道发生什么奇怪的事情，
 wasn't really aware did anything odd was going on,
 
 849
 00:55:32,750 --> 00:55:36,350
+但我认为在实践中，客户机操作系统设备驱动程序可能知道，
 but I think in practice, the guest operating system device drivers kind of know,
 
 850
 00:55:38,340 --> 00:55:41,340
+它们正在与一块特殊的网卡交互。
 they're talking to one of these special network interface cards.
 
 851
 00:55:42,690 --> 00:55:47,040
+好的，这些是设备的选项，
 Alright, so, so these are the options for devices,
 
 852
 00:55:47,880 --> 00:55:53,700
+事实上，我相信大部分的困难
 in fact I I I believe that most of the difficulty
 
 853
 00:55:53,700 --> 00:55:59,420
+在今天实现虚拟机监控时，
 in implementing virtual machine monitor today,
 
 854
 00:55:59,780 --> 00:56:05,720
+是试图创造设备模拟和设备驱动程序，
 comes in the form of trying to cook up device emulation and device drivers
 
 855
 00:56:05,720 --> 00:56:09,500
+它是足够好的，
 that are a sufficiently good,
 
 856
 00:56:09,500 --> 00:56:14,540
+它们会在真正的客户操作系统上正常工作，
 that they'll actually work correctly with a real guest operating systems,
 
 857
 00:56:14,600 --> 00:56:16,610
+这可能是大部分的工作，
 this is where probably the majority of the work is,
 
 858
 00:56:16,640 --> 00:56:20,880
+特别是当你使用这个模拟策略时。
 particularly if you need to use this emulation strategy.
 
 859
 00:56:23,540 --> 00:56:24,830
+关于设备，有什么问题吗？
 Any questions about devices?
 
 860
 00:56:32,700 --> 00:56:36,930
+好的，我不太明白它们之间的区别，
 Okay, what what exactly is I I didn't quite get the difference
 
 861
 00:56:36,930 --> 00:56:39,360
+虚拟和模拟之间的区别，
 between the virtual and emulation,
 
 862
 00:56:39,450 --> 00:56:41,730
+因为它们不是。
 because they don't like they.
 
 863
 00:56:41,730 --> 00:56:43,500
+它们是相似的，
 They're similar, they're similar,
 
 864
 00:56:43,620 --> 00:56:46,530
+这是一种思考它的方式，
 the here's a way to think about it,
 
 865
 00:56:46,740 --> 00:56:50,700
+如果你在启动一个对虚拟机一无所知的操作系统，
 if you're booting an operating system that has no idea about virtual machine,
 
 866
 00:56:52,100 --> 00:56:54,860
+它可能有很多磁盘驱动程序，
 it probably has a lot of disk drivers in it,
 
 867
 00:56:54,860 --> 00:56:56,270
+但它们都是针对真正的硬件的，
 but they're all for real hardware,
 
 868
 00:56:56,300 --> 00:56:58,760
+你可以拿出实体的硬件，
 that you can go out physical chunks of hardware
 
 869
 00:56:58,760 --> 00:56:59,720
+你可以出去买，
 that you can go out and buy,
 
 870
 00:56:59,870 --> 00:57:00,350
+这意味着，
 and that means that
 
 871
 00:57:00,350 --> 00:57:03,020
+如果你想在你的虚拟机上启动这种操作系统，
 if you want to boot that kind of operating system on your virtual machine,
 
 872
 00:57:03,200 --> 00:57:08,180
+你需要有一个精确的模拟，
 you need to have a exact emulation,
 
 873
 00:57:08,180 --> 00:57:10,610
+你需要从那些真正的硬件中选择一个，
 you need to choose one of those real pieces of hardware
 
 874
 00:57:10,610 --> 00:57:14,750
+并对那个硬件进行精确的模拟，
 and have a precise super accurate emulation of that hardware,
 
 875
 00:57:15,340 --> 00:57:17,860
+所以，然后，
 so at the, and then,
 
 876
 00:57:18,450 --> 00:57:21,060
+我的意思是，人们完全这样做，所以这是可行的，
 I mean people totally do that, so that works,
 
 877
 00:57:21,560 --> 00:57:28,100
+这是可用的，除了大多数，
 however, and that would be fine, except most of these,
 
 878
 00:57:28,190 --> 00:57:32,810
+对于真正的硬件，设备接口不是设计好的，
 for real hardware that the device interfaces were not design,
 
 879
 00:57:32,810 --> 00:57:34,910
+硬件接口设计没有设计为
 the hardware interfaces were not designed
 
 880
 00:57:35,240 --> 00:57:38,630
+高效率的使用 trap-and-emulate 虚拟机监视器，
 to be efficient with a trap-and-emulate virtual machine monitor,
 
 881
 00:57:38,750 --> 00:57:41,000
+所以，通常是这种情况，
 and so it's very often the case that,
 
 882
 00:57:41,210 --> 00:57:46,280
+真正的设备需要大量读写它的控制寄存器，
 the real devices requires you to read and write its control registers a lot,
 
 883
 00:57:46,900 --> 00:57:49,330
+但是虚拟机监视器必须控制
 but the virtual machine monitor has to get control
 
 884
 00:57:49,330 --> 00:57:51,760
+对每次设备控制寄存器的写入，
 for every write of a device control register,
 
 885
 00:57:52,210 --> 00:57:53,830
+因为它需要模仿，
 because it needs to emulate
 
 886
 00:57:54,490 --> 00:57:58,120
+这意味着设备控制寄存器的每一次写入
 and that means that every write of a device control register
 
 887
 00:57:58,120 --> 00:58:00,250
+都会导致 trap 进入虚拟机监视器，
 results in a trap into the virtual machine monitor,
 
 888
 00:58:00,250 --> 00:58:02,410
+可能需要数百个周期，
 which costs maybe hundreds of cycles,
 
 889
 00:58:02,860 --> 00:58:06,160
+这意味着这是缓慢的，低效的，
 that means this is slow, this is inefficient
 
 890
 00:58:06,340 --> 00:58:08,530
+所以这里的不同之处在于，
 and so the difference here is that,
 
 891
 00:58:08,530 --> 00:58:12,190
+不是盲目地模仿真实的设备，
 instead of slavishly mimicking a real device,
 
 892
 00:58:12,220 --> 00:58:19,030
+一些设计师设计出一个设备接口，
 some designers come up with a device interface,
 
 893
 00:58:19,060 --> 00:58:21,580
+不是由任何真正的硬件实现的，
 that's not implemented by any real piece of hardware,
 
 894
 00:58:22,180 --> 00:58:24,100
+而是仅由虚拟机监视器实现的，
 but only implemented by a virtual machine monitor,
 
 895
 00:58:24,100 --> 00:58:28,000
+而且它是以一种不需要太多 trap 的方式设计的，
 and it just happens to be designed in a way that doesn't require a lot of traps,
 
 896
 00:58:29,160 --> 00:58:34,230
+不是与控制寄存器交互并期望设备立即响应，
 instead of chatting with control registers and expecting the device to respond immediately,
 
 897
 00:58:34,410 --> 00:58:35,700
+这需要一个 trap ，
 which really requires a trap,
 
 898
 00:58:36,000 --> 00:58:41,220
+相反，设备驱动程序和虚拟硬件是解耦的，
 instead the device driver and that sort of virtual hardware are decoupled
 
 899
 00:58:41,430 --> 00:58:44,940
+而且不需要任何即时的交互。
 and don't ever require sort of immediate interaction.
 
 900
 00:58:45,400 --> 00:58:49,960
+不过，在这种情况下，客户机需要自己新的驱动，
 Still, in that case, the guest needs its own like a new driver,
 
 901
 00:58:50,050 --> 00:58:52,390
+所以，这需要客户机拥有驱动程序，
 so it's just like the guests will have a driver
 
 902
 00:58:52,390 --> 00:58:55,210
+对于这个型号的磁盘和那个型号的磁盘，
 for this model of the disk and that model of the disk
 
 903
 00:58:55,210 --> 00:58:57,490
+并且还具有虚拟磁盘的驱动程序。
 and also have a driver for a virtual disk.
 
 904
 00:58:57,550 --> 00:58:59,800
+对， xv6 也是如此，
 Right, and so the xv6 does,
 
 905
 00:58:59,800 --> 00:59:02,770
+那么，在功能级别，
 so so then, so if the functionality level,
 
 906
 00:59:02,800 --> 00:59:06,580
+你使用这个方案，也许你可以启动任何操作系统，
 you play this game, maybe you can boot any operating system,
 
 907
 00:59:07,320 --> 00:59:08,490
+然而，如果使用这个方案，
 whereas, if you play this game,
 
 908
 00:59:08,490 --> 00:59:13,230
+你只能启动知道你的虚拟设备的操作系统，
 you can only boot operating systems that have been taught about your virtual devices,
 
 909
 00:59:13,230 --> 00:59:15,270
+如果你想使用虚拟设备，
 if you want to use the virtual devices,
 
 910
 00:59:15,930 --> 00:59:17,640
+事实上，这是一个标准，
 turns out this is actually a standard,
 
 911
 00:59:18,120 --> 00:59:23,390
+由多个不同的虚拟机方案提供的，
 that's provided by multiple different virtual machine schemes,
 
 912
 00:59:23,420 --> 00:59:24,080
+所以，使用这个，
 so with this,
 
 913
 00:59:24,560 --> 00:59:27,350
+除了我们从未在 QEMU 以外的任何设备上进行测试，
 except for the fact that we never tested it on anything other than QEMU,
 
 914
 00:59:27,530 --> 00:59:30,680
+这个在 xv6 中的驱动程序可以工作，
 this disk driver in xv6 might work,
 
 915
 00:59:31,250 --> 00:59:33,620
+可能会被修改以在其他虚拟机上运行。
 probably be modified to work on other virtual machines.
 
 916
 00:59:34,540 --> 00:59:37,540
+所以，如果 xv6 是为那个电路板编译的，
 So if xv6 was compiled for that board,
 
 917
 00:59:37,540 --> 00:59:40,300
+您在课程开始时显示的那样，
 that you showed some time in the beginning,
 
 918
 00:59:40,570 --> 00:59:42,760
+在那种情况下，你必须使用不同的驱动程序，
 in that case, you would have to have a different disk driver
 
 919
 00:59:42,760 --> 00:59:44,710
+根据正在运行的磁盘，对吗？
 based on what disk that was running, right.
 
 920
 00:59:45,040 --> 00:59:47,560
+是的，我想你可以买到磁盘接口，
 Yeah, yeah, I think you may be able to buy disk interface,
 
 921
 00:59:47,950 --> 00:59:51,700
+真实硬件磁盘接口来支持这个接口，
 real hardware disk interfaces that now support this interface,
 
 922
 00:59:51,700 --> 00:59:54,820
+但是大多数磁盘驱动器不支持，
 but but most disk, most disk drive don't
 
 923
 00:59:54,820 --> 00:59:57,160
+我们必须实现一个新的，像你说的那样，
 and we would have to implement a new as you said,
 
 924
 00:59:57,190 --> 01:00:00,790
+我们必须为真正的硬件实现一个新的磁盘驱动程序。
 we have to implement a new disk driver for real piece of hardware.
 
 925
 01:00:03,390 --> 01:00:03,930
+是的。
 Yes.
 
 926
 01:00:06,680 --> 01:00:07,370
+好的。
 Okay.
 
 927
 01:00:08,080 --> 01:00:09,550
+关于设备，还有其他问题吗？
 Any other questions about devices?
 
 928
 01:00:14,370 --> 01:00:23,180
+好了，下一个话题我想谈谈对虚拟机的硬件支持，
 Alright, next topic I wanna talk about hardware support for virtual machines,
 
 929
 01:00:27,750 --> 01:00:32,770
+特别是英特尔的 VT-x 方案，
 and in particular Intel's VT-x scheme,
 
 930
 01:00:33,010 --> 01:00:39,830
+那么，促使英特尔和其他硬件提供商
 so what's motivating what motivated Intel and other hardware providers
 
 931
 01:00:39,830 --> 01:00:44,510
+为虚拟机增加直接硬件支持的动机是，
 to add direct hardware support for virtual machines is
 
 932
 01:00:44,570 --> 01:00:47,390
+a, 虚拟机使用无处不在，
 a, the fact that virtual machine uses pervasive,
 
 933
 01:00:47,540 --> 01:00:50,480
+它们的很多客户都在运行大量的虚拟机，
 so a lot of their customers were running a lot of virtual machines,
 
 934
 01:00:50,660 --> 01:00:53,630
+第二， trap-and-emulate ，正如我刚才所说的那样，
 and b, the fact that trap-and-emulate as I just described it,
 
 935
 01:00:54,080 --> 01:00:56,510
+通常引起很多昂贵的陷阱，
 often involves a lot of expensive traps,
 
 936
 01:00:56,510 --> 01:00:58,130
+所以它的效率不是特别高，
 so it's not particularly efficient,
 
 937
 01:01:00,280 --> 01:01:03,910
+第三种不太有趣的可能的动机是，
 and a third sort of less interesting perhaps motivation was that,
 
 938
 01:01:04,180 --> 01:01:08,860
+尽管 RISC-V 非常适合 trap-and-emulate 虚拟化，
 although the RISC-V is pretty well suited to trap-and-emulate virtualization,
 
 939
 01:01:08,950 --> 01:01:13,360
+英特尔的 x86 微处理器有许多详细的功能，
 the x86 Intel's microprocessor has a number of detailed features,
 
 940
 01:01:13,360 --> 01:01:18,340
+使得它可能很难虚拟化，
 which make it actually very difficult possible very difficult to virtualize,
 
 941
 01:01:18,520 --> 01:01:21,730
+所以，英特尔试图解决这一问题，
 and so Intel is also motivated to try to fix that,
 
 942
 01:01:21,730 --> 01:01:25,630
+因为它的很多客户都想运行虚拟机监视器。
 because so many of his customers wanted to run virtual machine monitors.
 
 943
 01:01:26,920 --> 01:01:29,370
+好的，所以这个硬件是，
 Alright, okay, so this hardware is,
 
 944
 01:01:29,370 --> 01:01:32,970
+重点是它成为，
 the main point is to make it be,
 
 945
 01:01:33,000 --> 01:01:36,510
+允许你使用硬件支持创建更快的虚拟机，
 allow you to build faster virtual machines using hardware support,
 
 946
 01:01:36,630 --> 01:01:42,150
+另一个动机是使虚拟机的实现变得更容易，
 and then another motivation was to make it easier to implement virtual machine,
 
 947
 01:01:42,920 --> 01:01:46,700
+这种支持可能已经存在了十年，
 and this support has been around for maybe ten years
 
 948
 01:01:46,700 --> 01:01:50,600
+现在非常广泛地用于构建虚拟机。
 and is now very, very widely used to build virtual machines.
 
 949
 01:01:50,930 --> 01:01:56,630
+好的，所以基本策略是
 Okay, so the basic strategy is that
 
 950
 01:01:56,660 --> 01:02:00,230
+在我的 trap-and-emulate 方案中的所有虚拟状态，
 all that virtual state that in my trap-and-emulate scheme,
 
 951
 01:02:00,500 --> 01:02:05,640
+所有虚拟状态由软件的虚拟机监视器管理，
 all the virtual state that was being maintained by the virtual machine monitor just in software,
 
 952
 01:02:05,820 --> 01:02:11,640
+所有虚拟状态都将在硬件中实现，
 all that virtual state is going to be going to be implemented in the hardware,
 
 953
 01:02:11,670 --> 01:02:13,680
+在这些硬件支持的方案中，
 in these hardware supported schemes,
 
 954
 01:02:14,850 --> 01:02:20,160
+这将允许客户机软件执行特权指令，
 and that will allow guest software to execute privileged instructions,
 
 955
 01:02:20,490 --> 01:02:27,980
+直接影响这些虚拟硬件支持的寄存器，而不是使用 trap ，
 affecting these virtual hardware supported registers directly rather than trapping,
 
 956
 01:02:28,340 --> 01:02:32,870
+所以，现在的目标是让客户机能够执行特权指令，而不是 trap 。
 so the goal is now that guest will be able to execute privileged instructions, but not trap.
 
 957
 01:02:33,420 --> 01:02:35,540
+这个原因是，
 And, the reason you know,
 
 958
 01:02:36,200 --> 01:02:37,310
+这是有效的，
 so that works is that,
 
 959
 01:02:37,340 --> 01:02:40,460
+同样，我们有一个虚拟机监视器，
 again, we have a virtual machine monitor
 
 960
 01:02:41,550 --> 01:02:47,170
+并且有一个在用户级别的客户机操作系统，
 and a guest operating system in user level,
 
 961
 01:02:47,590 --> 01:02:52,480
+现在我们知道在硬件中，
 and the hardware, now we know that in the hardware,
 
 962
 01:02:52,480 --> 01:02:59,680
+我们有一个 stvec 和所有那些硬件寄存器，
 we have you know a stvec and all those you know hardware registers,
 
 963
 01:03:06,620 --> 01:03:07,640
+这些都是，
 and there's all the,
 
 964
 01:03:07,670 --> 01:03:11,060
+当我们在新的硬件支持虚拟方案上运行时，
 when we're running in the virtual new schemes, hardware support schemes,
 
 965
 01:03:11,060 --> 01:03:12,230
+我们运行虚拟机监视器，
 we're running the virtual machine monitor,
 
 966
 01:03:12,230 --> 01:03:14,780
+我们使用这些寄存器的真实版本，
 we just use the real versions of these registers,
 
 967
 01:03:14,780 --> 01:03:16,160
+但是硬件，
 but the hardware,
 
 968
 01:03:16,190 --> 01:03:18,950
+当虚拟机监视器告诉硬件，
 when the virtual machine monitor tells the hardware,
 
 969
 01:03:18,950 --> 01:03:21,320
+请切换到客户机模式，
 look please switch into guest mode,
 
 970
 01:03:21,770 --> 01:03:25,820
+硬件有一套完整的独立寄存器，
 the hardware has a complete separate set of registers,
 
 971
 01:03:27,300 --> 01:03:30,480
+专门在客户机模式下使用。
 dedicated for use by in guest mode.
 
 972
 01:03:31,360 --> 01:03:34,180
+所以客户机模式可以读写这些寄存器，
 So the guest mode can read and write these registers,
 
 973
 01:03:34,180 --> 01:03:34,750
+但它不是，
 but it's not,
 
 974
 01:03:34,780 --> 01:03:39,850
+它读写这些寄存器的硬件复制版本，
 it's reading it's reading writing its hardware copies of its versions of these registers
 
 975
 01:03:39,850 --> 01:03:41,350
+而不是真正的寄存器，
 rather than the real registers
 
 976
 01:03:41,350 --> 01:03:45,430
+并且硬件有一些额外的检查，
 and the hardware has you know has some kind of extra checks,
 
 977
 01:03:45,430 --> 01:03:49,330
+它限制客户操作系统所能做的，
 it makes on the the guest operating system can do
 
 978
 01:03:49,330 --> 01:03:53,170
+确保它不会滥用这些寄存器，从虚拟机中逃出来。
 to make sure that it can't abuse these registers to escape from the virtual machine.
 
 979
 01:03:54,240 --> 01:03:57,780
+这是最基本的的策略，
 This is the basic, this is most of the basic strategy
 
 980
 01:03:58,290 --> 01:04:02,520
+并且在这些硬件支持的虚拟机方案的术语中，
 and in the terminology of these hardware supported virtual machine schemes,
 
 981
 01:04:02,640 --> 01:04:04,440
+名称是 Intel [One] ，
 the name is Intel [one],
 
 982
 01:04:04,830 --> 01:04:08,430
+客户机模式称为 non-root ，
 the name for guest mode is non-root,
 
 983
 01:04:10,720 --> 01:04:17,960
+而我们使用真正寄存器的主机模式称为 root ，
 and the name for host mode, we're using real registers is root,
 
 984
 01:04:17,960 --> 01:04:23,390
+这里有一组 non-root 虚拟寄存器供虚拟机使用，
 and so there's a set of non-root virtual registers for the virtual machine to use
 
 985
 01:04:23,390 --> 01:04:26,240
+而这里有一组寄存器我们在 root 模式下使用。
 and there's a set of registers that are used when we are in root mode.
 
 986
 01:04:32,150 --> 01:04:36,520
+所以现在当我们在客户机内核中运行时，
 So now when we're running in the guest kernel,
 
 987
 01:04:38,030 --> 01:04:44,220
+它可以执行任何特权指令，而不使用 trap ，
 it can execute any privileged instruction without trapping,
 
 988
 01:04:44,520 --> 01:04:46,920
+那么当需要读写 stvec 时，
 so when wants to read or write the stvec,
 
 989
 01:04:46,950 --> 01:04:52,950
+硬件只是读写硬件 stvec 寄存器的 non-root 副本，
 the hardware just that's read or write the non-root copy of the hardware stvec register,
 
 990
 01:04:53,490 --> 01:04:58,980
+所以，所有这些东西都在全速运行，而不需要陷入 VMM ，
 and so all this stuff proceeds at full speed without having to trap into VMM,
 
 991
 01:04:58,980 --> 01:05:03,630
+所以它比出现大量 trap 的代码要快得多。
 so it's much faster for code that was incurring a lot of traps.
 
 992
 01:05:07,270 --> 01:05:08,800
+这个，你还是需要，
 The, you still have to,
 
 993
 01:05:08,800 --> 01:05:12,100
+配置这个需要很多东西要做，
 there's a whole bunch of stuff having involved in configuring this,
 
 994
 01:05:12,100 --> 01:05:15,670
+当虚拟机监视器要创建新的虚拟机时，
 when the virtual machine monitor wants to create a new virtual machine,
 
 995
 01:05:15,670 --> 01:05:17,320
+必须要告诉硬件，
 actually has to tell the hardware,
 
 996
 01:05:17,770 --> 01:05:24,350
+所以，在虚拟机监视器内存中，
 and so there is a down in the virtual machine monitors memory,
 
 997
 01:05:24,350 --> 01:05:27,960
+有虚拟机监视器结构，
 there's this structure that the virtual machine monitor
 
 998
 01:05:27,960 --> 01:05:31,080
+它是 VT-x 硬件用来通信的，
 and the VT-x hardware used to communicate
 
 999
 01:05:31,080 --> 01:05:36,450
+被称为 VMCS 虚拟机控制结构，
 just called VMCS VM control something structure,
 
 1000
 01:05:37,560 --> 01:05:40,320
+当虚拟机监视器想要创建新的虚拟机时，
 and when the virtual machine monitor wants to create a new virtual machine,
 
 1001
 01:05:40,320 --> 01:05:42,300
+它在内存中创建一个，
 it creates one of these in memory
 
 1002
 01:05:42,300 --> 01:05:44,370
+并填充一组配置标志，
 and fills in a bunch of configuration flags
 
 1003
 01:05:44,370 --> 01:05:47,850
+并对所有这些寄存器的值做初始化，
 and also initial values for all these registers
 
 1004
 01:05:47,850 --> 01:05:51,800
+然后告诉 VT-x 硬件，
 and then tells the VT-x hardware,
 
 1005
 01:05:51,800 --> 01:05:54,140
+我想开始运行一个新的虚拟机，
 look I want to start running a new virtual machine,
 
 1006
 01:05:54,140 --> 01:05:55,730
+这里是初始状态，
 and here's the initial state,
 
 1007
 01:05:56,150 --> 01:06:00,620
+这些是论文提到的新指令，
 and so these new instructions which the paper mentions,
 
 1008
 01:06:00,620 --> 01:06:05,940
+有一个 VMLAUNCH ，就像一个新的机器指令，
 there's VMLAUNCH just like a new new machine instruction,
 
 1009
 01:06:05,940 --> 01:06:10,110
+你告诉它这个的地址，它开始运行，
 which you tell it the address of this and it starts running,
 
 1010
 01:06:10,870 --> 01:06:13,000
+使用这些寄存器开始，
 you know starting with these registers,
 
 1011
 01:06:13,000 --> 01:06:15,490
+比如开始运行客户机内核，
 like starts running the guest kernel,
 
 1012
 01:06:15,850 --> 01:06:18,340
+这里还有一个 VMRESUME ，
 and there's also this VMRESUME,
 
 1013
 01:06:19,380 --> 01:06:24,190
+因为有时候，会从内核中出来，回到 VMM 中，
 because sometimes, break out of the kernel back, trap out of kernels at VMM,
 
 1014
 01:06:24,190 --> 01:06:25,120
+你需要恢复它，
 and you need to resume it
 
 1015
 01:06:25,450 --> 01:06:28,840
+然后这里的代码可以运行一个名为 VMCALL 的新指令，
 and then code up here can run a new instruction called VMCALL,
 
 1016
 01:06:28,840 --> 01:06:34,430
+在某种程度上是退出 non-root 模式，
 which sort of intentionally exits from non-root mode,
 
 1017
 01:06:34,460 --> 01:06:37,670
+并且 trap 到 root 模式的虚拟机监视器中。
 and basically traps into the virtual machine monitor in root mode.
 
 1018
 01:06:39,820 --> 01:06:41,560
+当虚拟机监视器
 Right, when the virtual machine monitor
 
 1019
 01:06:42,160 --> 01:06:45,490
+执行这些指令中的一个跳入到客户机中，
 execute one of these instructions to jump into a guest,
 
 1020
 01:06:45,610 --> 01:06:48,520
+它可能回来的方式，
 the ways that it may come back,
 
 1021
 01:06:49,420 --> 01:06:52,990
+客户机现在可以执行普通特权指令而不使用 trap ，
 guest now can execute ordinary privileged instructions without trapping,
 
 1022
 01:06:53,080 --> 01:06:54,460
+但是，原因有很多，
 but there's a bunch of reasons
 
 1023
 01:06:54,460 --> 01:06:57,190
+为什么仍然可以返回到虚拟机模式，
 why you may nevertheless return to the virtual machine mode,
 
 1024
 01:06:57,190 --> 01:06:59,610
+一个是故意退出，
 one is intentional exit,
 
 1025
 01:07:00,120 --> 01:07:01,950
+而且如果设备中断关闭，
 but also if the device interrupt goes off,
 
 1026
 01:07:01,950 --> 01:07:03,690
+比如定时器中断关闭，
 like the timer interrupt goes off,
 
 1027
 01:07:03,750 --> 01:07:09,030
+所有微处理器将强制陷出，
 that all the microprocessor will force a trap out of,
 
 1028
 01:07:09,670 --> 01:07:14,050
+non-root 模式的客户机进入 root 模式，在虚拟机监视器中，
 non-root mode out of the guest into root mode in the virtual machine monitor,
 
 1029
 01:07:14,140 --> 01:07:19,240
+所以，通常情况下，设备中断返回到虚拟机监视器中，
 so in general device interrupts trap back into the virtual machine monitor
 
 1030
 01:07:19,240 --> 01:07:22,630
+所以，这意味着客户机操作系统不能占用 CPU ，
 and so that means that a guest operating system can't hog the CPU,
 
 1031
 01:07:22,840 --> 01:07:26,380
+每次定时器硬件到达，虚拟机监视器获得控制，
 every time the timer hardware timer ticks, the virtual machine monitor gets control,
 
 1032
 01:07:26,770 --> 01:07:29,830
+如果有多个客户机，
 and if there's multiple guests
 
 1033
 01:07:29,830 --> 01:07:34,900
+那么分时计算机使用计时器中断在不同的客户机之间切换。
 and now basically time-share machine using the timer interrupts among all the different guests.
 
 1034
 01:07:40,930 --> 01:07:42,280
+好的，这是基本策略，
 Okay, so this is basic strategy,
 
 1035
 01:07:42,280 --> 01:07:45,420
+基本上有第二组寄存器，
 basically there's a second set of registers,
 
 1036
 01:07:50,020 --> 01:07:58,440
+VT-x 提供的另一个大的机制是页表支持，
 the other, the other big piece of machinery that VT-x provides is page table support,
 
 1037
 01:07:58,680 --> 01:08:02,040
+当在客户机世界里执行时，
 you know when operating up here in the guest world,
 
 1038
 01:08:02,040 --> 01:08:03,750
+我们也需要一个页表，
 we still need a page table,
 
 1039
 01:08:04,540 --> 01:08:07,270
+我们需要页表有两个原因，
 you know we need the page table for two reasons,
 
 1040
 01:08:07,270 --> 01:08:11,260
+一个是客户机内核想要能够配置自己的页表，
 one is the guest kernel wants to be able to configure its own page table,
 
 1041
 01:08:11,260 --> 01:08:15,100
+希望能够加载 cr3 ，
 wants to be able to load cr3
 
 1042
 01:08:15,100 --> 01:08:21,600
+它是英特尔中类似 satp 的寄存器，
 which is Intel equivalent of the satp register,
 
 1043
 01:08:21,600 --> 01:08:23,220
+所以，我们希望能够，
 so we'd love to be able to
 
 1044
 01:08:23,250 --> 01:08:27,150
+或 VT-x 允许客户机内核加载任何值，
 or VT-x allows the guest kernel to load any value it likes
 
 1045
 01:08:27,180 --> 01:08:32,220
+加载到 cr3 寄存器中以设置页表，
 into the cr3 register to set the page table,
 
 1046
 01:08:32,220 --> 01:08:36,600
+并且硬件遵守客户机内核加载的页表，
 and the hardware actually obey that page table that the guest kernel loads,
 
 1047
 01:08:36,930 --> 01:08:39,270
+我们知道这是非常好的，
 but we know that can be the, which is fantastic, right,
 
 1048
 01:08:39,360 --> 01:08:42,750
+因为现在这可以加载一个页表而不陷入 VMM ，
 because now that's going to load a page table without trapping the VMM,
 
 1049
 01:08:43,480 --> 01:08:48,970
+但是我们知道我们不能让客户机内核把任何东西放到它的页表中，
 but we know that we can't just let the guests kernel put anything it likes on its page table,
 
 1050
 01:08:49,960 --> 01:08:50,680
+而不，
 without,
 
 1051
 01:08:50,920 --> 01:08:53,650
+因为这将允许它读写任意内存，
 because that would allow it to read and write arbitrary memory,
 
 1052
 01:08:53,740 --> 01:08:59,320
+所以这个 VT-x 方案有另一个重要的寄存器，
 so this VT-x scheme actually has another important register,
 
 1053
 01:08:59,320 --> 01:09:02,950
+实际上是一个真实的，
 which is in fact part of the sort of real,
 
 1054
 01:09:03,220 --> 01:09:05,710
+我不知道应该画在哪里，但我会画在这里，
 well, who knows where I should draw, but I'll draw it right here,
 
 1055
 01:09:07,350 --> 01:09:15,070
+扩展页表寄存器 EPT ，
 the extended page table register
 
 1056
 01:09:15,070 --> 01:09:16,420
+并且虚拟机，
 and the virtual machine,
 
 1057
 01:09:16,420 --> 01:09:20,360
+EPT 指向一个页表，
 which points to a page table, right,
 
 1058
 01:09:21,380 --> 01:09:25,760
+它映射到一种或另一种地址，
 that maps, well, maps one kind of address or another kind of address,
 
 1059
 01:09:25,760 --> 01:09:27,890
+并且虚拟机监视器设置，
 and the virtual machine monitor sets,
 
 1060
 01:09:27,890 --> 01:09:30,560
+当它要运行客户机内核时，
 when it's about to run a guest kernel,
 
 1061
 01:09:30,560 --> 01:09:34,070
+它为那个内核设置 EPT ，
 it sets up an EPT for that kernel,
 
 1062
 01:09:34,280 --> 01:09:41,100
+告诉硬件这是我要运行的虚拟机的 EPT ，
 tells the hardware look here's the EPT for virtual machine I'm about to run
 
 1063
 01:09:41,100 --> 01:09:42,810
+然后跳到虚拟机中，
 and then jumps into the virtual machine,
 
 1064
 01:09:42,900 --> 01:09:44,580
+然后游戏是，
 and then the game is that,
 
 1065
 01:09:45,430 --> 01:09:48,470
+这台机器上的 MMU ，
 the MMU on this machine,
 
 1066
 01:09:48,500 --> 01:09:50,870
+当它转换客户机虚拟地址时，
 when it's translating a guest virtual address,
 
 1067
 01:09:50,870 --> 01:09:55,490
+它首先将客户机虚拟地址转换为客户机物理地址，
 it first translates the guest virtual address to a guest physical address,
 
 1068
 01:09:55,520 --> 01:09:58,950
+对于客户机设置的页表，
 to the guests, the page table the guest sets up,
 
 1069
 01:09:58,950 --> 01:10:01,020
+然后做另一次转换，
 and then does another translation
 
 1070
 01:10:01,020 --> 01:10:05,790
+通过 EPT 将客户机物理地址转换为主机物理地址，
 of that guest physical address through the EPT to get a host physical address,
 
 1071
 01:10:06,560 --> 01:10:11,930
+硬件会自动对每个客户机内存引用执行这个操作，
 and that hardware does that automatically for every memory reference the guest does,
 
 1072
 01:10:11,960 --> 01:10:13,730
+这是两级转换，
 as this double level of translation,
 
 1073
 01:10:14,000 --> 01:10:17,210
+所以，这再次给了 VMM 控制，
 and so this again gives the VMM control over
 
 1074
 01:10:17,210 --> 01:10:20,480
+客户机允许使用的物理内存，
 what physical memory the guest is allowed to use,
 
 1075
 01:10:20,480 --> 01:10:22,700
+客户机可以设置任何页表，
 the guest can set up any page table it likes
 
 1076
 01:10:22,700 --> 01:10:23,930
+并且可以非常高效地进行，
 and can do it quite efficiently,
 
 1077
 01:10:23,930 --> 01:10:26,240
+因为它可以直接执行指令，
 because it can directly execute the instructions,
 
 1078
 01:10:26,270 --> 01:10:30,330
+但是它仍然受到 EPT 的约束，
 but it's still constrained by the EPT,
 
 1079
 01:10:30,330 --> 01:10:32,220
+VMM 配置为
 which the VMM configured to
 
 1080
 01:10:32,220 --> 01:10:37,980
+只能使用 VMM 让它使用的物理页面。
 be able to only use physical pages that the VMM wants it to use.
 
 1081
 01:10:40,560 --> 01:10:41,940
+关于 EPT ，有什么问题吗？
 Any questions about the EPT?
 
 1082
 01:10:47,350 --> 01:10:49,240
+哦，抱歉，我有一个关于 EPT 的问题，
 Oh, sorry, I have a question about EPT,
 
 1083
 01:10:49,270 --> 01:10:52,840
+关于第二组寄存器，
 about the the second set of registers,
 
 1084
 01:10:52,930 --> 01:10:57,400
+如果你有两个核心，并且你想添加两个 VMM ，
 so if you have two cores and you want to add two VMMs,
 
 1085
 01:10:57,700 --> 01:11:01,690
+你有没有第三组寄存器复制？
 does it, do you get like a third copy of the registers?
 
 1086
 01:11:01,690 --> 01:11:06,400
+每个核心都有自己的这些寄存器，
 Every core has its own set of these registers,
 
 1087
 01:11:06,850 --> 01:11:09,190
+每个核心都有一个独立的，
 every core has a sort of independent,
 
 1088
 01:11:10,410 --> 01:11:15,630
+独立的 VT-x 硬件的所有实例，
 independent instance of all this VT-x hardware,
 
 1089
 01:11:15,960 --> 01:11:20,160
+每个核心都有自己的 32 个通用寄存器，
 every core, every core has its own 32 general purpose registers,
 
 1090
 01:11:20,310 --> 01:11:27,120
+它自己的真实控制寄存器和自己的客户机模式虚拟寄存器，
 its own real control registers and its own virtual registers for guest mode,
 
 1091
 01:11:27,750 --> 01:11:29,880
+还有它自己的 EPT 。
 its own, its own EPT.
 
 1092
 01:11:31,010 --> 01:11:33,860
+所以你在两个不同的核心上有两个不同的客户机，
 So you have two different guests on two different cores,
 
 1093
 01:11:33,860 --> 01:11:35,840
+它们都有自己的每个寄存器，
 they all have their own every register,
 
 1094
 01:11:37,050 --> 01:11:38,190
+每个核心都有自己的。
 every core has its own.
 
 1095
 01:11:39,320 --> 01:11:41,240
+所以，你也需要一个新的 VMM ？
 So you need a new VMM too?
 
 1096
 01:11:41,510 --> 01:11:45,290
+好的，我是说，它可以和普通操作系统一样，
 Well, I mean, it could just like an ordinary operating system,
 
 1097
 01:11:45,290 --> 01:11:47,540
+就像 xv6 可以支持多进程，
 like xv6 can support multiple processes
 
 1098
 01:11:47,540 --> 01:11:50,780
+它就像 xv6 一样，
 and it's all the same xv6,
 
 1099
 01:11:50,810 --> 01:11:57,720
+就像 xv6 每个进程都有单独的 proc 结构，
 but although, and just like xv6 has a separate struct proc for every process,
 
 1100
 01:11:58,080 --> 01:12:02,790
+虚拟机监视器具有单独的 vmm 结构或什么的，
 or virtual machine monitor would have a separate struct, struct vmm or whatever it is,
 
 1101
 01:12:03,090 --> 01:12:07,410
+每个客户机一个，用于跟踪客户机信息。
 one for each guest to keep track of that guest information for that guest.
 
 1102
 01:12:08,290 --> 01:12:09,640
+好的，我明白了，谢谢。
 Okay, I see, thank you.
 
 1103
 01:12:10,090 --> 01:12:10,630
+好的。
 Yes.
 
 1104
 01:12:11,210 --> 01:12:12,770
+就像我之前提到的切换，
 And as I mentioned before the switching,
 
 1105
 01:12:13,130 --> 01:12:16,670
+如果你有一个核心和三个客户机，
 if you have one core and three guest,
 
 1106
 01:12:16,670 --> 01:12:18,650
+切换可以由定时器中断驱动，
 switching can be driven by timer interrupts,
 
 1107
 01:12:18,650 --> 01:12:21,900
+它去往虚拟机监视器，而不是客户机。
 which go to the virtual machine monitor not the guest.
 
 1108
 01:12:26,730 --> 01:12:27,270
+好的。
 Okay.
 
 1109
 01:12:28,120 --> 01:12:30,130
+还有更多关于虚拟机的问题吗，
 More questions about virtual machines,
 
 1110
 01:12:30,160 --> 01:12:34,720
+在我转到论文之前。
 before I switch to the paper.
 
 1111
 01:12:39,410 --> 01:12:44,590
+好的，这篇论文把这个硬件作为一个起点，
 Alright, the paper takes this hardware is a starting point
 
 1112
 01:12:44,890 --> 01:12:48,040
+并将其用于其他用途，而不是虚拟机，
 and uses it for something else not a virtual machine,
 
 1113
 01:12:48,460 --> 01:12:50,110
+这是论文中非常感兴趣的，
 so that's a lot of the interest in the papers,
 
 1114
 01:12:50,110 --> 01:12:54,850
+他们采用了这种专为虚拟机设计的硬件，
 that they took this hardware which is absolutely design just for virtual machines,
 
 1115
 01:12:55,180 --> 01:12:55,870
+这篇论文说，
 and the paper saying,
 
 1116
 01:12:55,870 --> 01:12:59,530
+我们可以使用这个硬件来做不只是一个虚拟机。
 gosh, we could just use this hardware to do just makes not a virtual machine.
 
 1117
 01:13:00,670 --> 01:13:06,200
+他们所做的，从高层次角度来说就是，
 And what they're, a high-level view of what they're doing is,
 
 1118
 01:13:06,260 --> 01:13:10,070
+他们想要实现普通的进程，
 they're just, they want to implement the ordinary processes,
 
 1119
 01:13:10,100 --> 01:13:11,570
+现在我们回到 Linux ，
 now we're back in just Linux,
 
 1120
 01:13:11,900 --> 01:13:13,850
+不再有虚拟机，只有 Linux ，
 no virtual machines anymore, just Linux,
 
 1121
 01:13:13,880 --> 01:13:16,070
+假设 VT-x 硬件是 Dune ，
 but assuming VT-x hardware is Dune,
 
 1122
 01:13:19,330 --> 01:13:22,110
+我们有 Linux ，
 we have Linux
 
 1123
 01:13:22,140 --> 01:13:28,050
+假设我们将 Dune 可加载内核模块加载到 Linux 中，
 and we assume we've loaded the Dune loadable kernel module into Linux,
 
 1124
 01:13:28,050 --> 01:13:31,530
+现在 Dune 软件在管理员模式下运行，
 now this Dune software is running in supervisor mode
 
 1125
 01:13:31,530 --> 01:13:32,820
+作为 Linux 内核的一部分，
 as part of the Linux kernel,
 
 1126
 01:13:33,670 --> 01:13:36,640
+但在很大程度上，我们运行的是 Linux ，
 but for the most part, we're you know we're running Linux
 
 1127
 01:13:36,640 --> 01:13:39,160
+我们希望运行 Linux 进程。
 and we're expecting to run Linux processes.
 
 1128
 01:13:41,180 --> 01:13:43,250
+所以，这个想要支持的是，
 So the abstraction of trying to support is
 
 1129
 01:13:43,250 --> 01:13:45,500
+大多数使用系统调用的进程
 mostly the process abstraction with system calls
 
 1130
 01:13:45,500 --> 01:13:49,010
+以及所有 Linux 进程可以做的普通事情，
 and all the sort of ordinary things that Linux processes can do,
 
 1131
 01:13:49,910 --> 01:13:54,560
+但是我们想使用这个 VT-x 硬件来提供更多，
 but we want to use this VT-x hardware to give sort of more,
 
 1132
 01:13:54,590 --> 01:13:59,660
+允许普通进程做一些额外的事情，
 sort of allow ordinary processes to do some extra things
 
 1133
 01:14:01,850 --> 01:14:06,040
+所以我们要运行，
 and there's really, so we're actually gonna run,
 
 1134
 01:14:06,040 --> 01:14:08,230
+所以， Dune 运行这些进程，
 so Dune runs these processes
 
 1135
 01:14:08,290 --> 01:14:10,690
+或允许进程切换到 Dune 模式，
 or allows a process to switch into Dune mode,
 
 1136
 01:14:10,690 --> 01:14:15,310
+这意味着不只是由页表隔离，
 which means that instead of just being protected being isolated by a page table,
 
 1137
 01:14:15,430 --> 01:14:21,370
+现在这个进程被完整的 VT-x 设备隔离，
 now this process is isolated by the complete VT-x apparatus,
 
 1138
 01:14:21,400 --> 01:14:24,670
+所以，对于这个进程， Dune 将要维护，
 so for this process, Dune is going to maintain,
 
 1139
 01:14:25,120 --> 01:14:30,880
+这个进程现在具有这个所有虚拟控制寄存器，
 this process now has this virtual set of of all the control registers,
 
 1140
 01:14:30,880 --> 01:14:33,160
+比如它自己的 cr3 ，
 like its own cr3 in it
 
 1141
 01:14:33,160 --> 01:14:35,890
+因此，也就有自己的页表，
 and therefore its own page table,
 
 1142
 01:14:36,560 --> 01:14:42,900
+因为这个进程将在 non-root 管理员模式下运行，
 because this process is going to run in non-root supervisor mode,
 
 1143
 01:14:42,900 --> 01:14:44,520
+所以它可以运行所有的特权指令，
 so it can run all the privileged instructions,
 
 1144
 01:14:44,520 --> 01:14:49,080
+尽管是 VT-x 实现的虚拟状态。
 although against the virtual state implemented by VT-x.
 
 1145
 01:14:50,990 --> 01:14:54,560
+所以在 Dune 下，这个进程可以做的一件重要的事情是，
 So one of the critical things this process can do under Dune is
 
 1146
 01:14:54,560 --> 01:14:58,790
+使用自己的硬件 cr3 设置自己的页表，
 set up its own page table using its own hardware cr3,
 
 1147
 01:14:58,820 --> 01:15:03,580
+当然 Dune 控制着这个进程的 EPT ，
 of course Dune you know controls EPT for this process,
 
 1148
 01:15:03,580 --> 01:15:06,850
+所以， EPT 被设置为
 so and the EPT is going to be set up
 
 1149
 01:15:06,850 --> 01:15:10,330
+只有这个进程的普通进程内存的条目，
 to only have entries for this process's ordinary process memory,
 
 1150
 01:15:10,510 --> 01:15:12,700
+所以这个进程可以放任何像 cr3 的东西，
 so the process can put anything that like cr3,
 
 1151
 01:15:12,700 --> 01:15:16,690
+因为 MMU 通过 EPT 转换，
 but because the MMU translates through the EPT,
 
 1152
 01:15:16,690 --> 01:15:18,580
+再通过普通页表转换，
 after translating through the ordinary page table,
 
 1153
 01:15:18,580 --> 01:15:21,550
+这个进程仍然不能跳出给它分配的内存，
 the process still cannot escape its allocated memory,
 
 1154
 01:15:21,580 --> 01:15:24,550
+所以，这个进程有额外能力，
 so the process does have any sort of additional powers
 
 1155
 01:15:24,550 --> 01:15:27,830
+相对于其他进程或内核内存，
 with respect to other processes or kernel memory,
 
 1156
 01:15:27,860 --> 01:15:32,060
+它现在有了一种更灵活的方式来设置自己的内存。
 it just has now a more flexible way of setting up its own memory.
 
 1157
 01:15:33,700 --> 01:15:37,300
+好的，所以 Dune 进程可以做的一件事就是拥有自己的页表，
 Alright, so one thing a Dune process can do is have it's own page table,
 
 1158
 01:15:37,780 --> 01:15:39,970
+实际上，它需要有自己的页表，
 in fact, it's basically required to have its own page table,
 
 1159
 01:15:39,970 --> 01:15:42,800
+否则，它就不会起作用了，
 because otherwise, it won't work,
 
 1160
 01:15:43,550 --> 01:15:46,430
+进程可以做的另一件事是
 and the other thing a process can do is
 
 1161
 01:15:46,460 --> 01:15:56,310
+在它的小虚拟机中拥有管理员模式和用户模式，
 have a supervisor mode and user mode within its little virtual machine,
 
 1162
 01:15:56,520 --> 01:15:57,900
+并且能够运行，
 and be able to run,
 
 1163
 01:15:57,900 --> 01:16:02,340
+能够将管理程序代码自身设置为保护，
 be able to have the supervisor code set itself up to be protected
 
 1164
 01:16:02,730 --> 01:16:05,760
+对在访客用户模式下运行的代码。
 against the code that runs in guest user mode.
 
 1165
 01:16:06,160 --> 01:16:09,100
+所以这篇论文谈到了两种不同的用途，
 So the paper really talks about these two different uses,
 
 1166
 01:16:09,430 --> 01:16:12,220
+可以用 Dune 做的两件不同的事。
 two different things you can do with Dune.
 
 1167
 01:16:13,090 --> 01:16:18,040
+所以，这个能力可以获得，
 So the this ability to get at,
 
 1168
 01:16:18,040 --> 01:16:21,940
+对于一个进程，获得对管理者模式而不是用户模式的支持，
 for a process to get at the hardware support for supervisor versus user mode,
 
 1169
 01:16:22,900 --> 01:16:29,140
+允许它们在沙箱中运行不受信任的插件代码。
 allows them to run untrusted plugin code here in a sandbox.
 
 1170
 01:16:31,660 --> 01:16:32,470
+所以这里的想法是，
 And so the idea is,
 
 1171
 01:16:32,470 --> 01:16:36,250
+也许主程序是一个网络浏览器，
 oh, maybe you're, you're, maybe the main program is like a web browser,
 
 1172
 01:16:36,760 --> 01:16:42,160
+你可以下载网络浏览器运行的插件，
 you know you can download web browser, download plugins that your web browser runs,
 
 1173
 01:16:42,250 --> 01:16:47,810
+也许是一个新的视频解码器，
 maybe a new video decoder
 
 1174
 01:16:47,810 --> 01:16:49,280
+或者是新的广告拦截器之类的，
 or a new ad blocker or something,
 
 1175
 01:16:49,280 --> 01:16:50,810
+但是我们并不完全信任那个插件，
 but we don't totally trust that plugin,
 
 1176
 01:16:50,810 --> 01:16:53,450
+所以我们想以某种方式以有限的特权运行它，
 so we'd like to run it with restricted privileges somehow,
 
 1177
 01:16:54,740 --> 01:16:58,670
+这是可能的，但在普通 Linux 中做起来有点困难，
 it's possible, but a little bit tricky to do in ordinary Linux,
 
 1178
 01:16:58,670 --> 01:17:04,460
+但是有了 Dune ，我们就可以在用户空间中运行插件，
 but with Dune, now we can run the plugin appear in user space,
 
 1179
 01:17:04,460 --> 01:17:08,510
+而且在管理者模式下进程中运行的 Web 浏览器，
 and the web browser which runs in the in the process supervisor mode
 
 1180
 01:17:08,570 --> 01:17:10,790
+可以配置页表，
 can configure the page table,
 
 1181
 01:17:11,910 --> 01:17:14,040
+配置不同的页表，
 configure a different page table,
 
 1182
 01:17:14,400 --> 01:17:16,260
+供这个用户代码使用，
 for use by this user code,
 
 1183
 01:17:16,260 --> 01:17:17,970
+因为它允许写入 cr3 ，
 because it's allowed write cr3
 
 1184
 01:17:18,420 --> 01:17:23,280
+这允许它运行这个不受信任的插件代码，
 and that can allow it to run this untrusted plugin code
 
 1185
 01:17:23,670 --> 01:17:26,160
+只允许它受限地访问
 with only allowing it restricted access
 
 1186
 01:17:26,190 --> 01:17:29,850
+Web 浏览器内存中的一些页面，
 to just some pages of the web browser's memory,
 
 1187
 01:17:30,850 --> 01:17:33,910
+这样即使插件代码是恶意的，
 so that even if plugin code malicious,
 
 1188
 01:17:33,910 --> 01:17:38,260
+也不能随意读写主网页浏览器的内存，
 can't just arbitrarily read wirte the main web browser's memory,
 
 1189
 01:17:38,930 --> 01:17:43,430
+如果用户代码希望进行系统调用，
 and if the user code, user code may be expected to make system calls,
 
 1190
 01:17:44,070 --> 01:17:46,260
+但是这些系统调用，
 but those system calls,
 
 1191
 01:17:46,620 --> 01:17:54,400
+实际上陷入进程的管理者模式，而不是 Linux 的，
 actually trap into the supervisor mode of the process and not into Linux,
 
 1192
 01:17:54,400 --> 01:17:58,480
+这个插件代码可能认为它在调用 fork 或读写什么的，
 the user, this plugin code may think it's calling for fork or read or write who knows what,
 
 1193
 01:17:58,510 --> 01:18:02,650
+但实际上这些执行系统调用的尝试
 but actually those attempts to execute system calls
 
 1194
 01:18:02,770 --> 01:18:05,960
+会陷入 Web 浏览器进程中，
 trap into the web browser in the process,
 
 1195
 01:18:05,990 --> 01:18:07,130
+它们可以做任何事情，
 and they can do whatever like,
 
 1196
 01:18:07,130 --> 01:18:11,390
+它们不能执行系统调用，或者别的什么，
 they can not do the system call, execute system call or who knows what,
 
 1197
 01:18:12,350 --> 01:18:16,790
+我们的网络浏览器可以完全控制沙盒的插件代码。
 our web browser has full control over the sandboxed plugin code.
 
 1198
 01:18:19,740 --> 01:18:21,360
+作为一个概述，
 As a quick overview,
 
 1199
 01:18:21,360 --> 01:18:24,150
+关于使用 Dune 沙箱，有什么问题吗？
 any any questions about using Dune sandbox?
 
 1200
 01:18:30,280 --> 01:18:31,570
+公平地说，这是一种，
 And to be fair, this is something,
 
 1201
 01:18:31,570 --> 01:18:36,040
+这种效果可以通过使用完全不同的技术来实现，
 this is an effect that could be achieved by quite different techniques,
 
 1202
 01:18:36,070 --> 01:18:40,800
+使用现有的 Linux 的设施，
 using existing Linux facilities,
 
 1203
 01:18:40,800 --> 01:18:46,080
+但是 Dune 允许你提供一种特别优雅和高效的方式，
 but Dune allows you to provide in a particularly kind of elegant and efficient way
 
 1204
 01:18:47,070 --> 01:18:48,840
+通过使用 VT-x 硬件。
 by using the VT-x hardware.
 
 1205
 01:18:51,550 --> 01:18:56,790
+论文讨论的使用 Dune 的另一件事是，
 The other thing that the paper talks about using Dune for is
 
 1206
 01:18:56,790 --> 01:18:58,410
+使垃圾收集更快，
 to make garbage collection faster,
 
 1207
 01:18:58,800 --> 01:19:00,150
+这里是，
 and here it's,
 
 1208
 01:19:00,150 --> 01:19:05,280
+它的工作方式是通过允许垃圾收集，
 the way it does that is by allowing the garbage collection,
 
 1209
 01:19:05,880 --> 01:19:08,280
+我们不再使用沙盒，
 we're not doing sandbox anymore,
 
 1210
 01:19:08,280 --> 01:19:10,710
+实际上我们甚至不使用用户模式，
 we're actually not even using user mode,
 
 1211
 01:19:10,710 --> 01:19:12,270
+我们只有一个程序，
 we're just having one program,
 
 1212
 01:19:12,690 --> 01:19:16,710
+假设我们在写任何程序，
 we're, we're assuming that we're writing just whatever program who knows what,
 
 1213
 01:19:16,710 --> 01:19:18,360
+但是在具有垃圾收集的语言中，
 but in a garbage collected language,
 
 1214
 01:19:18,360 --> 01:19:21,930
+比如 Java 或 Python 之类的，
 like Java or python or something,
 
 1215
 01:19:22,590 --> 01:19:24,060
+垃圾收集可能会很慢，
 garbage collection could be slow,
 
 1216
 01:19:25,000 --> 01:19:28,630
+有几十种技巧可以让垃圾收集更快，
 you know, there's dozens and dozens of tricks for making garbage collection faster,
 
 1217
 01:19:28,660 --> 01:19:31,420
+但对垃圾收集者来说，重要的一点是，
 but one of the things that's important in garbage collectors,
 
 1218
 01:19:31,420 --> 01:19:33,250
+垃圾收集器有时，
 the garbage collectors is somewhat,
 
 1219
 01:19:33,250 --> 01:19:38,140
+许多垃圾收集器跟踪发现内存仍然是活动的，
 many garbage collectors trace find that memory is still alive, is still active,
 
 1220
 01:19:38,230 --> 01:19:42,790
+通过跟踪从寄存器开始的所有对象的所有指针，
 by just tracing all the pointers through all objects starting at the registers,
 
 1221
 01:19:42,790 --> 01:19:47,050
+如果在完成跟踪后没有找到一些对象，
 and if doesn't find some object after it's completed trace,
 
 1222
 01:19:47,050 --> 01:19:51,310
+那么无法到达的对象，没有任何指针关联的，
 then that object can't be reached, is referred to by any pointer,
 
 1223
 01:19:51,310 --> 01:19:52,780
+它可以被释放。
 it could be freed.
 
 1224
 01:19:53,600 --> 01:19:56,900
+但是许多垃圾收集器同时运行，
 But many garbage collectors run at the same time
 
 1225
 01:19:56,900 --> 01:19:59,720
+与主程序在不同的线程或其他地方，
 as in a different thread or something as the main program,
 
 1226
 01:19:59,930 --> 01:20:02,450
+所以可能垃圾收集器已经开始跟踪
 and so maybe the garbage collector has started tracing
 
 1227
 01:20:02,450 --> 01:20:06,350
+来自某组寄存器的指针，
 pointers from maybe from some set of registers,
 
 1228
 01:20:06,350 --> 01:20:08,510
+在这个对象之后有一个指针，
 and this followed a pointer to this object,
 
 1229
 01:20:08,510 --> 01:20:10,190
+有指向这些对象的指针，
 which had pointers these objects,
 
 1230
 01:20:10,190 --> 01:20:13,130
+并且垃圾收集器跟随这些指针中的每一个，
 and the garbage collectors following each of these pointers,
 
 1231
 01:20:13,550 --> 01:20:16,970
+向下到达对象的树或图，
 down to the tree or graph of objects,
 
 1232
 01:20:17,270 --> 01:20:21,550
+可能垃圾收集器已经到这里了，
 may be the garbage collector has gone down here so far,
 
 1233
 01:20:22,220 --> 01:20:23,750
+并且跟踪所有这些对象，
 and actually trace through all these objects,
 
 1234
 01:20:23,750 --> 01:20:28,430
+但是因为垃圾收集器与程序本身同时运行，
 but then because the garbage collector is running concurrently with the program itself,
 
 1235
 01:20:28,820 --> 01:20:33,710
+也许程序修改了这个对象，垃圾收集器已经追踪过的，
 maybe the program modifies this object, the garbage collectors already traced through,
 
 1236
 01:20:34,480 --> 01:20:35,530
+这是一个糟糕的处理，
 that's a bad deal,
 
 1237
 01:20:35,560 --> 01:20:39,130
+因为现在对象指针列表，
 because now the list of object pointers,
 
 1238
 01:20:39,130 --> 01:20:41,770
+垃圾收集器决定是活的还是死的或其他的，
 that garbage collectors decided alive or dead or whatever,
 
 1239
 01:20:41,770 --> 01:20:42,910
+它可能是不正确的，
 it may not be correct,
 
 1240
 01:20:42,910 --> 01:20:46,900
+因为看过的对象已经被程序修改。
 because the object is already seen has been modified by the program.
 
 1241
 01:20:48,490 --> 01:20:51,220
+所以， Dune 使用页表支持，
 So, Dune using page table support
 
 1242
 01:20:51,220 --> 01:20:54,970
+为垃圾收集器提供一种检测这种写入的方法，
 provides a way for the garbage collector to detect writes like that,
 
 1243
 01:20:55,690 --> 01:21:04,060
+特别是 Dune 设置 VT-x 支持的虚拟 cr3 ，
 and in particular Dune sets up the cr3, the virtual cr3 supported by VT-x
 
 1244
 01:21:04,510 --> 01:21:06,100
+指向它自己的页表，
 to point to its own page table,
 
 1245
 01:21:07,000 --> 01:21:11,050
+然后使所有这些页表条目有效，
 and then the leaves all these page table entries valid,
 
 1246
 01:21:11,050 --> 01:21:16,330
+但是它查看 d 位，每个页表条目有一个脏位，
 but it looks at the d bit, every page table entry has a dirty bit,
 
 1247
 01:21:16,540 --> 01:21:20,640
+在这种情况下，对这页进行了写入，
 that in the case, there's been a write to that page,
 
 1248
 01:21:20,640 --> 01:21:23,130
+如果程序写入某个对象，
 so if the program writes some object,
 
 1249
 01:21:23,250 --> 01:21:26,310
+那么相应页面中的脏位，
 then the dirty bit in the corresponding page,
 
 1250
 01:21:27,390 --> 01:21:30,660
+在页表中，脏位将会设置，
 in the page table, the dirty bit will be set,
 
 1251
 01:21:30,720 --> 01:21:34,140
+所以，垃圾收集器完成了对这些物体的追踪，
 and so the garbage collectors finished tracing through the objects,
 
 1252
 01:21:34,170 --> 01:21:36,780
+它返回并查看页表中的 d 位，
 it goes back and looks at the d bits in the page table,
 
 1253
 01:21:36,990 --> 01:21:41,340
+定义包含可能已修改的对象的所有页面，
 defined all pages that contain objects that might have been modified
 
 1254
 01:21:41,340 --> 01:21:43,260
+并重新扫描这些对象，
 and re-scans those objects,
 
 1255
 01:21:43,590 --> 01:21:48,000
+事实证明，这种获取 d 位的能力，
 and it turns out that this facility of getting at the d bits
 
 1256
 01:21:48,330 --> 01:21:51,630
+对于普通 Linux 来说是困难和缓慢的，
 is difficult and slow with ordinary Linux,
 
 1257
 01:21:52,700 --> 01:21:53,930
+我甚至不知道 Linux 是否支持，
 I don't even know if Linux supports,
 
 1258
 01:21:53,930 --> 01:21:57,710
+有些操作系统可以进行系统调用来请求 d 位，
 there are operating systems where you can make system calls to ask for d bits,
 
 1259
 01:21:58,610 --> 01:22:00,860
+但是如果你使用 Dune 和 VT-x ，
 but if you use Dune and VT-x,
 
 1260
 01:22:00,860 --> 01:22:05,450
+然后，这个进程可以只使用普通的加载和存储指令
 then the process could just use ordinary load and store instructions
 
 1261
 01:22:05,450 --> 01:22:08,930
+来获得 PTE 和 d 位，并且非常快。
 to get the PTEs and therefore the d bits and it's very fast.
 
 1262
 01:22:09,920 --> 01:22:12,050
+所以他们展示了，
 And so they showed you know that,
 
 1263
 01:22:12,050 --> 01:22:17,180
+这个技巧对于一些垃圾收集密集型的程序来说，
 this makes this trick for some programs that are garbage collection intensive,
 
 1264
 01:22:17,600 --> 01:22:20,480
+大大加快了程序的运行速度。
 makes the programs significantly faster.
 
 1265
 01:22:23,260 --> 01:22:24,160
+有什么问题吗？
 Any questions?
 
 1266
 01:22:26,500 --> 01:22:34,020
+如果沙箱程序想要，
 What would happen if a sandbox program wants to,
 
 1267
 01:22:35,140 --> 01:22:38,470
+运行自己的垃圾收集器或类似的东西，会发生什么？
 like run its own garbage collector or something, like that?
 
 1268
 01:22:38,470 --> 01:22:40,270
+我明白了，所以你使用，
 I see, so you're sort of using,
 
 1269
 01:22:40,270 --> 01:22:40,810
+好的，
 alright, alright,
 
 1270
 01:22:40,810 --> 01:22:44,230
+所以，我们开始使用 Dune ，
 so we got using Dune,
 
 1271
 01:22:45,130 --> 01:22:48,070
+我们有一个 Dune 进程，
 we have a Dune process,
 
 1272
 01:22:48,070 --> 01:22:55,150
+它使用 VT-x 是管理员模式而不是用户模式，
 that's actually using VT-x is a supervisor versus user mode,
 
 1273
 01:22:55,180 --> 01:22:57,280
+我们在用户模式下运行一个插件，
 we're running a plugin up here in user mode,
 
 1274
 01:22:57,280 --> 01:23:00,940
+但是插件也是用垃圾收集语言编写的，
 and the plugin it also it's also written in a garbage collected language
 
 1275
 01:23:00,940 --> 01:23:04,960
+并且希望使用它自己的页表，
 and would like to use to have its own page table,
 
 1276
 01:23:05,710 --> 01:23:09,550
+它自己的 cr3 指向它自己的包含 d 位的页表。
 its own cr3 point to its own page table with its own d bits.
 
 1277
 01:23:10,660 --> 01:23:12,580
+不，那不能工作，
 No, that doesn't work,
 
 1278
 01:23:12,580 --> 01:23:14,890
+因为我们将要运行，
 because we're going to run,
 
 1279
 01:23:14,890 --> 01:23:18,340
+Dune 希望你运行沙箱插件的方式是，
 the way Dune wants you to run plugins sandbox plugins is
 
 1280
 01:23:18,340 --> 01:23:22,270
+运行它们并在客户机用户模式下使用它们，
 to run them and used in guest user mode,
 
 1281
 01:23:22,880 --> 01:23:24,980
+客户机用户模式不允许，
 guest user mode is not allowed,
 
 1282
 01:23:25,100 --> 01:23:28,730
+就像用户模式不允许考虑 cr3 ，
 it's just like user mode is not allowed to think about cr3,
 
 1283
 01:23:29,240 --> 01:23:31,430
+所以，在客户机模式下，
 and so in user mode in guest user mode,
 
 1284
 01:23:31,430 --> 01:23:34,100
+我们不能拥有自己的页表，
 we don't get to have our own page table,
 
 1285
 01:23:34,100 --> 01:23:37,070
+所以我们不能快速访问这个 d 位，
 and so we don't get quick access to the d bits,
 
 1286
 01:23:38,610 --> 01:23:41,400
+它只在客户机管理者模式下。
 it's only in guest supervisor mode,
 
 1287
 01:23:42,050 --> 01:23:43,190
+我们可以有自己的 cr3 ，
 though we can have our own cr3,
 
 1288
 01:23:44,210 --> 01:23:46,220
+所以你不能，
 so you can't,
 
 1289
 01:23:46,980 --> 01:23:50,250
+没有明显的方法来结合这两种技巧，
 well, there's no obvious way to combine the two tricks,
 
 1290
 01:23:50,610 --> 01:23:53,640
+Dune 允许的两种技巧。
 the two kinds of tricks Dune allows.
 
 1291
 01:23:57,380 --> 01:24:04,730
+假设某人写了一个浏览器使用了 Dune ，
 What about let's say somebody wrote a browser actually using Dune,
 
 1292
 01:24:04,820 --> 01:24:06,140
+那就是说，
 that would mean like,
 
 1293
 01:24:06,740 --> 01:24:09,050
+那就很难做了，
 that would be quite tough to make,
 
 1294
 01:24:09,050 --> 01:24:12,260
+如果有些计算机不支持 Dune 之类的东西，
 if some computers didn't support Dune or something right,
 
 1295
 01:24:12,620 --> 01:24:16,580
+比如，让 Chrome 使用 Dune 很难，
 like it's hard to just put Chrome into and to use Dune,
 
 1296
 01:24:16,700 --> 01:24:19,190
+不是每个计算机都有那样的内核模块。
 if not everyone has that kernel modules.
 
 1297
 01:24:19,220 --> 01:24:23,630
+好的，首先你必须在一台支持 VT-x 的计算机上运行，
 Right, so first of all you have to be running on a computer that supports the VT-x,
 
 1298
 01:24:23,840 --> 01:24:25,940
+底层计算机支持 VT-x ，
 you know the underlying computer support VT-x,
 
 1299
 01:24:25,940 --> 01:24:28,310
+这意味着很多英特尔芯片，很多。
 which means many Intel chips, many.
 
 1300
 01:24:29,960 --> 01:24:32,870
+所以，如果你需要 VT-x 来运行 Dune ，
 So, if you need VT-x to run Dune
 
 1301
 01:24:32,870 --> 01:24:34,040
+必须加载 Dune ，
 and Dune had to be loaded
 
 1302
 01:24:34,040 --> 01:24:36,980
+才能运行利用 Dune 的浏览器，
 in order to run the browser that takes advantage of Dune,
 
 1303
 01:24:36,980 --> 01:24:39,080
+所以，是的，你必须正确地设置它。
 so yeah, you've got to set this up correctly.
 
 1304
 01:24:41,330 --> 01:24:44,060
+这是个研究项目，
 You know it's a research project,
 
 1305
 01:24:45,560 --> 01:24:49,300
+它的目的是让人们思考
 it's intended to sort of get people thinking about
 
 1306
 01:24:49,300 --> 01:24:51,940
+可以在现实世界中部署的东西，
 things that could be deployed in the real world,
 
 1307
 01:24:51,940 --> 01:24:54,500
+它们看起来很有价值，
 if they were, they seem like they're valuable,
 
 1308
 01:24:55,220 --> 01:24:56,630
+所以就像 Linux ，
 so you know just like Linux
 
 1309
 01:24:56,630 --> 01:25:01,040
+Linux 有成百上千的功能，
 and Linux is hundreds and hundreds of features it has,
 
 1310
 01:25:01,040 --> 01:25:05,590
+所以，有人决定将 Dune 添加到 Linux 中作为一个标准功能，
 and so somebody decided to add Dune to Linux you know as a standard feature,
 
 1311
 01:25:05,590 --> 01:25:07,090
+然后可以依赖它，
 then that could start relying on,
 
 1312
 01:25:07,480 --> 01:25:09,430
+Chrome 直接使用它就不成问题了。
 Chrome could just use it would not be a problem.
 
 1313
 01:25:17,710 --> 01:25:18,820
+抱歉，从高层级上看，
 Sorry, so in a high-level,
 
 1314
 01:25:18,820 --> 01:25:23,040
+Dune 像是创建了一个虚拟机，
 Dune this like, like be like making a VM,
 
 1315
 01:25:23,040 --> 01:25:26,100
+但运行的不是虚拟机，而是运行一个进程。
 but instead of VM you are run a process.
 
 1316
 01:25:26,370 --> 01:25:30,220
+或者，是的，你可以用任何一种方式来表达，
 Or yeah or, yeah, you can phrase it either way,
 
 1317
 01:25:30,220 --> 01:25:36,230
+我的意思是，它支持的是进程的抽象，
 it's, I mean, it's it's it's supporting what's mostly a process abstraction,
 
 1318
 01:25:37,240 --> 01:25:40,060
+但是它使用的不是页表硬件，
 but but but, it's using instead of using a page table hardware,
 
 1319
 01:25:40,450 --> 01:25:43,510
+它使用 CPU 硬件来支持进程抽象，
 it's using the CPU hardware to support a process abstraction,
 
 1320
 01:25:44,330 --> 01:25:47,120
+但是它使用的不是特定的 CPU 硬件，
 but instead of that particular CPU hardware,
 
 1321
 01:25:47,120 --> 01:25:49,870
+而是使用 VT-x 硬件，
 it's using is the VT-x hardware,
 
 1322
 01:25:49,870 --> 01:25:52,470
+作为一些额外的功能，
 which as a few extra features,
 
 1323
 01:25:52,800 --> 01:25:57,680
+比如，能够设置自己的页面。
 like, like the ability to set up your own page.
 
 1324
 01:25:59,010 --> 01:26:00,210
+好的，我明白了，
 Right, right, I see,
 
 1325
 01:26:00,240 --> 01:26:02,940
+我记得论文，我读过流程级别的抽象，
 I remember the paper I read process level abstraction,
 
 1326
 01:26:02,940 --> 01:26:04,440
+但我不明白它的意思，
 but I didn't understand what it means,
 
 1327
 01:26:04,440 --> 01:26:05,970
+不过，我现在明白了，谢谢。
 but now I understand it, thank you.
 
 1328
 01:26:11,350 --> 01:26:13,060
+好的，现在时间到了，
 Alright, now time is up,
 
 1329
 01:26:13,060 --> 01:26:14,500
+我很高兴继续，
 I'm happy to continue,
 
 1330
 01:26:14,620 --> 01:26:17,110
+任何人有更多的问题，很乐意回答。
 anybody has more questions, happy to answer.
 
 1331
 01:26:18,840 --> 01:26:19,860
+是的，所以我有个问题，
 Yeah, so I had a question,
 
 1332
 01:26:19,860 --> 01:26:23,550
+特别是关于论文中说的一个东西是，
 in particular about a something that said in the paper was,
 
 1333
 01:26:23,550 --> 01:26:28,230
+如果一个 Dune 中的进程 fork ，
 if a Dune like a process a process inside Dune forks,
 
 1334
 01:26:28,410 --> 01:26:31,140
+它变成了一个非 Dune 进程，
 it becomes a non Dune process,
 
 1335
 01:26:31,140 --> 01:26:34,470
+这是不是安全跳出，或者。
 isn't that like a security flying away or or.
 
 1336
 01:26:34,770 --> 01:26:35,610
+攻击是什么？
 What's the attack?
 
 1337
 01:26:36,960 --> 01:26:39,990
+如果你将某项内容作为 Dune 进程运行，
 Well, if you run something as a Dune process,
 
 1338
 01:26:40,020 --> 01:26:41,820
+认为它现在是安全的，
 thinking that it's now safe,
 
 1339
 01:26:41,820 --> 01:26:45,840
+但是然后它运行，从 fork 逃脱。
 but then it can run, it can just fork escape.
 
 1340
 01:26:46,020 --> 01:26:47,520
+所以，这是一种可能性，
 So, here's a possibility,
 
 1341
 01:26:48,250 --> 01:26:52,720
+好的，如果代码在管理者模式下完成，
 okay, so if let's see code done in supervisor mode,
 
 1342
 01:26:53,880 --> 01:26:55,500
+这里没有安全问题，
 there's no security problems,
 
 1343
 01:26:55,500 --> 01:26:57,120
+这些代码，
 this reflected this code,
 
 1344
 01:26:57,120 --> 01:27:00,980
+因为你已经拥有一些权限，
 because you already have whatever privileges where possible it already has,
 
 1345
 01:27:00,980 --> 01:27:03,050
+它不会获得额外的特权，只是 fork 。
 it does not gain the extra privilege just fork.
 
 1346
 01:27:03,600 --> 01:27:04,260
+好的。
 Okay.
 
 1347
 01:27:04,590 --> 01:27:08,460
+编写代码，也许它使用的是 Dune 沙盒插件，
 Code up, but maybe it's using Dune sandbox plugin,
 
 1348
 01:27:09,060 --> 01:27:11,250
+我们这里有不可信的代码，
 and we have untrusted code up here,
 
 1349
 01:27:11,250 --> 01:27:16,960
+让它在没有 Dune 的情况下运行是很危险的，
 that, that would be dangerous, you know, let it run without Dune,
 
 1350
 01:27:16,960 --> 01:27:20,110
+因为它是不可信的，我们使用 Dune 沙盒，
 because it's not trusted, we're using Dune sandbox,
 
 1351
 01:27:20,290 --> 01:27:21,610
+所以如果我们 fork ，
 so then if we forked,
 
 1352
 01:27:22,590 --> 01:27:26,550
+好的，所以这个代码不能 fork ，
 okay, so this code cannot fork, right,
 
 1353
 01:27:26,550 --> 01:27:28,650
+你可以尝试调用 fork 系统调用，
 you can try to call the fork system call,
 
 1354
 01:27:29,160 --> 01:27:35,150
+但是这里的系统调用指令会陷入这个进程的管理者部分，
 but a system call instruction here traps into the supervisor part of this process,
 
 1355
 01:27:35,420 --> 01:27:40,560
+假设这一进程的管理者部分是精心编写的，不会被骗，
 and presuming the supervisor part of this process is carefully written not to be tricked
 
 1356
 01:27:40,860 --> 01:27:43,110
+所以它不是真正的 fork 。
 and so it's not actually a fork.
 
 1357
 01:27:43,640 --> 01:27:44,480
+所以这是行不通的，
 So that doesn't work,
 
 1358
 01:27:44,570 --> 01:27:46,340
+如果管理者代码，
 if the supervisor of code,
 
 1359
 01:27:46,340 --> 01:27:47,330
+它允许被 fork ，
 it is allowed to fork,
 
 1360
 01:27:47,330 --> 01:27:49,340
+它允许进行系统调用，
 it is allowed to make system calls
 
 1361
 01:27:49,340 --> 01:27:52,190
+你可以 fork 这个进程，使用相同的内存镜像，
 that you get to fork this process with the same memory image,
 
 1362
 01:27:52,190 --> 01:27:55,980
+所以我们会把插件放在这里，然后。
 so we'll get the plugin up here, and.
 
 1363
 01:27:56,160 --> 01:27:56,700
+我明白了。
 I see.
 
 1364
 01:27:56,940 --> 01:27:59,970
+如果你没有意识到 fork 关掉了 Dune ，
 If you didn't realize that fork turned off Dune,
 
 1365
 01:28:00,580 --> 01:28:01,510
+而且，
 and it did,
 
 1366
 01:28:05,370 --> 01:28:07,200
+我的意思是很难想象这是怎么发生的，
 I mean it's hard to see how this could actually happen,
 
 1367
 01:28:07,200 --> 01:28:11,220
+如果它要恢复插件的执行，
 but you know if it did something to resume execution of the plugin,
 
 1368
 01:28:11,220 --> 01:28:12,930
+那将是非常愚蠢的，
 now that would be very foolish,
 
 1369
 01:28:12,990 --> 01:28:14,370
+那个插件是一个沙盒，
 you know the plugin is a sandbox,
 
 1370
 01:28:14,520 --> 01:28:19,000
+事实上，代码跳入沙箱中的这里，
 you know, in fact this you know the code jump in the sandbox here
 
 1371
 01:28:19,000 --> 01:28:20,380
+涉及特权指令，
 involves privileged instructions,
 
 1372
 01:28:20,380 --> 01:28:21,790
+就像这张幻灯片上一样，
 just like it does on this slide,
 
 1373
 01:28:22,090 --> 01:28:27,500
+因为它切换客户机模式，
 because it switches, switches guest modes,
 
 1374
 01:28:27,500 --> 01:28:28,970
+如果你在这里执行那条指令，
 and if you execute that instruction here,
 
 1375
 01:28:28,970 --> 01:28:30,500
+那是非法指令。
 that's illegal instruction.
 
 1376
 01:28:32,160 --> 01:28:35,340
+我想我误解的是，
 I guess, I guess what I was misunderstanding was,
 
 1377
 01:28:35,340 --> 01:28:37,860
+我认为插件不是一个进程，
 I think that the plugin is not a process,
 
 1378
 01:28:37,860 --> 01:28:42,210
+比如 Dune 进程就是沙盒，插件就在里面，
 like the the Dune process is the sandbox, the plugin is just inside there,
 
 1379
 01:28:42,630 --> 01:28:45,240
+进程只是可以使用功能，
 process is just enabled to use features
 
 1380
 01:28:45,240 --> 01:28:48,060
+来让插件运行得更快。
 to let the plugin run faster, basically.
 
 1381
 01:28:48,180 --> 01:28:53,560
+是的，我们假设下面的这个软件是聪明的，
 That's right, you know we're absolutely assuming that this software down here is clever,
 
 1382
 01:28:53,560 --> 01:28:57,490
+它会小心，
 which is careful about what it likes,
 
 1383
 01:28:57,760 --> 01:29:02,060
+防止沙箱在现实生活中执行。
 about preventing a sandbox to actually work in real life.
 
 1384
 01:29:03,360 --> 01:29:09,090
+它不是不安全的，对于 Dune 进程有管理者模式，
 And it's not, it's not unsafe, for the Dune process to have supervisor mode,
 
 1385
 01:29:09,090 --> 01:29:11,910
+因为它实际上是 non-root 模式下的管理员模式，
 because it's actually supervisor mode in non-root mode,
 
 1386
 01:29:11,910 --> 01:29:15,690
+与管理者模式一样，在客户机操作系统中。
 which is the same as supervisor mode and a guest OS, right.
 
 1387
 01:29:15,870 --> 01:29:17,790
+比如你可以让它做任何事情，
 It's like you can let it do everything,
 
 1388
 01:29:17,790 --> 01:29:22,230
+但是因为 VT-x 将会像一个虚拟机，
 just, but because VT-x it's going to be like a virtual machine,
 
 1389
 01:29:22,230 --> 01:29:23,340
+所以它不会伤害我们。
 so it's not going to hurt us.
 
 1390
 01:29:23,580 --> 01:29:26,070
+没错，它无法从它的地址空间讨论，
 That's right, it can't escape from its address spaces,
 
 1391
 01:29:26,070 --> 01:29:30,270
+Dune ，一组 EPT 将其约束到它的地址空间。
 EPT, is Dune a set of EPT to constrain it to its address space.
 
 1392
 01:29:33,100 --> 01:29:33,940
+理解了。
 That makes sense.
 
 1393
 01:29:35,560 --> 01:29:37,060
+所以我还有最后一件事，
 So one last thing I had,
 
 1394
 01:29:37,060 --> 01:29:42,760
+有一段是关于 EPT 的，
 I I there was like a paragraph on on EPTs
 
 1395
 01:29:42,760 --> 01:29:48,730
+它说用户页表可以扩展地址，
 and it said that the user page table can just expand the addresses
 
 1396
 01:29:48,880 --> 01:29:50,950
+比如将它们重新映射到原来的布局，
 like re-map them to their original layout,
 
 1397
 01:29:51,420 --> 01:29:54,330
+我不明白整段话的意思。
 that was something I just didn't understand the whole paragraph.
 
 1398
 01:29:54,330 --> 01:29:56,040
+所以，我不知道。
 So, I I don't.
 
 1399
 01:29:56,040 --> 01:29:57,450
+也许这有点太具体了。
 Maybe that's a bit specific.
 
 1400
 01:29:58,280 --> 01:30:00,620
+我认为是，
 I think what's going on is that
 
 1401
 01:30:00,620 --> 01:30:09,840
+x86 上的物理地址比虚拟地址具有更少的位数，
 the physical addresses are on the x86 are have fewer bits than virtual addresses,
 
 1402
 01:30:10,340 --> 01:30:11,270
+所以我在猜测，
 so I'm kind of guessing,
 
 1403
 01:30:11,600 --> 01:30:16,040
+这意味着 EPT ，
 and so that means that the EPT you know that,
 
 1404
 01:30:17,230 --> 01:30:19,900
+普通页表将虚拟地址映射到物理地址，
 the ordinary page table maps virtual addresses to physical addresses,
 
 1405
 01:30:19,900 --> 01:30:22,120
+物理地址有更少的位，
 that physical addresses have fewer bits
 
 1406
 01:30:22,300 --> 01:30:25,150
+所以这就构成了，
 and so that constructs the the,
 
 1407
 01:30:25,850 --> 01:30:30,440
+也就是说，当 Dune 设置的时候，
 that means, when Dune is setting up,
 
 1408
 01:30:31,100 --> 01:30:33,740
+进程的地址空间，
 an address space for a process
 
 1409
 01:30:33,800 --> 01:30:34,760
+或者一种方式是，
 or one way to look at is
 
 1410
 01:30:34,760 --> 01:30:36,800
+当 Dune 为进程设置地址空间时，
 when Dune setting up the address space for process,
 
 1411
 01:30:36,950 --> 01:30:44,010
+进程地址空间必须适合 Dune 进程的较小位数。
 the process address space has to fit in the smaller number of bits for a Dune process.
 
 1412
 01:30:44,040 --> 01:30:44,610
+好的。
 Okay.
 
 1413
 01:30:44,640 --> 01:30:46,440
+普通进程将使用，
 Regular process is going to be used,
 
 1414
 01:30:46,530 --> 01:30:47,430
+我不知道数字是多少，
 I don't know what the numbers are,
 
 1415
 01:30:47,430 --> 01:30:49,620
+比如 48 位虚拟地址，
 let's say 48 bit virtual addresses,
 
 1416
 01:30:49,710 --> 01:30:52,890
+但也许物理地址只有 36 位，
 but maybe physical addresses are only 36 bits,
 
 1417
 01:30:53,420 --> 01:30:54,410
+同样，这是我编造的。
 again, I'm making this up.
 
 1418
 01:30:54,470 --> 01:30:57,470
+普通进程可以使用所有 48 位用于虚拟地址，
 The ordinary process could use all 48 bits for virtual addresses,
 
 1419
 01:30:57,500 --> 01:31:00,230
+而 Dune 进程只能使用 36 位或其他位。
 a Dune process can only use 36 or whatever.
 
 1420
 01:31:00,820 --> 01:31:04,980
+所以有不同的规则来适合。
 So there's different rules for things have to fit down.
 
 1421
 01:31:06,960 --> 01:31:07,620
+好的。
 Okay.
 
 1422
 01:31:13,220 --> 01:31:15,770
+我对 VT-x 方案有一个问题，
 I had a question about the VT-x scheme
 
 1423
 01:31:15,830 --> 01:31:18,020
+以及我们如何访问页表，
 and how we're accessing page tables,
 
 1424
 01:31:18,560 --> 01:31:22,490
+比如，当我们使用这种方式访问页表时，
 so when like in the way we're accessing page tables,
 
 1425
 01:31:22,640 --> 01:31:25,250
+因为我们要去 EPT ，
 because we're going to the EPT
 
 1426
 01:31:25,250 --> 01:31:28,820
+然后在那里进行第二次转换，
 and then doing the second layer of translation there,
 
 1427
 01:31:28,820 --> 01:31:32,990
+从客户物理地址到主机物理地址，
 from the guest physical address to the host physical address,
 
 1428
 01:31:34,260 --> 01:31:38,640
+是不是访问页表的延迟变得更低？
 is the latency of accesses to the page table actually lower?
 
 1429
 01:31:40,370 --> 01:31:43,940
+可能需要更多时间，
 It takes more time potentially takes more time possibly,
 
 1430
 01:31:43,940 --> 01:31:47,600
+对于硬件 MMU ，使用更多时间来转换地址，
 much more time to for the hardware MMU translated address,
 
 1431
 01:31:48,140 --> 01:31:49,730
+因为现在它也必须做两次，
 because now it has to do two,
 
 1432
 01:31:49,790 --> 01:31:53,030
+最糟糕的情况要糟糕得多，
 well, the the worst cases very much worse,
 
 1433
 01:31:53,030 --> 01:31:56,550
+因为，你知道在 RISC-V 上，
 because, you know on the RISC-V,
 
 1434
 01:31:56,550 --> 01:31:59,730
+页表有多个级别，
 there's multiple levels of the page table
 
 1435
 01:31:59,730 --> 01:32:04,470
+所以 MMU 生成从这个页表，
 and so the MMU be generated from this page from this page table page,
 
 1436
 01:32:04,470 --> 01:32:05,610
+然后是下一层，下一层，
 and then next and next,
 
 1437
 01:32:05,790 --> 01:32:08,850
+xv6 中的每一个也具有多个级别，
 each of those the xv6 also has multiple levels,
 
 1438
 01:32:09,870 --> 01:32:11,850
+所以，在 xv6 中，
 and so in the xv6,
 
 1439
 01:32:12,440 --> 01:32:14,600
+在查找中，在第一个主页表中，
 in the lookup, in the first, in the main page table,
 
 1440
 01:32:14,600 --> 01:32:17,210
+可能还必须进行多个内存引用，
 also has to make multiple memory references potentially,
 
 1441
 01:32:17,810 --> 01:32:21,020
+多个内存引用中的每一个都必须通过 EPT ，
 each of those multiple memory references has to go through the EPT
 
 1442
 01:32:21,710 --> 01:32:24,560
+而 EPT 也是多级页表，
 and the EPT is also a multilevel page table,
 
 1443
 01:32:24,950 --> 01:32:30,230
+所以我甚至不知道最坏情况下的内存引用数量，
 and so I don't even know what the worst case number of memory references,
 
 1444
 01:32:30,230 --> 01:32:32,210
+但在 VT-x 下就更糟了，
 but it's quite a bit worse under VT-x
 
 1445
 01:32:32,210 --> 01:32:36,330
+这并不是普通的情况，
 and it is with not that it is ordinary cases,
 
 1446
 01:32:36,330 --> 01:32:39,030
+所以可能，事实上有很多缓存，
 so there's potential there and in fact there's lots of caching,
 
 1447
 01:32:39,240 --> 01:32:41,670
+所以通常不会遇到最坏的情况，但是。
 so usually don't run up against that worst case, but.
 
 1448
 01:32:43,500 --> 01:32:49,330
+今天的虚拟机总体上仍然很慢，
 And so virtual machines are they still like generally slow today,
 
 1449
 01:32:49,600 --> 01:32:53,770
+如果是这样的话，我想知道 AWS 是如何运作的，
 and if so, I I guess I was wondering how does AWS work,
 
 1450
 01:32:53,770 --> 01:32:57,710
+如果它看起来很快，而且运行得很好，那么。
 if it seems to be fast and it seems to be working well, so.
 
 1451
 01:32:58,070 --> 01:33:02,390
+是的，我相信他们用的是 VT-x 硬件，
 Yeah, my my belief is that they use VT-x hardware,
 
 1452
 01:33:03,100 --> 01:33:04,990
+他们使用我们所说的支持，
 they use the support that we're talking about
 
 1453
 01:33:04,990 --> 01:33:11,320
+这也是实现高效设备访问的聪明的设备方案，
 and that is as well as clever device schemes for efficient device access,
 
 1454
 01:33:11,470 --> 01:33:17,840
+结果是 AWS 虚拟机速度很快，
 and that the result is that AWS virtual machines are fast,
 
 1455
 01:33:19,160 --> 01:33:21,230
+或者比真正的电脑慢不了多少。
 or not much slower than a real computer.
 
 1456
 01:33:22,850 --> 01:33:23,480
+好的，非常感谢。
 Cool,thank you so much.
 
 1457
 01:33:25,970 --> 01:33:31,580
+哦，我还有一个关于 trap-and-emulate 影子拷贝的问题，
 Oh, I had also another question on the shadow copy for trap-and-emulate,
 
 1458
 01:33:31,610 --> 01:33:34,400
+所以你说它就像，
 so you said that it like,
 
 1459
 01:33:34,640 --> 01:33:36,410
+我知道你会怎么做，
 I understand how you would make it,
 
 1460
 01:33:36,410 --> 01:33:40,460
+但它是真的制作影子副本，还是只是，
 but does it actually make the shadow copy or does it just,
 
 1461
 01:33:41,600 --> 01:33:43,520
+我认为它必须是影子复制，
 I think it has to be the shadow copy,right,
 
 1462
 01:33:43,520 --> 01:33:46,850
+因为它必须让这个进程自己完成，
 because it has to allow the process just to do it itself,
 
 1463
 01:33:46,850 --> 01:33:49,310
+而不是去所有的 trap ，
 not like to goes to all the traps,
 
 1464
 01:33:49,310 --> 01:33:53,330
+它每次做，是否记得前一次。
 but it's doing every time, does it remember the previous.
 
 1465
 01:33:53,360 --> 01:33:57,980
+好的，所以是的，是的，是的，
 Okay yeah, so yeah, so yeah, yes and yes,
 
 1466
 01:33:57,980 --> 01:34:01,940
+虚拟机监视器必须创建新的页表，
 the virtual machine monitor has to create a new page table or there,
 
 1467
 01:34:01,940 --> 01:34:04,390
+是的，必须创建一个新的页表，
 you know, yes, has to create a new page table
 
 1468
 01:34:04,390 --> 01:34:07,550
+它的虚拟机监视器的页表，
 and its virtual machine monitor's page table
 
 1469
 01:34:07,550 --> 01:34:10,190
+格式化为真实硬件使用的，
 which formatted up which is what the real hardware uses,
 
 1470
 01:34:10,220 --> 01:34:14,600
+当然，有很多缓存和重用的机会，
 now of course there are plenty of opportunities for caching and for reuse,
 
 1471
 01:34:14,600 --> 01:34:17,480
+所以它是一个聪明的虚拟机监视器，
 so it's a it's a clever virtual machine monitors,
 
 1472
 01:34:17,480 --> 01:34:21,020
+如果它们注意到，客户机修改了一个 PTE ，
 if they notice that oh the guest changed just one PTE,
 
 1473
 01:34:21,740 --> 01:34:24,230
+那么虚拟机监视器可能能够
 then the virtual machine monitor may be able to
 
 1474
 01:34:24,230 --> 01:34:29,460
+相应地有限的工作来更新它的影子页面。
 correspondingly limited amount of work to update its shadow page table.
 
 1475
 01:34:30,400 --> 01:34:31,720
+它可能也会保留，
 And it also may keep,
 
 1476
 01:34:32,680 --> 01:34:37,870
+如果它是多个虚拟机之间的分时复用，
 you know when if it's sort of multiplexing time sharing among multiple virtual machines,
 
 1477
 01:34:37,870 --> 01:34:40,060
+虚拟机监视器将保持
 the virtual machine monitor will keep around
 
 1478
 01:34:40,090 --> 01:34:43,510
+未运行的虚拟机的影子页表，
 the shadow page tables for the virtual machines that aren't running,
 
 1479
 01:34:43,960 --> 01:34:46,330
+这样它可以直接重用它们，
 so that it can reuse them directly,
 
 1480
 01:34:47,320 --> 01:34:49,390
+在切换回那个虚拟机时。
 when it switches back to that virtual machine.
 
 1481
 01:34:50,070 --> 01:34:51,180
+好的，我明白了，
 Okay I see,
 
 1482
 01:34:51,210 --> 01:34:52,200
+那是不是意味着你必须，
 so does that mean that you have,
 
 1483
 01:34:52,200 --> 01:34:55,610
+比如，你必须记住每个影子副本，
 like, you have to remember a shadow copy
 
 1484
 01:34:55,610 --> 01:35:00,800
+为每个虚拟机的每个进程。
 for like each process for each virtual machine.
 
 1485
 01:35:03,320 --> 01:35:07,670
+是的，有很多页表，
 Yes, there are many, many, many, many page tables
 
 1486
 01:35:07,790 --> 01:35:09,200
+运行在虚拟机上，
 running around on the virtual machine,
 
 1487
 01:35:09,500 --> 01:35:14,090
+虚拟机知道客户机执行的所有页表切换。
 virtual machine is aware of all page table switches that the guest does.
 
 1488
 01:35:14,640 --> 01:35:20,100
+维护影子页表的具体问题，
 Yeah, it's, that the specific issue of maintaining the shadow page tables,
 
 1489
 01:35:21,090 --> 01:35:22,470
+它消耗了大量的工作。
 it has consumed a lot of work.
 
 1490
 01:35:23,900 --> 01:35:26,930
+好的，非常感谢。
 Right, thank you so much.
 
 1491
 01:35:26,930 --> 01:35:29,000
+这是其中之一，
 Before you know this is one of the many things
 
 1492
 01:35:29,000 --> 01:35:31,070
+硬件支持虚拟机，
 that hardware supported virtual machines,
 
 1493
 01:35:31,700 --> 01:35:33,110
+变得容易多了。
 made quite a bit easier.
 
 1494
 01:35:34,620 --> 01:35:35,370
+哦，好的，好的，
 Oh, okay, okay,
 
 1495
 01:35:35,370 --> 01:35:36,510
+我明白了，好的。
 I see, I see, okay.
 
 1496
 01:35:36,540 --> 01:35:39,210
+因为 EPT 意味着你不需要编造自己的影子页面。
 Because EPTs means you don't have to cook up your own shadow page.
 
 1497
 01:35:39,480 --> 01:35:42,900
+好的，很好，谢谢。
 Right, right, right, yeah that's nice, yeah, thank you.
 
 1498
 01:35:43,080 --> 01:35:43,620
+好的。
 Yes.
 
 1499
 01:35:51,010 --> 01:35:52,330
+好的，我得走了，
 Alright, I gotta head up,
 
 1500
 01:35:52,330 --> 01:35:54,610
+但我们周三见，谢谢。
 but I'll see you guys on Wednesday, thank you.
 
 1501
 01:35:54,850 --> 01:35:55,810
+谢谢。
 Thank you.
 
 1502
 01:35:56,860 --> 01:35:57,610
+谢谢。
 Thank you.
 
 1503
 01:36:02,010 --> 01:36:04,920
+如果你有时间，再问一个问题，
 Is it okay, if you have time for one more question,
 
 1504
 01:36:05,700 --> 01:36:10,290
+如果这是关于垃圾收集的，
 if if if this one is about the garbage collection,
 
 1505
 01:36:10,500 --> 01:36:14,130
+如何重新扫描才能看到脏位，
 of how like re-scans to see like the dirty bits,
 
 1506
 01:36:14,370 --> 01:36:20,050
+它像是一个持续的进程，
 like it is like a sort of a continued process
 
 1507
 01:36:20,050 --> 01:36:22,810
+它持续无限期地重新扫描，
 where like it continues to re-scan like indefinitely,
 
 1508
 01:36:22,810 --> 01:36:24,430
+因为，它能不能。
 because, could it.
 
 1509
 01:36:26,300 --> 01:36:27,980
+你在问，什么是结束，
 You're asking, yeah, whatever terminate,
 
 1510
 01:36:27,980 --> 01:36:30,770
+因为总会有新的修改，
 supposing oh, there's always something new modified,
 
 1511
 01:36:30,860 --> 01:36:33,650
+所以实际上这个潜在的问题，
 so in fact this potential problem,
 
 1512
 01:36:33,650 --> 01:36:35,390
+垃圾收集器所做的是，
 in fact the garbage collector does is it,
 
 1513
 01:36:35,630 --> 01:36:40,830
+它做一次，完成一次，
 it does one pass, one pass through to completion,
 
 1514
 01:36:41,100 --> 01:36:44,550
+它冻结了所有其他东西，除了垃圾收集器，
 and then it freezes everything else, but the garbage collector,
 
 1515
 01:36:44,550 --> 01:36:45,900
+所以不会有其他事情发生，
 so nothing else can happen,
 
 1516
 01:36:46,050 --> 01:36:48,000
+然后它会返回并查看脏页，
 then it goes back and look at the dirty pages,
 
 1517
 01:36:48,000 --> 01:36:49,380
+当然，其他一切都会被冻结，
 but of course everything else is frozen
 
 1518
 01:36:50,040 --> 01:36:52,500
+不会再出现脏页，
 with no more no more dirty pages can occur,
 
 1519
 01:36:52,770 --> 01:36:55,110
+然后垃圾收集器查找所有脏页，
 and then the garbage, the garbage collector looks all dirty pages,
 
 1520
 01:36:55,110 --> 01:36:56,820
+然后它知道它已经完成了，
 then it knows it's done yet,
 
 1521
 01:36:56,820 --> 01:36:58,830
+完成它任何它应该做的事情，
 you know does whatever it's supposed to do to finish up
 
 1522
 01:36:58,830 --> 01:36:59,640
+并创建一个空闲列表，
 and create a free listing
 
 1523
 01:37:00,150 --> 01:37:03,790
+并恢复所有它们已经停止的线程。
 resumes all the threads they had stopped.
 
 1524
 01:37:04,440 --> 01:37:06,930
+哦，好的，好的，这很有道理，
 Oh, okay, yeah, okay, that makes a lot of sense,
 
 1525
 01:37:06,930 --> 01:37:09,180
+我不知道它冻结了其他的一切，但是。
 I I don't know it froze everything else, but.
 
 1526
 01:37:09,330 --> 01:37:11,250
+是的，这是很复杂的东西，
 Yeah yeah, this is complex stuff
 
 1527
 01:37:11,250 --> 01:37:14,160
+当然 Dune 论文中没有足够的篇幅
 and of course there's not enough room in the paper Dune paper
 
 1528
 01:37:14,160 --> 01:37:18,570
+来解释垃圾收集器的所有细节。
 to explain all the ins and outs what garbage collectors have to, sadly.
 
 1529
 01:37:20,400 --> 01:37:22,500
+好的，非常感谢。
 Alright, yeah, thank you so much.
 
 1530
 01:37:22,620 --> 01:37:24,690
+谢谢，再见。
 Thank you, see you later.
 
