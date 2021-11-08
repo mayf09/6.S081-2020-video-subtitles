@@ -1,7036 +1,8795 @@
 1
 00:00:02,110 --> 00:00:03,880
+好的，我想我们开始了，
 Alright, I want we get started,
 
 2
 00:00:03,970 --> 00:00:07,330
+人们想再次打开摄像机，
 you know people want to turn on the camera again
 
 3
 00:00:07,330 --> 00:00:11,830
+它可以很好地创造班级氛围，
 or well it be great used to create sort of class atmosphere,
 
 4
 00:00:12,430 --> 00:00:14,140
+这是我们能做的最好的。
 it's the best we can.
 
 5
 00:00:14,620 --> 00:00:16,750
+好的，这是，
 Okay, so this is,
 
 6
 00:00:17,440 --> 00:00:19,090
+今天我们要讨论这篇论文，
 we're going to talk today about this paper,
 
 7
 00:00:19,120 --> 00:00:22,750
+使用用高级语言编写 UNIX 内核的好处和成本，
 you know the benefits and cost of writing a UNIX kernel in a high-level language,
 
 8
 00:00:24,070 --> 00:00:30,280
+这篇论文编写部分原因是因为 6.S081 或 6.828 ，
 you know, this is basically paper that was partly written because of 6.S081 or 6.828,
 
 9
 00:00:30,840 --> 00:00:34,170
+这篇论文是由我们编写的，
 and there's the paper that you know we've written,
 
 10
 00:00:34,260 --> 00:00:35,670
+Robert 和我，
 you know Robert and I,
 
 11
 00:00:35,670 --> 00:00:39,300
+但主要人物是 Cody Cutler ，
 and that the main person was a main lead was Cody Cutler,
 
 12
 00:00:39,300 --> 00:00:42,960
+他在这门课上当过很多次助教。
 who was a TA this class many many times.
 
 13
 00:00:43,600 --> 00:00:45,340
+这总是有一点，
 It's always a little bit,
 
 14
 00:00:45,340 --> 00:00:46,480
+我不是特别喜欢
 you know I don't really enjoy
 
 15
 00:00:46,480 --> 00:00:49,180
+谈论我们自己编写的论文，
 actually particularly talking about papers that we worked on ourselves,
 
 16
 00:00:49,180 --> 00:00:53,890
+但是这篇论文基本上来自 6.S081 或 6.828 ，
 but you know this paper came about basically 6.S081 or 6.828,
 
 17
 00:00:53,890 --> 00:00:56,740
+所以这次我要用一些幻灯片，
 and so I'm gonna use some slides this time
 
 18
 00:00:56,740 --> 00:00:59,440
+而不是在白板上书写。
 instead of actually writing on a whiteboard.
 
 19
 00:01:00,850 --> 00:01:04,720
+所以这篇论文的真正来源就是这个问题，
 And so really the source of this paper is this question
 
 20
 00:01:04,720 --> 00:01:07,960
+应该用什么语言编写内核。
 in what language should you write a kernel.
 
 21
 00:01:08,520 --> 00:01:12,540
+这是你们很多人都问过的问题，
 And this is a question that many, many of you asked
 
 22
 00:01:12,570 --> 00:01:19,350
+在过去的 6.828 毕业生中问了很多次，
 where you know students in the past 6.828 graduate asked many many many times,
 
 23
 00:01:19,380 --> 00:01:23,490
+因为你的操作系统或内核中有 bug ，
 apparently you know because you know you have bugs in the operating system or your kernel
 
 24
 00:01:23,490 --> 00:01:25,980
+你会说，如果我使用另一种语言编写，
 and you're like well, if I had written this other language,
 
 25
 00:01:25,980 --> 00:01:28,410
+也许我就不会有那些 bug 了。
 then you know maybe I would not have those bugs.
 
 26
 00:01:29,140 --> 00:01:32,560
+所以这是一个经常出现的问题，
 So this is a question that often comes about
 
 27
 00:01:32,560 --> 00:01:36,850
+事实上，在整个操作系统社区中，
 and it turns out you know in the operating system community at large,
 
 28
 00:01:36,850 --> 00:01:39,430
+这是一个争论不休的问题，
 you know this is a hotly debated question,
 
 29
 00:01:39,520 --> 00:01:44,260
+但事实并不多，你可以进行任何知情的讨论。
 but not that many facts, you could actually make a sort of any informed discussion.
 
 30
 00:01:45,200 --> 00:01:47,390
+我们将在这节课结束时看到，
 And what we'll see at this at the end of this lecture,
 
 31
 00:01:47,390 --> 00:01:49,580
+在课程中或你读论文时，
 during this lecture or you as you read the paper,
 
 32
 00:01:49,700 --> 00:01:55,010
+我知道我们对这个问题没有明确的答案，
 I know we don't really have a crisp answer to this question,
 
 33
 00:01:55,160 --> 00:01:59,150
+但是我们这篇论文贡献了很多数据，
 but we have sort of this paper contributes you know a bunch of data,
 
 34
 00:01:59,150 --> 00:02:02,870
+可以让你有更深入的讨论，
 that you know allows you to have a little bit more of an in-depth discussion
 
 35
 00:02:03,140 --> 00:02:07,250
+关于什么是内核的好的编程语言。
 about what is a good programming language for the kernel.
 
 36
 00:02:08,130 --> 00:02:11,220
+这就是这篇论文的原创之处，
 So that was really the original of this paper,
 
 37
 00:02:11,220 --> 00:02:21,300
+基本上这篇论文的来源就是你们。
 and and so we're, and the source you know of this paper is basically you guys.
 
 38
 00:02:21,860 --> 00:02:25,430
+那么，为了回答这个问题，
 So, try to answer the question,
 
 39
 00:02:25,610 --> 00:02:28,880
+我们编写了一个新的内核，
 we wrote a new kernel,
 
 40
 00:02:29,270 --> 00:02:34,280
+并且我们用具有自动内存管理的语言，
 and we did it in the language with automatic memory management
 
 41
 00:02:34,280 --> 00:02:35,570
+这意味着有垃圾收集器，
 that means with garbage collector,
 
 42
 00:02:35,570 --> 00:02:37,760
+所以你不需要调用 free ，
 so you don't actually have to call free,
 
 43
 00:02:37,760 --> 00:02:40,040
+可以避免一类 bug ，
 you know and avoid a class bugs,
 
 44
 00:02:40,040 --> 00:02:43,310
+这是高级语言通常具有的属性之一，
 so that's one of the properties at a high level language typically has,
 
 45
 00:02:43,550 --> 00:02:46,220
+所以，我们希望选择一种具有这种特性的语言，
 and so we wanted to have picked a language that has that,
 
 46
 00:02:46,460 --> 00:02:50,720
+我们基本上遵循了传统的 Unix 结构，
 and we followed basically traditional monolithic Unix organization,
 
 47
 00:02:50,720 --> 00:02:52,280
+我们可以做一个公平的比较。
 we could do a fair comparison.
 
 48
 00:02:52,910 --> 00:02:58,640
+在某种程度上，你可以认为我们构建的是类似于 xv6 的东西，
 And in fact some way you could think about what we built is something like xv6,
 
 49
 00:02:58,640 --> 00:03:04,070
+功能更多，性能更高。
 much much more, more features and more high performance.
 
 50
 00:03:05,140 --> 00:03:05,980
+我的意思是，正如你知道的，
 I mean, as you know,
 
 51
 00:03:05,980 --> 00:03:12,430
+xv6 有各种慢性算法或线性搜索、类型算法，
 xv6 has all kinds of chronic algorithms or linear search, type algorithms,
 
 52
 00:03:12,430 --> 00:03:14,920
+当然，如果你想实现高性能，
 and of course if you want to achieve high performance,
 
 53
 00:03:14,920 --> 00:03:15,790
+你不能有这些。
 you can't have those.
 
 54
 00:03:17,360 --> 00:03:20,900
+所以，这就是论文的来源，
 And so that was the original, this paper in the original,
 
 55
 00:03:20,900 --> 00:03:23,930
+为什么我们构建了 Biscuit 试图回答这个问题，
 why we built Biscuit trying to answer that question
 
 56
 00:03:23,930 --> 00:03:25,100
+或者至少给我们一些启示。
 or at least shed some light.
 
 57
 00:03:25,650 --> 00:03:28,440
+首先，我要讨论一下更一般的背景，
 First, I'm going to talk a little bit about sort of more general background,
 
 58
 00:03:28,440 --> 00:03:31,770
+我通过电子邮件得到很多问题，
 I got a lot of questions over email,
 
 59
 00:03:31,770 --> 00:03:34,530
+我们正试图获得更多的背景信息，
 we're trying to get a little bit more context,
 
 60
 00:03:34,830 --> 00:03:38,400
+然后我会更详细地讨论 Biscuit ，
 and then I will dive into Biscuit in more more detail,
 
 61
 00:03:38,610 --> 00:03:42,330
+任何时间都可以随意提出问题，
 feel free to jump in with questions in any particular point of time,
 
 62
 00:03:42,540 --> 00:03:47,470
+正如你所知道的，这篇论文的动机是你们提出的问题，
 here as you know this paper was motivated by questions you asked,
 
 63
 00:03:47,470 --> 00:03:50,380
+所以，请继续问问题。
 and so you know please please ask keep asking questions.
 
 64
 00:03:52,980 --> 00:03:56,160
+所以，正如你可以做的那样，
 So, as you can just do,
 
 65
 00:03:56,370 --> 00:04:00,480
+这篇论文的设置是很多内核都是用 C 语言写的，
 sort of the setting of this paper is a lot of kernels are written in C,
 
 66
 00:04:00,480 --> 00:04:03,270
+xv6 是用 C 语言写的，你使用 C 语言编写程序，
 and you know xv6 is written in C, you're programming in C,
 
 67
 00:04:03,420 --> 00:04:09,180
+你在桌面或手机上看到的大多数流行内核都是用 C 语言编写的，
 but most popular kernels that you see on your desktop or your phone are written in C,
 
 68
 00:04:09,180 --> 00:04:14,130
+Windows Linux 以及所有各种形式的 BSD 。
 Windows Linux Linux to all the various forms of BSDs.
 
 69
 00:04:14,850 --> 00:04:21,420
+用 C 语言编写的原因是，
 And, and the reason the written or written in C is that,
 
 70
 00:04:21,990 --> 00:04:25,680
+C 提供了很多控制，正如你在实验中看到的，
 C provides a lot of control as you've seen in the labs,
 
 71
 00:04:25,770 --> 00:04:28,710
+完全控制内存分配和释放，
 yeah, complete control for memory allocation and freeing,
 
 72
 00:04:28,980 --> 00:04:31,290
+几乎没有隐式代码，
 there's almost no implicit code,
 
 73
 00:04:31,290 --> 00:04:34,140
+你几乎可以想象，当你阅读 C 代码的时候，
 you know you can almost imagine when you're reading the C code,
 
 74
 00:04:34,140 --> 00:04:36,540
+对应的 RISC-V 指令是什么，
 what the corresponding RISC-V instructions are,
 
 75
 00:04:37,000 --> 00:04:38,740
+你可以直接访问内存，
 you have direct access to memory,
 
 76
 00:04:38,740 --> 00:04:44,140
+你可以读写 PTE 位或者设备寄存器，您知道您知道的PTE位或设备的寄存器，
 you can read or write you know the PTE bits you know or the register of a devices,
 
 77
 00:04:44,410 --> 00:04:48,640
+而且 C 语言本身有很少的依赖，
 and you know C itself [] very few dependencies,
 
 78
 00:04:48,640 --> 00:04:51,280
+你并不需要很大的运行时，
 you know there's no large runtime that you actually have to have,
 
 79
 00:04:51,400 --> 00:04:52,750
+为了能够运行 C 程序，
 to be able to run a C program,
 
 80
 00:04:52,750 --> 00:04:55,870
+你几乎可以直接在裸硬件上运行。
 you can almost run almost immediately on bare hareware.
 
 81
 00:04:56,260 --> 00:04:58,540
+你已经看到一旦 xv6 启动，
 And you've seen that once xv6 boots,
 
 82
 00:04:58,540 --> 00:05:00,310
+先是几行汇编代码，
 you know it's basically a few lines of assembly
 
 83
 00:05:00,310 --> 00:05:01,900
+然后你就是在运行 C 代码。
 and then basically you're running C code.
 
 84
 00:05:02,780 --> 00:05:06,860
+但是这些都是 C 语言优点，
 But there are all the good virtues of C
 
 85
 00:05:06,860 --> 00:05:08,660
+也是我们非常喜欢 C 的一个原因。
 and one reason that we like C a lot.
 
 86
 00:05:09,230 --> 00:05:11,810
+但是 C 也有一些缺点，
 But C also has some downsides,
 
 87
 00:05:12,080 --> 00:05:16,190
+在过去的几十年里已经被证明了，
 you know it has been proven over the last few decades,
 
 88
 00:05:16,340 --> 00:05:19,340
+写安全的 C 代码很难，
 that writing security C code is difficult,
 
 89
 00:05:19,340 --> 00:05:26,030
+有几种类型的 bug ，经常会被利用，
 you know there are types of bugs that can, you can often be exploited
 
 90
 00:05:26,030 --> 00:05:27,470
+无论是缓冲区溢出，
 whether it is buffer overruns,
 
 91
 00:05:27,470 --> 00:05:30,950
+这可能是在过去最广为人知的问题，
 which are probably the most well-known one you're writing behind the past,
 
 92
 00:05:31,450 --> 00:05:35,980
+一个数组绑定，或者你正在堆下面写，
 an array bound or you're writing you know below your stack,
 
 93
 00:05:36,340 --> 00:05:42,640
+use-after-free bug ，你释放了内存，但是它仍在使用，
 use-after-free bugs, you know where you know the free of memory, but it's still in use,
 
 94
 00:05:43,140 --> 00:05:45,060
+所以当有人在上面乱写的时候，
 and so when somebody scribbles on it
 
 95
 00:05:45,060 --> 00:05:47,460
+在上面乱写一些不好的东西，
 and you know scribble something bad on it,
 
 96
 00:05:47,580 --> 00:05:52,440
+通常情况下，线程共享内存时，
 and generally you know when threads are sharing memory
 
 97
 00:05:52,440 --> 00:05:55,770
+很难决定哪些内存可以释放。
 is typically difficult to decide you know what actually memory can be freed.
 
 98
 00:05:56,940 --> 00:05:59,670
+有些 bug ，并不会真的出现在那里，
 Some of these bugs, you know don't really show up that,
 
 99
 00:05:59,940 --> 00:06:04,200
+一些 bug 明确地体现在 xv6 中，一些较少，
 you know some of the bug manifest itself explicitly xv6, some less,
 
 100
 00:06:04,200 --> 00:06:09,360
+xv6 的动态内存分配非常少，
 so you know, you know xv6 very little dynamic memory allocation,
 
 101
 00:06:09,360 --> 00:06:11,820
+你几乎是已经预先分配好了，
 you're almost after being sort of pre allocated [right up front],
 
 102
 00:06:12,260 --> 00:06:16,580
+缓冲区溢出通常会出现释放 bug 。
 a buffer overruns usually have free bugs do show up.
 
 103
 00:06:17,440 --> 00:06:22,540
+事实上，如果你看一看 CVEs ，
 So, in fact you know if you look at CVEs,
 
 104
 00:06:22,630 --> 00:06:25,360
+有一个网站，
 you know these are you know there's a website
 
 105
 00:06:25,360 --> 00:06:27,790
+有一个组织保持控制，
 where there's an organization that keeps control,
 
 106
 00:06:27,790 --> 00:06:32,110
+检查和记录所有安全漏洞，
 that checks and keeps a record of all of the security exploits,
 
 107
 00:06:32,350 --> 00:06:36,730
+调查一下，你会发现，在 2017 年我们做这篇论文的时候，
 and investigate that you'll find that in 2017 when we were doing this paper,
 
 108
 00:06:36,730 --> 00:06:41,380
+有 40 个 Linux 内核 bug ，
 that there were 40 Linux kernel bugs,
 
 109
 00:06:41,380 --> 00:06:47,950
+会导致攻击者完全控制机器。
 that can actually lead to an attacker running take complete control over the machine.
 
 110
 00:06:48,570 --> 00:06:50,220
+显然，那些是严重的 bug ，
 Clearly, you know those are serious bugs
 
 111
 00:06:50,220 --> 00:06:52,740
+这些 bug 来自于缓冲区溢出，
 and those bugs came out of buffer overruns
 
 112
 00:06:52,890 --> 00:06:55,860
+以及其他类型的内存安全 bug 。
 and other types of memory safety bugs.
 
 113
 00:06:56,720 --> 00:06:59,990
+所以这太糟糕了，
 So you know it's sort of too bad,
 
 114
 00:07:00,020 --> 00:07:01,850
+如果你用 C 语言写代码，
 you know that if you write code in C,
 
 115
 00:07:01,850 --> 00:07:03,050
+很难做到，
 you know that actually is hard,
 
 116
 00:07:03,050 --> 00:07:08,060
+即使是专业人士也很难做到这一点。
 even for people that do that professionally and to actually get this right.
 
 117
 00:07:08,730 --> 00:07:11,580
+当然，我相信你在实验里见过这个，
 And of course you know, I'm sure you've seen this in the lab,
 
 118
 00:07:11,580 --> 00:07:16,590
+也许，我记得在 Piazza 上的一些问题，
 you know probably certainly I remember from some of the the Piazza questions,
 
 119
 00:07:16,590 --> 00:07:19,200
+你们遇到 use-after-free bug 的次数，
 you know the number if you run into use-after-free bugs,
 
 120
 00:07:19,200 --> 00:07:21,690
+特别是在写入时复制实验里，
 you know in particular in the copy-on-write lab,
 
 121
 00:07:21,930 --> 00:07:23,760
+它们出现了很多次。
 they showed up a bunch of times.
 
 122
 00:07:25,530 --> 00:07:30,660
+所以，高级语言吸引人的一个原因是，
 So yeah so, one reason that a high-level language would be attractive is that,
 
 123
 00:07:30,690 --> 00:07:33,240
+高级语言提供了内存安全，
 a high-level language that provides memory safety,
 
 124
 00:07:33,360 --> 00:07:37,170
+所以，所有 CVE 披露的 bug ，
 and so all these bugs that CVE exploits
 
 125
 00:07:37,170 --> 00:07:38,670
+我在上一张幻灯片中提到的，
 that I mentioned on the previous slide
 
 126
 00:07:38,790 --> 00:07:41,490
+将会是不可能的，
 would not be would not be possible,
 
 127
 00:07:41,520 --> 00:07:43,740
+如果它们发生了，
 you know could use you know they if they happen,
 
 128
 00:07:43,830 --> 00:07:45,660
+它们要么会导致 panic ，
 they either would result in a panic,
 
 129
 00:07:45,690 --> 00:07:48,410
+因为运行时会说，
 you know, because you know the runtime which would say,
 
 130
 00:07:48,410 --> 00:07:50,450
+你要写的东西已经不在了，你不能那样做，
 like, oh you're writing passed away, you can't do that,
 
 131
 00:07:50,660 --> 00:07:55,100
+或者根本不能表现出来，
 or you know you just couldn't manifest itself at all,
 
 132
 00:07:55,130 --> 00:07:58,010
+因为语言不会允许你编写这样的代码。
 because the language wouldn't allow you to write that kind of code.
 
 133
 00:08:00,800 --> 00:08:03,560
+高级语言当然还有其他好处，
 So there are of course other benefits to a high-level language,
 
 134
 00:08:03,650 --> 00:08:09,710
+这门课上的学生也经常提到，
 you know which often is also mentioned you know by you know students in this class,
 
 135
 00:08:09,740 --> 00:08:11,030
+当他们在做实验时，
 when they're doing labs,
 
 136
 00:08:11,030 --> 00:08:12,350
+除了类型安全，
 in addition to type safety,
 
 137
 00:08:12,350 --> 00:08:14,990
+还有具有垃圾收集器的自动内存管理，
 you know there's automatic memory management with garbage collector,
 
 138
 00:08:15,320 --> 00:08:16,850
+所以释放是很简单的，
 so freeing is easy,
 
 139
 00:08:16,850 --> 00:08:18,080
+你不用考虑它，
 you don't have to think about it,
 
 140
 00:08:18,080 --> 00:08:19,850
+垃圾收集器会帮你做所有的工作，
 the garbage collector does all the work for you,
 
 141
 00:08:19,970 --> 00:08:22,130
+它对并发性有好处，
 it's good for concurrency,
 
 142
 00:08:22,130 --> 00:08:23,690
+它有很好的抽象性，
 you know it has good abstractions,
 
 143
 00:08:23,720 --> 00:08:29,090
+比如 Go 它的接口或其他一些类或其他形式的，
 you know it's like Go its interfaces or some other classes or some other form of,
 
 144
 00:08:29,270 --> 00:08:33,710
+这会鼓励你编写模块化代码。
 you know forces you or encourage you to actually write modular code.
 
 145
 00:08:36,620 --> 00:08:38,720
+不好的一面，你可能会想，
 The downsides and you might be wondering like,
 
 146
 00:08:38,720 --> 00:08:41,360
+如果高级语言有这么多好处，
 oh if there's so many upsides to high-level languages,
 
 147
 00:08:41,360 --> 00:08:42,980
+为什么不，
 you know why not,
 
 148
 00:08:42,980 --> 00:08:47,540
+为什么 xv6 不是用 Java Go Python 或其他什么来写，
 you know why is xv6 not written in you know Java Go Python or whatever,
 
 149
 00:08:47,900 --> 00:08:50,810
+原因是， Linux ，
 and the reason is you know the or Linux,
 
 150
 00:08:50,810 --> 00:08:53,000
+原因是它的性能很差，
 you know the reason is there's poor performance,
 
 151
 00:08:53,000 --> 00:08:56,600
+高级语言是要付出代价的，
 you know there's a cost to actually a high-level language,
 
 152
 00:08:56,600 --> 00:08:59,780
+有时这被称为高级语言税。
 sometimes this is referred to as the high-level language tax.
 
 153
 00:09:00,240 --> 00:09:05,460
+这些是，如果你做一个数组界限，数组索引，
 And you know these are basically you know if you do an array bounds, array index,
 
 154
 00:09:05,460 --> 00:09:07,230
+你必须检查边界，
 you know you have to check the bounds,
 
 155
 00:09:07,230 --> 00:09:09,060
+你必须检查空指针，
 you know you have to check nil-pointers,
 
 156
 00:09:10,060 --> 00:09:14,020
+它们有更昂贵的转换，
 and they have more expensive cast,
 
 157
 00:09:14,260 --> 00:09:17,260
+垃圾收集也不是免费的，
 and you know garbage collection itself is also not free,
 
 158
 00:09:17,290 --> 00:09:20,260
+要花几个周期来追踪，
 you know there's gonna be some cycles spent tracking down
 
 159
 00:09:20,260 --> 00:09:23,740
+哪些对象是空闲的，哪些是分配的，这是也是损失。
 which objects are free, which are allocated, then you know that's a cost.
 
 160
 00:09:26,640 --> 00:09:28,620
+所以这是从性能方面，
 So that's you know from the performance side
 
 161
 00:09:28,650 --> 00:09:30,840
+很多论文都集中在这一点。
 and a lot of the paper focuses on this.
 
 162
 00:09:30,930 --> 00:09:33,870
+然后原则上，我的意思是，
 And then in principle you know often I mean
 
 163
 00:09:33,900 --> 00:09:37,740
+它被认为是与 Linux 内核编程的不兼容，
 it's perceived as a sort of incompatibility with Linux kernel programming,
 
 164
 00:09:38,360 --> 00:09:40,730
+没有直接的内存访问，
 you know no direct memory access,
 
 165
 00:09:40,730 --> 00:09:44,930
+因为原则可能知道违反了类型安全，
 you know, because the principal could know a violate type safety,
 
 166
 00:09:45,380 --> 00:09:47,090
+没有手写汇编语言，
 no hand-written assembly
 
 167
 00:09:47,090 --> 00:09:49,430
+你需要在内核中使用一些手写汇编语言，
 and you need some hand-written assembly in the kernel,
 
 168
 00:09:49,430 --> 00:09:51,920
+在两个线程之间的上下文切换，
 whereas the context switch between two threads
 
 169
 00:09:51,920 --> 00:09:54,650
+或者在机器启动时顺利开始，
 or to get off the ground when the machine boots,
 
 170
 00:09:55,320 --> 00:10:00,790
+通常情况下，
 in you know often,
 
 171
 00:10:00,880 --> 00:10:06,460
+语言可能有一个特定的并发或并行的计划，
 you know the language may have a particular plan for concurrency or parallelism
 
 172
 00:10:06,460 --> 00:10:11,770
+可能与内核需要的并发并行不一致，
 that might not line up with the plan that the kernel needs work concurrency parallelism,
 
 173
 00:10:11,770 --> 00:10:15,730
+我们已经看到，比如在调度课程中，
 we've seen for example and a scheduling lecture,
 
 174
 00:10:15,730 --> 00:10:19,570
+一个线程将锁传递给另一个线程，
 you know one thread passes a lock to another thread,
 
 175
 00:10:19,570 --> 00:10:23,350
+有几种并发管理的模式，
 where you know there's a couple you know there's patterns of concurrency management
 
 176
 00:10:23,350 --> 00:10:25,270
+这些都是不普通或普通的程序，
 that are sort of unusual and usual programs,
 
 177
 00:10:25,270 --> 00:10:27,690
+但它们确实出现在内核中。
 but they do show up in, in kernels.
 
 178
 00:10:28,580 --> 00:10:35,680
+所以，这个论文的目标是，
 So, so the goal basically of this you know paper was
 
 179
 00:10:35,680 --> 00:10:38,560
+衡量高级语言的权衡，
 to sort of measure the high-level language trade-offs,
 
 180
 00:10:38,710 --> 00:10:41,440
+探索使用高级语言代替 C 语言的总体效果，
 explore the total effects of using high-level language instead of C,
 
 181
 00:10:41,470 --> 00:10:44,920
+不仅是在安全编程能力方面，
 you know both in terms of a safety program ability,
 
 182
 00:10:44,950 --> 00:10:46,870
+而且在性能成本方面。
 but also for performance cost.
 
 183
 00:10:47,200 --> 00:10:49,870
+当然，如果你想做这个实验，
 And of course if you'd like to do this, this kind of experiment,
 
 184
 00:10:49,870 --> 00:10:52,390
+你需要做那种生产级的内核，
 you know you need to do that sort of a production grade kernel,
 
 185
 00:10:52,390 --> 00:10:53,740
+你不能在 xv6 上做到这一点，
 you can't do that on xv6,
 
 186
 00:10:53,740 --> 00:10:56,440
+因为它太慢了，你可能什么都学不到，
 because it's so slow that basically you probably won't learn anything,
 
 187
 00:10:56,470 --> 00:10:59,320
+这是一个用 C 语言写得很慢的程序，
 you know it's a program that was written slow in C,
 
 188
 00:10:59,320 --> 00:11:01,780
+你用 Go 也写得很慢，
 you're written slow in Go,
 
 189
 00:11:01,780 --> 00:11:05,230
+这并不能告诉你很多关于 C 对 Go 的问题，
 you know doesn't really tell you much about you know the C versus Go question,
 
 190
 00:11:05,230 --> 00:11:06,940
+它只是说 xv6 很慢。
 it just says like well xv6 slow.
 
 191
 00:11:07,560 --> 00:11:12,570
+所以你想要在一个更高性能的内核，
 And so you want to do that in a more high performance you know oriented kernel
 
 192
 00:11:12,690 --> 00:11:15,060
+或者内核是为高性能而设计的。
 or the kernel was designed for high performance.
 
 193
 00:11:17,600 --> 00:11:19,700
+所以你知道有一件事是令人惊讶的，
 And so you're you know one of the things that are surprising,
 
 194
 00:11:19,700 --> 00:11:24,260
+因为你们中的许多人问到这个，
 because like many of you ask this [] ask this
 
 195
 00:11:24,260 --> 00:11:29,300
+我想这个问题一定会在文献中得到回答，
 and I would imagine well this question must be answered in the literature,
 
 196
 00:11:29,480 --> 00:11:31,430
+事实证明这并不是，
 and you know it turns out that actually isn't,
 
 197
 00:11:31,490 --> 00:11:36,590
+有很多的研究这个问题，
 it is there's quite a number of studies that look into the question
 
 198
 00:11:36,590 --> 00:11:40,040
+关于高级语言在用户程序中的权衡的问题，
 of high-level language trade-offs in the context of user programs,
 
 199
 00:11:40,510 --> 00:11:46,510
+但是内核和用户程序有很大的不同，
 and, but you know as you know the kernel is quite a bit different from user programs,
 
 200
 00:11:46,990 --> 00:11:49,990
+比如仔细的内存管理是非常重要的，
 for example memory management, careful memory management is really important,
 
 201
 00:11:50,440 --> 00:11:52,720
+这种不同类型的并发性可能略有不同，
 this different types of concurrency may be slightly different,
 
 202
 00:11:52,870 --> 00:11:55,570
+所以我们想在内核中做这件事。
 so we want to do it in the context of a kernel.
 
 203
 00:11:56,310 --> 00:12:00,300
+我们没有找到任何论文真正回答这个问题，
 And we don't actually really find any sort of papers really answer this question,
 
 204
 00:12:00,880 --> 00:12:02,620
+你能接近的是，
 the closer you could come to is,
 
 205
 00:12:02,620 --> 00:12:07,540
+有很多内核是用高级语言编写的，
 there you know there are many kernels written in high-level language,
 
 206
 00:12:07,540 --> 00:12:09,640
+这样做已经有很长的历史了，
 you know there's a long history of doing that,
 
 207
 00:12:09,640 --> 00:12:13,840
+甚至可以追溯到早期的机器，
 they're dating back even to sort of the early [] machines,
 
 208
 00:12:14,080 --> 00:12:19,450
+但是很多这些内核的最新版本，
 and you know but many of the sort of recent versions of these kernels
 
 209
 00:12:19,810 --> 00:12:26,650
+并不是根据评估高级语言税问题的想法来做的，
 are not really written with the idea of evaluating this high-level language tax question,
 
 210
 00:12:27,000 --> 00:12:32,790
+而是真正探索新的操作系统设计和新的操作系统架构，
 but really to explore new OS designs and new OS architectures,
 
 211
 00:12:33,090 --> 00:12:36,900
+所以它们没有一个是直接评估，
 and so none of them really measured directly,
 
 212
 00:12:36,900 --> 00:12:39,450
+比如面对面的比较，
 you know sort of head to head comparison,
 
 213
 00:12:39,660 --> 00:12:41,970
+保持结构不变，
 and keep the structure the same,
 
 214
 00:12:42,210 --> 00:12:45,210
+所以你可以真正专注于语言的问题，
 so you can really focus on this issue of the language
 
 215
 00:12:45,210 --> 00:12:47,490
+而不是其他问题。
 as opposed to some other issues.
 
 216
 00:12:49,220 --> 00:12:53,960
+事实上，我们过去读过一些论文。
 In fact we used to read you know some of these papers actually in the past.
 
 217
 00:12:59,350 --> 00:13:02,320
+所以，有一个原因可能是，
 So, you know there's one reason may be that,
 
 218
 00:13:02,320 --> 00:13:05,290
+没有太多的工作回答，
 there's not a lot of work that actually answers,
 
 219
 00:13:05,290 --> 00:13:07,840
+很多论文没有回答这个问题，
 a ton of papers not answer this question is,
 
 220
 00:13:07,840 --> 00:13:09,340
+做这件事是很困难的，
 it's actually tricky to do it,
 
 221
 00:13:09,460 --> 00:13:12,580
+如果你真的想做它，
 basically if you really do it right,
 
 222
 00:13:12,610 --> 00:13:15,100
+想和一个 C 编写的生产级别的内核进行比较，
 you know you want to compare with a production grade C kernel,
 
 223
 00:13:15,160 --> 00:13:19,510
+比如 Linux 或 Windows 之类的东西，
 that means something like Linux or something that Windows whatever,
 
 224
 00:13:19,750 --> 00:13:23,350
+然后你必须构建一个产品级别的内核，
 but then you have to build a production grade kernel
 
 225
 00:13:23,350 --> 00:13:28,570
+当然，对于一个小团队来说，这是很难做到的，
 and you know clearly for a small team that is very hard to do,
 
 226
 00:13:28,870 --> 00:13:31,570
+你知道有很多 Linux 内核开发者，
 you know there's lots of lots of Linux kernel developers,
 
 227
 00:13:31,570 --> 00:13:36,580
+做了很多修改，一周又一周，一天又一天，
 make many many changes you know week by week day by day
 
 228
 00:13:36,580 --> 00:13:39,100
+所以很难做到，
 and so it's going to be hard to
 
 229
 00:13:39,100 --> 00:13:40,930
+做同样的事情，
 you know to do the same thing
 
 230
 00:13:40,930 --> 00:13:43,450
+构建一个同类型的东西，
 and build an equivalent you know type of thing,
 
 231
 00:13:43,450 --> 00:13:48,460
+所以你只能满足于稍微低于。
 so you have to settle for something slightly less than.
 
 232
 00:13:51,660 --> 00:13:55,050
+所以，我们能做的最好的是，
 So the best we could do or the best we could come up to do is
 
 233
 00:13:55,170 --> 00:13:57,840
+构建一个高级语言的内核，
 build a high-level build a kernel on the high-level language,
 
 234
 00:13:57,870 --> 00:14:00,360
+保持大部分重要方面与 Linux 相同，
 you know keep most of the important aspects of same as Linux,
 
 235
 00:14:00,840 --> 00:14:02,880
+优化性能，
 optimized performance,
 
 236
 00:14:02,880 --> 00:14:06,300
+优化性能，直到与 Linux 大致相似，
 roughly optimized performance until it's roughly similar to Linux,
 
 237
 00:14:06,300 --> 00:14:09,210
+即使它可能不是完全相同的特性，
 you know even though maybe it's not identically exactly identical features,
 
 238
 00:14:09,210 --> 00:14:10,950
+但它进入了同样的范围内，
 but it gets into the same ballpark
 
 239
 00:14:11,310 --> 00:14:13,710
+然后评估高级语言的权衡。
 and then measured high-level language trade-offs.
 
 240
 00:14:14,520 --> 00:14:18,300
+当然，这种方法的风险是，
 And of course you know the risk you know this approach is that
 
 241
 00:14:18,300 --> 00:14:21,990
+我们构建的内核实际上与 Linux 略有不同，
 you know the kernel that we built you know actually is slightly different than Linux,
 
 242
 00:14:21,990 --> 00:14:23,880
+它不会和 Linux 完全一样，
 you know it's not gonna be exactly like Linux
 
 243
 00:14:23,880 --> 00:14:28,440
+所以当你得出任何结论时，必须非常小心。
 and so you've gotta be very careful when drawing any conclusions.
 
 244
 00:14:28,900 --> 00:14:31,660
+这是一个原因，
 And you know and this is one reason
 
 245
 00:14:31,660 --> 00:14:34,570
+为什么我们仍然可以得到一个相当清晰的答案，
 why you can still get a really crystal clear answer,
 
 246
 00:14:34,570 --> 00:14:36,640
+这就是这篇论文提出的问题，
 that is the question that basically this paper proposes,
 
 247
 00:14:36,820 --> 00:14:39,910
+但我们希望能获得更深层次的洞察力，
 but we can hopefully get a little bit more deeper insight
 
 248
 00:14:39,910 --> 00:14:42,070
+而不是基本上什么都不说。
 than basically saying almost nothing about it.
 
 249
 00:14:44,560 --> 00:14:47,860
+这能理解吗，到目前为止，有什么问题吗？
 Is this makes sense, so far, any questions?
 
 250
 00:14:48,690 --> 00:14:51,030
+这就是这篇论文的背景，
 That's sort of the context of this paper,
 
 251
 00:14:51,030 --> 00:14:54,120
+以及为什么我们这么做。
 and you know why we gone to do it.
 
 252
 00:14:55,990 --> 00:14:58,700
+好的，如果没有问题，
 Okay so, if there's no questions,
 
 253
 00:14:58,700 --> 00:15:02,510
+我想多谈一点关于方法论的问题。
 I'd like to talk a little bit more about the methodology.
 
 254
 00:15:03,290 --> 00:15:07,220
+所以，基本的设置是，
 So, so basically you know the sort of setup is
 
 255
 00:15:07,220 --> 00:15:12,170
+在左边，有我们的 Biscuit ，
 here on the left side, you know we have our is gonna be Biscuit,
 
 256
 00:15:12,860 --> 00:15:17,600
+我们要，在我们的情况中，
 you know, we're gonna, in our particular case,
 
 257
 00:15:17,600 --> 00:15:21,590
+我们为这篇论文使用 Go 编写的内核，
 we wrote for this paper the kernel in Go,
 
 258
 00:15:21,590 --> 00:15:26,900
+它提供了与 Linux 的系统调用大致相同的子集，
 it provides roughly a similar subset of the system calls Linux provides,
 
 259
 00:15:26,900 --> 00:15:28,370
+你知道它们的方式，
 but you know the way to,
 
 260
 00:15:28,370 --> 00:15:30,050
+它们有相同的参数，
 but they have same arguments,
 
 261
 00:15:30,050 --> 00:15:32,150
+相同的的调用接口。
 you know the same calling interfaces.
 
 262
 00:15:32,850 --> 00:15:36,360
+我们在接口上运行相同的应用程序，
 And we run basically the same applications on top of that interface,
 
 263
 00:15:36,630 --> 00:15:40,680
+其中一个应用程序是网络服务器 Nginx ，
 so you know one of the applications and Nginx which is a web server,
 
 264
 00:15:41,390 --> 00:15:43,640
+所以我们的想法是，
 and so the idea is that
 
 265
 00:15:43,640 --> 00:15:49,240
+我们在 Biscuit 和 Linux 上使用相同的应用程序，
 you know we're on the same application both on Biscuit and Linux,
 
 266
 00:15:49,270 --> 00:15:54,730
+应用程序使用完全相同的参数生成相同的系统调用[跟踪]，
 you know the application will generate the same system call trace with exactly the same arguments
 
 267
 00:15:55,030 --> 00:16:00,100
+Biscuit 和 Linux 执行所有必须的操作，
 and both Biscuit and Linux you know perform all the necessary operations
 
 268
 00:16:00,100 --> 00:16:02,350
+由这些系统调用引起的，
 that are invoked by those system calls,
 
 269
 00:16:02,590 --> 00:16:05,200
+然后我们可以看一下
 and then we can sort of look at you know
 
 270
 00:16:05,200 --> 00:16:09,070
+高级语言内核和 Linux 之间的区别，
 the difference is basically between you know the high-level language kernel and Linux,
 
 271
 00:16:09,070 --> 00:16:12,940
+并讨论一下什么是权衡。
 and sort of talk about like you know what are the trade-offs.
 
 272
 00:16:13,670 --> 00:16:16,760
+所以在方法论之后，
 And so after the core of the methodology
 
 273
 00:16:16,760 --> 00:16:20,750
+因为 Linux 和 Biscuit 不会完全相同，
 and again because Linux and Biscuit are not going to be exactly identical,
 
 274
 00:16:20,990 --> 00:16:23,870
+这里会有一些不同，
 you know there's gonna be some differences,
 
 275
 00:16:23,870 --> 00:16:27,770
+但是我们在这里花了很多时间，
 but you know we spend a lot of time in this
 
 276
 00:16:27,770 --> 00:16:30,140
+尽可能地进行比较，
 trying to you know make comparison as far as possible,
 
 277
 00:16:32,970 --> 00:16:35,670
+尽可能想办法做成它。
 wherever possible we could think of making it.
 
 278
 00:16:37,090 --> 00:16:39,460
+你们中的很多人都会问这个问题，
 So a lot of you ask this question
 
 279
 00:16:39,460 --> 00:16:41,200
+使用哪种高级语言，
 which high-level language use,
 
 280
 00:16:41,230 --> 00:16:43,000
+对于这种工作，
 you know for this kind of work
 
 281
 00:16:43,030 --> 00:16:47,290
+我们选择 Go ，出于几个原因，
 and you know we pick Go and for a couple of reasons,
 
 282
 00:16:47,320 --> 00:16:50,260
+它是一种静态编译语言，
 it is a statically compiled language,
 
 283
 00:16:50,260 --> 00:16:53,680
+所以与 Python 不同，这里没有解释器，
 so unlike Python, there's no interpreter,
 
 284
 00:16:53,800 --> 00:16:57,280
+这是我们喜欢静态编译的原因，
 and the reason that we like static compiled,
 
 285
 00:16:57,280 --> 00:16:59,710
+因为我们可以编译高性能的代码，
 because we've basically compiles actually high performance code,
 
 286
 00:16:59,770 --> 00:17:01,810
+实际上， Go 编译器是相当不错的。
 in fact the particular Go compiler is pretty good.
 
 287
 00:17:02,740 --> 00:17:06,430
+所以它是一种高性能的语言，
 So basically you know sort of high performance language,
 
 288
 00:17:06,460 --> 00:17:10,390
+此外， Go 的设计是为系统编程的，
 furthermore, Go design is actually intended for system programming
 
 289
 00:17:10,510 --> 00:17:12,730
+内核或系统编程，
 you know kernels or for system programming,
 
 290
 00:17:12,730 --> 00:17:14,230
+所以它是一个很好的选择。
 so that could be a good match.
 
 291
 00:17:14,780 --> 00:17:19,400
+举个例子，为什么它是一个好的系统编程语言，
 As an example, you know aspect of why it's a good system programming,
 
 292
 00:17:19,400 --> 00:17:22,460
+它很容易调用汇编或其他外来代码，
 it's actually easy to call assembly or other foreign code,
 
 293
 00:17:23,010 --> 00:17:26,250
+它对并发有很好的支持，非常方便。
 it has good support for concurrency, quite flexible.
 
 294
 00:17:26,550 --> 00:17:29,190
+然后另一个我们想要使用它的原因，
 And then another reason that we wanted to use it,
 
 295
 00:17:29,190 --> 00:17:30,360
+因为它有一个垃圾收集器，
 because it has a garbage collector,
 
 296
 00:17:31,260 --> 00:17:33,660
+关于高级语言需要考虑的一件事，
 one of the things that you think about a high-level language,
 
 297
 00:17:33,660 --> 00:17:35,460
+高级语言的优点之一，
 and one of the virtues of a high-level languages
 
 298
 00:17:35,460 --> 00:17:37,110
+你不需要进行内存管理，
 that you don't have to do memory management,
 
 299
 00:17:37,380 --> 00:17:40,860
+垃圾收集器通常是关键角色，
 and garbage collectors typically in a central role in the,
 
 300
 00:17:42,910 --> 00:17:46,420
+在内存管理中提供关键角色。
 yeah, provides a central role in a sort of memory management story.
 
 301
 00:17:48,830 --> 00:17:51,410
+当我们开始写这篇论文的时候，
 By the time we started this paper,
 
 302
 00:17:51,410 --> 00:17:52,820
+或者我们开始这个项目的时候，
 or we started this project,
 
 303
 00:17:53,030 --> 00:17:55,790
+Rust 不是很流行，
 Rust was not very popular
 
 304
 00:17:55,790 --> 00:17:58,370
+或者 Rust 还不是很稳定和成熟，
 or Rust was not very stable and mature at that point,
 
 305
 00:17:58,370 --> 00:17:59,990
+它可以写一个真正的内核，
 and the actually could write a real kernel,
 
 306
 00:17:59,990 --> 00:18:03,110
+现在回想一下，
 in a retrospect now,
 
 307
 00:18:03,110 --> 00:18:04,220
+如果你再做一次，
 you do it again,
 
 308
 00:18:04,220 --> 00:18:06,200
+你可以使用 Rust 来写，
 you know you may write it in Rust,
 
 309
 00:18:06,230 --> 00:18:09,020
+因为它也是为系统编程设计的，
 because it also designs for system programming,
 
 310
 00:18:09,080 --> 00:18:13,760
+它有一个很小的运行时，可以产生好的代码，
 it has a small runtime, produces good code,
 
 311
 00:18:13,940 --> 00:18:17,390
+尽管有一件事，
 although one thing that
 
 312
 00:18:17,390 --> 00:18:20,660
+可能仍然会让人[本能地]去尝试的是，
 actually might still make it very [instinct] to go for Go is that,
 
 313
 00:18:20,720 --> 00:18:23,210
+Rust 首先假设，
 Rust takes the starting assumption
 
 314
 00:18:23,210 --> 00:18:28,040
+如果你想要高性能系统程序，
 that that if you want high performance systems programs,
 
 315
 00:18:28,040 --> 00:18:30,170
+那么你不能使用垃圾收集器。
 then you can't do that with a garbage collector.
 
 316
 00:18:30,680 --> 00:18:35,590
+事实上， Rust 类型系统以一种非常聪明的方式，
 And in fact a Rust type system is set up in a very clever way
 
 317
 00:18:35,590 --> 00:18:36,880
+和一种非常有趣的方式设置的，
 and a very interesting way,
 
 318
 00:18:37,060 --> 00:18:39,490
+所以垃圾收集器是不必要的。
 so that actually the garbage collector is not necessary.
 
 319
 00:18:40,080 --> 00:18:43,440
+在某些方面，我们对回答这个问题很感兴趣，
 And in some ways, we were interested in answering this question,
 
 320
 00:18:43,440 --> 00:18:46,110
+在高级语言中进行垃圾收集的成本是多少，
 what is the cost of garbage collection in a high-level language,
 
 321
 00:18:46,110 --> 00:18:47,610
+关于内核编程，
 you know on kernel programming
 
 322
 00:18:47,790 --> 00:18:52,440
+它的成本是多少，
 and it is really impossible to use or what does that cost,
 
 323
 00:18:52,710 --> 00:18:54,990
+在某些方面， Rust 绕过了这个问题，
 in some ways, you know Rust sidestep that question
 
 324
 00:18:54,990 --> 00:18:57,450
+使用一种没有垃圾回收的语言，
 and just like you know use a language without garbage collection,
 
 325
 00:18:57,450 --> 00:18:59,340
+你不必须考虑这个成本。
 you haven't to think about this particular cost.
 
 326
 00:19:01,860 --> 00:19:02,760
+关于这个有什么问题吗，
 Any questions about this,
 
 327
 00:19:02,760 --> 00:19:07,070
+关于我们决定使用的编程语言方面。
 in terms of the programming language we decided to use.
 
 328
 00:19:11,050 --> 00:19:13,330
+许多邮件里的问题与这个主题有关。
 Lots of email questions related to this topic.
 
 329
 00:19:14,850 --> 00:19:16,620
+这是一个理论问题，
 This is a theoretical question,
 
 330
 00:19:16,620 --> 00:19:19,380
+可能没有直接的答案，
 that maybe doesn't have an immediate answer,
 
 331
 00:19:19,440 --> 00:19:24,930
+但是如果编写 Linux 内核使用 Rust 而不是 Go ，
 but if the Linux kernel were to be written on Rust not Go,
 
 332
 00:19:25,260 --> 00:19:28,200
+在相同的能力下进行优化，
 and like optimized in the same capacity,
 
 333
 00:19:28,230 --> 00:19:31,230
+它是否能够实现更高的性能？
 would it be able to achieve higher performance?
 
 334
 00:19:32,490 --> 00:19:35,880
+比 Go 的并发吗？
 Than, than the Go concurrency?
 
 335
 00:19:36,450 --> 00:19:39,210
+比 C ，比如 C 编写的 Linux 内核。
 Than C, like a Linux C kernel.
 
 336
 00:19:39,630 --> 00:19:41,520
+我怀疑它会，
 I doubt it will be,
 
 337
 00:19:41,520 --> 00:19:44,340
+好的，很难知道，只是猜测，
 okay, hard to know, just speculation, correct,
 
 338
 00:19:44,340 --> 00:19:45,750
+因为我们做有过这个实验，
 because we haven't done this experiment,
 
 339
 00:19:46,050 --> 00:19:50,490
+在我看来，不会比 C 有更高的性能，
 in my senses, you know would be not higher performance than C,
 
 340
 00:19:50,580 --> 00:19:53,580
+但可能大致相同。
 but you know probably roughly the same ballpark.
 
 341
 00:19:54,580 --> 00:19:56,920
+因为 C 是低级语言，
 Because C so low-level,
 
 342
 00:19:56,920 --> 00:19:58,660
+你可以假设你在 Rust 里所做的，
 you can assume whatever you do in Rust,
 
 343
 00:19:58,660 --> 00:19:59,770
+你也可以用 C 来做。
 you could also have done in C.
 
 344
 00:20:04,810 --> 00:20:05,500
+这能理解吗？
 Does that make sense?
 
 345
 00:20:07,060 --> 00:20:08,020
+好的，谢谢。
 Yes, thank you.
 
 346
 00:20:11,010 --> 00:20:12,390
+好的。
 Okay.
 
 347
 00:20:13,270 --> 00:20:14,980
+好的，我们开始吧，
 Okay, so let's move on them,
 
 348
 00:20:15,610 --> 00:20:17,800
+除非对于这个还有任何其他问题，
 unless there are any other further questions about this,
 
 349
 00:20:17,860 --> 00:20:19,630
+再说一次，请随意打断，
 and again feel free to interrupt
 
 350
 00:20:19,630 --> 00:20:22,180
+这里一节基于讨论的课程，
 and you know there's a bit of a discussion based lecture,
 
 351
 00:20:22,900 --> 00:20:27,820
+它的目的是激发智力和兴趣，
 and so it was intended to stimulate intellectual interests,
 
 352
 00:20:27,820 --> 00:20:31,180
+所以，如果你对这个话题有什么想说的，可以加入进来。
 so you jump in if you have anything to think about this topic.
 
 353
 00:20:34,900 --> 00:20:38,140
+所以在我想问的问题之前，
 So actually before you know maybe the question I want to ask,
 
 354
 00:20:38,170 --> 00:20:40,420
+也许我会在课程结束时回来看，
 maybe I'll come back to that at the end of the lecture,
 
 355
 00:20:40,420 --> 00:20:41,680
+课程快结束的时候。
 closer to the end of the lecture.
 
 356
 00:20:42,280 --> 00:20:47,680
+在一定程度上，我们使用高级语言
 Partly you know the whole reason we ought to use high-level languages
 
 357
 00:20:47,680 --> 00:20:49,180
+来避免某种类型的 bug ，
 to avoid sort of class of bugs
 
 358
 00:20:49,300 --> 00:20:51,250
+你应该问自己一个问题，
 and one question you should ask yourself,
 
 359
 00:20:51,310 --> 00:20:56,230
+你在实验中出现的哪种 bug 是可以避免的，
 where bugs you know in the labs that you had that would have been avoided,
 
 360
 00:20:56,260 --> 00:20:57,730
+如果你使用高级语言。
 if you had a high level language.
 
 361
 00:20:58,460 --> 00:21:00,830
+所以回想一下，
 You know, so you know think back,
 
 362
 00:21:00,830 --> 00:21:03,410
+我相信你能想出一些 bug ，
 you know I'm sure you can come up with some bugs,
 
 363
 00:21:03,410 --> 00:21:06,080
+花了你很多时间和痛苦，
 that you cost you a lot of time and a lot of pain,
 
 364
 00:21:06,230 --> 00:21:09,140
+你可以问自己这些 bug ，
 and you could ask yourself those kind of bugs,
 
 365
 00:21:09,140 --> 00:21:14,180
+如果我们在实验中的 xv6 ，
 you know if we if the xv6 where we run into labs
 
 366
 00:21:14,180 --> 00:21:16,700
+用另一种高级编程语言来完成，
 would be done in another high-level programming language,
 
 367
 00:21:16,730 --> 00:21:18,920
+会让生活变得容易很多，
 would have life would be a lot easier,
 
 368
 00:21:18,950 --> 00:21:21,350
+让你有更多的空闲时间做其他事情。
 would you have a lot more spare time to do other things.
 
 369
 00:21:22,470 --> 00:21:24,570
+所以我们带着这个问题，
 So let's keep that question in your head
 
 370
 00:21:24,570 --> 00:21:27,930
+在课程结束时回到这个问题上来。
 and you know hopefully return to that at the end of the lecture.
 
 371
 00:21:28,820 --> 00:21:30,920
+但是如果你现在有想法，也没问题。
 But if you have opinions right away, that's fine too.
 
 372
 00:21:32,350 --> 00:21:35,140
+好的，让我说一下 Biscuit ，
 Okay, so let me talk a little bit about Biscuit,
 
 373
 00:21:35,290 --> 00:21:39,640
+其中的工作，
 and you know sort of works
 
 374
 00:21:39,640 --> 00:21:41,320
+一些惊讶的事情，
 in sort of surprises where the things,
 
 375
 00:21:41,320 --> 00:21:43,720
+我们在构建 Biscuit 过程中的东西，
 that we ran into while building Biscuit things,
 
 376
 00:21:43,720 --> 00:21:46,450
+我们遇到一些没有预料到的东西。
 that we anticipated in some things that we actually did not anticipate.
 
 377
 00:21:48,360 --> 00:21:49,890
+所以用户程序，
 So the user programs,
 
 378
 00:21:49,890 --> 00:21:51,690
+这里有一个传统内核，
 there's a classic kernel,
 
 379
 00:21:51,750 --> 00:21:55,170
+一个与 Linux 或 xv6 相同的宏内核，
 a monolithic kernel in the same way to Linux or xv6's,
 
 380
 00:21:55,320 --> 00:21:57,750
+所以这里有用户空间和内核空间，
 and so there's user space and kernel space,
 
 381
 00:21:57,960 --> 00:22:00,150
+用户空间程序是，
 user space programs are
 
 382
 00:22:00,180 --> 00:22:03,210
+比如你的编译器 GCC ，
 you know whatever your compiler GCC
 
 383
 00:22:03,210 --> 00:22:06,660
+或者在我们的论文中，它是一个网络服务器，
 or in our speaking of paper it's mostly a web server,
 
 384
 00:22:06,660 --> 00:22:08,850
+以及其他一些基准。
 and some other benchmarks.
 
 385
 00:22:09,250 --> 00:22:12,820
+用户程序都是用 C 语言编写的，
 And the user programs are actually all written in C,
 
 386
 00:22:12,820 --> 00:22:14,650
+尽管它可以是任何语言编写的，
 although it could be principal in any language,
 
 387
 00:22:14,650 --> 00:22:16,600
+因为它们只是一个基准，
 you know since they're just a benchmark,
 
 388
 00:22:17,200 --> 00:22:18,550
+我们采用 C 语言版本，
 we took C versions,
 
 389
 00:22:18,940 --> 00:22:21,310
+并且多数程序都是多线程的，
 and most of the programs are multi-thread,
 
 390
 00:22:21,310 --> 00:22:26,140
+所以，与 xv6 中每个用户程序只有一个线程不同，
 so unlike in xv6 where basically there's one thread per user program,
 
 391
 00:22:26,200 --> 00:22:30,850
+在 Biscuit 中，支持多个用户线程。
 in Biscuit, actually support multiple user level threads.
 
 392
 00:22:31,780 --> 00:22:34,540
+对于每个用户线程，
 And basically for every user level thread,
 
 393
 00:22:34,750 --> 00:22:39,040
+在内核中都有相应的内核线程，
 there's corresponding kernel thread in kernel,
 
 394
 00:22:39,220 --> 00:22:43,240
+这些内核线程是由 Go 实现的，
 and this kernel threads are actually implemented by Go itself
 
 395
 00:22:43,240 --> 00:22:45,070
+Go 调用 Go 例程，
 and Go calls these Go routines,
 
 396
 00:22:47,970 --> 00:22:50,730
+你可以把 Go 例程看作普通线程，
 you can think about Go routines just as ordinary threads
 
 397
 00:22:50,760 --> 00:22:56,280
+与 xv6 相同的方式，内核具有线程，
 in the same way that xv6 has and the kernel has threads,
 
 398
 00:22:57,540 --> 00:22:59,070
+Go 协程是类似的，
 the Go routines are similar,
 
 399
 00:22:59,190 --> 00:23:01,140
+主要的区别是，
 the main difference it correctly is that,
 
 400
 00:23:01,140 --> 00:23:04,380
+在 xv6 中，线程是由内核实现的，
 in xv6 you know the threads are implemented by the kernel itself,
 
 401
 00:23:04,530 --> 00:23:07,350
+在这种情况下，是由 Go 运行时提供的，
 and in this case you know Go runtime basically provides,
 
 402
 00:23:07,350 --> 00:23:09,090
+Go 运行时调度它们，
 the Go runtime schedules them,
 
 403
 00:23:09,090 --> 00:23:13,770
+Go 运行时支持睡眠唤醒或条件变量，
 Go runtime has support for things like sleep wakeup or condition variables,
 
 404
 00:23:13,770 --> 00:23:15,180
+有不同的睡眠唤醒，
 there's lots of different sleep wakeup,
 
 405
 00:23:15,180 --> 00:23:18,420
+但有一些条件变量同步机制，
 but there's some condition variable synchronization mechanism,
 
 406
 00:23:18,720 --> 00:23:20,730
+还有很多原语，
 and there's a whole bunch of other you know things primitive,
 
 407
 00:23:20,730 --> 00:23:23,790
+Go 运行时 Go 语言本身提供，
 and Go runtime just provided by the Go language itself,
 
 408
 00:23:23,790 --> 00:23:26,280
+不是由 Biscuit 本身实现的，
 and you have not been implemented by Biscuit itself,
 
 409
 00:23:26,280 --> 00:23:27,840
+我们只是从 Go 运行时获得它们。
 we just get them from the Go runtime.
 
 410
 00:23:29,440 --> 00:23:33,470
+GO 运行时本身直接在裸硬件上运行。
 The Go runtime itself runs directly on the bare hardware.
 
 411
 00:23:36,400 --> 00:23:40,390
+我会在课程中更多地谈到这一点，
 And, I'll talk a little bit about that more in the lecture,
 
 412
 00:23:40,510 --> 00:23:43,180
+但你可以认为这是机器启动，
 but like so you think about this is the machine boots,
 
 413
 00:23:43,180 --> 00:23:45,310
+第一件事就是启动到 Go 运行时，
 you know the first thing it actually boots to Go runtime,
 
 414
 00:23:46,000 --> 00:23:47,980
+这带来了很多复杂情况，
 does it cause a lot of complications,
 
 415
 00:23:47,980 --> 00:23:51,850
+因为通常 Go 运行时作为用户程序运行在用户空间，
 because Go runtime that normally runs in user space as user level program
 
 416
 00:23:51,850 --> 00:23:54,130
+假设有一个内核，
 and assumes that the kernel there's a kernel there,
 
 417
 00:23:54,130 --> 00:23:55,390
+我们可以请求一些服务，
 we can ask some services,
 
 418
 00:23:55,390 --> 00:23:59,190
+比如，需要为其堆分配内存。
 for example, needs to allocate memory to, for its heap.
 
 419
 00:23:59,710 --> 00:24:02,590
+所以这里有一些，
 And so there's a little bit of, all talk a little bit about,
 
 420
 00:24:02,590 --> 00:24:05,530
+有一些垫片代码，
 that there's a little bit of shim code,
 
 421
 00:24:05,530 --> 00:24:09,340
+Biscuit 用来欺骗 Go 进行时，
 the Biscuit has to basically trick you know Go runtime
 
 422
 00:24:09,340 --> 00:24:11,920
+使其相信它运行在操作系统之上，
 into believing that it runs on top of the operating system,
 
 423
 00:24:11,920 --> 00:24:13,330
+即使它是在裸硬件上运行，
 even though it's running on bare hardware,
 
 424
 00:24:14,050 --> 00:24:15,340
+获得启动。
 and basically get the boot.
 
 425
 00:24:16,360 --> 00:24:20,830
+然后内核本身跟 xv6 非常相似，
 And then the kernel itself, you know it's very similar, you think xv6,
 
 426
 00:24:20,890 --> 00:24:22,240
+想象有一种模型，
 think there's a model,
 
 427
 00:24:22,240 --> 00:24:25,690
+不过它更复杂，性能更高，
 except it's a little bit more elaborate and more high performance,
 
 428
 00:24:25,690 --> 00:24:27,190
+它有虚拟内存系统，
 it has some virtual memory system,
 
 429
 00:24:27,190 --> 00:24:31,030
+比如，你这周要做的 mmap 实验，
 you know that for example implements mmap lab you're doing this week,
 
 430
 00:24:31,060 --> 00:24:32,290
+它有一个文件系统，
 it has a file system,
 
 431
 00:24:32,290 --> 00:24:34,480
+有更高性能的文件系统，
 like there's more high performance file system,
 
 432
 00:24:34,870 --> 00:24:36,250
+它有一些驱动，
 it has a couple of drivers,
 
 433
 00:24:36,250 --> 00:24:37,450
+它有磁盘驱动，
 you know it has a disk drive
 
 434
 00:24:37,450 --> 00:24:40,630
+它有网络驱动，有网络堆栈，
 and it has a network driver, it has a network stack,
 
 435
 00:24:41,180 --> 00:24:42,710
+所以它会更完整，
 so it will be more complete,
 
 436
 00:24:42,710 --> 00:24:46,670
+你可以看到，它有大概 58 个系统调用，
 and when you can see that is, it has like 58 system calls,
 
 437
 00:24:46,670 --> 00:24:49,460
+我记不清 xv6 有多少了，
 you know like I can't remember how much xv6 has,
 
 438
 00:24:49,460 --> 00:24:52,250
+但应该是 18 或 19 个左右。
 but [startling] the order of 18 19 or something like that.
 
 439
 00:24:52,860 --> 00:24:55,800
+启动代码的总数是 28000 个，
 And the total number of launch code is 28000,
 
 440
 00:24:55,800 --> 00:25:00,030
+xv6 我想是在 10000 以下，
 you know xv6 is like not in, I think below 10000,
 
 441
 00:25:00,030 --> 00:25:02,280
+所以这里有更多功能。
 so you know there's more features.
 
 442
 00:25:04,580 --> 00:25:06,650
+关于这个高级别的概述，有什么问题吗？
 Any questions about sort of this high-level overview?
 
 443
 00:25:08,470 --> 00:25:11,590
+哦，抱歉，我想问一下接口的事，
 Oh, sorry I wanted to ask about the the interface,
 
 444
 00:25:11,620 --> 00:25:14,890
+所以接口像 xv6 一样，是吗，
 so the interface is just like xv6, right,
 
 445
 00:25:14,890 --> 00:25:21,040
+进程必须把一些东西放在某些寄存器上，
 so the processes they have to put something in some register
 
 446
 00:25:21,040 --> 00:25:25,060
+然后它们调用 ecall ，或者不管它是什么。
 and then they call the ecall or whatever it is.
 
 447
 00:25:25,060 --> 00:25:26,980
+是的，我会再多说一点，
 Yeah, yeah I'll talk a little bit more about this,
 
 448
 00:25:26,980 --> 00:25:29,020
+但它是完全一样的，没有什么不同。
 but it's exactly the same, there's no difference.
 
 449
 00:25:29,530 --> 00:25:30,970
+好的，我明白了，谢谢。
 Okay I see, thank you.
 
 450
 00:25:32,860 --> 00:25:36,070
+一些功能已经提过了，
 So some of the features you know already mentioned them a little bit,
 
 451
 00:25:36,070 --> 00:25:39,400
+或许多核值得讨论一下，
 maybe worth talking about its multicore,
 
 452
 00:25:39,760 --> 00:25:42,130
+Go 对并发的良好支持，
 Go with good support for concurrency
 
 453
 00:25:42,130 --> 00:25:44,140
+Biscuit 的多核，
 and so you know Biscuit's multicore,
 
 454
 00:25:44,260 --> 00:25:49,180
+以同样方式， xv6 对多核的支持有限，
 in the same way that xv6 sort of has limited support for multi-core,
 
 455
 00:25:49,270 --> 00:25:50,560
+在这里，我们有
 in this, we have
 
 456
 00:25:50,560 --> 00:25:55,030
+比 xv6 有更细粒度的同步或协调。
 a little bit more fine-grained synchronization or coordination than actually in xv6.
 
 457
 00:25:55,500 --> 00:25:57,990
+它有用户级线程，
 It has threads you know user level threads,
 
 458
 00:25:58,050 --> 00:26:01,920
+由内核线程[提供]，
 [backed] up by kernel threads,
 
 459
 00:26:01,920 --> 00:26:03,570
+这是 xv6 没有的，
 which xv6 doesn't have,
 
 460
 00:26:03,900 --> 00:26:06,150
+有日志文件系统，具有更高的性能，
 there's journal file system much higher performance,
 
 461
 00:26:06,150 --> 00:26:09,240
+你会在 ext3 论文中看到，
 like think you know you'll called the ext3 paper,
 
 462
 00:26:09,450 --> 00:26:13,230
+就像 ext3 文件系统。
 sort of like you know the ext3 generally file system.
 
 463
 00:26:14,000 --> 00:26:17,930
+它有，相当合理，复杂的存储系统，
 It has, you know quite reasonable, sophisticated memory system,
 
 464
 00:26:17,960 --> 00:26:19,400
+使用 VMA ，
 you know using VMAs,
 
 465
 00:26:19,490 --> 00:26:22,760
+它可以支持 mmap 之类的东西。
 and you know it could support mmap and all that stuff.
 
 466
 00:26:23,270 --> 00:26:25,160
+它有一个完整的 TCP/IP 协议栈，
 It has a complete TCP/IP stack,
 
 467
 00:26:25,160 --> 00:26:29,330
+可以通过互联网与其他网络服务器进行通信，
 you know good enough to actually talk to other network servers across the Internet
 
 468
 00:26:29,480 --> 00:26:33,230
+它有两个高性能的驱动器，
 and it has two drivers with high performance drivers,
 
 469
 00:26:33,230 --> 00:26:34,730
+比如一个万兆网卡，
 so like a ten gigabit NIC,
 
 470
 00:26:35,000 --> 00:26:36,380
+在接下来的实验里，
 in the next lab,
 
 471
 00:26:36,380 --> 00:26:40,130
+你可以实现一个非常简单的网卡的驱动，
 you can actually implement a little driver for a very very simple NIC,
 
 472
 00:26:40,130 --> 00:26:43,340
+这是一个更高性能和更复杂的驱动程序。
 this is a much more high performance and sophisticated driver.
 
 473
 00:26:43,770 --> 00:26:45,810
+在一个相当复杂的驱动程序中，
 And in a pretty sophisticated this driver,
 
 474
 00:26:45,870 --> 00:26:49,500
+比 VIRTIO_DISK 驱动程序更复杂，
 you know more sophisticated than the VIRTIO_disk driver,
 
 475
 00:26:49,680 --> 00:26:56,140
+你可能在实验里见过的。
 that you've sort of seen or you might have looked at in the labs.
 
 476
 00:27:06,680 --> 00:27:11,360
+那么，就我前面提到的一个用户程序，
 So in terms of a user programs as I mentioned before,
 
 477
 00:27:11,360 --> 00:27:13,700
+每个用户程序运行自己的页表，
 every user program runs its own page table,
 
 478
 00:27:14,000 --> 00:27:16,970
+用户内核内存由硬件区分，
 user kernel memory isolated by hardware,
 
 479
 00:27:16,970 --> 00:27:19,580
+使用一个内核位，
 so you use a kernel bit basically,
 
 480
 00:27:20,780 --> 00:27:25,250
+并且每个用户线程都有对应的内核线程，
 and every user thread has a corresponding kernel thread,
 
 481
 00:27:25,250 --> 00:27:27,710
+比如，当用户线程进行系统调用时，
 so for example when a user thread makes a system call,
 
 482
 00:27:27,830 --> 00:27:31,460
+它将继续在相应的内核线程上运行，
 it will continue running on the corresponding kernel thread,
 
 483
 00:27:31,640 --> 00:27:33,080
+如果系统调用阻塞，
 and if the system call blocks,
 
 484
 00:27:33,080 --> 00:27:35,120
+那么另一个在相同地址空间的用户线程，
 then another user thread in the same address space
 
 485
 00:27:35,120 --> 00:27:37,910
+用户地址空间可能会由内核调度。
 and the user address space might actually be scheduled by the kernel.
 
 486
 00:27:38,990 --> 00:27:40,520
+如前所述，
 And as mentioned early,
 
 487
 00:27:40,550 --> 00:27:43,850
+内核线程是由 Go 运行时提供的，
 kernel threads are provided by the Go runtime
 
 488
 00:27:43,880 --> 00:27:45,350
+所以它们只是 Go 协程。
 and so they just Go routines.
 
 489
 00:27:46,070 --> 00:27:48,170
+所以，如果你编写过，
 So you're write ever user level,
 
 490
 00:27:48,170 --> 00:27:51,170
+如果你使用 Go 编写过用户程序，
 if you ever written a user level application in Go
 
 491
 00:27:51,170 --> 00:27:55,490
+并使用 Go 调用来创建线程，
 and using Go and used to Go call to create a thread,
 
 492
 00:27:55,640 --> 00:27:57,890
+那些 Go 协程就是
 you know that those those Go routines are the ones
 
 493
 00:27:57,890 --> 00:27:59,630
+Biscuit 内核使用的。
 that were actually being used by the Biscuit kernel.
 
 494
 00:28:02,410 --> 00:28:03,790
+说到系统调用，
 So talking about system calls,
 
 495
 00:28:03,790 --> 00:28:07,360
+这个问题是刚刚被问到的，
 you know this question is just asked,
 
 496
 00:28:07,660 --> 00:28:12,190
+它的工作原理与 xv6 中大致相同，
 so it works exactly as roughly you know as in xv6,
 
 497
 00:28:12,190 --> 00:28:15,370
+用户线程将参数放入寄存器中，
 you know the user thread put arguments in registers
 
 498
 00:28:15,370 --> 00:28:17,470
+使用一个小的库，
 using a little library,
 
 499
 00:28:17,470 --> 00:28:21,400
+它提供了系统调用接口，
 you know that provides system call interface,
 
 500
 00:28:21,400 --> 00:28:24,040
+然后用户线程执行 SYSENTER 调用，
 then the user threads executed SYSENTER call,
 
 501
 00:28:24,040 --> 00:28:27,490
+Biscuit 在 x86 处理器上运行，
 you know this Biscuit runs on an x86 processor
 
 502
 00:28:27,490 --> 00:28:29,050
+而不是在 RISC-V 处理器上，
 not on the RISC-V processor,
 
 503
 00:28:29,050 --> 00:28:32,350
+x86 系统内核中的汇编指令
 so the assembly instructions for actually Intel system kernel
 
 504
 00:28:32,350 --> 00:28:35,470
+与 RISC-V 上的略有不同，
 are slightly different than on the RISC-V on the RISC-V,
 
 505
 00:28:36,280 --> 00:28:40,270
+但是与 RISC-V 类似，
 but you know roughly similar similar to RISC-V,
 
 506
 00:28:40,270 --> 00:28:43,060
+然后控制权传递给内核线程，
 and then control passes to the kernel thread,
 
 507
 00:28:43,650 --> 00:28:45,930
+运行那个用户线程的（内核线程），
 that was running that user thread,
 
 508
 00:28:46,350 --> 00:28:48,720
+然后内核线程执行系统调用，
 and then the kernel thread executes a system call,
 
 509
 00:28:48,720 --> 00:28:50,580
+然后使用 SYSEXIT 返回。
 and then returns use SYSEXIT.
 
 510
 00:28:51,180 --> 00:28:52,530
+大致相同的框架，
 So roughly similar frame,
 
 511
 00:28:52,530 --> 00:28:55,170
+它建立一个 trapframe 和其他东西，
 you know it's a trapframe that's being built and all that kind of stuff.
 
 512
 00:28:57,910 --> 00:28:58,630
+好吗？
 Okay.
 
 513
 00:29:01,040 --> 00:29:02,390
+到目前为止，有什么问题吗，
 Any questions so far,
 
 514
 00:29:02,950 --> 00:29:05,200
+在我深入讨论更多之前，
 before I dive into sort of a more sort of,
 
 515
 00:29:05,350 --> 00:29:08,270
+意料之外和意料之内的东西，
 things that were unexpected or expected,
 
 516
 00:29:08,270 --> 00:29:10,430
+但我们会有更多不同的挑战，
 but we're a little bit more challenging than were different,
 
 517
 00:29:10,430 --> 00:29:13,250
+我想与 xv6 比起来。
 that I think it would go in the xv6.
 
 518
 00:29:13,920 --> 00:29:14,790
+我有个问题，
 I have a question,
 
 519
 00:29:14,790 --> 00:29:17,630
+我想，我认为,
 I guess, I think,
 
 520
 00:29:18,270 --> 00:29:24,630
+Go 希望你更多地使用管道而不是互斥锁，
 Go wants you to use channels more than mutex locks,
 
 521
 00:29:24,630 --> 00:29:28,230
+我想，会不会是，
 I guess, so would you like, would there be like,
 
 522
 00:29:29,040 --> 00:29:31,680
+xv6 中某些东西的设计，
 what the design of somethings in xv6 be like,
 
 523
 00:29:31,680 --> 00:29:35,130
+可以使用管道，而不是持有锁。
 could use as channels instead of holding a lock for something.
 
 524
 00:29:35,550 --> 00:29:38,070
+是的，这是一个很好的问题，
 Yeah, there's a great a great question,
 
 525
 00:29:38,070 --> 00:29:40,590
+我会在再次回到这个问题上，
 so we I'll come back to it a little bit again,
 
 526
 00:29:40,680 --> 00:29:41,580
+再往下看，
 further down
 
 527
 00:29:41,580 --> 00:29:43,380
+我们有几张幻灯片，
 and we have some slides
 
 528
 00:29:43,380 --> 00:29:46,920
+关于我们在 Biscuit 中使用了 Go 的哪些特性，
 about what features of Go did we use in Biscuit,
 
 529
 00:29:46,920 --> 00:29:51,030
+但是，我们没有使用很多的管道，
 but you know the the [] we didn't have any of using channels that much,
 
 530
 00:29:51,060 --> 00:29:53,760
+我们主要使用锁和条件变量。
 we mostly use locks and condition variables.
 
 531
 00:29:54,250 --> 00:29:56,950
+所以，跟 xv6 的方法很像，
 So in some sense closer to like a way xv6 looks,
 
 532
 00:29:56,950 --> 00:30:00,640
+而不是使用管道的，
 than actually a one you would do then you would do with channels,
 
 533
 00:30:00,730 --> 00:30:03,700
+我们进行了文件系统设计的实验，
 we did experiment actually with designs of the file system
 
 534
 00:30:03,700 --> 00:30:06,220
+对它使用更多的管道，
 that were much more channel heavy,
 
 535
 00:30:06,460 --> 00:30:09,130
+结果不是很好，
 and it didn't work out great,
 
 536
 00:30:09,220 --> 00:30:10,510
+并且我们得到差的性能，
 and we got bad performance,
 
 537
 00:30:10,720 --> 00:30:15,550
+所以，我们又换回了一种更简单的同步方式，
 so yeah we switched back to sort of more a sort of simple style of synchronization
 
 538
 00:30:15,550 --> 00:30:17,770
+xv6 或 Linux 使用的那样。
 xv6 does or Linux uses.
 
 539
 00:30:21,740 --> 00:30:26,480
+好的，这里有几个难题或挑战，
 Okay, so you know a couple sort of a little puzzles or implementation challenges
 
 540
 00:30:26,480 --> 00:30:27,830
+在我们实现的过程中，
 as we went through,
 
 541
 00:30:28,070 --> 00:30:31,820
+第一，我们必须让运行时在裸机上运行，
 one, we gotta get to runtime to work on the bare-metal
 
 542
 00:30:31,940 --> 00:30:34,460
+这需要，你想要，
 and you know that required you know wanted to
 
 543
 00:30:34,460 --> 00:30:38,060
+对运行时进行零修改，尽可能少地修改，
 make of course like zero modifications to the runtime where as little as possible,
 
 544
 00:30:38,060 --> 00:30:40,820
+让 Go 有新版本的运行时，
 so that you know Go come out with a new version of the runtime,
 
 545
 00:30:40,820 --> 00:30:41,630
+我们可以直接用它。
 we could just use it.
 
 546
 00:30:42,180 --> 00:30:45,330
+事实上，多年来，
 In fact, you know through the years,
 
 547
 00:30:45,330 --> 00:30:48,540
+我们在做这件事，代码也在做这件事，
 you know that we worked on this, where the code worked on this,
 
 548
 00:30:48,540 --> 00:30:51,600
+我们升级了运行库很多次。
 we upgraded the runtime many you know number of times.
 
 549
 00:30:52,210 --> 00:30:53,950
+这是一件好事，
 And that was turned out to be a good thing,
 
 550
 00:30:53,950 --> 00:30:54,520
+事实证明，
 and it turned out,
 
 551
 00:30:54,520 --> 00:30:57,640
+它们并不是很难在裸机上工作。
 they were not to be too difficult to actually to get to work on the bare-metal.
 
 552
 00:30:58,170 --> 00:31:02,220
+Go 是精心设计的，
 You know Go in general is designed pretty carefully
 
 553
 00:31:02,220 --> 00:31:04,890
+对操作系统是不可知的，
 to sort of be mostly OS agnostic,
 
 554
 00:31:04,890 --> 00:31:07,050
+因为它们希望能够运行在多个操作系统上，
 because they want to be able to run into many operating system,
 
 555
 00:31:07,050 --> 00:31:09,210
+所以，它不依赖于大量的操作系统功能。
 so it doesn't rely on a ton of OS features.
 
 556
 00:31:09,970 --> 00:31:13,570
+我们基本上模拟了需要的功能，
 And we're basically emulated the features that actually needed,
 
 557
 00:31:13,750 --> 00:31:15,520
+大多数这些功能，
 and mostly those are the features,
 
 558
 00:31:15,520 --> 00:31:18,490
+使 Go 运行时可以开始运行，
 that actually just get off the Go runtime to get started
 
 559
 00:31:18,850 --> 00:31:20,650
+一旦启动，它就会继续运行。
 and once it started, it runs just happily.
 
 560
 00:31:24,470 --> 00:31:28,670
+我们有一些 Go 协程运行不同应用程序的范围，
 We have sort of range that Go routine run different applications,
 
 561
 00:31:28,700 --> 00:31:34,220
+通常在 Go 程序中，一个单一的应用程序，
 normally in Go program correct, you know one single application,
 
 562
 00:31:34,490 --> 00:31:36,560
+这里，我们使用 Go 协程，
 and here now we're using Go routine thread
 
 563
 00:31:36,560 --> 00:31:40,220
+在不同的用户应用程序之间。
 around different user, different user applications.
 
 564
 00:31:40,670 --> 00:31:44,900
+但是用户应用程序必须与不同的页表一起运行。
 And but the user applications have to run with different page tables.
 
 565
 00:31:45,490 --> 00:31:49,240
+这里的[]是，
 And the little you know [] here is that
 
 566
 00:31:49,240 --> 00:31:53,230
+我们或 Biscuit 不能控制调度器，
 you know the we don't control or Biscuit doesn't control the scheduler,
 
 567
 00:31:53,260 --> 00:31:55,630
+因为我们使用的是未修改的 Go 运行时，
 because we're using the Go runtime unmodified,
 
 568
 00:31:55,630 --> 00:31:57,370
+所以我们使用的是 Go 运行时调度器，
 so we're using the Go runtime scheduler,
 
 569
 00:31:57,520 --> 00:32:00,010
+所以在这个调度器中，我们不能切换页表。
 and so in the scheduler, we can't switch page tables.
 
 570
 00:32:00,460 --> 00:32:05,710
+在 Biscuit 中所做的与 xv6 很像，
 So what xv6 in basically what Biscuit does is very similar to xv6,
 
 571
 00:32:05,710 --> 00:32:07,450
+它切换页表，
 it actually switches page tables,
 
 572
 00:32:07,450 --> 00:32:11,050
+当它从内核空间切换到用户空间，或者相反。
 when it changes from kernel to user space or the other way around.
 
 573
 00:32:12,030 --> 00:32:16,860
+所以当进入和退出内核时，切换页表。
 So when entry and exit of the kernel, switch page tables.
 
 574
 00:32:17,360 --> 00:32:19,310
+这意味着像在 xv6 中，
 And that means like in xv6
 
 575
 00:32:19,310 --> 00:32:21,590
+当你需要复制数据，
 and then when you need to copy data
 
 576
 00:32:21,590 --> 00:32:24,050
+从用户空间到内核空间或相反时，
 from user space to kernel space or the other way around,
 
 577
 00:32:24,140 --> 00:32:27,500
+你必须使用 copyin 和 copyout 函数，
 you have to do that sort of using those copyin and copyout functions,
 
 578
 00:32:27,500 --> 00:32:28,760
+我们在 xv6 中已有的，
 that we also have in xv6,
 
 579
 00:32:28,760 --> 00:32:30,890
+你需要做页表扫描软件。
 basically you do the page table walking software.
 
 580
 00:32:33,550 --> 00:32:38,150
+另一个挑战是设备中断，
 Another issue of challenge where little challenge was device interrupts,
 
 581
 00:32:38,600 --> 00:32:41,360
+Go 运行时通常在用户模式下运行，
 and Go runtime normally runs in user mode,
 
 582
 00:32:41,420 --> 00:32:44,810
+它不会收到来自硬件的中断，
 you know it doesn't really get interrupts from the hardware,
 
 583
 00:32:45,200 --> 00:32:47,450
+但是我们在裸机上使用它，
 but we're using it on the bare-metal
 
 584
 00:32:47,450 --> 00:32:48,980
+所以我们会得到中断，
 and so we're going to get interrupts,
 
 585
 00:32:49,040 --> 00:32:51,830
+时钟中断，网络驱动中断，
 time clock interrupts, interrupt from the network driver,
 
 586
 00:32:51,830 --> 00:32:55,850
+磁盘驱动中断，比如 UART 。
 interrupt from the disk driver etc, you know from the UART.
 
 587
 00:32:56,290 --> 00:32:58,150
+所以我们需要解决这个问题，
 And so we need to deal with that
 
 588
 00:32:58,150 --> 00:33:01,900
+而且在 Go 中也没有这个概念，
 and and there's also no notion in Go
 
 589
 00:33:01,900 --> 00:33:05,500
+在持有锁的同时关闭中断，
 you know for switching off interrupts while holding a lock,
 
 590
 00:33:05,890 --> 00:33:08,500
+因为它只显示用户应用程序，
 because just show up user applications,
 
 591
 00:33:08,800 --> 00:33:14,290
+所以，我们需要对如何写入设备中断很小心，
 and so we have a little bit careful how to actually write a device interrupt
 
 592
 00:33:14,290 --> 00:33:16,330
+我们的做法是，
 and basically the way we did it is,
 
 593
 00:33:16,330 --> 00:33:18,520
+我们在设备中断时几乎什么都不做，
 we do almost nothing in the device interrupt,
 
 594
 00:33:18,700 --> 00:33:20,140
+我们不使用任何锁，
 we don't take any locks out,
 
 595
 00:33:20,170 --> 00:33:22,450
+我们不分配任何内存，
 basically we don't allocate any memory,
 
 596
 00:33:22,750 --> 00:33:23,980
+我们唯一做的是，
 the only thing we do is
 
 597
 00:33:23,980 --> 00:33:27,190
+把标志送到某个没有被中断的地方，
 basically sending a flag somewhere that wasn't interrupted
 
 598
 00:33:27,370 --> 00:33:31,900
+然后唤醒一个有效的 Go 协程来处理中断。
 and then wake up a really functional Go routine to actually deal with the interrupt.
 
 599
 00:33:35,000 --> 00:33:38,240
+而那个 Go 协程，当然你可以使用它的所有 Go 的功能。
 And that Go routine, of course you can use all the Go features that it wants.
 
 600
 00:33:39,160 --> 00:33:41,620
+因为它在中断处理程序的上下文中运行，
 Because it does run in the context of an interrupt handler,
 
 601
 00:33:41,620 --> 00:33:44,080
+只是在正常的 Go 协程中运行。
 just it runs in the context of normal normal Go routine.
 
 602
 00:33:45,410 --> 00:33:48,830
+还有一件令人惊讶的事，
 Then one thing that surprises, it was a bit of surprise,
 
 603
 00:33:48,860 --> 00:33:51,380
+前三件事是完全预料到的，
 you know the first three things were completely anticipated,
 
 604
 00:33:51,380 --> 00:33:54,350
+当构建 Biscuit 时，我们必须要处理的，
 that we have to deal with when a building Biscuit,
 
 605
 00:33:54,350 --> 00:33:57,440
+最让我们惊讶的一件事，
 the hardest one that actually had suprised us,
 
 606
 00:33:57,770 --> 00:33:59,930
+我们学到了很多，
 and we learned a lot about,
 
 607
 00:33:59,930 --> 00:34:02,120
+就是堆耗尽的难题。
 it was this puzzle of heap exhaustion.
 
 608
 00:34:02,760 --> 00:34:05,610
+所以，我将主要讨论堆耗尽的问题，
 So I'm going to talk mostly for a little while about heap exhaustion
 
 609
 00:34:05,610 --> 00:34:07,770
+它是什么，它是怎么来的，
 and you know what it is, you know how it comes about
 
 610
 00:34:07,770 --> 00:34:09,030
+以及我们是如何解决它的，
 and how we solved it,
 
 611
 00:34:09,030 --> 00:34:10,740
+但是在深入讨论这个问题之前，
 but maybe before diving into that,
 
 612
 00:34:11,040 --> 00:34:12,750
+到目前为止，有什么问题吗？
 any any questions so far?
 
 613
 00:34:18,810 --> 00:34:20,460
+好的，都清楚了。
 So, [] clear.
 
 614
 00:34:24,540 --> 00:34:26,700
+好的，那么让我们来讨论一下堆耗尽的问题，
 Okay, so let's talk a little bit about heap exhaustion,
 
 615
 00:34:26,700 --> 00:34:28,650
+我不打算全面深入地讨论论文中的内容，
 I'm not going to go with full depth was in the paper,
 
 616
 00:34:28,650 --> 00:34:31,650
+但至少让你对问题有所了解。
 but at least gives you a flavor of what the problem is.
 
 617
 00:34:40,940 --> 00:34:42,560
+所以，在堆耗尽的情况下，
 So in the heap exhaustion,
 
 618
 00:34:42,590 --> 00:34:46,430
+让我们再次假设这里的蓝框是内核，
 you know let's say the blue box here is the kernel again,
 
 619
 00:34:49,450 --> 00:34:51,310
+内核有一个堆，
 and you know the kernel has a heap,
 
 620
 00:34:51,340 --> 00:34:54,610
+是从动态内存中分配的，
 from which delegates dynamically memory,
 
 621
 00:34:54,610 --> 00:34:56,350
+在 xv6 中，我们没有这样的堆，
 in xv6, we don't have such a heap,
 
 622
 00:34:56,350 --> 00:34:58,450
+因为我们在内核中没有内存分配器，
 because we don't have a memory allocator in the kernel,
 
 623
 00:34:58,450 --> 00:34:59,620
+所有东西都是静态分配的，
 everything statically allocated,
 
 624
 00:34:59,650 --> 00:35:01,960
+但是任何其他内核中，我们都会有一个堆，
 but any other kernel we'll have a heap,
 
 625
 00:35:01,960 --> 00:35:06,250
+你可以调用内核中的 malloc 和 free 。
 so you can call malloc, you know and free in the kernel.
 
 626
 00:35:08,120 --> 00:35:10,640
+这些东西实际上是在堆中分配的，
 And you know the things that actually get allocated on the heap,
 
 627
 00:35:10,640 --> 00:35:17,600
+比如，套接字对象，文件描述符对象或进程对象，
 for example you know socket objects or file descriptor objects or process objects,
 
 628
 00:35:17,900 --> 00:35:19,820
+proc 结构体， fd 结构体，
 struct proc, you know struct fd,
 
 629
 00:35:19,820 --> 00:35:23,600
+所有我们在 xv6 中静态分配的结构体，
 all the structures that we basically statically allocated in xv6,
 
 630
 00:35:23,720 --> 00:35:25,880
+一般的内核，它们会动态分配它们，
 normal kernels, they dynamically allocate them,
 
 631
 00:35:26,360 --> 00:35:28,040
+所以，当你打开新的文件描述符时，
 so when you open the new file descriptor,
 
 632
 00:35:28,040 --> 00:35:30,830
+堆中将分配一个文件描述符对象。
 there will be a file descriptor object allocated in the heap.
 
 633
 00:35:32,230 --> 00:35:33,700
+所以，问题是，
 And so, then the problem is,
 
 634
 00:35:33,700 --> 00:35:35,560
+如果你运行多个应用程序，
 if you're running many applications,
 
 635
 00:35:35,560 --> 00:35:38,680
+它们可能会打开很多文件描述符，很多套接字，
 you know they might open many file descriptors, may have many sockets,
 
 636
 00:35:38,770 --> 00:35:41,380
+它们开始缓慢地填满堆，
 and they sort of start filling the heap basically slowly,
 
 637
 00:35:41,530 --> 00:35:43,870
+所以问题是，
 and so the issue is that,
 
 638
 00:35:43,870 --> 00:35:45,490
+在某个时刻，比如堆满了，
 at some points, like the heap full,
 
 639
 00:35:45,880 --> 00:35:49,420
+没有空间用于分配新对象，
 there's no space anymore for allocating a new object
 
 640
 00:35:49,420 --> 00:35:53,080
+或者当应用程序请求打开新的文件描述符时，
 or when an application asks for example opens a new file descriptor
 
 641
 00:35:53,080 --> 00:35:56,290
+有新的进程，新的 fork ，
 and there's like you know new process, like there's new fork,
 
 642
 00:35:56,440 --> 00:35:58,690
+内核想要分配一个 proc 结构体，
 and the kernel wants to allocate a struct proc
 
 643
 00:35:58,690 --> 00:36:00,790
+而堆已经没有空间了。
 and heap used like there's no space anymore.
 
 644
 00:36:01,660 --> 00:36:03,580
+然后你怎么做，
 And what did you do that,
 
 645
 00:36:03,760 --> 00:36:06,280
+你做什么，
 you know what is you know,
 
 646
 00:36:06,340 --> 00:36:08,470
+你怎么处理这个特殊的情况，
 how do you deal with that particular case,
 
 647
 00:36:08,770 --> 00:36:09,730
+这通常，
 and this is typically,
 
 648
 00:36:09,730 --> 00:36:13,210
+可能在通常情况下，不会经常出现，
 you know this is maybe in common cases does not show up that often,
 
 649
 00:36:13,300 --> 00:36:15,820
+但是如果你重度使用机器，
 but like if you're pushing machine hard,
 
 650
 00:36:15,820 --> 00:36:19,420
+你有几个重度的使用者进程运行用户级进程，
 you have a couple heavy consumer processes running user level processes,
 
 651
 00:36:19,450 --> 00:36:20,800
+你可能会遇到这种情况，
 you might end in this situation,
 
 652
 00:36:20,800 --> 00:36:24,250
+所有可用内存都在使用，
 where basically in all the available memory is in use
 
 653
 00:36:24,310 --> 00:36:26,320
+你的堆已经满了。
 and your heap is just full.
 
 654
 00:36:27,120 --> 00:36:29,880
+而且没有进程调用 free ，
 And no processes calling free yet,
 
 655
 00:36:29,880 --> 00:36:31,170
+因为它们都在运行，
 you know because they're all running
 
 656
 00:36:31,170 --> 00:36:34,920
+并试图为它们的工作分配更多的资源。
 and trying to allocate more resources for their for their particular jobs.
 
 657
 00:36:39,790 --> 00:36:42,070
+所以，所有内核都会面临这个问题，
 So all kind of kernel face this problem,
 
 658
 00:36:42,070 --> 00:36:45,070
+不论是 C 内核或 Biscuit 或其他任何东西，
 when it like C kernel or Biscuit or anything
 
 659
 00:36:45,070 --> 00:36:47,470
+任何内核都必须解决这个问题。
 and any kernel must solve this particular problem.
 
 660
 00:36:48,290 --> 00:36:50,630
+它们之所以出现在我们面前，
 The reason they they sort of showed up for us
 
 661
 00:36:50,630 --> 00:36:54,410
+作为 Biscuit 中的一个严重问题，
 as a serious issue in Biscuit
 
 662
 00:36:54,410 --> 00:36:59,000
+是因为在许多内核中，
 was because in many kernels the,
 
 663
 00:37:01,270 --> 00:37:03,610
+你可以在 malloc 上返回错误，
 you can return an error on malloc,
 
 664
 00:37:03,670 --> 00:37:06,040
+xv6 偶尔会这么做，
 in fact the xv6 does that, right, once in a while,
 
 665
 00:37:06,040 --> 00:37:07,930
+但是在 Go 运行时中，
 but you know in Go runtime,
 
 666
 00:37:07,930 --> 00:37:10,870
+当你调用 new 来分配 Go 对象时，
 when you call new to allocate a Go object,
 
 667
 00:37:11,080 --> 00:37:13,990
+没有错误条件， new 就成功了，
 there's no error condition, new succeeds,
 
 668
 00:37:14,400 --> 00:37:16,200
+所以没有办法让它失败。
 and so there's no way to fail it.
 
 669
 00:37:16,740 --> 00:37:22,050
+所以让我们讨论一下解决这个问题的可能的方法，
 So let's talk a little bit about possible ways to solve this problem,
 
 670
 00:37:22,770 --> 00:37:26,790
+我们偶尔会在 xv6 上看到它，
 the, you know we've seen it actually xv6 once in a while,
 
 671
 00:37:26,790 --> 00:37:29,850
+如果你还记得 bcache ，
 like if you remember the bcache,
 
 672
 00:37:29,850 --> 00:37:34,920
+如果 xv6 找不到新的块，
 if xv6 can't find a new block you know to,
 
 673
 00:37:34,920 --> 00:37:37,950
+一个空闲的块来保存磁盘块，
 a free block to use for storage a disk block in,
 
 674
 00:37:38,040 --> 00:37:39,630
+有时只是抛出 panic 。
 actually sometimes just panics.
 
 675
 00:37:40,060 --> 00:37:44,890
+这显然是一个完全不期望的解决方案，
 You know this clearly is a completely undesirable solution
 
 676
 00:37:44,890 --> 00:37:46,180
+也不是一个真正的解决方案，
 and it's not a real solution,
 
 677
 00:37:46,180 --> 00:37:48,280
+所以我们称为 strawman 解决方案。
 so why we call it a strawman solution.
 
 678
 00:37:49,010 --> 00:37:52,220
+另一种 strawman 解决方案是，
 The other strawman solution is to,
 
 679
 00:37:52,250 --> 00:37:55,730
+当你调用，比如分配一块新的内存时，
 when you call, let's say you allocate a new piece of memory,
 
 680
 00:37:55,730 --> 00:37:59,300
+你调用 alloc new 来分配它，
 you know you go to call alloc, new to actually allocate it,
 
 681
 00:37:59,600 --> 00:38:02,120
+你可以等待内存分配器，
 you could actually you know wait for memory allocator,
 
 682
 00:38:02,820 --> 00:38:04,410
+它是一个提议，
 it going to be one proposal to do,
 
 683
 00:38:04,470 --> 00:38:06,150
+结果证明不是一个好的提议，
 turns out not to be a good proposal,
 
 684
 00:38:06,570 --> 00:38:10,500
+它不是一个好提议的原因是，你可能会陷入死锁，
 and the reason it's not a good proposal is that you may deadlock,
 
 685
 00:38:10,530 --> 00:38:12,700
+假设下面的场景，
 you know, assume the following scenario,
 
 686
 00:38:12,700 --> 00:38:13,570
+你持有一些，
 you're holding some,
 
 687
 00:38:13,570 --> 00:38:15,550
+比如，内核有一个很大的内核锁，
 let's say the kernel has one big kernel lock,
 
 688
 00:38:15,820 --> 00:38:20,470
+然后调用 malloc ，等待内存分配器，
 and you call malloc, you waiting the memory allocator,
 
 689
 00:38:20,770 --> 00:38:22,840
+那么就没有其他进程可以运行了。
 then basically no other process can run.
 
 690
 00:38:23,530 --> 00:38:26,470
+你的下一个进程中会有死锁，
 And you would have a deadlock have in your next process,
 
 691
 00:38:26,470 --> 00:38:29,980
+它尝试运行，比如释放一些内存，
 that would actually try to run for example to free some memory,
 
 692
 00:38:29,980 --> 00:38:31,720
+不能运行，其实死锁了。
 you know couldn't run, actually deadlock.
 
 693
 00:38:32,490 --> 00:38:33,180
+当然，这是，
 Of course, this is,
 
 694
 00:38:33,180 --> 00:38:36,090
+如果你有一个很大的内核锁，这是一个明显的问题，
 if you have a big kernel lock, there's an obvious problem,
 
 695
 00:38:36,090 --> 00:38:40,590
+但是即使你有一个非常小的，细粒度的锁，
 you know, but even if you have a very small, a fine-grained locking,
 
 696
 00:38:40,650 --> 00:38:42,210
+它很容易运行到这种情况，
 it is easy to run in a situation,
 
 697
 00:38:42,210 --> 00:38:48,030
+等待分配器的进程持有某种锁，
 where basically the person or the process that's waiting in the allocator is holding some lock,
 
 698
 00:38:48,030 --> 00:38:50,220
+而其他进程需要释放内存，
 that somebody else needs to actually free the memory,
 
 699
 00:38:50,840 --> 00:38:53,420
+这会导致你陷入死锁。
 and that can get you basically this deadlock situation.
 
 700
 00:38:54,710 --> 00:39:00,290
+所以我们知道 strawman free 失败了，
 And so we're going strawman free is to basically fail,
 
 701
 00:39:00,470 --> 00:39:03,440
+或者当不再有内存时，
 or when you there's no memory anymore,
 
 702
 00:39:03,440 --> 00:39:06,590
+alloc 返回没有指针，检查没有指针，
 alloc returns like no pointer, you check with no pointer,
 
 703
 00:39:06,590 --> 00:39:09,200
+你不能使用[]来失败。
 it's no point you fail use a [].
 
 704
 00:39:09,840 --> 00:39:14,070
+但是[]并没有那么简单，
 But [] is actually not that straightforward,
 
 705
 00:39:14,070 --> 00:39:17,790
+进程可能已经分配了内存，
 you know the process might actually have allocated memory already,
 
 706
 00:39:17,820 --> 00:39:19,110
+你需要扔掉它，
 you need to get rid of that,
 
 707
 00:39:19,230 --> 00:39:21,900
+你可能已经执行了部分磁盘操作，
 you may have done some partial disk operations,
 
 708
 00:39:21,900 --> 00:39:23,550
+比如，如果你执行多个步骤，
 like for example if you do a multi steps,
 
 709
 00:39:23,610 --> 00:39:26,340
+部分操作可能完成了部分，但不是全部，
 you know partial operation maybe have done some of it, but not all of it,
 
 710
 00:39:26,340 --> 00:39:27,420
+你必须跳出困境。
 you have to bail out of that.
 
 711
 00:39:27,880 --> 00:39:31,570
+所以，要做对是非常困难的。
 And so, it turns out to actually get very very hard to get right.
 
 712
 00:39:32,340 --> 00:39:37,170
+有趣的是，当你深入研究这件事时，
 In sort of interesting, you know when digging into this
 
 713
 00:39:37,260 --> 00:39:40,020
+考虑如何解决这个问题，
 and trying to think about how to solve this problem,
 
 714
 00:39:40,140 --> 00:39:43,020
+Linux 使用了这两种解决方案。
 Linux uses both of these solutions.
 
 715
 00:39:43,500 --> 00:39:47,550
+这两种都有麻烦或问题，
 And you know both actually have trouble or problems,
 
 716
 00:39:47,730 --> 00:39:52,530
+事实上，内核开发人员很难弄清楚这些，
 and indeed kernel developers actually have difficulty to actually get this all straight,
 
 717
 00:39:52,560 --> 00:39:54,330
+如果你对这个很感兴趣，
 if you're very interested in this
 
 718
 00:39:54,330 --> 00:39:56,370
+并且想看一些有趣的讨论，
 and you want to see some interesting discussion about this,
 
 719
 00:39:56,880 --> 00:39:58,710
+在谷歌上搜索 too small to fail，
 google for "too small to fail"
 
 720
 00:39:58,890 --> 00:40:02,730
+有一篇文章谈到了其中的一些复杂情况，
 and there's a little article that talks about some of these complications,
 
 721
 00:40:02,730 --> 00:40:06,990
+释放内存或等待分配器，
 you know free memory or waiting in the allocator,
 
 722
 00:40:06,990 --> 00:40:09,660
+以及可能导致的问题。
 and the problem that can cause.
 
 723
 00:40:10,650 --> 00:40:12,930
+现在，对我们来说，
 Now it turns out, for us,
 
 724
 00:40:12,930 --> 00:40:15,210
+strawman 2 就是解决方案，
 you know so strawman 2 be the solution,
 
 725
 00:40:15,210 --> 00:40:16,140
+你可以想象到，
 that you could imagine doing,
 
 726
 00:40:16,140 --> 00:40:16,800
+但是对于我们来说，
 but then for us,
 
 727
 00:40:16,800 --> 00:40:19,620
+就像前面提到的，这是不可能的，
 just as mentioned earlier, this was not possible,
 
 728
 00:40:19,620 --> 00:40:23,070
+因为 new 不能返回，不能失败，
 because new just cannot return, cannot fail,
 
 729
 00:40:23,100 --> 00:40:24,480
+它总是成功的，
 it just always succeeds,
 
 730
 00:40:24,540 --> 00:40:27,300
+所以在某种程度上，这种情况不会发生。
 so we've got a range in some way that this cannot happen.
 
 731
 00:40:28,590 --> 00:40:31,710
+另外，这两种解决方案都不是特别理想，
 Plus neither of these two solutions actually particular ideal,
 
 732
 00:40:31,710 --> 00:40:35,160
+所以我们要想出一些更好的东西。
 so we wanted to come up with something that was potentially better.
 
 733
 00:40:36,780 --> 00:40:40,260
+到目前为止，关于堆耗尽的设置，有什么问题吗，
 Any questions so far, about the setup around heap exhaustion,
 
 734
 00:40:40,260 --> 00:40:42,720
+在我谈论 Biscuit 是怎么做的之前。
 before I talk about like how the way Biscuit does it.
 
 735
 00:40:48,420 --> 00:40:49,500
+这个问题能理解吗？
 This problem makes sense?
 
 736
 00:40:58,960 --> 00:41:02,170
+我理解为“是的”，然后继续，
 I'll interpret the signings as yes, then keep going,
 
 737
 00:41:02,170 --> 00:41:03,910
+但可以随时可以打断。
 but figure to interrupt anytime.
 
 738
 00:41:06,800 --> 00:41:08,810
+好的，那么 Biscuit 的解决方案是什么，
 Okay, so what is the Biscuit solution,
 
 739
 00:41:08,840 --> 00:41:13,790
+从高层级来看， Biscuit 的解决方案几乎是直截了当的，
 yeah, as a high level of the Biscuit solution is like almost straight forward,
 
 740
 00:41:14,420 --> 00:41:15,890
+它所做的是，
 what basically does,
 
 741
 00:41:15,890 --> 00:41:19,670
+当你执行系统调用比如 read 或 fork ，
 like when you execute a system call like say you read or fork,
 
 742
 00:41:20,420 --> 00:41:23,900
+在进入 fork 系统调用之前，
 before jumping actually into the fork system call,
 
 743
 00:41:23,930 --> 00:41:25,910
+在 fork 系统调用的开始的地方，
 right at the beginning of the fork system call,
 
 744
 00:41:25,910 --> 00:41:28,970
+比如 xv6 中的系统调用调度器，
 if you know like in a system call scheduler in xv6,
 
 745
 00:41:28,970 --> 00:41:31,520
+然后，它做的第一件事就是调用 reserve ，
 then first thing it does actually calls reserve,
 
 746
 00:41:32,630 --> 00:41:34,880
+它保留了足够的内存，
 and it basically reserves enough memory,
 
 747
 00:41:35,120 --> 00:41:37,700
+以便能够执行系统调用。
 to be able to execute the system call.
 
 748
 00:41:38,380 --> 00:41:42,430
+所以有足够的空闲内存，
 So there's a free memory enough
 
 749
 00:41:42,430 --> 00:41:45,730
+无论系统调用需要的内存是什么，
 that actually whatever on memory that actually the system call needs,
 
 750
 00:41:45,910 --> 00:41:49,570
+保留会足够大，也会成功。
 the reservation will be big enough that actually and will succeed.
 
 751
 00:41:50,430 --> 00:41:53,010
+所以，一旦系统调用开始，
 So, so once the system call goes off
 
 752
 00:41:53,010 --> 00:41:55,560
+并且成功地保留了内存，
 and actually successful in reserving memory,
 
 753
 00:41:55,560 --> 00:41:57,390
+它会一直运行，
 it will actually run all the way through
 
 754
 00:41:57,420 --> 00:41:59,100
+我们不会再遇到这个问题，
 and we were never with the problems,
 
 755
 00:41:59,100 --> 00:42:01,950
+这里没有足够的内存或堆耗尽。
 that there won't be enough memory or heap exhaustion.
 
 756
 00:42:03,340 --> 00:42:05,200
+如果没有足够的内存，
 And if there's not enough memory,
 
 757
 00:42:05,200 --> 00:42:06,790
+在你想要预留的时候，
 at the point you want to do the reservation,
 
 758
 00:42:06,820 --> 00:42:08,290
+那就在这里等待，
 then basically just wait here,
 
 759
 00:42:09,940 --> 00:42:11,920
+但是在系统调用开始时，
 but at the beginning of the system call,
 
 760
 00:42:11,920 --> 00:42:13,660
+系统调用不持有任何锁，
 the system call doesn't hold any locks,
 
 761
 00:42:13,660 --> 00:42:15,040
+没有持有任何资源，
 doesn't hold any resources yet,
 
 762
 00:42:15,040 --> 00:42:16,480
+所以它是非常好的，
 so it actually is perfectly fine,
 
 763
 00:42:16,480 --> 00:42:21,190
+在这里等待，没有死锁的风险。
 you know wait there, no risk of deadlock.
 
 764
 00:42:22,160 --> 00:42:23,660
+当它在等待的时候，
 And while it's waiting,
 
 765
 00:42:23,690 --> 00:42:26,540
+它当然可以做，它可以调用，
 you know it can of course be doing, it can call,
 
 766
 00:42:26,540 --> 00:42:29,690
+内核可以驱逐缓存，
 kernel can actually evict cache,
 
 767
 00:42:29,690 --> 00:42:33,620
+尝试减少，释放堆空间，
 you know try to reduce the, basically make free up heap space,
 
 768
 00:42:33,800 --> 00:42:36,920
+也许像你看到的，
 maybe as you seen,
 
 769
 00:42:36,920 --> 00:42:41,000
+也许会杀死一个进程，强制释放内存。
 maybe kill a process that to force you know memory actually be freed.
 
 770
 00:42:41,590 --> 00:42:43,990
+然后一旦内存可用，
 And then once you know memory is available
 
 771
 00:42:43,990 --> 00:42:47,020
+内核决定，可以满足预订，
 and the kernel decides well you know I can meet a reservation,
 
 772
 00:42:47,020 --> 00:42:50,020
+然后它会让系统调用开始并运行，
 then it will let the system call basically goes off and runs,
 
 773
 00:42:50,170 --> 00:42:52,570
+然后执行它需要做的任何事情，
 and basically executes whatever it needs to be done
 
 774
 00:42:52,900 --> 00:42:55,060
+然后在最后，当系统调用完成时，
 and then at the very end, when the system call goes down,
 
 775
 00:42:55,060 --> 00:42:56,170
+它说，好的，我完成了，
 it's like, okay, I'm done,
 
 776
 00:42:56,350 --> 00:42:59,410
+所有保留的内存都回到池中，
 and all the memory that was reserve basically comes back to the pool,
 
 777
 00:42:59,620 --> 00:43:02,380
+可用于后续的系统调用。
 available for subsequent system calls.
 
 778
 00:43:03,770 --> 00:43:07,310
+这个解决方案有几个很好的特性，
 And there's a couple of nice properties about this particular solutions,
 
 779
 00:43:07,310 --> 00:43:09,980
+内核本身不需要检查，
 there's no checks necessary in the kernel itself,
 
 780
 00:43:10,010 --> 00:43:14,390
+你永远不需要检查内存分配是否会失败，
 like you never have to check whether memory memory allocation can fail,
 
 781
 00:43:14,570 --> 00:43:16,190
+这在我们的情况下很好，
 which is particularly in our case good,
 
 782
 00:43:16,190 --> 00:43:18,110
+因为 Go 是不会失败的。
 because you know Go, it can't fail.
 
 783
 00:43:18,620 --> 00:43:20,960
+这里不需要错误处理代码，
 There's no error handling code and necessary at all,
 
 784
 00:43:21,080 --> 00:43:22,400
+而且没有死锁的风险，
 and there's no risk for deadlock,
 
 785
 00:43:22,400 --> 00:43:24,860
+因为你在一开始就避免了，
 because you're avoiding in the very beginning without,
 
 786
 00:43:24,860 --> 00:43:26,300
+没有持有锁。
 when you actually hold no locks.
 
 787
 00:43:27,010 --> 00:43:29,830
+当然，有很多很棒的，
 Of course, you know there's all wonderful well,
 
 788
 00:43:29,980 --> 00:43:32,290
+唯一的问题是一个挑战，
 the only thing is like how there's a challenge,
 
 789
 00:43:32,290 --> 00:43:33,640
+你怎么做预留，
 of course, how you do the reservation,
 
 790
 00:43:33,880 --> 00:43:34,930
+你怎么计算，
 how do you compute,
 
 791
 00:43:34,960 --> 00:43:42,710
+系统调用需要多少内存来执行它。
 you know, how much memory a system call might need to to execute it.
 
 792
 00:43:43,590 --> 00:43:45,300
+所以现在我们有了一个难题。
 And so now we have a puzzle.
 
 793
 00:43:47,780 --> 00:43:52,460
+你保留的数量是很重要的，
 And you know it's important that the amount you reserve,
 
 794
 00:43:52,460 --> 00:43:53,660
+你可以做的一件事是，
 one, one you could do is
 
 795
 00:43:53,660 --> 00:43:55,940
+你可以保留一半的内存或类似的东西，
 you can reserve half memory or something like that,
 
 796
 00:43:55,940 --> 00:43:58,640
+对每个系统调用来说都是夸张的内存量，
 some ridiculous amount of memory for every system call,
 
 797
 00:43:58,670 --> 00:44:01,850
+但也这意味着你限制了可以并发执行的系统调用的数量，
 but that means you limit the number of system calls you can execute concurrently,
 
 798
 00:44:01,850 --> 00:44:03,950
+所以你想在某种程度上把工作做得很好，
 so you want to sort of do a pretty good job
 
 799
 00:44:03,980 --> 00:44:07,220
+计算出内存量边界，
 and actually computing bound of the amount of memory
 
 800
 00:44:07,220 --> 00:44:09,970
+系统调用可能需要的（内存量）。
 that the system call might need.
 
 801
 00:44:11,050 --> 00:44:17,290
+所以，我们做这件事的方式，
 So, the way, we ended up doing this,
 
 802
 00:44:17,290 --> 00:44:22,240
+是高级语言帮助我们的，
 you know turned out like sort of high-level language help us here,
 
 803
 00:44:22,390 --> 00:44:25,450
+Go 是很容易在进行静态分析的，
 turned out like Go is actually pretty easy to static analyze,
 
 804
 00:44:25,450 --> 00:44:30,490
+事实上， Go 运行时和 Go 基础架构生态系统
 in fact Go runtime and Go infrastructure ecosystems
 
 805
 00:44:30,490 --> 00:44:33,580
+附带了很多用于分析 Go 代码的软件包。
 comes with a whole bunch of packages to analyze Go code.
 
 806
 00:44:34,100 --> 00:44:37,400
+我们使用这些软件包来计算
 And we use those packages basically to compute
 
 807
 00:44:37,700 --> 00:44:42,920
+系统调用需要的内存量，
 the amount of memory that the system call needs,
 
 808
 00:44:42,950 --> 00:44:44,060
+所以你可以考虑，
 so you can think about the,
 
 809
 00:44:44,060 --> 00:44:47,240
+比如，你有一个 read 系统调用，
 let's say you have a read system call, right,
 
 810
 00:44:47,240 --> 00:44:50,810
+我们可以查看系统调用的调用图，
 you know you know we could look at the call graph of the system call,
 
 811
 00:44:50,810 --> 00:44:54,440
+调用函数 f ，调用函数 g ，调用函数 h ，等等，
 you know calls the function f, calls the function g, calls the function h, blah blah blah,
 
 812
 00:44:54,440 --> 00:44:55,790
+可能会有很多，
 might continue a whole bunch,
 
 813
 00:44:55,910 --> 00:44:58,130
+在系统调用结束时，
 and you know at the end of system call,
 
 814
 00:44:58,130 --> 00:44:59,060
+它再次[绑定]到[堆栈]，
 it [binds] to [stack] again,
 
 815
 00:44:59,060 --> 00:45:01,880
+然后返回到用户空间。
 and then goes back to return to user space.
 
 816
 00:45:02,520 --> 00:45:04,200
+我们能做的就是，
 And basically what we can do is
 
 817
 00:45:04,200 --> 00:45:08,370
+分配，或者计算出最大深度，
 like you know allocate you know or figure out what the maximum depth,
 
 818
 00:45:08,940 --> 00:45:13,770
+关于这张调用图，
 you know of this this call graph is,
 
 819
 00:45:14,330 --> 00:45:16,100
+在任何时间，
 at any particular time,
 
 820
 00:45:16,130 --> 00:45:17,930
+然后对于这个最大深度，
 and then basically for that maximum depth,
 
 821
 00:45:17,930 --> 00:45:21,770
+计算出每个函数需要多少实时内存，
 you know compute how much you know live memory each of these functions need,
 
 822
 00:45:21,770 --> 00:45:25,640
+所以，如果函数调用 new ，分配内存，
 so if this function calls new, you know that will allocate memory,
 
 823
 00:45:25,670 --> 00:45:27,830
+我们知道这里有什么类型的对象，
 you know we know what kind of objects there are,
 
 824
 00:45:27,860 --> 00:45:28,910
+我们使用高级语言，
 there's a high level language,
 
 825
 00:45:28,910 --> 00:45:30,770
+所以我们可以计算出对象的大小，
 so we can compute the size of that object is,
 
 826
 00:45:30,770 --> 00:45:33,590
+我们可以把它们加起来，得到一个数字 s ，
 we can just add them up and it gives us some number s,
 
 827
 00:45:33,620 --> 00:45:36,650
+也就是说，内存总量或最大内存量，
 that says like the total amount of memory or the maximum amount of memory,
 
 828
 00:45:36,650 --> 00:45:42,290
+那个调用图可以在任何时间活动。
 that can be live at any particular point of time for that call graph.
 
 829
 00:45:43,290 --> 00:45:45,420
+原因是，这有点棘手，
 And the reason is you know it's slightly tricky,
 
 830
 00:45:45,420 --> 00:45:46,590
+它不是这么简单的，
 it's not as simple as this,
 
 831
 00:45:46,590 --> 00:45:50,280
+因为，比如函数 h 可能分配了一些内存，
 because for example a function h might allocate some memory,
 
 832
 00:45:50,800 --> 00:45:53,470
+然后传递回 g ，
 and then pass back to g,
 
 833
 00:45:53,530 --> 00:45:55,090
+所以 h 结束了，
 and so you know h finishes,
 
 834
 00:45:55,510 --> 00:46:00,820
+但是 g 得到了 h 分配的内存，
 and but you know g actually you know gets the memory that h is allocated,
 
 835
 00:46:01,120 --> 00:46:03,430
+这称为逃逸，
 and this is called escaping,
 
 836
 00:46:03,430 --> 00:46:08,390
+内存从 h 逃逸到 g ，
 the memory escapes from you know from h to g
 
 837
 00:46:08,390 --> 00:46:12,770
+有一些标准算法做这种逃逸分析，
 it turns out, there are standard algorithms were doing sort of this escape analysis
 
 838
 00:46:12,770 --> 00:46:15,560
+确定哪些变量逃逸到调用方，
 to see determine which variables escape to the callers,
 
 839
 00:46:16,010 --> 00:46:17,570
+在这种情况下，
 and in that case,
 
 840
 00:46:17,570 --> 00:46:20,690
+无论 h 分配的是什么内存，它仍然是活动的，
 you know basically whatever memory was allocated by h and that's still alive,
 
 841
 00:46:20,690 --> 00:46:22,880
+我们必须加上 g 的，
 we have to add to whatever g is,
 
 842
 00:46:23,760 --> 00:46:25,890
+所以我们必须加到 s 中。
 so you know we have to be added into s.
 
 843
 00:46:27,040 --> 00:46:28,510
+关于这个，我有一个简短的问题，
 A quick question about this,
 
 844
 00:46:29,440 --> 00:46:32,470
+所以让我们在一些函数中做更多假设，
 so let's assume more in some function,
 
 845
 00:46:32,800 --> 00:46:36,490
+根据函数预期的不同工作负荷，
 depending on different workloads that the function is expected to have,
 
 846
 00:46:36,790 --> 00:46:40,150
+可能分配了不同的内存量，
 there might be different memories memory amounts allocated,
 
 847
 00:46:40,360 --> 00:46:44,590
+那么是否有内存分配进程的最坏情况？
 so what is there like a worst-case, what memory allocation process.
 
 848
 00:46:44,620 --> 00:46:47,170
+是的，这是一种保守的方案，
 Yeah, that's basically it's sort of conservative scheme correct,
 
 849
 00:46:47,170 --> 00:46:51,430
+我们计算，这个工具计算，
 and we we computed, the tool computes,
 
 850
 00:46:51,430 --> 00:46:56,200
+最坏的函数调用深度。
 basically a worst possible depth of function calls.
 
 851
 00:46:56,830 --> 00:47:00,040
+从最坏的情况来看，
 And you know for that the worst-case,
 
 852
 00:47:00,040 --> 00:47:03,940
+分析系统调用可能需要多少内存，
 analysis how much memory that reaches system call might need,
 
 853
 00:47:03,970 --> 00:47:06,760
+在实践中，系统调用可能需要少得多，
 in practice, it might need, there system call might need a lot less,
 
 854
 00:47:06,940 --> 00:47:10,210
+但是为了保守，
 but you know for you know to be conservative,
 
 855
 00:47:10,210 --> 00:47:13,240
+我们必须为最坏的情况分配打算。
 we have to allocate the work we plan for the worst case.
 
 856
 00:47:14,000 --> 00:47:18,050
+所以我们在这里谈到了几个重要的观点，
 And so we've come to a couple of important points here,
 
 857
 00:47:18,050 --> 00:47:21,830
+因为，一些系统调用比如执行 for 循环，
 because you know some system calls for example executive for loop,
 
 858
 00:47:21,830 --> 00:47:25,020
+这取决于系统调用的参数，
 that's depended on argument to the system call, right,
 
 859
 00:47:25,020 --> 00:47:27,600
+你实际上不能静态地计算出界限是什么，
 so you can't actually statically figure out what the bound is,
 
 860
 00:47:27,990 --> 00:47:31,260
+所以，在很多情况下，我们对代码进行了注释，
 and so a number of cases we annotated the code
 
 861
 00:47:31,260 --> 00:47:33,900
+表示这是循环的最大界限，
 to say well this is the maximum bounds of this loop,
 
 862
 00:47:34,200 --> 00:47:36,210
+你可以假设不会超过这个，
 and you can assume it's no more than that,
 
 863
 00:47:36,210 --> 00:47:38,700
+并用它来实际计算这个数字 s 。
 and use that to actually compute this number s.
 
 864
 00:47:39,990 --> 00:47:43,620
+同样地，如果你有一个递归函数，
 Similarly you know, for example if you have a recursive function,
 
 865
 00:47:43,980 --> 00:47:46,290
+谁知道递归有多深，
 you know who knows how deep the recursion is, right,
 
 866
 00:47:46,470 --> 00:47:48,210
+这也可能依赖于
 and that might also be a dependent
 
 867
 00:47:48,210 --> 00:47:50,730
+动态变量或系统调用的参数。
 on a dynamic variable or an argument to a system call.
 
 868
 00:47:51,220 --> 00:47:55,150
+事实上，我们在某些地方处理 Biscuit ，
 In fact, you know we you know we treat Biscuit in some places
 
 869
 00:47:55,150 --> 00:47:57,490
+避免了递归函数传递，
 basically avoid recursive function pass,
 
 870
 00:47:57,820 --> 00:48:01,990
+所以做这个分析是可能的。
 so actually it was possible to do this, you know do this kind of analysis.
 
 871
 00:48:02,770 --> 00:48:04,510
+所以这种分析不是免费的，
 So this kind of analysis not for free,
 
 872
 00:48:04,510 --> 00:48:05,620
+它不是完全自动的，
 it's not completely automatic,
 
 873
 00:48:05,800 --> 00:48:08,980
+对于这种情况，它需要几天的工作，
 it takes a couple days of work you know for this case,
 
 874
 00:48:08,980 --> 00:48:16,240
+Cody 查看所有这些循环，然后注释。
 you know Cody to go through look at all these loops and and annotate.
 
 875
 00:48:16,840 --> 00:48:19,540
+还有一些 Go 的具体的问题，
 You know there are a couple others Go specific issues,
 
 876
 00:48:19,540 --> 00:48:20,560
+你必须处理，
 that you have to deal with
 
 877
 00:48:20,560 --> 00:48:22,960
+比如切片，它们的大小可能会翻倍，
 like slice, you know they might double in size,
 
 878
 00:48:22,960 --> 00:48:25,150
+如果您在切片中添加一个元素，
 if you add an element to slice
 
 879
 00:48:25,570 --> 00:48:29,500
+那么我们模仿最大容量的切片，
 and so we imitate the slices which maximum capacity,
 
 880
 00:48:29,800 --> 00:48:32,830
+但是为了让这些可行用了很多天的工作，
 but I use all sort of doable for a couple days work,
 
 881
 00:48:32,860 --> 00:48:35,140
+使用这个工具，
 and you know using this tool,
 
 882
 00:48:35,140 --> 00:48:37,660
+你可以得到一个合理的数字，
 then you can get a number out there is reasonable good,
 
 883
 00:48:38,080 --> 00:48:43,390
+在计算最大内存量方面，
 in terms of computing on maximum amount of memory
 
 884
 00:48:43,390 --> 00:48:44,830
+系统调用所需的（最大内存量）。
 that a particular system call needs.
 
 885
 00:48:46,150 --> 00:48:47,680
+所以这就是
 And so this is basically how
 
 886
 00:48:47,710 --> 00:48:50,890
+Biscuit 解决这个问题的方式。
 you know we basically Biscuit solves this particular problem.
 
 887
 00:48:54,100 --> 00:48:57,910
+哦，抱歉，人们还用这个工具做什么，
 Oh, sorry, what else are people using this tool for,
 
 888
 00:48:58,000 --> 00:49:00,250
+比如，他们不是在构建内核，
 like they're not, they're not building a kernel,
 
 889
 00:49:00,250 --> 00:49:01,570
+他们用它做什么？
 what are they using it for?
 
 890
 00:49:01,600 --> 00:49:03,280
+通过静态分析软件包。
 Over static analysis package.
 
 891
 00:49:03,910 --> 00:49:04,300
+是的。
 Yeah.
 
 892
 00:49:04,330 --> 00:49:08,260
+Go 编译器使用它进行各种优化，
 Go compiler internally uses it for all kinds of optimizations,
 
 893
 00:49:08,260 --> 00:49:12,490
+做静态分析，
 you know to and do static analysis,
 
 894
 00:49:12,760 --> 00:49:17,380
+Go 找出最好的方法来编译它。
 Go go to figure out the best way to for the best way to compile it.
 
 895
 00:49:18,270 --> 00:49:20,490
+我明白了，好的，谢谢。
 I see, I see, okay, thank you.
 
 896
 00:49:20,880 --> 00:49:23,640
+所以这是这个软件包最酷的地方之一，
 So this is one of the cool things about this package,
 
 897
 00:49:23,640 --> 00:49:25,020
+编译器可以使用，
 you know the compiler happens to use,
 
 898
 00:49:25,020 --> 00:49:26,250
+我们可以做什么。
 you know what we could do.
 
 899
 00:49:27,500 --> 00:49:31,790
+我们稍后会看到，我们还会使用它的其他几个功能。
 We'll see later on, we also use it for a couple other features.
 
 900
 00:49:32,710 --> 00:49:34,570
+这是非常方便的。
 It's very convenient to have.
 
 901
 00:49:37,640 --> 00:49:39,020
+好的。
 Okay.
 
 902
 00:49:40,580 --> 00:49:42,110
+好的，转到实现，
 Okay, turns to the implementation,
 
 903
 00:49:42,200 --> 00:49:46,640
+与其他内核非常相似，
 you know basically basically very similar to other kernels
 
 904
 00:49:46,640 --> 00:49:50,600
+或者像 xv6 ，除了更高的性能。
 or like you know xv6, except more high performance.
 
 905
 00:49:51,070 --> 00:49:54,070
+我们采用了
 You know what we adopted
 
 906
 00:49:54,070 --> 00:49:58,090
+很多 Linux 内核拥有的优化或智慧，
 many of the optimizations or cleverness that the Linux kernel has,
 
 907
 00:49:58,090 --> 00:50:00,400
+至少在我们试图实现的系统调用上，
 at least the system calls that we were trying to implement,
 
 908
 00:50:00,920 --> 00:50:05,840
+对内核文本使用大页面，以避免 TLB 开销，
 you know use large pages for kernel text to avoid TLB cost,
 
 909
 00:50:06,350 --> 00:50:13,460
+我们有每个 CPU 的网卡传输队列，以避免端口之间的同步，
 we have per-CPU NIC transmit queues to avoid synchronization between port,
 
 910
 00:50:13,790 --> 00:50:14,900
+我们有 RCU ，
 we have RCU,
 
 911
 00:50:14,900 --> 00:50:17,990
+我会更多地讨论目录缓存，
 I will talk a little bit more about the directory cache,
 
 912
 00:50:17,990 --> 00:50:22,550
+它是无锁或无读锁的目录高速缓存，
 which is basically lock free or read lock free directory cache,
 
 913
 00:50:22,550 --> 00:50:25,280
+在学期末，我们将更详细地讨论 RCU ，
 at the end of the semester, we'll talk about RCU in more detail,
 
 914
 00:50:25,280 --> 00:50:27,260
+但是，这里会有一些，
 but you know, this could have some too,
 
 915
 00:50:29,720 --> 00:50:33,230
+一种常见的优化类型，
 you know sort of the usual type of optimization,
 
 916
 00:50:33,230 --> 00:50:36,200
+你需要获得高性能。
 that actually you need to get high performance.
 
 917
 00:50:36,720 --> 00:50:40,020
+我想我们学到的主要教训是，
 And the main lesson I think we learned is that
 
 918
 00:50:40,320 --> 00:50:43,410
+Go 并没有阻碍这些优化的实现，
 Go was not standing in the way of implementing these optimizations,
 
 919
 00:50:44,160 --> 00:50:48,600
+所以这些优化可以用 C 和 Linux 实现，
 so these optimizations that were implemented in C and Linux,
 
 920
 00:50:48,600 --> 00:50:51,390
+我们可以实现相同的优化，
 you know we've basically implemented same optimization,
 
 921
 00:50:51,390 --> 00:50:52,680
+但是在 Go 中实现，
 but ever implemented in Go,
 
 922
 00:50:52,890 --> 00:50:56,410
+所以语言本身不是障碍或问题，
 and so the language itself is not a hurdle or a problem,
 
 923
 00:50:56,560 --> 00:51:00,040
+实际上完全有利于实现这些优化。
 in fact completely conducive to actually implementing these optimizations.
 
 924
 00:51:01,460 --> 00:51:03,590
+要实现这些优化需要做很多工作，
 There's a lot of work to implement these optimizations,
 
 925
 00:51:03,590 --> 00:51:05,720
+但与语言无关。
 but irrespective of the language.
 
 926
 00:51:09,810 --> 00:51:12,900
+好的，这带来了某种评价，
 OK, so that brings me sort of to evaluation,
 
 927
 00:51:12,900 --> 00:51:15,990
+也就是整篇论文的动机，
 which is really what the, the motivation of the whole paper was,
 
 928
 00:51:15,990 --> 00:51:21,420
+试图处理高级语言的好处和成本，
 which is like trying to handle on the benefits and the costs of high-level language,
 
 929
 00:51:21,420 --> 00:51:24,670
+所以，评价可以分成两部分，
 so basically, the evaluation sort of split in two parts,
 
 930
 00:51:24,670 --> 00:51:27,070
+先讨论好处，再讨论成本。
 first talking about the benefits and then talking about the costs.
 
 931
 00:51:29,370 --> 00:51:31,320
+有三个问题，
 So, so three questions,
 
 932
 00:51:31,320 --> 00:51:35,280
+首先，有一个问题，比如没有作弊，
 you know first of all, you know there's a question like didn't cheat,
 
 933
 00:51:35,280 --> 00:51:38,400
+也许我们避开了所有昂贵的高级语言特性，
 you know maybe we avoided all the expensive high-level language features,
 
 934
 00:51:38,940 --> 00:51:40,890
+Go 提供的。
 that Go offers.
 
 935
 00:51:40,950 --> 00:51:45,180
+第二个问题，当然是高级语言有没有简化 Biscuit 代码，
 Does the, second question of course does the high-level language simplify the Biscuit code,
 
 936
 00:51:45,180 --> 00:51:47,640
+并且会阻止一些漏洞，
 and would to prevent some of these exploits
 
 937
 00:51:47,640 --> 00:51:50,400
+那些我在课程前面提到的。
 that you know I mentioned early on in the lecture.
 
 938
 00:51:51,300 --> 00:51:54,750
+首先，关于使用高级语言特性，
 So first, respect to use high-level language features,
 
 939
 00:51:54,990 --> 00:51:56,040
+我们希望看到，
 we just wanted to see
 
 940
 00:51:56,040 --> 00:51:59,370
+我们是否与其他大的 Go 项目类似，
 whether we were similar in terms of other big Go projects,
 
 941
 00:51:59,370 --> 00:52:00,540
+在语言功能方面，
 in terms of language features,
 
 942
 00:52:00,540 --> 00:52:01,410
+所以我们可以说，
 so that we could say,
 
 943
 00:52:01,410 --> 00:52:04,080
+整个内核做了，
 like all the kernel seems to be doing roughly
 
 944
 00:52:04,080 --> 00:52:07,410
+以相似的方式做相同功能，有相同的优点。
 the same advantage of the same features in similar ways.
 
 945
 00:52:07,860 --> 00:52:10,980
+所以我们使用相同的静态分析工具
 So we use actually the same static analysis tool or package
 
 946
 00:52:10,980 --> 00:52:17,430
+从根本上分析 GitHub 上的两个大的 Go 软件，
 to basically analyze whole bunch of two big pieces of Go software that on github,
 
 947
 00:52:17,490 --> 00:52:19,110
+它们有数百万行代码，
 you know there are millions lines of code,
 
 948
 00:52:19,110 --> 00:52:21,690
+一个是 Go 运行时本身和所有它的包，
 one is you know Go runtime itself and all its packages
 
 949
 00:52:21,960 --> 00:52:23,790
+另一个是系统 Moby 。
 and the system called Moby.
 
 950
 00:52:24,550 --> 00:52:29,110
+然后，我们计算高级语言特性出现的次数，
 And then we just basically product for number of high-level language features,
 
 951
 00:52:29,110 --> 00:52:31,270
+每千行用了多少次，
 how many times they were used for thousand lines,
 
 952
 00:52:31,360 --> 00:52:32,740
+这张图显示这些，
 so this graph shows that,
 
 953
 00:52:32,740 --> 00:52:36,360
+x 轴是语言特性。
 as usual, on the x-axis are the language features.
 
 954
 00:52:36,390 --> 00:52:39,540
+allocations 对应于调用 new ，
 Basically allocations correspond to calling new
 
 955
 00:52:39,570 --> 00:52:41,400
+这对应于内存，
 and so this corresponds to the memory,
 
 956
 00:52:41,400 --> 00:52:44,550
+由垃圾收集器动态分配。
 that it will be dynamically allocated by the garbage collector.
 
 957
 00:52:44,910 --> 00:52:49,080
+maps 对应于哈希表，切片或动态数组，
 You know maps are like hash tables, slices or dynamic arrays.
 
 958
 00:52:49,080 --> 00:52:51,030
+这是 channel 同步，
 You know, here's the channels synchronization,
 
 959
 00:52:51,030 --> 00:52:53,280
+正如你所看到的，我们很少使用它，
 as you can see, we use it very littlely,
 
 960
 00:52:53,280 --> 00:52:55,410
+但是 Go 运行时和 Moby 也是如此。
 but so does the Go runtime and the Moby.
 
 961
 00:52:56,160 --> 00:52:58,950
+显然，我们最喜欢的特性，
 Clearly the feature that we like most,
 
 962
 00:52:59,010 --> 00:53:04,260
+它是函数多返回，能够返回多个值。
 it was multi function return, being able to return multiple values.
 
 963
 00:53:04,800 --> 00:53:06,750
+我们使用闭包，
 You know we use closures,
 
 964
 00:53:06,810 --> 00:53:08,550
+我们没有使用 finalizer ，
 we didn't use finalizer,
 
 965
 00:53:08,580 --> 00:53:10,710
+我们使用了一些 defer ，
 we use defer a little bit,
 
 966
 00:53:10,710 --> 00:53:13,410
+我们创造了很多 Go 协程，
 you know there's a bunch of Go routines that we do create,
 
 967
 00:53:13,410 --> 00:53:14,550
+我们使用接口。
 we use interfaces.
 
 968
 00:53:15,040 --> 00:53:18,760
+类型断言，从一种类型转换为另一种类型，
 You know type assertions to convert from one type to another,
 
 969
 00:53:19,180 --> 00:53:21,760
+关于类型断言。
 in the type asserts matter.
 
 970
 00:53:21,970 --> 00:53:24,310
+并且导入很多包，
 And importing many packages,
 
 971
 00:53:24,340 --> 00:53:27,220
+内核本身是由多个软件包构建的，
 so kernel selves build out of any packages
 
 972
 00:53:27,220 --> 00:53:29,230
+而不是一个大的单一程序。
 are not like one big single program.
 
 973
 00:53:29,880 --> 00:53:30,600
+所以，如果你看这个，
 So if you look at this,
 
 974
 00:53:30,600 --> 00:53:34,830
+一些功能 Biscuit 比 Golang 和 Moby 使用得少，
 you know some features you know Biscuit could use less than Golang and Moby
 
 975
 00:53:34,830 --> 00:53:38,760
+有时可能会或多或少失去一些功能，
 and sometimes you know this could lose some features more or roughly in the [],
 
 976
 00:53:39,970 --> 00:53:43,480
+而不是以任何明显不同的方式。
 not not in any sort of distinctly different way.
 
 977
 00:53:44,090 --> 00:53:46,190
+所以，由此得出的主要结论是，
 So the main conclusion from this is
 
 978
 00:53:46,190 --> 00:53:49,730
+使用了 Go 提供的高级功能，
 you know basically uses the high-level features actually Go offers,
 
 979
 00:53:49,730 --> 00:53:55,190
+不会为了获得好的性能而回避它们。
 and doesn't sidestep them to basically get good performance.
 
 980
 00:53:56,950 --> 00:53:58,270
+好的。
 Okay.
 
 981
 00:53:58,850 --> 00:54:00,500
+我有个问题，
 I have a question,
 
 982
 00:54:01,430 --> 00:54:05,450
+你怎么能数得清所有这些，
 how did you, how are you able to count all this,
 
 983
 00:54:05,450 --> 00:54:08,150
+你使用了静态分析工具吗？
 did you use the static analysis tool?
 
 984
 00:54:08,960 --> 00:54:12,140
+是的，基本上用的是静态分析包，
 Yeah basically use static package, static analysis package
 
 985
 00:54:12,140 --> 00:54:14,810
+然后写了一个使用静态分析包的小程序
 and then wrote a little program that uses static analysis packages
 
 986
 00:54:14,810 --> 00:54:16,730
+检查这些程序中的每一条语句，
 to go over every statement in these programs
 
 987
 00:54:16,730 --> 00:54:18,680
+看看是哪种类型的语句。
 and look at what kind of type of statement is.
 
 988
 00:54:19,800 --> 00:54:22,290
+然后，你可以获取参数
 And then, you get the argument
 
 989
 00:54:22,290 --> 00:54:23,970
+查看参数是如何使用的，
 to see how the arguments are being used
 
 990
 00:54:23,970 --> 00:54:26,100
+这给你一种感觉，关于，
 and that gives you a sense about how,
 
 991
 00:54:27,080 --> 00:54:29,120
+允许你对这些功能计数。
 allows you to count these features.
 
 992
 00:54:31,250 --> 00:54:31,760
+好的。
 Okay.
 
 993
 00:54:37,600 --> 00:54:41,290
+好的，接下来的事情有点主观，
 Okay, so the next thing is a little subjective,
 
 994
 00:54:41,380 --> 00:54:45,940
+高级语言简化了 Biscuit 代码吗？
 did the high-level language simplified Biscuit code?
 
 995
 00:54:46,730 --> 00:54:48,140
+是的，我认为它是这样的，
 Yeah, I think it generally did,
 
 996
 00:54:48,170 --> 00:54:51,950
+所以，举一两个例子进行讨论，
 and so argued with one or two examples explicitly,
 
 997
 00:54:51,950 --> 00:54:56,180
+但是你现在有 GC 分配是非常好的，
 but you're now having GC allocation is actually very nice,
 
 998
 00:54:56,180 --> 00:54:57,380
+也许我可以说明这一点。
 and maybe I can make the point,
 
 999
 00:54:57,380 --> 00:54:58,550
+如果你考虑 xv6 ，
 if you think of xv6
 
 1000
 00:54:58,550 --> 00:54:59,630
+或者执行 exec ，
 or you do an exec,
 
 1001
 00:55:00,170 --> 00:55:01,160
+在执行 exec 时，
 on point of exec,
 
 1002
 00:55:01,160 --> 00:55:04,820
+有很多数据结构需要释放，或者返回到内核，
 there's a lot of data structures that need to be freed or return to the kernel
 
 1003
 00:55:05,930 --> 00:55:09,290
+以便以后的进程可以使用，
 and so that later process can use,
 
 1004
 00:55:09,290 --> 00:55:10,820
+使用垃圾收集器很容易，
 using garbage collector is really easy,
 
 1005
 00:55:10,820 --> 00:55:12,650
+垃圾收集器会处理所有的事情，
 you know the garbage collector takes care of all of it,
 
 1006
 00:55:12,680 --> 00:55:14,300
+你不需要做太多。
 you know you don't really have to do much.
 
 1007
 00:55:14,700 --> 00:55:16,800
+所以，如果你分配，释放一个地址页面，
 So if you allocate you know free an address page,
 
 1008
 00:55:16,800 --> 00:55:19,170
+地址空间对应的 VMA
 you know the VMA correspond in address space
 
 1009
 00:55:19,170 --> 00:55:21,390
+也会被垃圾收集器自动释放。
 will be automatically freed by the garbage collector too.
 
 1010
 00:55:22,420 --> 00:55:24,400
+是的，所以这很简单，
 Yeah, so you know just that as simple,
 
 1011
 00:55:24,700 --> 00:55:26,260
+正如我们前面提到的，
 as we mentioned earlier,
 
 1012
 00:55:26,260 --> 00:55:29,680
+多个返回值在编程风格方面非常好，
 the multi return values were really nice in terms of programming style,
 
 1013
 00:55:29,890 --> 00:55:31,000
+闭包也很好，
 closures were nice,
 
 1014
 00:55:31,000 --> 00:55:31,870
+maps 也很好，
 maps were great,
 
 1015
 00:55:31,870 --> 00:55:35,230
+你不需要有很多[]，
 you know you don't have to many [],
 
 1016
 00:55:35,410 --> 00:55:36,940
+比如在 xv6 中，
 places xv6 for example,
 
 1017
 00:55:37,300 --> 00:55:39,970
+以线性方式查找东西，
 you know look up something in a linear fashion,
 
 1018
 00:55:39,970 --> 00:55:43,930
+但是如果你有哈希表或映射作为第一类对象或抽象，
 but if you have hash tables or maps as a first class object or abstraction,
 
 1019
 00:55:43,930 --> 00:55:45,250
+程序员不用再那么做，
 the programmer you know would never do that,
 
 1020
 00:55:47,450 --> 00:55:51,110
+你使用 map ，运行时将负责高效地执行所有操作。
 you use map and the runtime will take care of doing everything efficiently.
 
 1021
 00:55:51,960 --> 00:55:56,400
+所以，我认为定性来说，你得到了更简单的代码。
 So, in in fact I think qualitatively, it feels you get simpler code.
 
 1022
 00:55:57,450 --> 00:55:59,070
+但是定性的很清楚，
 But as clearly qualitatively,
 
 1023
 00:55:59,070 --> 00:56:01,170
+举一个更具体的例子，
 you know just give a little bit more of a concrete example,
 
 1024
 00:56:01,170 --> 00:56:06,630
+高级语言，特别是垃圾收集器大放异彩的地方是，
 where really, where sort of high-level language, particular garbage collector shines is
 
 1025
 00:56:06,630 --> 00:56:08,700
+当存在大量并发时，
 when there's a lot of concurrency between,
 
 1026
 00:56:09,120 --> 00:56:10,200
+当存在并发线程，
 when there's concurrency threads
 
 1027
 00:56:10,200 --> 00:56:12,660
+而线程共享特定的数据项。
 and threads actually share a particular shared data item.
 
 1028
 00:56:13,330 --> 00:56:17,230
+举个例子，这是一个简单的例子，
 And so for example, here's a simple case,
 
 1029
 00:56:17,230 --> 00:56:19,600
+你可以把这个问题归结为，
 you know or you can boil down this question to,
 
 1030
 00:56:19,600 --> 00:56:25,150
+假设动态分配对象，比如一个 buf ，
 let's say allocate somehow dynamically object like a buffer,
 
 1031
 00:56:25,210 --> 00:56:28,300
+fork 出一个线程，然后执行那个 buf ，
 you know fork a thread you know and that process that buffer,
 
 1032
 00:56:28,300 --> 00:56:30,670
+还有另一个线程也处理 buf ，
 and there's another thread that also process buffer
 
 1033
 00:56:30,670 --> 00:56:31,780
+并对这个 buf 执行一些操作。
 and do something of this buffer.
 
 1034
 00:56:32,330 --> 00:56:33,590
+当两个线程都完成时，
 When both threads are done,
 
 1035
 00:56:33,590 --> 00:56:34,790
+buf 需要释放，
 you know the buffer needs to be free,
 
 1036
 00:56:34,880 --> 00:56:39,530
+让它们可以用于后续的内核操作。
 so they can be used for later later kernel operations.
 
 1037
 00:56:40,200 --> 00:56:43,200
+问题是，谁应该做这件事，谁来负责，
 And the question is like who should do this, who's in charge,
 
 1038
 00:56:43,770 --> 00:56:49,980
+用 C 来协调有点困难，
 and there's a little bit difficult to coordinate in C,
 
 1039
 00:56:49,980 --> 00:56:52,230
+因为你必须有某种方法来确定
 because you have to have some way of deciding that
 
 1040
 00:56:52,230 --> 00:56:54,000
+buf 并未被使用，
 actually the buffer is actually not being used,
 
 1041
 00:56:54,090 --> 00:56:55,290
+如果你使用垃圾收集器，
 if you use a garbage collector,
 
 1042
 00:56:55,350 --> 00:56:56,460
+没有什么需要决定的，
 there's nothing to decide,
 
 1043
 00:56:56,490 --> 00:56:59,760
+两个线程运行，完成对 buf 的操作后，
 basically both threads run when the done of the buffer,
 
 1044
 00:56:59,970 --> 00:57:02,310
+没有线程再指向 buf ，
 no thread is pointing to that buffer anymore,
 
 1045
 00:57:02,310 --> 00:57:06,090
+垃圾收集器将从线程堆栈开始跟踪，
 the garbage collector you know will trace you know starting from the threads stacks
 
 1046
 00:57:06,330 --> 00:57:09,870
+并且永远不会计算 buf 任何线程堆栈，
 and will never you know and will not count buffer any of the thread stacks
 
 1047
 00:57:09,870 --> 00:57:13,230
+所以，垃圾收集器会在稍后的某个时刻释放内存。
 and therefore the garbage collector free the memory at some point later.
 
 1048
 00:57:13,720 --> 00:57:15,940
+所以，在垃圾收集语言中，
 And so in a garbage collector language,
 
 1049
 00:57:15,940 --> 00:57:17,800
+你根本不必考虑这个问题。
 you don't have to think about this problem at all.
 
 1050
 00:57:19,990 --> 00:57:25,360
+有一种你可以解决这个问题的方法，在 C 内核中，
 So you know one way you could try to solve this problem, in the kernel like C,
 
 1051
 00:57:25,360 --> 00:57:28,270
+所以你可以计算对象的引用计数，
 so you maybe put reference counts on the objects,
 
 1052
 00:57:28,270 --> 00:57:31,600
+引用计数当然要用锁来保护，
 the reference count, of course have to be protected by locks,
 
 1053
 00:57:31,600 --> 00:57:33,550
+也许是一些原子操作，
 perhaps were some atomic operations
 
 1054
 00:57:33,850 --> 00:57:35,830
+然后，当引用的计数达到零时，
 and then when the reference count reaches zero,
 
 1055
 00:57:35,830 --> 00:57:38,470
+你可以取消引用它。
 then you can dereference it.
 
 1056
 00:57:40,640 --> 00:57:41,210
+事实证明，
 And it turns out,
 
 1057
 00:57:41,210 --> 00:57:43,970
+引用计数中的锁实际上比较昂贵，
 like you know locks in reference counts are actually slightly expensive,
 
 1058
 00:57:44,000 --> 00:57:46,820
+如果你想要高性能，
 if you wanna high performance,
 
 1059
 00:57:46,820 --> 00:57:50,060
+将并发性扩展到内核数，
 you know concurrency and scale up to the number of cores
 
 1060
 00:57:50,060 --> 00:57:51,980
+那么可能会成为一个瓶颈，
 and then actually can be a bottleneck,
 
 1061
 00:57:52,010 --> 00:57:53,270
+我们之后会看到，
 then we'll see that later
 
 1062
 00:57:53,270 --> 00:57:55,070
+几周后，我们看的论文，
 in a couple weeks we read a paper,
 
 1063
 00:57:55,070 --> 00:57:57,170
+非常明确地谈到了这一点。
 that actually talks about this very explicitly.
 
 1064
 00:57:57,890 --> 00:57:59,510
+所以人们倾向于，
 And so people tend to,
 
 1065
 00:57:59,540 --> 00:58:02,510
+想要做高性能，获得良好的并行性，
 want to do high performance, get good parallelism,
 
 1066
 00:58:02,510 --> 00:58:03,470
+人们倾向于避免它们。
 people tend to avoid them.
 
 1067
 00:58:04,020 --> 00:58:06,690
+事实上，在特定情况下，
 And in fact, in particular scenario,
 
 1068
 00:58:06,690 --> 00:58:09,120
+我们试图避免它们，在读取块中，
 we try to avoid them is like in read block,
 
 1069
 00:58:09,180 --> 00:58:12,120
+你希望至少在读取中是无锁的，
 you would like to make at least reading sort of lock free,
 
 1070
 00:58:12,150 --> 00:58:13,530
+这样你就不用损失了。
 so you don't have to pay the cost.
 
 1071
 00:58:14,080 --> 00:58:17,020
+比如，这是我们这样做的一个代码片段，
 And so, for example, here's a code fragment, that we do that,
 
 1072
 00:58:17,020 --> 00:58:18,370
+这里我们有一个 get 函数，
 here we have a get function,
 
 1073
 00:58:18,820 --> 00:58:21,490
+用于读取队列的头部，
 basically you reads the head of a queue
 
 1074
 00:58:21,790 --> 00:58:24,670
+并返回队列头部的任何内容，
 and returns the whatever is at the head of the queue,
 
 1075
 00:58:25,310 --> 00:58:27,920
+它是以一种无锁的方式运行的，
 does it basically in a lock free manner,
 
 1076
 00:58:27,920 --> 00:58:31,400
+使用 atomic_load 来读取头部，
 use atomic_load to actually read the head,
 
 1077
 00:58:31,400 --> 00:58:32,990
+但是它并没有使用锁，
 but it doesn't actually take a lock out,
 
 1078
 00:58:33,510 --> 00:58:35,730
+然后，写入使用了锁。
 then, the writer does locks out.
 
 1079
 00:58:35,730 --> 00:58:40,310
+所以这是无锁，而写入不是无锁。
 So this is like lock free, the writers not lock free.
 
 1080
 00:58:41,280 --> 00:58:43,980
+这是 Linux 内核中非常常见的风格，
 And this is a very common style in the Linux kernel,
 
 1081
 00:58:43,980 --> 00:58:46,290
+所以写入者拿到了锁，
 and so the writer actually they takes the lock,
 
 1082
 00:58:46,320 --> 00:58:48,120
+无论查找头部的任何东西，
 you know whatever looks at the head,
 
 1083
 00:58:48,120 --> 00:58:52,500
+也许是 pop 函数，将头部从队列中弹出，
 maybe is the pop function and pops of the head from the queue,
 
 1084
 00:58:52,950 --> 00:58:55,290
+然后，你可以重复使用它，
 and then you know in principle you could reuse it,
 
 1085
 00:58:55,850 --> 00:58:58,420
+然后解锁，当你释放头部时。
 and then unlocks, when you free the head.
 
 1086
 00:58:58,720 --> 00:59:02,680
+现在再来一次，
 Now again in,
 
 1087
 00:59:02,740 --> 00:59:04,240
+这有一点困难，
 you see, there's a little bit difficult,
 
 1088
 00:59:04,270 --> 00:59:05,860
+你什么时候真正释放头部，
 when do you actually free the head,
 
 1089
 00:59:05,980 --> 00:59:07,510
+因为可能是这种情况，
 because it could be the case,
 
 1090
 00:59:07,510 --> 00:59:09,190
+一些其他的并发线程，
 that some other concurrent thread that [],
 
 1091
 00:59:09,190 --> 00:59:11,680
+正好在做这个 atomic_store 之前，
 you know just before you did this atomic_store,
 
 1092
 00:59:11,980 --> 00:59:13,690
+这个函数过来，
 you know this guy actually came through
 
 1093
 00:59:13,690 --> 00:59:16,210
+得到一个指向那个特定对象的指针，
 and basically got a pointer to that particular object,
 
 1094
 00:59:16,210 --> 00:59:18,520
+所以一旦你完成了这个 atomic_store ，
 so once you're done with this atomic_store,
 
 1095
 00:59:18,610 --> 00:59:20,290
+你不能释放指针，
 you can't actually free the pointer,
 
 1096
 00:59:20,290 --> 00:59:23,500
+因为可能有另一个线程有指向它的指针，
 because there could be another thread actually has a pointer to it,
 
 1097
 00:59:23,530 --> 00:59:24,880
+如果你在这里释放它，
 and if you free it right here,
 
 1098
 00:59:24,880 --> 00:59:26,860
+你可能会有一个 use-after-free bug。
 you could actually have a use-after-free bug.
 
 1099
 00:59:27,900 --> 00:59:32,490
+我们会在几节课中看到，
 And so, and so you know we'll see in a couple lectures,
 
 1100
 00:59:33,050 --> 00:59:36,380
+有一种非常聪明的解决方案，
 there is currently a very clever solution for this
 
 1101
 00:59:36,770 --> 00:59:39,020
+称为读取复制更新或 RCU ，
 which is called read copy update or RCU,
 
 1102
 00:59:39,320 --> 00:59:40,790
+它所做的是，
 basically what it does is
 
 1103
 00:59:40,790 --> 00:59:44,420
+推迟释放内存，直到知道它是安全的。
 defers free of memory until really knows it's safe.
 
 1104
 00:59:45,050 --> 00:59:48,500
+它有一个非常聪明的方案来决定什么时候它是安全的，
 And it has a very clever scheme to actually decide how when it's safe,
 
 1105
 00:59:48,650 --> 00:59:51,470
+但是这个方案有各种各样的限制，
 but that scheme does come with all kinds of, comes with restrictions
 
 1106
 00:59:51,470 --> 00:59:54,140
+程序员必须遵守一些规则，
 and programmers actually have to obey some set of rules,
 
 1107
 00:59:54,500 --> 00:59:59,180
+你必须遵循他们所谓的 RCU 临界区，
 that you must follow for sort of RCU critical sections as they're called,
 
 1108
 00:59:59,700 --> 01:00:02,910
+比如，你不能调用，
 for example, you can't call just you can't call,
 
 1109
 01:00:02,910 --> 01:00:06,240
+你不能在 RCU 临界区或调度中进入睡眠。
 you can't go to sleep in an RCU critical section or schedule.
 
 1110
 01:00:06,930 --> 01:00:11,430
+所以，尽管 Linux 内核使用非常成功，
 And so it turns out you know alrough the Linux kernel uses extremely successful,
 
 1111
 01:00:11,430 --> 01:00:12,780
+但是比较容易出错，
 you know a bit error prone
 
 1112
 01:00:12,780 --> 01:00:16,050
+需要仔细的程序才能正确。
 and requires careful program to get it right.
 
 1113
 01:00:16,860 --> 01:00:20,190
+在垃圾收集器语言的情况下，比如 Go ，
 And in the case of the garbage collector language like you know Go,
 
 1114
 01:00:20,190 --> 01:00:22,170
+这不是问题，
 this is a non issue,
 
 1115
 01:00:22,230 --> 01:00:26,370
+因为垃圾收集器会确定某个东西何时不再使用，
 because the garbage collector will actually determine when actually something is not in use anymore
 
 1116
 01:00:26,370 --> 01:00:27,450
+然后才会释放它。
 and then only then free it.
 
 1117
 01:00:28,210 --> 01:00:31,150
+所以对程序员没有限制，
 And so there's nothing really you know there's no restrictions on the programmer,
 
 1118
 01:00:31,210 --> 01:00:33,910
+只是由垃圾收集器来处理。
 just taken care of by the garbage collector.
 
 1119
 01:00:36,020 --> 01:00:37,280
+所以这是一个例子，
 So that's sort of an example of
 
 1120
 01:00:37,280 --> 01:00:42,800
+在某种程度上更定性或更明确，
 you know where sort of more may be qualitatively or more explicit,
 
 1121
 01:00:42,800 --> 01:00:45,110
+你可以从垃圾收集语言的优势中看出。
 you can see through the advantage of a garbage collected language.
 
 1122
 01:00:45,920 --> 01:00:48,800
+好的，关于 CVE 我已经提到过了，
 Okay, terms of the CVEs you know I sort of mentioned this already,
 
 1123
 01:00:49,100 --> 01:00:53,120
+我们检查了所有的 CVE 并进行人工检查，
 we went through all the CVEs and inspected them manually,
 
 1124
 01:00:53,420 --> 01:00:56,480
+然后试着决定 Go 是否能解决这个问题。
 and then try to decide whether to actually Go can fix the problem.
 
 1125
 01:00:56,980 --> 01:00:59,020
+有 11 个我们不能确定，
 There for 11 them we couldn't figure out,
 
 1126
 01:00:59,110 --> 01:01:03,130
+我们看了解决这个问题的补丁，
 you know we looked at the fix, the patch that addresses is,
 
 1127
 01:01:03,130 --> 01:01:06,610
+我们不能确定 Go 的结果会是什么，
 we couldn't really figure out what the outcome in Go would like
 
 1128
 01:01:06,610 --> 01:01:08,680
+或者我们如何改变，
 or how would manifest or how we change,
 
 1129
 01:01:09,400 --> 01:01:11,080
+我们可以看看如何修复它，
 we could see how the implement it to fix,
 
 1130
 01:01:11,080 --> 01:01:13,870
+但是不能决定 Go 是否会避免这个问题。
 but couldn't decide whether it actually Go would avoided the problem or not.
 
 1131
 01:01:14,650 --> 01:01:17,560
+CVE 中的多个逻辑错误，
 A number of logic bugs in the CVEs
 
 1132
 01:01:17,560 --> 01:01:20,860
+很可能 Go 也会出现与 C 一样的的逻辑错误，
 and so presumably Go you would make the same logic bugs in C
 
 1133
 01:01:20,860 --> 01:01:23,350
+结果会是一样的。
 and you know the outcome would be the same.
 
 1134
 01:01:23,880 --> 01:01:27,120
+但是大约有 40 个内存安全漏洞，
 But then there were about 40 memory safety bugs,
 
 1135
 01:01:27,150 --> 01:01:29,580
+释放后使用或双重释放或越界使用，
 use-after-free or double-free or out-of-bounds
 
 1136
 01:01:29,970 --> 01:01:32,910
+这八个消失了，
 and in eight of these disappear,
 
 1137
 01:01:32,910 --> 01:01:34,770
+因为垃圾收集器负责处理它们，
 because the garbage collector takes care of them
 
 1138
 01:01:34,770 --> 01:01:37,080
+像最后几张幻灯片中描述的那样。
 as described in the last couple slides.
 
 1139
 01:01:37,500 --> 01:01:40,800
+在 32 个案例中， Go 会引起 panic ，
 And in 32 cases, Go would have generated panic,
 
 1140
 01:01:40,800 --> 01:01:43,440
+因为比如 Go 会超出数组界限，
 because for example would Go outside of an array bound,
 
 1141
 01:01:44,090 --> 01:01:47,810
+当然， panic 是不好的，内核会崩溃，
 and of course panic is not good, you know the kernel crashes,
 
 1142
 01:01:47,990 --> 01:01:50,090
+但这比安全漏洞要好。
 but it's probably better than a security exploit.
 
 1143
 01:01:50,880 --> 01:01:54,900
+所以， 40 个案例，高级语言帮助了我们。
 And so you know so 40 cases, you know basically the high-level language helped us.
 
 1144
 01:01:59,920 --> 01:02:03,070
+好的，这就是好的方面，
 Okay, so that's the qualitatively of the benefits,
 
 1145
 01:02:03,100 --> 01:02:07,690
+所以现在我想谈谈高级语言的性能成本，
 so now I want to talk a little bit about the performance cost,
 
 1146
 01:02:07,690 --> 01:02:10,240
+高级语言税。
 the high-level language tax.
 
 1147
 01:02:10,820 --> 01:02:11,750
+在做那之前，
 Before doing that,
 
 1148
 01:02:11,750 --> 01:02:13,760
+让我问一下是否有其他问题？
 let me ask if there's any more questions?
 
 1149
 01:02:20,990 --> 01:02:23,480
+好的，我要讲一下它们，
 Okay, I'm going to go through them,
 
 1150
 01:02:23,480 --> 01:02:25,880
+我不确定能不能讲完全部六个，
 I'm not sure we'll make it through all six,
 
 1151
 01:02:25,910 --> 01:02:28,520
+因为我们在最后至少预留几分钟，
 because we reserve a couple minutes at least at the end,
 
 1152
 01:02:28,520 --> 01:02:32,600
+我们将回到课程的起点，今天的问题。
 it's going to come back to the starting point of the lecture, today's question.
 
 1153
 01:02:35,900 --> 01:02:38,150
+所以要设置实验，
 So to set up in terms of experiments,
 
 1154
 01:02:38,180 --> 01:02:42,260
+Biscuit 运行在裸硬件上，
 you know the Biscuit runs on raw hardware,
 
 1155
 01:02:42,770 --> 01:02:47,630
+所以这些实验是在小的物理机器上运行的，而不是在 QEMU 上，
 so these experiments are on little physical machines, not on top of QEMU,
 
 1156
 01:02:47,630 --> 01:02:51,950
+是 4 核， 2.8Ghz 的英特尔处理器，
 is a 4 core, 2.8Ghz Intel processor,
 
 1157
 01:02:51,950 --> 01:02:54,560
+16GB 内存，但禁用了超线程。
 16 GB RAM, but Hyperthreads disabled.
 
 1158
 01:02:54,590 --> 01:02:55,820
+我们使用三个应用程序，
 We use three applications,
 
 1159
 01:02:55,850 --> 01:02:57,530
+一个 Web 服务器，一个键/值存储
 a webserver, a key/value store
 
 1160
 01:02:57,620 --> 01:02:58,850
+和一个邮件服务器基准测试。
 and a mail-server benchmark.
 
 1161
 01:02:59,220 --> 01:03:02,970
+这些应用程序都给内核很大的压力，
 You know of these applications stress the kernel intensively
 
 1162
 01:03:03,030 --> 01:03:05,820
+所以，它们执行系统调用，
 and so they run execute system calls
 
 1163
 01:03:05,820 --> 01:03:08,280
+内核必须做大量工作。
 and the kernel must do a lot of work.
 
 1164
 01:03:09,050 --> 01:03:09,800
+你可以看到这个，
 And you can see that,
 
 1165
 01:03:09,800 --> 01:03:12,590
+因为这些应用程序中的大部分时间都花在内核中。
 because most of the time in these applications is spent in the kernel.
 
 1166
 01:03:15,060 --> 01:03:16,260
+所以第一个问题是，
 So first question is like,
 
 1167
 01:03:16,260 --> 01:03:19,110
+Linux 或者 Biscuit 是不是，
 is Linux [even] or is Biscuit [even] in the []
 
 1168
 01:03:19,110 --> 01:03:24,330
+生产级别的内核或工业级别的内核，
 of production quality the kernel or industrial quality kernel,
 
 1169
 01:03:24,660 --> 01:03:25,650
+所以我们所做的是，
 and so what we did,
 
 1170
 01:03:25,650 --> 01:03:27,870
+我们通过比较 Biscuit 和 Linux ，
 we compare the absolute through Biscuit and Linux,
 
 1171
 01:03:27,900 --> 01:03:31,800
+对于 Linux ，我们使用的是 4.9 Linux ，
 for Linux, we used 4.9 Linux,
 
 1172
 01:03:31,800 --> 01:03:32,850
+现在有点过时了，
 a little bit out of date now,
 
 1173
 01:03:32,850 --> 01:03:35,580
+因为论文已经有几年的历史了。
 because paper is of course are a couple years old again.
 
 1174
 01:03:36,140 --> 01:03:39,230
+当然，当我们使用 Linux 时，必须禁用所有功能，
 But of course when Linux we have to disable all kinds of features
 
 1175
 01:03:39,230 --> 01:03:42,770
+Biscuit 不提供的，
 that Biscuit [uses] or doesn't provide I mean,
 
 1176
 01:03:42,770 --> 01:03:45,260
+比如页表隔离，轮询，
 so like page-table isolation, retpoline,
 
 1177
 01:03:45,260 --> 01:03:47,690
+各种各样的一些功能，
 you know all kinds of you know a long list of features
 
 1178
 01:03:47,690 --> 01:03:50,750
+这些功能不是 Biscuit 所提供的，也不是 xv6 所提供的，
 that actually Biscuit doesn't provide nor xv6 provides,
 
 1179
 01:03:51,170 --> 01:03:52,460
+我们在 Linux 上禁用了它们，
 and we disable them on Linux
 
 1180
 01:03:52,460 --> 01:03:54,230
+以使比较尽可能地公平。
 to make the comparison as fair as possible.
 
 1181
 01:03:54,880 --> 01:03:57,340
+当然，有些功能很难禁用，
 And of course you know some features are hard to disable,
 
 1182
 01:03:57,340 --> 01:03:59,800
+我们不能禁用，
 you know we were not able to disabled,
 
 1183
 01:03:59,920 --> 01:04:02,110
+但我们试着尽可能靠近。
 but you know we tried to get as close as possible.
 
 1184
 01:04:02,820 --> 01:04:05,130
+然后我们测量了吞吐量。
 And then we measured basically the throughput.
 
 1185
 01:04:05,740 --> 01:04:10,990
+如你所见， Biscuit 几乎总是比较慢，
 And as you can see, the Biscuit is almost always slower,
 
 1186
 01:04:11,110 --> 01:04:12,820
+它总是比 Linux 慢，
 which always slower than Linux,
 
 1187
 01:04:13,330 --> 01:04:17,380
+CMailbench 会差大约 10% ，
 you know CMailbench, you know it's about to get whatever 10%,
 
 1188
 01:04:17,380 --> 01:04:19,330
+在 Nginx 上，再多一点，
 on NGINX a little bit more,
 
 1189
 01:04:19,450 --> 01:04:21,280
+Redis 是 10% 或 15% 。
 Redis is a little bit of 10,15 percent.
 
 1190
 01:04:21,820 --> 01:04:24,700
+但是你应该粗粒度地比较这些数字，
 But you should use these numbers very grain as result, right,
 
 1191
 01:04:24,700 --> 01:04:27,250
+因为，它们不一样，
 because, you know they're not identical,
 
 1192
 01:04:27,460 --> 01:04:30,610
+这不是一一对应的比较，
 and it's not apples to apples comparison,
 
 1193
 01:04:30,700 --> 01:04:32,800
+但是首先，
 but they like to sort of first order
 
 1194
 01:04:33,070 --> 01:04:35,560
+它们至少是大致相同的，
 you know they're roughly the same ballpark at least,
 
 1195
 01:04:35,560 --> 01:04:38,500
+它们不是 2 倍、 3 倍、 4 倍或 10 倍的差距，
 you know they're not like 2x 3x 4x or 10x off,
 
 1196
 01:04:38,680 --> 01:04:43,450
+所以，也许真正能够做到这一点是值得的，
 and so you know maybe it's worthwhile to actually be able to do actually,
 
 1197
 01:04:43,860 --> 01:04:45,600
+从中得出一些结论。
 you know to draw some conclusions out of that.
 
 1198
 01:04:51,820 --> 01:04:53,050
+所以我们看一下，
 So then we sort of looked at,
 
 1199
 01:04:53,050 --> 01:04:55,540
+我们分析代码，
 like you know we look basically profile the code
 
 1200
 01:04:55,540 --> 01:04:59,800
+并尝试对代码所花费的周期分类，
 and try to bucket you know the cycles that were spent by the code,
 
 1201
 01:04:59,800 --> 01:05:03,970
+特别是，我们关注的是垃圾收集器中有哪些循环，
 particularly we're looking at which cycles were actually in the garbage collector,
 
 1202
 01:05:03,970 --> 01:05:07,570
+哪些周期在 prologue 函数调用中，
 which cycles were actually in the prologue function calls,
 
 1203
 01:05:07,570 --> 01:05:11,110
+Go 的 prologue 做了很多工作，
 and prologues in Go does a bunch of work,
 
 1204
 01:05:11,110 --> 01:05:13,390
+确保堆栈足够大，
 you know to ensure that the stack is large enough,
 
 1205
 01:05:13,390 --> 01:05:14,710
+可以在堆栈中运行，
 so you know run of the stack,
 
 1206
 01:05:15,130 --> 01:05:20,560
+写入屏障循环，这是在垃圾收集器模式时，
 write barrier cycles, this is actually when in garbage collector mode,
 
 1207
 01:05:20,560 --> 01:05:24,550
+垃圾收集器打开写入障碍，
 you know the garbage collector turns on write barriers
 
 1208
 01:05:25,080 --> 01:05:28,860
+用于跟踪不同空间之间的指针。
 to basically track pointers between different spaces.
 
 1209
 01:05:29,310 --> 01:05:31,470
+而安全周期，
 And the safety cycles,
 
 1210
 01:05:31,650 --> 01:05:38,380
+安全周期是在列表边界检查上花费的周期，
 which are safety cycles are the cycles spent on array bound checks
 
 1211
 01:05:38,380 --> 01:05:40,330
+诸如此类的事情，无指针检查。
 and things like that, no pointer checks.
 
 1212
 01:05:42,500 --> 01:05:46,280
+所以如果你看这些应用程序，这里的数字，
 And so if you look at these applications you know here the numbers,
 
 1213
 01:05:46,400 --> 01:05:50,660
+3% 的执行时间花在了 GC 周期上，
 so 3% of the execution time was actually spent in sort of GC cycles,
 
 1214
 01:05:50,660 --> 01:05:54,200
+我们会稍微讨论一下为什么这个很低，
 and I'll talk a little bit about why that's low,
 
 1215
 01:05:54,200 --> 01:05:56,780
+但在这种情况下，
 but you know in this case,
 
 1216
 01:05:56,780 --> 01:05:59,660
+垃圾收集器在这些应用程序运行时运行，
 that the garbage collector running while running these applications,
 
 1217
 01:05:59,660 --> 01:06:01,790
+所以这不是我们测量应用程序的情况，
 so it's not the case that we measured the applications,
 
 1218
 01:06:01,790 --> 01:06:03,170
+我们提供了很多内存，
 we give so much memory,
 
 1219
 01:06:03,170 --> 01:06:08,040
+只是运行而不需要垃圾收集器，
 that you know just run without actually running the garbage collector,
 
 1220
 01:06:08,460 --> 01:06:11,910
+令人惊讶的是， prologue 周期是最高的，
 surprisingly actually the prologue cycles turned out to be the highest,
 
 1221
 01:06:12,030 --> 01:06:14,640
+这就是方案的方式，
 and this is basically you know the way the scheme,
 
 1222
 01:06:14,640 --> 01:06:18,330
+我们使用这些时间检查内核堆栈，
 that we're using that time for checking whether the kernel stack
 
 1223
 01:06:18,330 --> 01:06:19,710
+或线程堆栈，
 or the stack of a thread needed to
 
 1224
 01:06:19,710 --> 01:06:21,390
+或 Go 协程是否需要增长，
 or Go routine needed to be grown or not,
 
 1225
 01:06:21,970 --> 01:06:25,660
+而这是 Go 设计中的一种[]，
 and this is something that actually the Go design that point in a [],
 
 1226
 01:06:25,660 --> 01:06:27,340
+它可能更容易降低，
 that it's probably easier to get lower,
 
 1227
 01:06:27,790 --> 01:06:29,770
+写入屏障的时间很短，
 very little time actually write barrier is,
 
 1228
 01:06:29,770 --> 01:06:33,700
+有 2-3% 在安全循环中。
 you know 2-3% you know in the safety cycles.
 
 1229
 01:06:34,570 --> 01:06:37,990
+所以在某种意义上，这是个好消息，
 And so in some sense, you know there's good news,
 
 1230
 01:06:37,990 --> 01:06:42,280
+你不在，（高级语言）税并不是很大，
 you are not at, you know tax is not gigantic,
 
 1231
 01:06:42,280 --> 01:06:43,960
+当然，这个数字可能会高得多，
 of course this number could be much higher,
 
 1232
 01:06:43,990 --> 01:06:49,420
+因为这完全取决于堆的数量和大小，
 because this is completely dependent on how many, how big you know the heap is
 
 1233
 01:06:49,420 --> 01:06:52,210
+或者活跃的对象的数量，
 or live the live number of, live objects is,
 
 1234
 01:06:52,210 --> 01:06:55,060
+因为垃圾收集器必须跟踪所有活动对象
 because the garbage collector will have to trace all the live objects
 
 1235
 01:06:55,060 --> 01:06:56,860
+以确定哪些对象是不活动的。
 to actually determine which objects are not alive.
 
 1236
 01:06:57,520 --> 01:07:00,460
+所以，如果有很多活的对象，
 And so if there's a lot of live objects,
 
 1237
 01:07:00,460 --> 01:07:02,680
+垃圾收集器不得不跟踪更多的对象，
 you know the garbage collector will have to trace more objects,
 
 1238
 01:07:02,740 --> 01:07:06,700
+所以这与活跃对象的数量完全成线性关系。
 and so this completely sort of linear with the number of live objects.
 
 1239
 01:07:07,290 --> 01:07:08,790
+我们也做了一些其他的实验。
 So we did some other experiments.
 
 1240
 01:07:09,380 --> 01:07:10,970
+让我稍微缩小一点，
 Let me zoom out a little bit,
 
 1241
 01:07:11,180 --> 01:07:13,970
+我们分配了大量的活动数据，
 where we basically allocate a ton of live data,
 
 1242
 01:07:14,300 --> 01:07:15,620
+200 万个虚拟节点，
 2 million vnodes,
 
 1243
 01:07:15,620 --> 01:07:17,450
+可以将其视为 200 万个 inode ，
 think about this as 2 million inodes
 
 1244
 01:07:17,840 --> 01:07:20,600
+并且释放大量的堆内存，
 and a free the amount of heap RAM
 
 1245
 01:07:20,630 --> 01:07:23,930
+或者修改垃圾收集器拥有的堆内存的大小，
 or change the amount of heap RAM the garbage collector has,
 
 1246
 01:07:23,930 --> 01:07:25,130
+为了释放内存，
 you know for free memory,
 
 1247
 01:07:25,340 --> 01:07:28,580
+然后[]，然后测量成本。
 and then [] and then measure the cost.
 
 1248
 01:07:29,140 --> 01:07:30,670
+就是这张表，
 So this is the table here,
 
 1249
 01:07:30,880 --> 01:07:33,280
+我们有大约 640 兆字节的活跃数据，
 we have like 640 megabytes is live data,
 
 1250
 01:07:33,610 --> 01:07:36,370
+使用不同的内存大小运行，
 and there's running with different memory sizes,
 
 1251
 01:07:36,640 --> 01:07:40,090
+在一种大小的情况下，有 320 兆字节的数据，
 and one sizes case, there are 320 megabytes of data,
 
 1252
 01:07:40,090 --> 01:07:41,860
+所以活跃与空闲的比是 2 ，
 so the ratio of live to free is 2,
 
 1253
 01:07:42,190 --> 01:07:43,810
+你可以看到，在这种情况下，
 you see that in that case,
 
 1254
 01:07:44,080 --> 01:07:48,580
+Go 很好地模仿了垃圾收集器的开销，
 Go does do a great imitation of [] overhead the garbage collector,
 
 1255
 01:07:48,580 --> 01:07:50,620
+因为垃圾收集器需要运行很多次，
 because the garbage collector needs to run a lot,
 
 1256
 01:07:50,650 --> 01:07:52,150
+因为它没有太多堆内存。
 because it doesn't have much heap RAM.
 
 1257
 01:07:52,900 --> 01:07:56,590
+但是，如果你有两倍空闲的内存，
 But you know if you're basically if free memories about twice,
 
 1258
 01:07:56,590 --> 01:07:57,940
+你可以买到足够的内存，
 you know you could buy enough memory,
 
 1259
 01:07:57,940 --> 01:08:00,160
+空闲内存是活跃内存的两倍，
 that free memory twice you know that the live memory,
 
 1260
 01:08:00,280 --> 01:08:05,230
+那么垃圾收集开销不是那么大，在 9% 的范围内。
 then the garbage collection overhead is not actually that great, in the 9% range.
 
 1261
 01:08:05,890 --> 01:08:11,020
+所以，要将 GC 开销控制在 10% 以下，
 So basically to keep the GC overhead like a rough [] [], around below 10%,
 
 1262
 01:08:11,140 --> 01:08:15,670
+就物理内存而言，你需要大约三倍的堆大小。
 you need about three times the heap size in terms of physical memory.
 
 1263
 01:08:19,920 --> 01:08:20,970
+对于这个，有什么问题吗？
 Any questions about this?
 
 1264
 01:08:23,500 --> 01:08:27,520
+我有一个关于写入障碍的问题，
 I had a question about the write barriers,
 
 1265
 01:08:27,520 --> 01:08:29,920
+那些是什么，
 what are those, do you,
 
 1266
 01:08:29,980 --> 01:08:33,790
+是不是像你说的一些权限？
 is it like you said some permissions?
 
 1267
 01:08:34,270 --> 01:08:38,740
+如果你记得之前的课程，
 You know, so if you remember the lecture for a little while ago,
 
 1268
 01:08:38,740 --> 01:08:41,560
+那个 Appel&Li 论文，
 the kind of Appel&Li paper paper,
 
 1269
 01:08:41,560 --> 01:08:44,200
+在那里，我们讨论了 to 和 from 空间。
 where we talked about the to and from spaces.
 
 1270
 01:08:44,700 --> 01:08:47,370
+垃圾收集器运行，
 And garbage collector runs,
 
 1271
 01:08:47,370 --> 01:08:50,940
+必须检查指针是否在 from 空间中，
 then you have to check whether the pointers in the from space, right,
 
 1272
 01:08:50,940 --> 01:08:52,770
+因为如果它在 form 空间中，你必须复制它。
 because it's in the [from] space, you have to copy it.
 
 1273
 01:08:53,420 --> 01:08:56,870
+基本上写入屏障类似，
 And basically that the write barrier are very similar,
 
 1274
 01:08:57,830 --> 01:08:59,270
+是同一种类型的想法，
 and it's the same sort of type idea,
 
 1275
 01:08:59,270 --> 01:09:01,580
+你需要检查每个指针，
 where you need to check every pointer
 
 1276
 01:09:01,580 --> 01:09:04,550
+查看实际指向的空间，
 to see you actually actually point in space
 
 1277
 01:09:04,550 --> 01:09:06,200
+垃圾收集器所需要的。
 that actually you need in garbage collector.
 
 1278
 01:09:07,300 --> 01:09:07,540
+好的。
 Okay.
 
 1279
 01:09:07,540 --> 01:09:08,470
+那就是写入屏障。
 That's write barrier.
 
 1280
 01:09:11,730 --> 01:09:15,210
+抱歉，比如空闲内存，
 Sorry, so like the free memory,
 
 1281
 01:09:15,210 --> 01:09:17,490
+它是怎么工作的，
 what is what is it exactly like how does it work,
 
 1282
 01:09:17,490 --> 01:09:19,320
+在活跃内存大于空闲的情况下。
 that the live is more than free.
 
 1283
 01:09:19,740 --> 01:09:23,340
+哦，好的，你买了一些内存，
 Oh yeah, yeah, okay so you buy some amount of memory,
 
 1284
 01:09:23,780 --> 01:09:26,900
+而活跃内存是这些 vnode 使用的内存，
 and live memory is actually memory that was used by these vnodes,
 
 1285
 01:09:27,200 --> 01:09:29,750
+然后又有 320 兆字节是空闲的。
 and then there was another 320 megabyte was just free.
 
 1286
 01:09:30,540 --> 01:09:33,840
+所以，当这个应用程序分配更多 vnode 时，
 And so when this application allocated more vnodes,
 
 1287
 01:09:33,840 --> 01:09:35,610
+首先来自空闲内存，
 the first came out of the free memory,
 
 1288
 01:09:35,610 --> 01:09:36,750
+直到空闲内存变满，
 until the free memory is full,
 
 1289
 01:09:36,750 --> 01:09:39,210
+垃圾收集器同时运行。
 [] then concurrently the garbage collector is running.
 
 1290
 01:09:40,350 --> 01:09:44,130
+所以我们的运行方式是三种配置，
 And, and so we're running like three configuration,
 
 1291
 01:09:44,130 --> 01:09:49,260
+在一种配置中，空闲内存量是活动内存的两倍，
 in one configuration, basically the amount of free memory twice as the live memory,
 
 1292
 01:09:49,920 --> 01:09:52,620
+这意味着垃圾收集器有很多堆内存，
 and so that means that the garbage collector has a lot of heap RAM
 
 1293
 01:09:53,010 --> 01:09:56,070
+在与应用程序一起运行的同时执行某种操作。
 to do sort of concurrently while running with the application.
 
 1294
 01:09:56,730 --> 01:09:58,080
+如果有很多堆内存，
 And if there's a lot of heap RAM,
 
 1295
 01:09:58,230 --> 01:09:59,970
+在这种情况下，是空闲内存，
 in this case where free memory,
 
 1296
 01:09:59,970 --> 01:10:02,220
+那么垃圾收集器的开销就没有那么高，
 then you know the garbage collection overheads are not that high,
 
 1297
 01:10:03,310 --> 01:10:06,130
+在那里是 10% 左右，而不是 34% 。
 over there around 10% instead of 34%.
 
 1298
 01:10:07,520 --> 01:10:09,080
+好的，我知道了，谢谢。
 Okay, I see, I see, thank you.
 
 1299
 01:10:09,260 --> 01:10:11,150
+考虑有一些闲置空间，
 Think about it like there's a little bit of slack
 
 1300
 01:10:11,180 --> 01:10:13,280
+让垃圾收集器做它的工作。
 you know for the garbage collector to do its work.
 
 1301
 01:10:14,460 --> 01:10:18,240
+是的，我以为一共是 320 ，那就太迷惑了。
 Right, I I thought that it's like total 320, that was confused.
 
 1302
 01:10:18,270 --> 01:10:20,970
+不，总数是 320 加上 640 ，
 No, no, the total is 320 plus 640
 
 1303
 01:10:21,180 --> 01:10:23,940
+并且我的最后一行是 640 加上 1280 。
 and my last line is 640 plus 1280.
 
 1304
 01:10:24,650 --> 01:10:26,300
+好的，谢谢。
 Okay, thank you.
 
 1305
 01:10:29,930 --> 01:10:31,610
+我要跳过这个，
 I'm gonna skip this,
 
 1306
 01:10:31,700 --> 01:10:36,290
+让我稍微说一下关于暂停，
 actually let me talk a little bit of pauses,
 
 1307
 01:10:36,290 --> 01:10:37,280
+你知道这是，
 you know this is,
 
 1308
 01:10:37,860 --> 01:10:40,200
+Go 垃圾收集器是一个并发垃圾收集器，
 the Go garbage collector is a concurrent garbage collector
 
 1309
 01:10:40,200 --> 01:10:45,510
+短暂的暂停让世界停下来很短的一段时间，
 and short pauses stop the world for a very short period of time,
 
 1310
 01:10:45,510 --> 01:10:46,860
+用于启用写入障碍，
 basically to enable write barriers
 
 1311
 01:10:46,860 --> 01:10:49,350
+然后，应用程序继续运行，
 and then basically the application keep on running,
 
 1312
 01:10:49,650 --> 01:10:51,570
+在垃圾收集器不工作的情况下，
 while the garbage collector doesn't work,
 
 1313
 01:10:51,690 --> 01:10:55,860
+它是渐进式的，就像我们几周前讨论的那样，
 and it's incremental as like the one that we discussed a couple weeks ago,
 
 1314
 01:10:55,860 --> 01:10:59,940
+每个对 new 的调用都会执行一些垃圾收集工作。
 where basically every call to new does a little bit of garbage collection work.
 
 1315
 01:11:00,800 --> 01:11:03,020
+所以每次你做一点垃圾收集工作，
 And so every time you do a little bit of garbage collection working,
 
 1316
 01:11:03,020 --> 01:11:05,390
+有一些延误，有代价的。
 there's some some delay that's been cost, right.
 
 1317
 01:11:06,110 --> 01:11:09,560
+所以我们测量了，
 And so we measured you know the,
 
 1318
 01:11:09,560 --> 01:11:13,580
+使用一个应用程序，并查看了最大停顿时间，
 it took one application and looked at the maximum pause time,
 
 1319
 01:11:13,580 --> 01:11:15,920
+应用程序可以停止的最长时间，
 so the maximum time an application can be stopped
 
 1320
 01:11:15,920 --> 01:11:18,050
+当然垃圾收集器需要做一些工作。
 and of course the garbage collector needs to do some work.
 
 1321
 01:11:19,140 --> 01:11:24,840
+结果是最大单次停顿是 150 微秒，
 And it turned out to be the max single pause 150 microseconds,
 
 1322
 01:11:25,200 --> 01:11:28,800
+这是使用 TCP 堆栈的 Web 服务器的情况，
 that's in the case of the webserver that was using the TCP stack,
 
 1323
 01:11:28,800 --> 01:11:33,120
+基本上 TCP 连接表的很大一部分需要标记，
 and basically, a large part of the TCP connection table needed to be marked,
 
 1324
 01:11:33,150 --> 01:11:36,930
+在你继续之前，这花了 115 微秒。
 before you know continuing, that took 115 microseconds.
 
 1325
 01:11:37,660 --> 01:11:44,140
+单个 Nginx http 请求的最大总暂停时间是
 The maximum total pause time for a single Nginx http request is
 
 1326
 01:11:44,140 --> 01:11:46,420
+单个暂停次数的总和，
 the sum of the number of single pauses,
 
 1327
 01:11:46,420 --> 01:11:51,670
+并且单个请求的总最大暂停时间是 582 微秒，
 and the maximum pause time in total for a single request was 582 microseconds,
 
 1328
 01:11:51,910 --> 01:11:54,430
+所以当请求进入机器时，
 so [] when the request comes into the machine,
 
 1329
 01:11:54,490 --> 01:12:00,850
+在总共有 582 微秒延迟，执行该请求。
 during you know there was total delay of 582 microseconds, execute that request.
 
 1330
 01:12:03,100 --> 01:12:06,100
+而且这种情况非常罕见，
 And it just happened very, very seldom,
 
 1331
 01:12:06,190 --> 01:12:11,620
+只有 3% 的请求时间延迟超过 100 微秒。
 you know only you know point 3% requested times actually had a delay of more than 100 microseconds.
 
 1332
 01:12:12,380 --> 01:12:14,840
+所以这并不好，
 And so you know that's not good,
 
 1333
 01:12:14,840 --> 01:12:17,690
+如果你想要实现一个 SLA ，
 if you're trying to achieve like an SLA
 
 1334
 01:12:17,690 --> 01:12:24,850
+或者请求的最长时间很小，
 or where basically the longest period of time of request takes you know it's small,
 
 1335
 01:12:25,360 --> 01:12:29,980
+但是你查看谷歌的 Tail at Scale 的论文，
 but you know the, you look at you know google papers about like tail at scale,
 
 1336
 01:12:29,980 --> 01:12:33,280
+比如最长的请求需要多长时间，
 like how long the longest request takes,
 
 1337
 01:12:33,280 --> 01:12:34,210
+他们谈论的是
 you know they're talking about
 
 1338
 01:12:34,210 --> 01:12:37,480
+几十毫秒，毫秒或 10 毫秒的量级，
 the order of tens of milliseconds, milliseconds or 10 milliseconds,
 
 1339
 01:12:37,690 --> 01:12:43,870
+所以这些程序有最大暂停，
 and so probably the programs that these particular programs that actually have a pause
 
 1340
 01:12:43,870 --> 01:12:47,050
+最大的暂停是 582 微秒，
 with maximum [] to pause for 582 microseconds,
 
 1341
 01:12:47,050 --> 01:12:48,250
+在预算之内。
 sort of within the budget.
 
 1342
 01:12:48,860 --> 01:12:51,290
+这不是很理想，但也不疯狂，
 You know it's not ideal, but it's not crazy,
 
 1343
 01:12:51,380 --> 01:12:53,810
+所以基本上说，
 and so basically says that actually the,
 
 1344
 01:12:55,110 --> 01:12:56,610
+这基本上说明，
 really, what this basically says that,
 
 1345
 01:12:56,610 --> 01:12:59,550
+Go 设计者做得非常好，
 the Go designers you know did actually terribly good job
 
 1346
 01:12:59,550 --> 01:13:01,170
+在实现垃圾收集器方面，
 of actually implementing their garbage collector,
 
 1347
 01:13:02,070 --> 01:13:03,420
+或者令人印象深刻的工作。
 or impressively good job.
 
 1348
 01:13:04,160 --> 01:13:07,250
+这是我们在做这个项目时注意到的一件事，
 And this is one of those things that we've noticed while doing this project,
 
 1349
 01:13:07,250 --> 01:13:09,200
+每次我们升级 Go 运行时，
 every time we upgraded the Go runtime,
 
 1350
 01:13:09,320 --> 01:13:11,870
+下一个运行时，带来了更好的垃圾收集器，
 the next runtime, it came with a better garbage collector,
 
 1351
 01:13:11,870 --> 01:13:13,490
+这些数字变得越来越好。
 and actually these numbers got better and better.
 
 1352
 01:13:17,910 --> 01:13:22,050
+好的，我想再说一个技术细节，
 Okay, one more through technical detail that I want to go over,
 
 1353
 01:13:22,050 --> 01:13:26,730
+到目前为止， Linux 和 Biscuit 之间的第一个比较，
 so far you know like the first comparison between Linux and Biscuit,
 
 1354
 01:13:26,730 --> 01:13:27,930
+这并不公平，
 you know it's not really fair,
 
 1355
 01:13:27,930 --> 01:13:32,490
+因为 Biscuit 和 Linux 实现的功能略有不同，
 because Biscuit and Linux implement slightly different features,
 
 1356
 01:13:32,760 --> 01:13:34,230
+所以我们又做了一个实验，
 so we did one more experiment,
 
 1357
 01:13:34,230 --> 01:13:38,550
+我们尝试编写两个完全相同的内核路径，
 where we basically tried to code up two kernel paths completely identical,
 
 1358
 01:13:38,730 --> 01:13:43,650
+在 Linux 和类似的 C 和 Go 中，
 evolving in Linux and in like in C and Go,
 
 1359
 01:13:43,770 --> 01:13:48,660
+所以，我们看了代码路径，并对其进行验证，
 and so we looked at the code path and sort of verify it,
 
 1360
 01:13:48,660 --> 01:13:51,180
+基本上它实现的是完全相同的东西，
 basically you know it implements exactly the same thing,
 
 1361
 01:13:51,180 --> 01:13:52,710
+我们看一下汇编结构，
 and we look at the assembly structures,
 
 1362
 01:13:52,710 --> 01:13:55,410
+来真正了解它们的不同之处，
 you know to really see what what the differences are,
 
 1363
 01:13:55,500 --> 01:13:56,760
+会有一些不同，
 there gonna be some differences,
 
 1364
 01:13:56,760 --> 01:13:59,070
+因为 Go 要支付安全检查，
 because Go is going to pay the safety checks,
 
 1365
 01:13:59,340 --> 01:14:02,640
+但就基本操作而言，
 but just in terms of basic operation,
 
 1366
 01:14:02,640 --> 01:14:05,790
+至少两个代码路径在功能方面是相同的。
 that at least two code paths are identical in terms of functionality.
 
 1367
 01:14:07,380 --> 01:14:09,960
+我们对两条代码路径都这样做了，
 And we did that for two code paths,
 
 1368
 01:14:09,960 --> 01:14:11,070
+这很难做到，
 you know it's difficult to do,
 
 1369
 01:14:11,070 --> 01:14:13,650
+因为这是辛苦的工作，
 because it's painstaking job,
 
 1370
 01:14:13,650 --> 01:14:14,460
+我们做了两个，
 we did for two,
 
 1371
 01:14:14,700 --> 01:14:15,840
+或者 Cody 做了两个。
 or Cody did actually for two.
 
 1372
 01:14:16,410 --> 01:14:17,490
+然后我们对它们进行比较，
 And then we compare them,
 
 1373
 01:14:18,040 --> 01:14:20,350
+这是其中一个结果，
 and so here's results from one of them,
 
 1374
 01:14:20,350 --> 01:14:22,840
+这是管道 ping-pong 测试，
 this is pipe ping-pong you know sort of test,
 
 1375
 01:14:22,840 --> 01:14:24,970
+ping-pong 字节在管道上通过，
 you know ping-pong you know byte across a pipe,
 
 1376
 01:14:25,180 --> 01:14:27,430
+我们查看了通过内核的代码路径，
 and we just looked at the code path through the kernel
 
 1377
 01:14:27,430 --> 01:14:30,880
+让字节从管道的一端到管道的另一端。
 to actually get a byte from one end to the pipe to the other end of the pipe.
 
 1378
 01:14:31,790 --> 01:14:39,100
+Go 中的代码有 1.2k 行，
 You know, sort of amount code in Go is like this 1.2k lines code
 
 1379
 01:14:39,100 --> 01:14:42,070
+而 C 是 1.8k 行代码，
 and C it's 1.8k lines of code,
 
 1380
 01:14:42,400 --> 01:14:44,140
+而且没有分配，没有 GC ，
 and there's no allocation, no GC,
 
 1381
 01:14:44,140 --> 01:14:46,660
+所以这些东西是不同之处，
 so those things are just a differ,
 
 1382
 01:14:46,720 --> 01:14:48,610
+我们还研究了运行时，
 we also looked at runtime,
 
 1383
 01:14:48,610 --> 01:14:51,400
+比如在两个代码路径中花费的时间最多的地方，
 like where's the most time spent in both code paths,
 
 1384
 01:14:51,400 --> 01:14:54,360
+同样的前十大指令出现了，
 you know the same top-10 instructions showed up,
 
 1385
 01:14:54,360 --> 01:14:57,930
+所以我们有信心，代码路径真的很近，
 so we have some confidence that the code paths really are closer,
 
 1386
 01:14:58,080 --> 01:15:00,850
+近到可以让它们相似。
 closer, you can get to make them similar.
 
 1387
 01:15:01,390 --> 01:15:04,570
+然后我们看一下每秒可以完成的操作量，
 And then we looked at basically the amount of operations you can do per second,
 
 1388
 01:15:04,630 --> 01:15:06,490
+正如你在这里看到的，
 and as you see here,
 
 1389
 01:15:06,580 --> 01:15:11,650
+Go 比 C 实现慢一点，
 basically you know Go a little slower than the C implementation
 
 1390
 01:15:12,010 --> 01:15:15,610
+大约慢了 1.15% 。
 and you know the ratio is about 1.15% slower.
 
 1391
 01:15:16,260 --> 01:15:21,180
+你看一下 prologue/safety-check ，
 And, that's you know you look at the prologue/safety-checks,
 
 1392
 01:15:21,180 --> 01:15:24,150
+这些都是 C 代码不需要执行的指令，
 you know these are all the instructions that C code does not have to execute,
 
 1393
 01:15:24,270 --> 01:15:29,310
+结果是汇编指令多了 16% ，
 it turned out to be 16% more assembly instructions,
 
 1394
 01:15:29,370 --> 01:15:32,280
+所以这大概是有道理的。
 and so that's sort of roughly sort of makes sense.
 
 1395
 01:15:32,830 --> 01:15:36,070
+所以主要结论是 Go 会更慢，
 So you know the main conclusion is you know Go is slower,
 
 1396
 01:15:36,280 --> 01:15:39,610
+但是很有竞争性，不是慢得离谱。
 but pretty competitive, you know not not ridiculously slower.
 
 1397
 01:15:40,570 --> 01:15:42,790
+这似乎与之前的结果是一样的，
 And that seems in line with the early results of
 
 1398
 01:15:42,790 --> 01:15:45,610
+我们直接将 Linux 与 Biscuit 进行比较。
 where we did these Linux to Biscuit comparison directly.
 
 1399
 01:15:47,790 --> 01:15:50,920
+好的，让我放大更多一点，
 Okay, so let me zoom a little bit further,
 
 1400
 01:15:50,950 --> 01:15:52,720
+让我跳过这个，
 let me skip this,
 
 1401
 01:15:52,750 --> 01:15:54,370
+因为我想稍微谈一下，
 because I want to talk a little bit about,
 
 1402
 01:15:54,460 --> 01:15:57,220
+我们一开始问的这类问题，
 this sort of the question that we asked in the beginning,
 
 1403
 01:15:57,220 --> 01:15:59,740
+是否应该对新内核使用高级语言。
 where should one use high-level language for a new kernel.
 
 1404
 01:16:00,830 --> 01:16:03,950
+也许，不是直接回答，
 And, maybe you know like instead of answering,
 
 1405
 01:16:03,950 --> 01:16:05,750
+在这张幻灯片里，我有一些想法，
 I have some thoughts about this here in this slide,
 
 1406
 01:16:05,750 --> 01:16:07,370
+我们得出了一些结论，
 you know there were some conclusion that we draw,
 
 1407
 01:16:07,370 --> 01:16:10,400
+这不是一个明确的结论，一些考虑，
 and you know it's not a crisp conclusion, some considerations,
 
 1408
 01:16:10,760 --> 01:16:13,490
+所以也许我们应该退后一步，问问自己这个问题，
 so maybe to take a step back and ask yourself the question,
 
 1409
 01:16:13,490 --> 01:16:15,940
+比如你喜欢什么，
 like what would you have preferred,
 
 1410
 01:16:15,940 --> 01:16:19,510
+你是更喜欢用 C 语言编写 xv6 和实验，
 you know, would you have preferred to write you know xv6 and the labs in C
 
 1411
 01:16:19,510 --> 01:16:23,020
+还是更喜欢使用类似 Go 的高级语言。
 or would you prefer to use a high-level language for example like Go.
 
 1412
 01:16:23,660 --> 01:16:25,940
+特别是回答这个问题，
 And particularly answer this question,
 
 1413
 01:16:25,940 --> 01:16:28,190
+你会避免什么样的 bug ，
 what what kind of bugs would you have avoided,
 
 1414
 01:16:28,220 --> 01:16:31,520
+也许你在这节课中有一些时间
 and maybe you have some time during this lecture
 
 1415
 01:16:31,520 --> 01:16:33,320
+来思考一下你有什么 bug ，
 to think about like what bugs you had,
 
 1416
 01:16:33,770 --> 01:16:36,860
+我很想听到你的经历，
 and I would love to hear you know what your experience,
 
 1417
 01:16:38,160 --> 01:16:41,610
+你认为切换到高级语言
 how do you think switching to a high level language
 
 1418
 01:16:41,610 --> 01:16:43,050
+会如何改变你的经历。
 would have changed your experience.
 
 1419
 01:16:45,090 --> 01:16:47,460
+或者你这个问题有任何想法。
 Or if you have any thoughts on this question at all.
 
 1420
 01:16:51,460 --> 01:16:55,010
+让我暂停一会，
 Let me, pause you for a little bit,
 
 1421
 01:16:55,010 --> 01:16:57,560
+你可以考虑一下，再加入进来。
 so you can think about this and maybe chime in.
 
 1422
 01:16:59,120 --> 01:17:02,180
+我有过几次这样做的经历，
 I have had a couple of times when I did the thing,
 
 1423
 01:17:02,180 --> 01:17:04,250
+我在函数中创建对象，
 where I create an object in a function
 
 1424
 01:17:04,460 --> 01:17:06,980
+然后返回指向该对象的指针，
 and then return a pointer to it
 
 1425
 01:17:06,980 --> 01:17:08,540
+然后我用指针做一些事情，
 and then I do stuff with a pointer
 
 1426
 01:17:08,840 --> 01:17:11,120
+然后我意识到这个物体不见了。
 and then I realized that the object is gone.
 
 1427
 01:17:11,450 --> 01:17:15,670
+是的，这是一个典型的释放后使用的例子。
 Yeah, so this is a classic example of sort of use-after-free case, correct.
 
 1428
 01:17:17,810 --> 01:17:22,010
+是的，第二次我比第一次更快地意识到了这一点。
 Yeah, the second time I realize it faster than the first time.
 
 1429
 01:17:22,440 --> 01:17:23,490
+是的，这绝对是真的，
 Yeah, it's definitely true,
 
 1430
 01:17:23,490 --> 01:17:25,320
+当你看到几次这些 bug ，
 when you see a couple of times in those bugs,
 
 1431
 01:17:25,320 --> 01:17:26,340
+你可以做得更好。
 here you get better at them.
 
 1432
 01:17:26,990 --> 01:17:29,180
+还有任何关于这个的其他想法吗，
 Any other thoughts on this,
 
 1433
 01:17:29,180 --> 01:17:31,340
+人们有过什么样的经历。
 you know what the experience that people have had.
 
 1434
 01:17:33,110 --> 01:17:37,090
+想想你最坏的 bug ，花了最多时间的 bug ，
 Think about your worst bugs, bugs that took most time,
 
 1435
 01:17:38,820 --> 01:17:40,830
+高级语言会有帮助吗？
 would high-level language would have help?
 
 1436
 01:17:43,320 --> 01:17:47,640
+我觉得有些 bug 确实很难对付，
 I think it definitely like like some of the bugs were absolutely terrible to deal with,
 
 1437
 01:17:47,700 --> 01:17:51,000
+但同时，就像在这个上下文中，
 but at the same time like in in this context,
 
 1438
 01:17:51,000 --> 01:17:55,170
+我非常感谢能够使用如此低级的 C 语言，
 I definitely appreciated having to work with such a low-level language C,
 
 1439
 01:17:55,260 --> 01:17:58,320
+因为它帮助我获得，
 because it helped me to really gain a very,
 
 1440
 01:17:58,410 --> 01:18:02,670
+对操作系统内部的情况有了非常深刻的了解，
 a deep understanding of what's actually going on inside the operating system,
 
 1441
 01:18:02,670 --> 01:18:04,260
+比如它是如何处理内存的，
 like how it's working with memory,
 
 1442
 01:18:04,260 --> 01:18:07,260
+它绝对是新的，
 like it it it's definitely refreshing to to
 
 1443
 01:18:07,260 --> 01:18:09,630
+不把所有的东西都抽象化，
 like not have all of that abstracted away
 
 1444
 01:18:09,630 --> 01:18:12,540
+真正看到到底发生了什么。
 and to actually see exactly what's going on.
 
 1445
 01:18:15,560 --> 01:18:16,430
+是啊，这很有道理，
 Yeah, it makes a lot of sense,
 
 1446
 01:18:16,430 --> 01:18:19,170
+还有其他任何人对此有意见吗？
 any other, any other people have opinions on this?
 
 1447
 01:18:20,070 --> 01:18:24,300
+我想也有很多 bug ，
 I think also made a lot of bugs
 
 1448
 01:18:24,300 --> 01:18:32,660
+在我在字符串末尾或类似的地方写入的时候，
 in which I was writing after the end of string or something like that,
 
 1449
 01:18:32,720 --> 01:18:36,650
+但是我没有得到任何有用的反馈，
 but then I wasn't getting any useful feedback about it
 
 1450
 01:18:36,650 --> 01:18:40,610
+然后我无法解释的非常奇怪的事情发生了，
 and then very strange things happened, that I couldn't explain,
 
 1451
 01:18:41,150 --> 01:18:42,890
+所以，是的，我。
 so yeah, I.
 
 1452
 01:18:42,920 --> 01:18:44,900
+那出现在实验一中，
 That show up in lab one,
 
 1453
 01:18:46,130 --> 01:18:47,900
+那里有很多奇怪的操作，
 where there's a bunch of strange operations,
 
 1454
 01:18:47,900 --> 01:18:50,210
+比如当你解析目录之类的东西的时候。
 like when you parsing directories and things like that.
 
 1455
 01:18:51,410 --> 01:18:53,000
+它出现在多个应用程序中。
 It showed up in multiple apps.
 
 1456
 01:18:53,390 --> 01:18:56,180
+好的，我并不惊讶。
 Okay, I'm not surprised.
 
 1457
 01:18:56,570 --> 01:18:57,830
+好的，这是一个很好的例子，
 Okay, that's a great example,
 
 1458
 01:18:57,830 --> 01:19:01,280
+拥有真正的字符串对象是非常好的。
 like you know that it's very nice to actually have real string objects.
 
 1459
 01:19:03,870 --> 01:19:05,040
+我想说的是，
 Something on my end is that,
 
 1460
 01:19:05,040 --> 01:19:09,390
+我发现缺少映射之类的东西，
 I I found myself lacking whenever I needed something like a map,
 
 1461
 01:19:09,690 --> 01:19:14,640
+每次我需要做 for 循环，然后查找。
 and I just I I [] every time I needed to do for loop over something and then find.
 
 1462
 01:19:15,160 --> 01:19:15,700
+是的。
 Yeah.
 
 1463
 01:19:15,700 --> 01:19:16,960
+不过，我要说的是，
 However, I will say,
 
 1464
 01:19:16,960 --> 01:19:20,020
+来自高级编程背景，
 like coming from a high-level programming background,
 
 1465
 01:19:20,500 --> 01:19:23,650
+这是我第一次真正接触到像 C 这样的东西，
 this was my first real exposure to something like C,
 
 1466
 01:19:23,710 --> 01:19:25,210
+所以跟 Noah 的观点一样，
 so going of of Noah's point,
 
 1467
 01:19:25,210 --> 01:19:27,010
+它在某种程度上帮助我理解了，
 it kind of helped me to understand
 
 1468
 01:19:27,070 --> 01:19:28,390
+这意味着什么，
 really what it means that,
 
 1469
 01:19:29,140 --> 01:19:31,840
+我正在编写的代码是在 CPU 上运行的，
 this code that I'm writing is actually running on the CPU
 
 1470
 01:19:31,840 --> 01:19:34,000
+一切都是从 CPU 的角度出发的。
 and everything is from the perspective of the CPU.
 
 1471
 01:19:34,360 --> 01:19:42,460
+是的，还有其他想法吗？
 Yep, any other thoughts?
 
 1472
 01:19:46,580 --> 01:19:48,770
+哦，我记得具体是，
 Oh, I actually remember it was specifically,
 
 1473
 01:19:48,770 --> 01:19:54,590
+安全字符串复制和字符串复制的区别，
 the difference between safe string copy or just string copy,
 
 1474
 01:19:54,830 --> 01:19:58,850
+其中一个使用空终止符，
 one of them was putting, was using the null terminator,
 
 1475
 01:19:58,850 --> 01:20:00,200
+那就是。
 and that was.
 
 1476
 01:20:00,200 --> 01:20:04,270
+是的，一个常见的 C bug 。
 Yeah, a common C bug.
 
 1477
 01:20:04,390 --> 01:20:07,720
+好吧，第一件事是谢谢你的投入，
 Well, so you know first thing you know, thanks for the input,
 
 1478
 01:20:07,870 --> 01:20:12,100
+当然，我们不会将 xv6 更改为 Go
 of course we're not going to change xv6 to Go
 
 1479
 01:20:12,100 --> 01:20:13,300
+或任何高级语言，
 or any high-level language exactly,
 
 1480
 01:20:13,300 --> 01:20:16,990
+因为 Noah 和 Amir 提到的原因，
 for the reasons that you know have a number of you like Noah, Amir mentioned,
 
 1481
 01:20:18,140 --> 01:20:20,180
+Go 隐藏的太多了，
 Go still hides too much,
 
 1482
 01:20:20,210 --> 01:20:21,710
+在这个课程中，
 and you know in this particular class,
 
 1483
 01:20:21,710 --> 01:20:24,350
+整个目的是试图理解所有事情，
 whole purpose is really trying to understand everything
 
 1484
 01:20:24,350 --> 01:20:27,470
+在 CPU 和系统调用接口之间，
 between the CPU and the system call interface,
 
 1485
 01:20:27,560 --> 01:20:30,890
+比如， Go 隐藏了线程，
 and for example Go of course hides threads,
 
 1486
 01:20:31,040 --> 01:20:33,410
+你知道我们不想隐藏它，
 and you know we don't want to hide that,
 
 1487
 01:20:33,410 --> 01:20:35,660
+我们想向你解释线程是如何实现的，
 we want to explain to you actually how threads are implemented,
 
 1488
 01:20:35,900 --> 01:20:39,710
+所以，我们不想对你隐藏这个。
 and so, we would not want to hide this from you.
 
 1489
 01:20:40,190 --> 01:20:41,660
+所以可以肯定的是，未来几年，
 So certainly future years,
 
 1490
 01:20:41,660 --> 01:20:45,440
+xv6 课程将继续使用 C ，
 you know of xv6 class will keep on using C,
 
 1491
 01:20:45,770 --> 01:20:47,750
+但是如果你实现一个新的内核，
 but if you implement a new kernel
 
 1492
 01:20:47,750 --> 01:20:53,700
+你的目标不是教育学生关于内核的知识，
 and goal is not you know educating students about kernels,
 
 1493
 01:20:53,700 --> 01:20:57,900
+但目标是安全的，高性能的内核，
 but goals are I'd like to say safe, you know high performance kernel,
 
 1494
 01:20:58,050 --> 01:21:00,990
+你可以从这项研究中得出一些结论，
 you know there's sort of you know somethings you conclude from this study,
 
 1495
 01:21:00,990 --> 01:21:03,000
+他们做了什么，我们做了什么。
 they've done and what we've done, right.
 
 1496
 01:21:03,500 --> 01:21:06,830
+是的，内存或性能是最重要的，
 Yeah, memory or performance is really paramount,
 
 1497
 01:21:06,860 --> 01:21:10,730
+你不能牺牲 15% ，那么你应该使用 C ，
 you know you can't sacrifice 15%, then you should probably use C,
 
 1498
 01:21:10,820 --> 01:21:14,390
+如果你想最大限度地减少内存使用，也应该使用 C 。
 if you want to minimize memory use, you probably use C too.
 
 1499
 01:21:15,180 --> 01:21:17,130
+如果安全很重要，
 If safety is important or security is important
 
 1500
 01:21:17,130 --> 01:21:18,900
+也许高级语言就是我们要走的路。
 and probably the high-level language is the way to go.
 
 1501
 01:21:19,600 --> 01:21:24,550
+也许在许多情况下，性能是重要的，而不是绝对的，
 And probably in many cases performances merely important as opposed to absolute paramount,
 
 1502
 01:21:24,820 --> 01:21:25,600
+在很多情况下，
 and in many case,
 
 1503
 01:21:25,600 --> 01:21:29,140
+我认为使用高级语言做内核是非常合理的事情。
 I think you know using high-level languages perfectly reasonable thing to do for kernel.
 
 1504
 01:21:30,220 --> 01:21:31,720
+也许我学到了一件事，
 Probably one thing I've learned,
 
 1505
 01:21:31,720 --> 01:21:35,500
+也许 Cody Robert 和我从整个项目中学到的是，
 probably you know Cody Robert and I learned from this whole project is
 
 1506
 01:21:35,500 --> 01:21:38,050
+任何编程语言都是编程语言，
 like whatever programming language is a programming language,
 
 1507
 01:21:38,050 --> 01:21:39,880
+你可以用它来构建内核，
 and you can use it to build kernels,
 
 1508
 01:21:39,880 --> 01:21:41,380
+你可以构建用户应用程序，
 you can build user applications,
 
 1509
 01:21:41,500 --> 01:21:44,530
+在某种程度上，这并不是什么真正的阻碍。
 there's not really standing anything in really in a way.
 
 1510
 01:21:50,800 --> 01:21:53,170
+好的，我觉得该结束了，
 Okay, you know I think it's time to wrap up,
 
 1511
 01:21:53,170 --> 01:21:56,320
+如果你还有什么问题，
 you know if you have any more questions,
 
 1512
 01:21:56,320 --> 01:21:59,620
+可以随意停留并提问，
 you know fell free to hang around and ask them,
 
 1513
 01:21:59,620 --> 01:22:01,150
+如果你要去别的地方，
 if you have to go somewhere else,
 
 1514
 01:22:01,510 --> 01:22:04,540
+祝你顺利完成 mmap 实验，
 good luck with finishing the mmap lab,
 
 1515
 01:22:04,540 --> 01:22:05,440
+对于你们，
 and for those of you,
 
 1516
 01:22:05,440 --> 01:22:08,110
+当我们要离开校园过感恩节的人来说，
 when we have to are leaving campus for Thanksgiving,
 
 1517
 01:22:08,320 --> 01:22:11,920
+一路顺风，希望感恩节过后见到你，
 safe travels and hope to see you after Thanksgiving
 
 1518
 01:22:11,920 --> 01:22:13,630
+在感恩节后的周一的课程中。
 in Monday's lecture after Thanksgiving.
 
 1519
 01:22:17,650 --> 01:22:18,130
+谢谢。
 Thank you.
 
 1520
 01:22:20,250 --> 01:22:22,800
+我很好奇，你是怎么实现的，
 I was curious, how did you implement it,
 
 1521
 01:22:22,830 --> 01:22:25,380
+上面说你在在硬件上做这个，
 it said you are doing that just on the hardware,
 
 1522
 01:22:25,440 --> 01:22:29,100
+所以当你开始的时候，你是怎么开始的。
 so like when you start out, how do you start out.
 
 1523
 01:22:30,010 --> 01:22:32,290
+这里有很少的垫片代码，
 You know there's basically little shim code,
 
 1524
 01:22:32,380 --> 01:22:34,840
+它对硬件做足够的设置，
 that sets up enough of the hardware,
 
 1525
 01:22:34,840 --> 01:22:37,390
+当 Biscuit 请求，
 so that when Biscuit you know asks for,
 
 1526
 01:22:37,390 --> 01:22:41,320
+当 Go 运行时请求堆的内存时，
 when the Go runtime ask for memory for the heap,
 
 1527
 01:22:41,320 --> 01:22:42,940
+我们可以响应。
 that we can actually respond.
 
 1528
 01:22:44,240 --> 01:22:50,270
+这是 Go 运行时所依赖的主要内容之一。
 That was one of the main things that actually Go runtime actually relies on.
 
 1529
 01:22:51,460 --> 01:22:53,200
+是的，我想你说的是，
 Right, I guess I was like you said that,
 
 1530
 01:22:53,200 --> 01:22:57,490
+你没有使用虚拟机，所以。
 you didn't use a virtual machine for that, so.
 
 1531
 01:22:57,490 --> 01:23:02,830
+我们用了，当然大部分开发都在 QEMU 上，
 We did, of course we developed most of development on QEMU
 
 1532
 01:23:02,830 --> 01:23:06,280
+当然，我们还必须让它在硬件上运行，
 and of course again we actually have to get it running on the hardware,
 
 1533
 01:23:06,370 --> 01:23:08,140
+这也要解决一堆问题，
 that also costs there's a bunch of problems,
 
 1534
 01:23:08,140 --> 01:23:09,580
+因为引导加载程序不同，
 because the boot loaders are different,
 
 1535
 01:23:09,580 --> 01:23:11,380
+需要编写一系列引导代码，
 there's a bunch of boot code that you actually need to write,
 
 1536
 01:23:11,380 --> 01:23:13,210
+如果你在 QEMU 上运行就不用写了，
 you don't have to write if you run it on QEMU,
 
 1537
 01:23:13,600 --> 01:23:15,220
+诸如此类的东西，
 and that kind of stuff,
 
 1538
 01:23:15,220 --> 01:23:17,680
+但是大部分的开发都是在 QEMU 上完成的，
 but most of the development is all done on QEMU,
 
 1539
 01:23:17,680 --> 01:23:21,460
+事实上，如果你想在 QEMU 上运行 Biscuit ，
 in fact if you want to actually show you running Biscuit on QEMU,
 
 1540
 01:23:21,640 --> 01:23:23,260
+它看起来非常简单，类似 xv6 ，
 and it looks very simple to xv6,
 
 1541
 01:23:23,260 --> 01:23:25,510
+它唯一就是显示提示符，
 you know the only thing it does like show prompt,
 
 1542
 01:23:25,510 --> 01:23:28,120
+没有窗口系统，什么都没有。
 there's no window system, nothing like that.
 
 1543
 01:23:29,800 --> 01:23:30,760
+好的，我明白了，
 Okay, I see,
 
 1544
 01:23:31,000 --> 01:23:34,720
+所以如果你在引导代码中犯了错误，会发生什么情况。
 so like what happens if you if you make a mistake in the boot code.
 
 1545
 01:23:35,660 --> 01:23:36,500
+它不能启动，
 It doesn't boot,
 
 1546
 01:23:36,530 --> 01:23:37,910
+基本上什么都没发生，
 you know basically nothing happens,
 
 1547
 01:23:37,910 --> 01:23:39,620
+完全没什么东西。
 you know it's completely nothing.
 
 1548
 01:23:40,370 --> 01:23:41,720
+你怎么知道？
 How do you know?
 
 1549
 01:23:42,460 --> 01:23:44,920
+你会知道的，
 You, you, you will know,
 
 1550
 01:23:44,920 --> 01:23:49,060
+因为你知道，因为你看不到打印的语句，
 because you know okay what will happen is because you don't see print statement,
 
 1551
 01:23:49,060 --> 01:23:51,160
+比如 xv6 ，我们打印的第一件事是，
 like xv6 for the first thing we print is
 
 1552
 01:23:51,160 --> 01:23:54,820
+比如 xv6 hello 或者 xv6 引导，
 like you know xv6 hello or something or xv6 booting,
 
 1553
 01:23:55,180 --> 01:23:56,800
+你不会看到这样的东西，
 you won't see anything like that,
 
 1554
 01:23:57,250 --> 01:23:58,930
+所以你什么也看不到，
 and so you'll see nothing,
 
 1555
 01:23:59,080 --> 01:24:04,000
+然后你必须追踪，并猜测问题可能出在哪里。
 and then you'll have to track down and guess what the problem might be.
 
 1556
 01:24:05,640 --> 01:24:08,130
+好的，那你是通过查看吗？
 Okay, so you do it by looking?
 
 1557
 01:24:08,660 --> 01:24:12,410
+好的，你可以向 UART 同步写一个，
 Okay, little bit, you can write a [synchronously] to the UART,
 
 1558
 01:24:12,440 --> 01:24:13,730
+你可以比如，
 you know you could like,
 
 1559
 01:24:13,940 --> 01:24:17,750
+你看到的字符，把它们放在代码中的随机位置，
 you know characters you see put them in random places in the code,
 
 1560
 01:24:17,750 --> 01:24:18,830
+希望你能看到一些东西。
 and hope that you see something.
 
 1561
 01:24:21,440 --> 01:24:23,090
+这很有趣，谢谢。
 This is interesting, thank you.
 
 1562
 01:24:23,420 --> 01:24:23,660
+你知道。
 You know.
 
 1563
 01:24:23,660 --> 01:24:25,610
+我想问一下，
 I wanted to ask,
 
 1564
 01:24:26,000 --> 01:24:30,050
+当你，我知道你实现 Go ，
 when you, so I know like you implemented the Go,
 
 1565
 01:24:30,050 --> 01:24:32,960
+有一些调用 Go 进行时会创建，
 some of the calls that Go runtime would make,
 
 1566
 01:24:32,990 --> 01:24:34,730
+有一些无法创建，
 that you cannot make,
 
 1567
 01:24:34,730 --> 01:24:36,680
+因为你正在实现内核本身，
 because you're implementing the kernel itself,
 
 1568
 01:24:37,130 --> 01:24:38,780
+有没有类似的，
 is there any like,
 
 1569
 01:24:38,780 --> 01:24:41,480
+你是不是使用汇编实现了，
 did you just implement just all of that in assembly
 
 1570
 01:24:41,510 --> 01:24:45,200
+或者这些也可以使用 Go 来实现，
 or did you say okay like some of this we can still do in Go,
 
 1571
 01:24:45,200 --> 01:24:47,480
+比如我们可以让 Go 走地更近一点，
 like we can bring Go a bit closer,
 
 1572
 01:24:47,480 --> 01:24:49,520
+然后汇编只做需要的事情，
 and then do assembly only what's necessary,
 
 1573
 01:24:49,640 --> 01:24:53,720
+你说的，一旦 Go 运行时结束，就是汇编？
 what did you say like once the Go runtime ends like that's assembly.
 
 1574
 01:24:54,230 --> 01:24:58,070
+这就是 1500 行汇编的来源，
 You the that's where the 1500 lines of assembly came from,
 
 1575
 01:24:58,650 --> 01:25:00,990
+在 Biscuit 中，
 in the, in Biscuit,
 
 1576
 01:25:01,170 --> 01:25:02,760
+这基本上就是代码，
 you know that is basically the code
 
 1577
 01:25:02,760 --> 01:25:06,420
+为运行 Go 运行时做好准备。
 to sort of get everything ready to be actually able to run the Go runtime.
 
 1578
 01:25:08,450 --> 01:25:10,040
+其中一些我们可以使用 C 实现，
 Now some of that we would have implemented C,
 
 1579
 01:25:10,040 --> 01:25:11,030
+但我们不想这样做，
 but we didn't want to do that,
 
 1580
 01:25:11,030 --> 01:25:12,260
+因为我们不想使用任何 C 语言，
 because we didn't want to use any C,
 
 1581
 01:25:12,260 --> 01:25:13,160
+所以我们使用汇编。
 so we're use assembly.
 
 1582
 01:25:13,900 --> 01:25:15,940
+其中许多需要汇编，
 And many of it actually required assembly,
 
 1583
 01:25:15,940 --> 01:25:17,110
+因为它在引导部分。
 because it's in the booting part.
 
 1584
 01:25:18,250 --> 01:25:20,980
+是的，但我想有些部分，不是引导，
 Right, but I guess some of the part, that's not the boot,
 
 1585
 01:25:20,980 --> 01:25:26,410
+我知道有些你不能避免一些引导代码和汇编，
 so I I you know I know that some just you cannot avoid some boot code and assembly,
 
 1586
 01:25:26,410 --> 01:25:30,400
+但是你能不能把一些汇编改为 Go ，
 but could you, could you have transformed some of the assembly to Go,
 
 1587
 01:25:30,400 --> 01:25:32,170
+还是你做了[]。
 or did you go to the [].
 
 1588
 01:25:32,170 --> 01:25:34,240
+我们做了很多 Go ，
 We did a bunch of Go,
 
 1589
 01:25:34,240 --> 01:25:38,050
+是在很早的时候就开始了，
 that basically runs very early on,
 
 1590
 01:25:38,480 --> 01:25:41,060
+有些 Go 非常小心，
 you know some of the Go goes quite careful,
 
 1591
 01:25:41,120 --> 01:25:42,860
+它不进行任何内存分配，
 it doesn't do any memory allocation,
 
 1592
 01:25:46,820 --> 01:25:49,490
+我们试着尽可能多地使用 Go ，
 and we tried to write as much as possible Go,
 
 1593
 01:25:49,520 --> 01:25:52,010
+我必须看代码，
 I I can like I have to look at the code exactly
 
 1594
 01:25:52,010 --> 01:25:54,320
+才能回答你的问题，
 you know to be able to answer your question,
 
 1595
 01:25:54,320 --> 01:25:57,050
+具体地说，你可以看看 git repo ，
 specifically you can look at the git repo,
 
 1596
 01:25:57,050 --> 01:26:00,790
+但是，是的，我们试着使用 Go 写所有的东西。
 but, yeah, we tried to write everything in Go.
 
 1597
 01:26:03,580 --> 01:26:06,520
+然后我有一个不相干的小问题，
 And then one like kind of unrelated small question I had,
 
 1598
 01:26:06,880 --> 01:26:09,970
+Go 协程是怎么做的，
 what does Go do with its Go routines,
 
 1599
 01:26:09,970 --> 01:26:13,180
+使它可以运行成百上千的 Go 协程，
 that makes it possible to run like hundred thousands of them,
 
 1600
 01:26:14,040 --> 01:26:17,520
+因为你不能起成百上千个个线程。
 because you cannot just spin up a hundred thousand pthreads, right.
 
 1601
 01:26:18,210 --> 01:26:19,680
+是的，这要看情况，
 Yeah, it depends,
 
 1602
 01:26:19,710 --> 01:26:23,340
+时间很长，
 a lot longer
 
 1603
 01:26:23,340 --> 01:26:26,760
+所以主要的问题是你需要分配堆栈，
 and so the main issue is that you need to allocate stack,
 
 1604
 01:26:27,320 --> 01:26:31,280
+而 Go 运行时会递增地分配堆栈，
 and the Go runtime actually allocates stack incrementally
 
 1605
 01:26:31,490 --> 01:26:36,350
+随着你运行 Go 协程，它们会动态增长，
 and so grows them dynamically as you run your Go Go routine,
 
 1606
 01:26:36,500 --> 01:26:38,870
+这是 prologue 代码的作用，
 this where's prologue code is for,
 
 1607
 01:26:38,960 --> 01:26:40,160
+当你进行函数调用时，
 when you make a function call,
 
 1608
 01:26:40,160 --> 01:26:41,570
+你会查看是否有足够的空间
 you see if there's enough space
 
 1609
 01:26:41,570 --> 01:26:44,000
+来进行函数调用，
 to actually make the function call,
 
 1610
 01:26:44,000 --> 01:26:46,520
+如果没有，它将为你动态增长。
 and if not, it will grow dynamically for you.
 
 1611
 01:26:47,390 --> 01:26:50,390
+通常在 pthread 实现中，
 And often in pthread implementations,
 
 1612
 01:26:50,570 --> 01:26:55,370
+分配线程是更重量级的，
 allocating threads a little bit more heavyweight,
 
 1613
 01:26:55,370 --> 01:27:00,500
+因为，比如 Linux 对应，
 because actually for example Linux basically corresponds
 
 1614
 01:27:00,500 --> 01:27:02,810
+对应的内核线程也要被分配，
 corresponding kernel threads is actually allocated too,
 
 1615
 01:27:03,680 --> 01:27:05,930
+它们往往更重量级。
 and they tend to be more heavyweight than.
 
 1616
 01:27:08,790 --> 01:27:09,390
+我明白了,
 I see,
 
 1617
 01:27:10,090 --> 01:27:14,830
+Go 协程的调度是否完全在用户空间中完成的，
 is the is the scheduling of all the Go routines done completely in user space,
 
 1618
 01:27:14,860 --> 01:27:17,860
+或者它帮助自己使用一些内核。
 or does it help itself with some of kernel, so.
 
 1619
 01:27:18,400 --> 01:27:20,950
+它主要是在用户空间中完成的。
 It is mostly done in user space.
 
 1620
 01:27:25,930 --> 01:27:28,900
+所以 Go 运行时分配了一堆内核线程，
 So the Go runtime allocates a bunch of kernel threads,
 
 1621
 01:27:29,520 --> 01:27:32,790
+他们把它们叫做 mthreads ，
 you know they call them I think mthreads,
 
 1622
 01:27:32,790 --> 01:27:36,000
+在这之上，它实现了 Go 协程。
 and on top of that it implements the Go routines.
 
 1623
 01:27:37,370 --> 01:27:40,460
+所以它有几个内核线程，
 So it's so it has, like a couple kernel threads
 
 1624
 01:27:40,460 --> 01:27:43,520
+它共享给所有的 Go 协程，基于正在运行的。
 that it shares to all Go routines based on which ones running.
 
 1625
 01:27:43,880 --> 01:27:44,270
+是的。
 Yes.
 
 1626
 01:27:44,920 --> 01:27:46,240
+哦，理解了，是的。
 Oh, that makes sense, yeah.
 
 1627
 01:27:47,580 --> 01:27:51,600
+有没有类似的 C 或 C++ 的等价物，
 Is there like any C C++ equivalent,
 
 1628
 01:27:51,750 --> 01:27:56,130
+比如，你能不能做这样的事来节省内存。
 like, could you could you do something like that to save to save some memory.
 
 1629
 01:27:56,340 --> 01:27:59,010
+是的，人们已经做到了，可以管理高性能，
 Yeah people have done, you know able to manage like high performance,
 
 1630
 01:27:59,010 --> 01:28:02,310
+C 库是线程库，
 you know so C libraries are thread libraries,
 
 1631
 01:28:02,310 --> 01:28:05,730
+你可以为数以百万计的线程创建数以千计的线程，
 that way you can create thousands of you know threads for millions of threads,
 
 1632
 01:28:05,730 --> 01:28:08,070
+使用类似的方式。
 you know do a similar style.
 
 1633
 01:28:14,160 --> 01:28:17,100
+好了，你们好好休息，我得走了。
 Okay, you guys have a good break, I must head out.
 
 1634
 01:28:17,130 --> 01:28:17,730
+你也是。
 You too.
 
 1635
 01:28:18,060 --> 01:28:24,000
+下周或下两周见。
 See you next week or two weeks.
 
 1636
 01:28:24,490 --> 01:28:25,750
+是的，哦。
 Yeah, oh.
 
 1637
 01:28:26,660 --> 01:28:27,410
+哦，请继续。
 Oh, go ahead.
 
 1638
 01:28:29,220 --> 01:28:34,620
+抱歉，我有一个关于垫片的基本问题，
 I'm sorry, so I have a maybe basic question about the shims
 
 1639
 01:28:34,620 --> 01:28:36,900
+我想我可能，
 and I guess I think also maybe,
 
 1640
 01:28:36,900 --> 01:28:41,580
+还不太熟悉运行库是什么样子，
 I'm just not familiar with kind of specifically what like a runtime is
 
 1641
 01:28:41,790 --> 01:28:44,370
+我猜我的疑惑来自这一事实，
 and I guess like my confusion comes from the fact,
 
 1642
 01:28:44,370 --> 01:28:48,510
+比如，在裸机器上 xv6 和 C 如何工作的，
 that like from a metal model of how xv6 and C works,
 
 1643
 01:28:48,510 --> 01:28:51,540
+C 是一种编译语言，
 is that C compiles C is a compiled language
 
 1644
 01:28:51,840 --> 01:28:54,690
+所以它直接进入汇编或机器代码，
 and so it goes directly to assembly or machine code,
 
 1645
 01:28:54,930 --> 01:28:58,110
+所以它像是在 CPU 上运行，
 and so it kind of just runs on the CPU,
 
 1646
 01:28:58,230 --> 01:28:59,520
+所以我想，
 and so I guess,
 
 1647
 01:28:59,550 --> 01:29:04,320
+就像 xv6 操作系统不需要垫片程序一样，
 like there is no need for a shim for like xv6 OS,
 
 1648
 01:29:04,740 --> 01:29:08,220
+但我想 Go 也是一种编译语言，
 but I guess my understanding is Go is also a compiled language,
 
 1649
 01:29:08,220 --> 01:29:10,050
+所以也会变成汇编语言，
 so it also goes to the assembly,
 
 1650
 01:29:10,170 --> 01:29:13,410
+那么为什么在这种情况下需要垫片，
 so why is there a need for like a shim in this case,
 
 1651
 01:29:13,410 --> 01:29:16,800
+xv6 是否有这样的垫片，
 why, why is there maybe is a shim for like xv6,
 
 1652
 01:29:16,800 --> 01:29:18,420
+或者这里有什么不同，
 or you know what, what is different here
 
 1653
 01:29:18,420 --> 01:29:22,590
+为什么有些事情不能只在 CPU 上做。
 and why are there, why are there things that can't just be done on the CPU.
 
 1654
 01:29:23,070 --> 01:29:24,630
+是的，一个很好的问题，
 Yeah yeah, a great question,
 
 1655
 01:29:24,660 --> 01:29:27,270
+所以我想你问题的答案是，
 so I think the answer to your question is that,
 
 1656
 01:29:27,270 --> 01:29:30,570
+Go 运行时提供了所有类型的功能，
 the Go runtime provides all kinds of features,
 
 1657
 01:29:30,570 --> 01:29:32,850
+比如你没有的，
 that like you know you don't have, right,
 
 1658
 01:29:32,850 --> 01:29:35,910
+当你在 xv6 中运行 C 的时候，
 in running when you're running C in xv6,
 
 1659
 01:29:36,210 --> 01:29:38,100
+所以 Go 运行时提供线程，
 so Go runtime provides threads,
 
 1660
 01:29:38,250 --> 01:29:40,350
+Go 运行时提供调度器，
 Go runtime provides scheduler,
 
 1661
 01:29:40,350 --> 01:29:43,380
+Go 运行时提供哈希表，
 Go runtime provides hash tables,
 
 1662
 01:29:43,380 --> 01:29:45,150
+Go 运行时提供垃圾收集器，
 Go runtime provides garbage collector,
 
 1663
 01:29:45,420 --> 01:29:47,130
+这需要在运行时运行，
 that actually needs to run at runtime, right,
 
 1664
 01:29:47,130 --> 01:29:49,410
+而在 xv6 中没有垃圾收集器，
 then there's no garbage collector in xv6,
 
 1665
 01:29:49,860 --> 01:29:51,780
+并且我们实现了线程，
 and we implement the threads,
 
 1666
 01:29:52,200 --> 01:29:55,020
+比如，为了支持垃圾收集器，
 and for example to support the garbage collector,
 
 1667
 01:29:55,020 --> 01:29:57,420
+它需要一个堆来分配内存，
 it needs a heap you know for to allocate memory from,
 
 1668
 01:29:57,450 --> 01:30:00,270
+所以访问底层的操作系统，
 and so like ask the operating system underlying operating system,
 
 1669
 01:30:00,270 --> 01:30:01,980
+请给我一些内存，
 so please give me you know some memories,
 
 1670
 01:30:01,980 --> 01:30:02,940
+我可以把它当作堆使用。
 that I can use it as a heap.
 
 1671
 01:30:03,610 --> 01:30:08,350
+基本上垫片层实现了这些功能，
 And basically the shim layer implements exactly so that kind of functionality,
 
 1672
 01:30:08,350 --> 01:30:13,330
+Go 运行时在运行时要做的工作。
 that the Go runtime needs to do a job at runtime.
 
 1673
 01:30:23,120 --> 01:30:24,590
+我明白。
 I see.
 
 1674
 01:30:25,200 --> 01:30:28,860
+是的，你说得有点道理，
 Yeah, you have a slightly makes sense,
 
 1675
 01:30:28,860 --> 01:30:30,930
+我还有一个后续问题，
 I actually a follow-up question is,
 
 1676
 01:30:32,550 --> 01:30:34,140
+也许这是一个愚蠢的问题，
 maybe this is a dumb question,
 
 1677
 01:30:34,140 --> 01:30:42,250
+比如我们能不能编译运行时到机器代码，或者。
 but like like can we just compile to runtime down to machine code, or.
 
 1678
 01:30:42,250 --> 01:30:44,290
+运行时被编译为运行。
 Runtime is compile to run.
 
 1679
 01:30:44,290 --> 01:30:44,740
+好的。
 Okay.
 
 1680
 01:30:44,860 --> 01:30:47,350
+运行库本身也是编译的，
 It goes like you know the runtime itself is also compiled,
 
 1681
 01:30:47,350 --> 01:30:48,700
+但这是程序的一部分，
 but it's like you're part of the program
 
 1682
 01:30:48,700 --> 01:30:51,460
+在运行 Go 代码时需要一直运行。
 that needs to run always running run Go code.
 
 1683
 01:30:52,190 --> 01:30:53,090
+它必须在那里，
 It has to be there,
 
 1684
 01:30:53,180 --> 01:30:55,190
+就像 C 也有一个很小的运行时，
 like even like C has a small runtime,
 
 1685
 01:30:55,190 --> 01:30:57,620
+如果你想一想，我们有 printf ，
 if you think about you know we have like printf
 
 1686
 01:30:57,620 --> 01:30:59,210
+是 C 运行时的一部分，
 is part of should live to C runtime,
 
 1687
 01:30:59,600 --> 01:31:02,180
+字符串操作是 C 运行时的一部分，
 string operations are part of the C runtime, right,
 
 1688
 01:31:02,480 --> 01:31:03,650
+它们也是编译的，
 they're compile too,
 
 1689
 01:31:03,650 --> 01:31:07,280
+但是 C 运行时有一些很少的函数，
 but there's a bunch of small number of functions that the C runtime has,
 
 1690
 01:31:07,430 --> 01:31:10,760
+但是它们的运行时太小了，跟 Go 运行时比起来，
 but their runtime is so small compared to the Go runtime,
 
 1691
 01:31:10,760 --> 01:31:12,890
+支持更多的功能，
 that you know have to support many more features,
 
 1692
 01:31:13,160 --> 01:31:16,010
+因为 Go 程序依赖于它们。
 because of you know programs Go programs rely on them.
 
 1693
 01:31:17,320 --> 01:31:18,850
+我明白了，我明白了，
 I see, I see,
 
 1694
 01:31:18,850 --> 01:31:20,800
+我想最后一个问题可能是这样的，
 and I guess the last question would maybe be like,
 
 1695
 01:31:20,800 --> 01:31:23,530
+在这种情况下，是不是有点像，
 is it it kind of sounds like that in this case,
 
 1696
 01:31:23,530 --> 01:31:27,010
+Go 运行时或这种情况下的垫片程序
 the Go runtime or like the actually the shim in this case
 
 1697
 01:31:27,010 --> 01:31:30,610
+承担了一些常用功能，
 is almost taking on some of the functionality normally,
 
 1698
 01:31:30,820 --> 01:31:32,860
+就像它几乎就像一个小的，
 like it's almost like it's like a mini,
 
 1699
 01:31:33,640 --> 01:31:36,880
+它就像一个小的操作系统层，
 it's almost kind of like, it's like a mini OS layer,
 
 1700
 01:31:36,910 --> 01:31:39,070
+就像它是另一层，
 like in terms that it's just like another layer
 
 1701
 01:31:39,070 --> 01:31:43,030
+执行一些低级系统功能。
 that's performing some low-level system functionality, like reasonable.
 
 1702
 01:31:44,260 --> 01:31:45,430
+是的，你可以，
 Yeah you can,
 
 1703
 01:31:45,460 --> 01:31:47,440
+也许可以用一种方式来考虑 xv6 ，
 maybe one way to think about xv6,
 
 1704
 01:31:47,440 --> 01:31:49,540
+它也有一个非常非常小的垫片，
 it also has a very very minimal shim,
 
 1705
 01:31:49,660 --> 01:31:51,460
+也许当引导的时候，
 you know maybe like when the boots correct,
 
 1706
 01:31:51,460 --> 01:31:53,590
+它做的第一件事就是分配一些堆栈，
 the first thing it does actually allocates some stack,
 
 1707
 01:31:53,590 --> 01:31:56,350
+就可以调用 C 主函数了。
 so that you can actually call the C main function.
 
 1708
 01:31:57,240 --> 01:31:59,640
+你可以考虑一下这段代码，
 And you can think about that little fragment of code
 
 1709
 01:31:59,640 --> 01:32:00,960
+它只有几个语句，
 which is only a couple statements,
 
 1710
 01:32:00,960 --> 01:32:02,670
+就是 xv6 的垫片层。
 the shim layer for xv6.
 
 1711
 01:32:03,710 --> 01:32:06,410
+一旦你通过了几个指令，
 And once you know you're through a couple of instructions,
 
 1712
 01:32:06,410 --> 01:32:08,120
+你到达 C 代码，一切都很好。
 you're actually C code and everything is fine.
 
 1713
 01:32:08,790 --> 01:32:12,690
+Go 运行时的垫片层稍微大一些，
 And you know the shim layer to Go runtime is slightly bigger,
 
 1714
 01:32:12,690 --> 01:32:14,790
+因为还有更多的功能需要设置，
 because there's a bunch of more features that need to be set up,
 
 1715
 01:32:14,790 --> 01:32:16,950
+在 Go 运行时执行之前。
 before the Go runtime actually happily execute.
 
 1716
 01:32:18,700 --> 01:32:22,150
+好的，这很有帮助，很有道理，酷。
 Okay, yeah that's helpful, that makes sense, cool.
 
 1717
 01:32:23,150 --> 01:32:23,540
+谢谢。
 Thank you.
 
 1718
 01:32:23,960 --> 01:32:24,590
+不用谢。
 You're welcome.
 
 1719
 01:32:25,460 --> 01:32:26,180
+感恩节快乐。
 Happy Thanksgiving.
 
 1720
 01:32:26,420 --> 01:32:27,050
+是的，你也是。
 Yeah, you too.
 
 1721
 01:32:28,240 --> 01:32:32,650
+哦，我有个关于 ping-pong 程序的问题忘了问，
 Oh, I had a question about the ping-pong program that I forgot to ask,
 
 1722
 01:32:32,680 --> 01:32:36,790
+我记得我们在一个实验中也做了一个 ping-pong 程序。
 so I remember we also did a ping-pong program in one of the labs.
 
 1723
 01:32:38,070 --> 01:32:43,950
+那不是一百，一千行代码，为什么是。
 It was not a hundred, those a thousand lines of code, why is.
 
 1724
 01:32:44,420 --> 01:32:48,050
+因为，第一，我想你说的是实验一，
 Because like one, I think you're referring to a lab one,
 
 1725
 01:32:48,050 --> 01:32:50,210
+你做了 ping-pong 让一个字节通过管道。
 you do the ping-pong with a byte across the pipe.
 
 1726
 01:32:50,860 --> 01:32:51,400
+是的。
 Yeah.
 
 1727
 01:32:51,610 --> 01:32:54,580
+好的，那是用户空间的基准测试，
 Okay, so that's the user side of the benchmark,
 
 1728
 01:32:54,610 --> 01:32:57,550
+内核方面是另一面，
 the kernel side correctly is the other side of it,
 
 1729
 01:32:57,550 --> 01:33:00,130
+我们所做的是，
 and basically you know that what we did is
 
 1730
 01:33:00,130 --> 01:33:02,170
+实现以相同方式传递的内核。
 implement the kernel passed in identical manner.
 
 1731
 01:33:04,530 --> 01:33:05,130
+好的。
 Okay.
 
 1732
 01:33:05,190 --> 01:33:08,550
+所以在执行系统调用，
 So like you know you executing the start the system call,
 
 1733
 01:33:08,550 --> 01:33:10,890
+使用堆栈帧中的变量，
 using variables in the stack frame,
 
 1734
 01:33:10,890 --> 01:33:13,200
+调用查看管道，
 you know calling into looking up the pipe,
 
 1735
 01:33:13,200 --> 01:33:17,800
+然后可能会运行调度程序来唤醒接收者，
 you know then running maybe the scheduler to wake up you know the receiver
 
 1736
 01:33:18,010 --> 01:33:20,020
+那是整个代码路径，
 and that whole code path,
 
 1737
 01:33:20,020 --> 01:33:23,620
+在内核方面，我们试图实现它，
 you know on the kernel side, we tried to implement it,
 
 1738
 01:33:23,620 --> 01:33:25,240
+在 C 和 Go 中是一样的。
 identically in C and in Go.
 
 1739
 01:33:25,700 --> 01:33:26,690
+好的，我明白了。
 Okay,I see.
 
 1740
 01:33:26,720 --> 01:33:28,910
+但基准与你的基准一样，
 But the benchmark is basically the same as your benchmark,
 
 1741
 01:33:28,910 --> 01:33:31,010
+你在实验一中实现的，
 that you implemented actually in lab one,
 
 1742
 01:33:31,100 --> 01:33:32,330
+它的用户级别方面。
 the user level side of it.
 
 1743
 01:33:33,250 --> 01:33:35,020
+好的，这就说得通了，
 Right, right, okay that makes sense,
 
 1744
 01:33:35,050 --> 01:33:37,430
+所以，那是不是意味着，
 so, so does that mean like,
 
 1745
 01:33:38,140 --> 01:33:40,390
+我的意思是，如果在 xv6 中这样做，
 I mean I think that if you do that in xv6
 
 1746
 01:33:40,390 --> 01:33:44,080
+将大大少于 1000 行代码，
 would be significantly less than a thousand lines of code,
 
 1747
 01:33:44,080 --> 01:33:47,560
+如果你愿意，使用所有内核代码。
 if you like take all the kernel code.
 
 1748
 01:33:47,560 --> 01:33:50,470
+这里有上千行的汇编指令，
 There's thousand thousand lines for assembly instructions correct,
 
 1749
 01:33:50,620 --> 01:33:54,370
+我不知道，我必须看一下，
 so you know I I don't know I will have to look at,
 
 1750
 01:33:54,370 --> 01:33:57,340
+但你会用到 trapframe 代码，
 but you know you're gonna use the trapframe code,
 
 1751
 01:33:57,340 --> 01:33:58,750
+系统调用调度，
 you know syscall dispatch,
 
 1752
 01:33:59,140 --> 01:34:04,240
+到 fd 层，文件描述符，
 going to the the fd layer, correct, the file descriptors,
 
 1753
 01:34:04,510 --> 01:34:07,600
+然后是一小段管道代码，
 then a little bit of pipe code,
 
 1754
 01:34:07,720 --> 01:34:10,810
+然后是 copyin 和 copyout ，
 then copyin and copyout,
 
 1755
 01:34:11,020 --> 01:34:12,640
+然后是调度器，
 then the scheduler
 
 1756
 01:34:12,940 --> 01:34:16,780
+然后再次跳出或返回。
 and then basically all [] and then bailing out again or returning.
 
 1757
 01:34:17,750 --> 01:34:21,390
+是的，好的，这就说得通了。
 Yeah, okay, that make sence.
 
 1758
 01:34:21,690 --> 01:34:26,610
+我不知道怎么表示脑中的代码，
 I don't know how to talk my head on my client what code is,
 
 1759
 01:34:26,610 --> 01:34:26,640
+但是你知道。
 but you know.
 
