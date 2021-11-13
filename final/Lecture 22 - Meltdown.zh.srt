@@ -1,1941 +1,2426 @@
 1
 00:00:00,950 --> 00:00:03,580
+好的，有人听到我说话吗？
 Alright, anyone hear me?
 
 2
 00:00:04,210 --> 00:00:05,980
+好的。
 Good.
 
 3
 00:00:07,480 --> 00:00:08,890
+好的，今天我们要讲 meltdown ，
 Alright today we got meltdown,
 
 4
 00:00:09,370 --> 00:00:13,210
+我读这篇论文是因为，
 the reason why I'm reading this paper is that,
 
 5
 00:00:13,690 --> 00:00:18,400
+安全一直是一个话题，
 security has kind of been a topic all along
 
 6
 00:00:18,400 --> 00:00:21,880
+在内核的设计中出现了很多问题，
 and comes up a lot in the design of the kernels,
 
 7
 00:00:21,940 --> 00:00:23,530
+我们在课程中谈到的，
 that we talked about in the class
 
 8
 00:00:24,400 --> 00:00:27,820
+我们所知的主要策略，我们已经讨论过，
 and as we know the main strategy, we've talked about for,
 
 9
 00:00:28,330 --> 00:00:32,320
+内核主要提供安全的是隔离，
 what it main for a kernel to provide security is isolation,
 
 10
 00:00:33,460 --> 00:00:36,280
+用户程序可以从内核读取数据，
 in the sense that user programs can read data from the kernel
 
 11
 00:00:36,280 --> 00:00:40,780
+但是用户程序不能读取其他用户的数据，
 and user programs can't read other user's data from other user programs,
 
 12
 00:00:41,500 --> 00:00:45,590
+我们看到的特别技术，
 and the specific techniques that you know we've seen,
 
 13
 00:00:45,590 --> 00:00:48,740
+操作系统为了实现隔离，
 operating systems used in order to get isolation
 
 14
 00:00:48,740 --> 00:00:51,620
+或者硬件中的用户管理者模式之类的东西，
 or things like the user supervisor mode in the hardware
 
 15
 00:00:51,770 --> 00:00:53,870
+以及硬件中的页表，
 and the page tables in the hardware
 
 16
 00:00:54,650 --> 00:00:59,090
+以及一些设计精良的内核软件，
 as well as just sort of well designed kernel software,
 
 17
 00:00:59,090 --> 00:01:00,740
+比如系统调用是防御性的，
 like the system calls are all defensive
 
 18
 00:01:00,740 --> 00:01:05,720
+对于如何使用用户提供的指针。
 about how they use user supplied pointers.
 
 19
 00:01:07,460 --> 00:01:09,680
+但是值得思考的是，
 But it's worth thinking about,
 
 20
 00:01:09,770 --> 00:01:13,220
+看看这类事情是如何出错的，
 looking at examples of how this kind of stuff goes wrong,
 
 21
 00:01:13,250 --> 00:01:16,910
+我的意思是，内核努力提供隔离和安全，
 I mean in fact, you know kernels try hard to provide isolation and security,
 
 22
 00:01:16,910 --> 00:01:19,400
+但是出现了一些问题。
 but there are problems that come up.
 
 23
 00:01:19,550 --> 00:01:24,980
+这篇论文是最有趣的问题之一，
 And this paper is a one of the most interesting problems,
 
 24
 00:01:24,980 --> 00:01:28,160
+这是最近出现的操作系统安全问题。
 that's come up with operating system security in recent times.
 
 25
 00:01:28,520 --> 00:01:30,740
+Meltdown 出现了，
 Meltdown is came out,
 
 26
 00:01:30,740 --> 00:01:35,090
+它在 2018 年初发布的，不久之前，
 it was published at the beginning of 2018,so not too long ago,
 
 27
 00:01:35,810 --> 00:01:38,390
+很多人像我一样都觉得很惊讶，
 and a lot of people like me found it surprising
 
 28
 00:01:38,390 --> 00:01:40,070
+而且非常令人不安，
 and actually pretty disturbing,
 
 29
 00:01:40,600 --> 00:01:43,570
+非常令人不安地对于用户内核隔离。
 pretty disturbing attack on user kernel isolation.
 
 30
 00:01:46,020 --> 00:01:50,910
+这破坏了信仰或者说某种非常基本的假设，
 It really undermined faith or sort of this very basic assumption,
 
 31
 00:01:50,910 --> 00:01:55,710
+硬件提供的页表会让你隔离，
 that the page tables that the hardware supplies just get you isolation
 
 32
 00:01:55,710 --> 00:01:57,150
+这就是故事的结束，
 and that's the end of the story
 
 33
 00:01:57,390 --> 00:02:01,380
+而这次攻击完全不支持这种观点，
 and this attack does not support that view at all,
 
 34
 00:02:01,830 --> 00:02:05,100
+此外，它是一个例子，
 further it was an example of,
 
 35
 00:02:05,100 --> 00:02:08,730
+最近几个称为微架构攻击的例子之一，
 one of a number of recent examples of what's called a microarchitectural attack,
 
 36
 00:02:08,760 --> 00:02:17,550
+涉及利用 CPU 内部隐藏的实现细节的攻击，
 an attack that involves exploitation of hidden implementation details inside the CPU,
 
 37
 00:02:17,580 --> 00:02:22,770
+甚至不知道 CPU 是如何工作的，
 that are often not even known how this how CPU's work,
 
 38
 00:02:22,860 --> 00:02:24,300
+但是人们猜测，
 but people guess
 
 39
 00:02:24,360 --> 00:02:28,230
+而且他们基于正确猜测实现攻击，
 and they're able to make successful attacks based on correct guesses
 
 40
 00:02:28,650 --> 00:02:32,460
+关于 CPU 实现隐藏细节（的猜测）。
 about hidden details of CPU implementation.
 
 41
 00:02:34,060 --> 00:02:35,530
+Meltdown 是可以修复的，
 Meltdown turns out to be fixable
 
 42
 00:02:35,620 --> 00:02:39,250
+而且似乎完全修复了，
 and seems to be pretty completely fixed,
 
 43
 00:02:39,640 --> 00:02:43,450
+但尽管如此，这还是让人们感到恐惧，
 but nevertheless people it sort of set people up to fear,
 
 44
 00:02:43,630 --> 00:02:49,450
+可能会有穷的类似的微架构攻击。
 that there might be an open-ended supply of similar microarchitectural attacks.
 
 45
 00:02:49,920 --> 00:02:55,740
+所以这是最近发生的一件非常重要，值得我们了解的事情。
 So it's a pretty important recent event worth understanding.
 
 46
 00:02:56,520 --> 00:03:06,320
+让我先从攻击的核心开始，
 Let me start by just laying out the basic core of the attack,
 
 47
 00:03:06,410 --> 00:03:08,450
+我们会谈谈这里发生的事情，
 and we'll talk about what's going on here,
 
 48
 00:03:08,450 --> 00:03:12,310
+但这是代码的简化版本，
 but this is somewhat simplified version of the code
 
 49
 00:03:12,310 --> 00:03:14,110
+论文中关于攻击如何运作的，
 in the paper for how the attack works,
 
 50
 00:03:14,410 --> 00:03:16,840
+基本想法是你是一个攻击者，
 the basic idea is that you're an attacker,
 
 51
 00:03:16,990 --> 00:03:22,690
+出于某种原因，你可以在某些计算机上运行软件，
 and for one reason or another you're able to run software on some computer,
 
 52
 00:03:22,690 --> 00:03:24,910
+有一些你想偷的秘密，
 that has some secrets that you'd like to steal,
 
 53
 00:03:24,940 --> 00:03:26,950
+你不能直接获得秘密，
 you're not allowed to directly get up the secrets,
 
 54
 00:03:26,950 --> 00:03:30,070
+但它们在内存中，可能是内核内存或其他进程内存，
 but they're in memory, maybe kernel memory or another processes memory,
 
 55
 00:03:30,130 --> 00:03:32,410
+但是你已经能够运行一个进程，
 but you've been able to run a process,
 
 56
 00:03:32,410 --> 00:03:36,310
+可能是因为你登录了 Athena 那样的分时机，
 maybe because you logged into a time sharing machine like Athena machine,
 
 57
 00:03:36,310 --> 00:03:40,210
+或者是因为你在一些托管服务上购买了时间。
 or maybe because you bought time on some hosting service.
 
 58
 00:03:40,900 --> 00:03:45,430
+所以，攻击允许你运行一个程序，
 So what the attack allows you to do is run a program
 
 59
 00:03:45,430 --> 00:03:49,330
+你在自己的内存中声明一个缓冲区，
 in which you declare a buffer in your own memory,
 
 60
 00:03:49,330 --> 00:03:53,920
+所以这个 buf 是一个普通的用户可以访问的内存，
 so this buf is a just ordinary user memory that's accessible,
 
 61
 00:03:54,670 --> 00:03:59,740
+你有想窃取的东西的内核的虚拟地址。
 you have the virtual address in the kernel of something that you're interested in stealing.
 
 62
 00:04:02,590 --> 00:04:04,210
+你说，
 And you issue,
 
 63
 00:04:04,240 --> 00:04:05,680
+我在这里写的是
 what I'm writing out here is sort of
 
 64
 00:04:05,680 --> 00:04:09,310
+C 和汇编语言的混合体，
 you know mix of C and assembler,
 
 65
 00:04:09,310 --> 00:04:11,170
+但我在第 3 行的意思是，
 but what I mean in line 3 is that,
 
 66
 00:04:11,290 --> 00:04:14,830
+你有要窃取的数据的内核虚拟地址，
 you have the address of the kernel virtual address of the data
 
 67
 00:04:14,830 --> 00:04:17,050
+你想窃取的地址在 r1 中，
 you want to steal at register one or r1
 
 68
 00:04:17,260 --> 00:04:25,180
+在第 3 行，这是间接引用 r1 的指令，或者仅仅假设这是取消引用寄存器1并将其结果加载到寄存器2中的指令，
 and line 3 were, or just imagine that this is instructions to dereference register one
 
 69
 00:04:25,180 --> 00:04:27,310
+并将它的结果放入 r2 中，
 and load its results into register two,
 
 70
 00:04:27,760 --> 00:04:29,680
+这就是我们要运行的指令，
 that's the instruction that we're going to run,
 
 71
 00:04:30,100 --> 00:04:31,810
+然后有一条指令，
 and then there's an instruction that,
 
 72
 00:04:32,590 --> 00:04:37,120
+获取 r2 的低位，
 just gets the low bit of register two,
 
 73
 00:04:37,120 --> 00:04:42,340
+所以这个攻击，这个特定版本的攻击只读取了一个位，
 so this attack, this particular version of this attack reads just a single bit,
 
 74
 00:04:42,340 --> 00:04:46,600
+只有内核的一个内存位置的一个低位，
 just one low bit of a one memory location from the kernel,
 
 75
 00:04:47,200 --> 00:04:49,720
+用它乘以 4096 ，
 multiply that four thousand 4096
 
 76
 00:04:49,720 --> 00:04:51,130
+因为它要么是 0 ，要么是 1 ，
 and since it's either zero or one,
 
 77
 00:04:51,130 --> 00:04:54,580
+这意味着 r2 最终是 0 或 4096 ，
 that means that r2 will end up being zero or 4096
 
 78
 00:04:54,580 --> 00:04:57,610
+然后我们简单地读取 buf 的内容，
 and then we simply read the contents of our buf,
 
 79
 00:04:57,790 --> 00:04:59,810
+这是一个用户内存缓冲，
 which is a buffer of user memory,
 
 80
 00:04:59,870 --> 00:05:04,490
+我们简单地读取缓冲器 0 或缓冲器 4096 ，
 we simply read either buffer 0 or buffer 4096,
 
 81
 00:05:06,200 --> 00:05:07,430
+这就是基本的攻击。
 and that's the basic attack.
 
 82
 00:05:11,640 --> 00:05:12,930
+所以，有一个问题是，
 So, one question is,
 
 83
 00:05:13,860 --> 00:05:15,510
+为什么这不能直接起作用，
 why doesn't this just directly work,
 
 84
 00:05:15,600 --> 00:05:18,660
+第三行读取这个内核地址，
 line 3 reading this kernel address,
 
 85
 00:05:19,540 --> 00:05:21,520
+我们能不能只从内核读取地址。
 can we just read addresses from the kernel.
 
 86
 00:05:25,620 --> 00:05:29,220
+不，我们都相信答案不可能是肯定的，
 No, no, we all have faith that the answer can't possibly be yes,
 
 87
 00:05:29,220 --> 00:05:32,970
+我们不可能在用户空间直接从内核中读取，
 we can't possibly be able to just directly read from the kernel for in user space,
 
 88
 00:05:33,150 --> 00:05:39,510
+CPU 的机制，有时这个不能工作，
 and the machinery that we know the CPU somehow is invoking to make this not work out,
 
 89
 00:05:39,630 --> 00:05:43,080
+当我们使用内核虚拟地址时，
 is that when we use kernel virtual address,
 
 90
 00:05:43,110 --> 00:05:46,830
+这意味着在页表中查找，
 that implies a lookup in the page table,
 
 91
 00:05:47,240 --> 00:05:49,010
+在页表中有权限位，
 and there's permission bits in the page table
 
 92
 00:05:49,100 --> 00:05:51,710
+并且我们假设操作系统
 and we're just assuming that the operating system
 
 93
 00:05:52,130 --> 00:05:56,690
+没有对内核虚拟地址的页表条目设置标志，
 has not set the flag in the page table entries for kernel virtual addresses,
 
 94
 00:05:56,690 --> 00:06:01,750
+没有设置允许用户使用这些地址的标志，
 has not set that flag that allows users to use those addresses,
 
 95
 00:06:01,750 --> 00:06:04,570
+那是 RISC-V 上的 PTE_U 标志，
 that's the PTE_U flag on the RISC-V
 
 96
 00:06:04,870 --> 00:06:08,590
+所以，这个指令必须失败，一定会导致页面错误。
 and that therefore this instruction must fail, must cause a page fault.
 
 97
 00:06:09,220 --> 00:06:10,780
+事实上，如果我们运行这段代码，
 And indeed, if we ran this code,
 
 98
 00:06:10,780 --> 00:06:12,370
+这条指令会导致页面错误，
 this instruction would cause a page fault,
 
 99
 00:06:12,550 --> 00:06:16,870
+如果我们在这之后加一个代码，
 and if we tried to, if we added a code after this,
 
 100
 00:06:16,870 --> 00:06:19,460
+比如打印寄存器 3 中的值，
 to say print the value in register 3,
 
 101
 00:06:20,090 --> 00:06:21,950
+我们在第 3 行得到一个页面错误，
 we get a page fault on line three,
 
 102
 00:06:21,950 --> 00:06:23,480
+我们永远不会得到 print 语句，
 and we never get to the print statement,
 
 103
 00:06:23,720 --> 00:06:26,870
+我们发现不能直接从内核窃取数据。
 and we find we couldn't directly steal data out of the kernel.
 
 104
 00:06:30,920 --> 00:06:34,820
+然而，正如论文所示的那样，这个序列被证明是有用的。
 Nevertheless, the sequence turned out to be useful as the paper shows.
 
 105
 00:06:36,380 --> 00:06:42,690
+这篇论文假设的一件事，
 One thing that, one thing that the paper assumes
 
 106
 00:06:42,810 --> 00:06:45,660
+在很大程度上不再是真的，
 which is no longer really true for the most part is that,
 
 107
 00:06:45,750 --> 00:06:51,840
+内核映射到每个用户进程地址空间，
 the kernel is mapped into every user processes address space,
 
 108
 00:06:52,240 --> 00:07:00,250
+在页表中，用户代码运行全套内核 PTE ，
 that is user user codes running a full set of kernel PTE is present in the page table,
 
 109
 00:07:00,280 --> 00:07:02,890
+但它们把 PTE_U 清除了，
 but they have the PTE_U bit clear,
 
 110
 00:07:03,130 --> 00:07:06,370
+所以，用户代码会得到错误，
 so user code will get a fault,
 
 111
 00:07:06,370 --> 00:07:09,700
+如果它试图使用内核虚拟地址，
 if it tries to use a kernel virtual address,
 
 112
 00:07:09,940 --> 00:07:11,320
+所以所有这些映射，
 so all those mappings in,
 
 113
 00:07:11,320 --> 00:07:12,820
+在写这篇论文的时候，
 at the time this paper was written,
 
 114
 00:07:13,120 --> 00:07:16,300
+所有这些映射都在那里，当在用户空间执行时，
 all those mappings were there, when executing in user space,
 
 115
 00:07:16,450 --> 00:07:20,070
+它们只是不能被用户代码使用，
 they just couldn't be used by user code
 
 116
 00:07:20,100 --> 00:07:22,560
+或者被用户代码使用时导致错误，
 or they cause a fault, they were used by user code,
 
 117
 00:07:22,560 --> 00:07:25,590
+操作系统设计人员
 and the reason why people by operating system designers
 
 118
 00:07:25,800 --> 00:07:31,200
+在运行用户代码时，同时映射内核和用户地址的原因是，
 mapped both kernel and user addresses when running user code is
 
 119
 00:07:31,200 --> 00:07:33,690
+这使得系统调用速度相当快，
 that made system calls quite a bit faster,
 
 120
 00:07:33,930 --> 00:07:36,150
+因为这意味着在发生系统调用时，
 because that meant that on a system call happened,
 
 121
 00:07:36,240 --> 00:07:38,040
+你不必切换页表，
 you don't have to switch page tables,
 
 122
 00:07:38,040 --> 00:07:41,310
+切换页表本身就需要时间，
 and switching page tables just usually takes time itself
 
 123
 00:07:41,490 --> 00:07:44,760
+并且通常还会导致 CPU 缓存刷新，
 and also typically causes CPU caches to be flushed,
 
 124
 00:07:44,820 --> 00:07:46,650
+使得后续代码变慢。
 which makes subsequent codes slower.
 
 125
 00:07:48,160 --> 00:07:49,420
+所以，人们得到了速度提升，
 So people got a boost,
 
 126
 00:07:49,420 --> 00:07:53,020
+通过始终在用户空间中映射用户和内核映射。
 by mapping both user and kernel mappings always in user space.
 
 127
 00:07:55,370 --> 00:07:58,460
+但这个攻击正依赖于这种习惯。
 But this attack actually, and this attack relies on that habit.
 
 128
 00:08:00,040 --> 00:08:04,390
+好的，我来解释一下这里发生了什么，
 Okay, I'm going to explain what's going on here,
 
 129
 00:08:04,390 --> 00:08:05,440
+使得这段代码有用，
 that makes this code useful,
 
 130
 00:08:05,440 --> 00:08:06,910
+但是在我开始之前，
 but before I do that,
 
 131
 00:08:06,910 --> 00:08:12,600
+关于这个代码片段，有没有什么问题？
 any any questions about, any questions about this, this code fragment?
 
 132
 00:08:15,280 --> 00:08:17,200
+我想知道你是否可以重复，
 I was actually wondering if you could repeat,
 
 133
 00:08:17,470 --> 00:08:20,440
+你刚才所说的内核到用户的映射，
 what you just said about kernel to user mapping,
 
 134
 00:08:20,980 --> 00:08:22,330
+并且不需要寄存器。
 and don't [really] register.
 
 135
 00:08:22,630 --> 00:08:24,370
+好的，我们看一下，
 Okay, let's see,
 
 136
 00:08:28,560 --> 00:08:30,150
+你知道在 xv6 中，
 you know how in xv6,
 
 137
 00:08:30,180 --> 00:08:33,480
+当进程在用户空间中执行时，
 when you're executing when the process is executing in user space,
 
 138
 00:08:33,540 --> 00:08:35,280
+如果你查看页表，
 if you look at the page table,
 
 139
 00:08:35,760 --> 00:08:38,580
+页表有用户地址映射，
 that page table has mapping for the user addresses,
 
 140
 00:08:38,970 --> 00:08:40,680
+比如 trampoline 页面，
 and for like the trampoline page
 
 141
 00:08:40,680 --> 00:08:43,480
+trampoline 页面，没有其他的了，
 and the trapframe page and nothing else,
 
 142
 00:08:44,160 --> 00:08:45,630
+这就是 xv6 的工作。
 so that's how xv6 works.
 
 143
 00:08:46,110 --> 00:08:51,810
+这篇论文假设的页表跟那个不同，
 The page table that this paper assumes where different from that,
 
 144
 00:08:52,380 --> 00:08:55,020
+在写这篇论文的时候，
 this, in the time this paper was written,
 
 145
 00:08:55,200 --> 00:08:59,860
+大多数操作系统都有，
 most operating systems would have
 
 146
 00:08:59,860 --> 00:09:05,200
+在页表中有一套完整的内核映射，
 a set complete set of kernel mappings in the page table,
 
 147
 00:09:06,100 --> 00:09:08,140
+当用户代码运行时，
 while user code was running,
 
 148
 00:09:09,930 --> 00:09:14,580
+所以，所有那些页表条目都会在那里，
 and so all those page table entries would be there,
 
 149
 00:09:14,580 --> 00:09:17,910
+当用户代码运行时，所有内核页表条目都会在那里，
 all the kernel page table entries would be there when user code is running,
 
 150
 00:09:17,910 --> 00:09:22,320
+但是由于每一个那些页表条目中的 PTE_U 位被清除，
 but since the PTE_U bit was clear on each of those page table entries,
 
 151
 00:09:22,320 --> 00:09:25,530
+用户代码不能使用内核虚拟地址，
 user code wouldn't actually be able to use a kernel virtual address,
 
 152
 00:09:25,710 --> 00:09:27,150
+但是映射就在那里，
 but the mappings were there,
 
 153
 00:09:27,300 --> 00:09:29,760
+原因是，当你进行系统调用时，
 and the reason for that is that when you do a system call,
 
 154
 00:09:29,880 --> 00:09:32,760
+你不必切换页表，
 you didn't have to switch page tables,
 
 155
 00:09:33,060 --> 00:09:35,850
+因为进行系统调用进入内核，
 because you do a system call into the kernel
 
 156
 00:09:35,850 --> 00:09:37,620
+当你使用相同的页表时，
 and boom you're using the same page table,
 
 157
 00:09:37,620 --> 00:09:41,040
+现在你可以使用所有这些内核 PTE ，
 but now you can use all those kernel PTEs,
 
 158
 00:09:41,040 --> 00:09:42,150
+因为你处于管理者模式，
 because you're in supervisor mode,
 
 159
 00:09:42,180 --> 00:09:43,860
+这节省了很多时间，
 and that saved a bunch of time
 
 160
 00:09:44,070 --> 00:09:46,440
+在系统调用时进出内核。
 getting into and out of the kernel during system calls.
 
 161
 00:09:47,230 --> 00:09:49,360
+每个人都用这个技巧，
 Everybody, everybody used that technique,
 
 162
 00:09:49,390 --> 00:09:52,630
+这几乎可以肯定是英特尔的想法，
 and that was almost certainly what Intel had in mind,
 
 163
 00:09:52,630 --> 00:09:54,920
+关于你应该如何编写操作系统。
 for how you should write an operating system.
 
 164
 00:09:55,840 --> 00:09:57,550
+好的，所以在整篇论文中，
 Okay, so that for the whole paper,
 
 165
 00:09:57,550 --> 00:10:01,300
+假设攻击的结构是这样的，
 that structure is assumed for the attack,
 
 166
 00:10:01,480 --> 00:10:02,530
+当然避免它，
 of course getting rid of it
 
 167
 00:10:02,530 --> 00:10:06,130
+是解决这个问题最直接的办法，
 is what's the most immediate solution to this problem,
 
 168
 00:10:07,150 --> 00:10:08,440
+但是，在编写这篇论文时，
 but the time, the paper was written
 
 169
 00:10:08,710 --> 00:10:11,620
+所有内核映射都存在于用户空间中。
 all those kernel mappings were present in user space.
 
 170
 00:10:13,760 --> 00:10:14,630
+还有其他问题吗？
 Other questions?
 
 171
 00:10:16,860 --> 00:10:20,850
+所以你需要知道你想得到的地址。
 So you need to know the address and you want to get.
 
 172
 00:10:21,090 --> 00:10:25,980
+是的，没错，就是这样。
 Yeah, that's right, it is and.
 
 173
 00:10:28,790 --> 00:10:30,080
+这是一个很好的观点，
 So you know that's a good point,
 
 174
 00:10:30,080 --> 00:10:32,030
+你需要知道内核虚拟地址，
 you need to know the kernel virtual address
 
 175
 00:10:32,030 --> 00:10:34,820
+这可能不是开玩笑的。
 and that's actually maybe no joke.
 
 176
 00:10:37,560 --> 00:10:41,370
+你可能认为这会让攻击变得更难。
 Yeah, you might think that would make the attack harder.
 
 177
 00:10:44,600 --> 00:10:49,000
+但是首先从安全的哲学观点来看，
 But first of all point of philosophy in security,
 
 178
 00:10:49,000 --> 00:10:53,020
+你需要假设攻击者有无限的时间和耐心。
 you just have to assume that the attacker has infinite time and patience.
 
 179
 00:10:53,510 --> 00:10:55,220
+如果在一些有价值的秘密，
 And if there are some valuable secrets,
 
 180
 00:10:55,520 --> 00:10:59,990
+他们可能愿意花几个月的时间试图窃取这个秘密，
 they are probably willing to spend a couple of months trying to steal that secret,
 
 181
 00:11:00,590 --> 00:11:02,480
+或者更长时间，
 or longer, right,
 
 182
 00:11:02,870 --> 00:11:04,640
+因为这可能是某人的密码，
 because you know it's gonna be somebody's password,
 
 183
 00:11:04,640 --> 00:11:06,320
+它保护各种有价值的东西，
 that protects all kinds of valuable stuff,
 
 184
 00:11:06,320 --> 00:11:08,990
+可能是钱或秘密电子邮件。
 maybe money or secret email.
 
 185
 00:11:09,640 --> 00:11:12,970
+所以，这意味着攻击者可能有时间
 So that means for example the attacker probably has time
 
 186
 00:11:12,970 --> 00:11:16,820
+尝试每一个内核地址，
 to try every single kernel address, right,
 
 187
 00:11:16,850 --> 00:11:19,550
+在那里寻找任何珍贵的数据，
 looking for whatever precious data there after,
 
 188
 00:11:19,640 --> 00:11:20,660
+可能是密码，
 maybe a password,
 
 189
 00:11:20,870 --> 00:11:24,950
+或者攻击者可能有时间学习查看内核代码，
 or the attacker may have time to study to look through the kernel code
 
 190
 00:11:24,950 --> 00:11:28,640
+查看典型的编译内核并查找地址，
 and look through typical compiled kernels and find addresses
 
 191
 00:11:28,640 --> 00:11:30,920
+可以在他们的内核中放打印语句，
 and maybe put print statements in their kernel
 
 192
 00:11:30,920 --> 00:11:33,770
+检查内核内存中的数据结构，
 to examine the structure of data in kernel memory,
 
 193
 00:11:33,770 --> 00:11:35,870
+直到他们了解内核是如何工作的，
 until they understand how the kernel works,
 
 194
 00:11:36,530 --> 00:11:39,950
+才能在这里找到这里的地址。
 well enough to be able to get an address here.
 
 195
 00:11:40,100 --> 00:11:43,900
+因为这个游戏一直在进行，
 Now, actually, because this game has been going on,
 
 196
 00:11:43,930 --> 00:11:45,610
+这个游戏的其他版本，
 other versions of this game,
 
 197
 00:11:46,000 --> 00:11:48,070
+安全游戏已经进行了很长一段时间了，
 the security game had been going out for a long time,
 
 198
 00:11:48,130 --> 00:11:53,010
+内核会防御这些攻击，
 kernels actually defend themselves against attacks
 
 199
 00:11:53,010 --> 00:11:55,800
+涉及猜测内核地址的攻击，
 that involve guessing kernel addresses,
 
 200
 00:11:55,920 --> 00:11:59,490
+这篇论文实际上提到的一件事是，
 and one of the things that was actually mentioned this paper is
 
 201
 00:11:59,490 --> 00:12:06,360
+这称为内核地址空间布局随机化，
 this called thing called kernel address space layout randomization,
 
 202
 00:12:06,360 --> 00:12:09,720
+所以现代内核加载内核到随机地址，
 so modern kernels actually load the kernel at a random address,
 
 203
 00:12:10,140 --> 00:12:15,970
+为了使猜测内核虚拟地址变得更加困难，
 in order to make it harder to guess kernel virtual addresses,
 
 204
 00:12:15,970 --> 00:12:19,150
+早在这篇论文发表之前，他们就这样做了，
 and they did this before this, long before this paper came out,
 
 205
 00:12:19,420 --> 00:12:22,180
+因为它有助于防止其他攻击。
 because it was helpful in defeating other attacks.
 
 206
 00:12:22,700 --> 00:12:24,890
+所以，这就是游戏，
 So, so this is the game,
 
 207
 00:12:24,890 --> 00:12:29,810
+但是我们必须假设攻击者，
 but we have to assume that the attacker,
 
 208
 00:12:29,840 --> 00:12:33,260
+最终，攻击者可能会赢得这个游戏。
 in the end, the attacker will probably win this game.
 
 209
 00:12:34,640 --> 00:12:40,340
+好吧，我们假设攻击者知道一个内核虚拟地址，
 Okay, so let's just assume the attacker either knows a [] kernel virtual address to look at
 
 210
 00:12:40,340 --> 00:12:43,850
+或者猜到一个，或者愿意穷尽每一个地址。
 or can guess one or is willing to exhaustively try every address.
 
 211
 00:12:44,280 --> 00:12:47,970
+这篇论文认为这是一个看似合理的策略，
 And the paper suggests that that's a plausible strategy,
 
 212
 00:12:48,240 --> 00:12:49,290
+一旦有了 meltdown 。
 once you have meltdown.
 
 213
 00:12:51,810 --> 00:12:52,470
+好的。
 Okay.
 
 214
 00:12:53,930 --> 00:12:55,340
+好的，接下来会发生什么，
 Okay, so what's gonna happen,
 
 215
 00:12:55,460 --> 00:12:58,540
+所以我们想知道这段代码怎么会，
 well, so we're wondering how can this code be,
 
 216
 00:12:58,720 --> 00:13:01,300
+可能被攻击者利用，
 possibly be useful to an attacker,
 
 217
 00:13:01,360 --> 00:13:03,340
+答案是，
 and the answer has to do,
 
 218
 00:13:03,430 --> 00:13:08,740
+如果 CPU 的工作方式和你在 CPU 手册上看到的一样，
 like if the way CPU's work was just what you read in the CPU manual,
 
 219
 00:13:08,830 --> 00:13:10,780
+这个攻击当然是没有意义的，
 this attack clearly is nonsense,
 
 220
 00:13:10,810 --> 00:13:13,390
+比如它会在指令 3 失败，
 like it'll fault at instruction 3
 
 221
 00:13:13,420 --> 00:13:14,440
+并且结束，
 and that'll be the end of it,
 
 222
 00:13:14,590 --> 00:13:20,340
+但事实证明， CPU 的工作方式比手册中的复杂得多，
 but it turns out CPU's work in far more complex ways than is in the manual,
 
 223
 00:13:20,490 --> 00:13:24,960
+这个攻击方式成功的原因是，
 and the way the reason the attack works is
 
 224
 00:13:24,960 --> 00:13:28,800
+因为一些 CPU 的实现细节。
 because of some CPU implementation details.
 
 225
 00:13:30,350 --> 00:13:33,410
+实际上，攻击依赖于两个主要的东西，
 And there's actually two main things that the attack relies on,
 
 226
 00:13:33,410 --> 00:13:37,910
+一种是 CPU 称为预测执行的实现技巧，
 one is implementation trick of CPU's called speculative execution,
 
 227
 00:13:38,180 --> 00:13:39,440
+我将首先谈到这一点，
 which I'll talk about first,
 
 228
 00:13:39,620 --> 00:13:45,620
+另一个攻击所依赖的实现技巧是 CPU 进行缓存的方式。
 and the other implementation trick the attack relies on is the way CPU's do caching.
 
 229
 00:13:48,330 --> 00:13:49,050
+好的。
 Okay.
 
 230
 00:13:49,620 --> 00:13:51,300
+所以首先是预测执行，
 So first speculative execution,
 
 231
 00:13:52,920 --> 00:13:56,700
+我也有一个代码示例，
 let me, I have a code example for that also,
 
 232
 00:13:57,120 --> 00:14:00,390
+现在我说的不是安全问题，
 and for the moment I'm not talking about security at all,
 
 233
 00:14:01,220 --> 00:14:07,520
+预测执行只是一种提高 CPU 性能的技术，
 the speculative execution this stuff is just a technique to improve the performance of CPUs,
 
 234
 00:14:08,300 --> 00:14:10,670
+一种 CPU 使用的优化技巧，
 some optimization trick that CPUs use,
 
 235
 00:14:11,210 --> 00:14:17,050
+想象一下，我们正在运行这段代码，
 so imagine that we're just, we have, which is running this code,
 
 236
 00:14:17,320 --> 00:14:19,360
+这是一个有点人为的例子，
 this is somewhat contrived example,
 
 237
 00:14:19,360 --> 00:14:23,920
+但在某种程度上说明了预测执行的意义，
 but it's sort of illustrates what speculative execution is all about,
 
 238
 00:14:25,120 --> 00:14:29,200
+假设我在寄存器 0 中有个地址，
 supposing I have address in some say register zero,
 
 239
 00:14:29,320 --> 00:14:31,510
+因为我程序的逻辑，
 and just because the logic my program,
 
 240
 00:14:31,510 --> 00:14:33,640
+地址要么有效要么无效，
 the address is either valid or not valid,
 
 241
 00:14:33,640 --> 00:14:36,430
+在某些情况下，它可能包含 0 ，
 maybe it contains zero if under some circumstances,
 
 242
 00:14:36,430 --> 00:14:39,920
+比如我们还没有初始化我的数据。
 like we haven't initialize my data yet.
 
 243
 00:14:39,950 --> 00:14:44,180
+所以这假设在内存中的某个地方有一个 valid 变量，
 So this will assume there's a valid variable that's sitting in memory somewhere,
 
 244
 00:14:44,660 --> 00:14:47,630
+所以在使用这个地址之前，
 so before using the address here,
 
 245
 00:14:48,230 --> 00:14:50,780
+在第 4 行中的寄存器 0 中的地址，
 so this address in register zero here on line 4,
 
 246
 00:14:50,780 --> 00:14:51,590
+我们要测试，
 we're going to test,
 
 247
 00:14:51,620 --> 00:14:53,090
+我们要从内存中加载 valid ，
 we're gonna load valid from memory,
 
 248
 00:14:53,090 --> 00:14:57,080
+如果 valid 为 1 ，我们将使用这个地址，
 and we're only going to use the address if valid is set to 1,
 
 249
 00:14:57,500 --> 00:15:00,410
+如果 valid 为 0 ，我们将看不到地址，
 then if valid is set to 0, we are not going to see address at all,
 
 250
 00:15:00,620 --> 00:15:03,830
+如果 valid 为 1 ，那么我们将间接引用这个地址，
 and if valid is set to one, then we're going to dereference the address,
 
 251
 00:15:03,890 --> 00:15:06,380
+把它指向的数据加载到寄存器 2 ，
 you know load the data it points to at register 2,
 
 252
 00:15:06,530 --> 00:15:08,570
+然后加一，这没什么关系，
 and add one to it and it doesn't really matter,
 
 253
 00:15:08,600 --> 00:15:10,460
+我们要用加载的数据做点什么，
 we're going to do something with that data we loaded,
 
 254
 00:15:10,610 --> 00:15:12,020
+在这种情况下，对它加 1 ，
 in this case, add one to it
 
 255
 00:15:12,020 --> 00:15:16,800
+并将寄存器 3 设置为那个数据加 1 。
 and set register 3 equal to the data plus one.
 
 256
 00:15:17,800 --> 00:15:23,010
+好的，在一个简单的 CPU 实现中，
 Alright, well, in a simple CPU implementation,
 
 257
 00:15:24,370 --> 00:15:27,780
+在第 2 行中，你可以加载，
 at line 2 here, you can load,
 
 258
 00:15:28,380 --> 00:15:30,990
+valid 是一个位于内存中的变量，
 the valid is a variable sitting in memory in RAM,
 
 259
 00:15:32,070 --> 00:15:34,140
+你必须发布一些，
 and you have to issue some kind of,
 
 260
 00:15:34,140 --> 00:15:34,740
+这个会，
 this is going to be,
 
 261
 00:15:34,740 --> 00:15:38,550
+第 2 行会使用 load 指令从内存中读取 valid ，
 line 2 is going to be some sort of load instruction that reads valid out of RAM,
 
 262
 00:15:39,330 --> 00:15:41,790
+或者相等，如果我们必须从内存中加载它，
 or else being equal if we actually have to load it from RAM,
 
 263
 00:15:42,500 --> 00:15:47,660
+那需要数百次循环，在我们的 2GHz 机器上，
 that'll take hundreds of cycles on our say two GHz machine,
 
 264
 00:15:48,370 --> 00:15:52,240
+任何从内存加载需要数百次循环，
 like any load that actually has to go to RAM will take hundreds of cycles,
 
 265
 00:15:52,300 --> 00:15:54,850
+机器可以执行一条指令，
 the machine can execute an instruction,
 
 266
 00:15:55,420 --> 00:15:57,250
+每个周期最多执行一条指令，
 up to an instruction every cycle,
 
 267
 00:15:57,250 --> 00:16:01,240
+所以如果我们要在这里等待几百个周期，
 so if we actually had to wait a couple of hundred cycles here,
 
 268
 00:16:01,480 --> 00:16:05,800
+机器会在这里闲置数百个周期，
 we'd be the machine to be sitting there idling for hundreds hundreds of cycles,
 
 269
 00:16:05,800 --> 00:16:06,820
+浪费时间。
 sort of wasting its time.
 
 270
 00:16:07,440 --> 00:16:11,880
+因为这是一个显著的减速，
 And because that's a significant significant slowdown, right,
 
 271
 00:16:12,060 --> 00:16:13,080
+如果一切顺利，
 if everything went well,
 
 272
 00:16:13,080 --> 00:16:15,750
+我们能够在每个周期执行一条指令，
 we'd be able to execute an instruction every cycle,
 
 273
 00:16:15,750 --> 00:16:17,430
+而不是每几百个周期执行一次。
 instead of every couple hundred cycles.
 
 274
 00:16:20,000 --> 00:16:24,530
+所有现代的 CPU 都使用一种叫做分支预测的东西，
 All modern, all serious modern CPUs do use something called branch prediction,
 
 275
 00:16:24,620 --> 00:16:26,780
+这个 if 语句是一个分支，
 so this if statement is a branch,
 
 276
 00:16:27,530 --> 00:16:29,690
+如果我们把它变成机器指令，
 if we actually turned it into machine instructions,
 
 277
 00:16:29,690 --> 00:16:31,100
+我们看到这里是一个分支，
 we see there was a branch here,
 
 278
 00:16:31,280 --> 00:16:32,690
+这是一个条件分支，
 and it's a conditional branch,
 
 279
 00:16:32,690 --> 00:16:36,920
+分支基于这个寄存器 1 是否等于 1 的测试，
 branch based on this test whether register 1 is equal to 1,
 
 280
 00:16:37,220 --> 00:16:38,720
+而 CPU 所做的是，
 and what CPUs do is,
 
 281
 00:16:38,720 --> 00:16:41,240
+它们使用叫做分支预测的东西，
 they use what's called branch branch prediction,
 
 282
 00:16:41,660 --> 00:16:43,280
+也就是说，对于每个分支，
 that is for every branch,
 
 283
 00:16:43,310 --> 00:16:48,500
+CPU 都会记住信息的缓存，
 more or less the CPU essentially remembers a cache of information
 
 284
 00:16:48,500 --> 00:16:51,290
+关于程序中的每个分支，
 about each of the branches in your program,
 
 285
 00:16:51,350 --> 00:16:53,600
+或者至少每个最近执行的分支，
 or at least each recently executed branch,
 
 286
 00:16:53,810 --> 00:16:57,380
+然后记起，那个分支是[拿了]还是没拿，
 then remembers oh did that branch was the branch taken or not taken,
 
 287
 00:16:58,010 --> 00:17:03,660
+如果 CPU 没有足够的信息来预测，
 and if the CPU doesn't have enough information to predict,
 
 288
 00:17:03,720 --> 00:17:06,390
+这基于你上次执行分支的预测，
 so that's prediction based on the last time you executed the branch,
 
 289
 00:17:06,600 --> 00:17:09,270
+即使 CPU 没有预测，
 even if the CPU doesn't have a prediction,
 
 290
 00:17:09,390 --> 00:17:13,640
+它仍然可以继续执行指令，
 it may still just go ahead and execute the instructions,
 
 291
 00:17:14,630 --> 00:17:16,280
+无论是你去的分支，
 either that the branch takes you to
 
 292
 00:17:16,280 --> 00:17:19,520
+或没有去的指令，假设分支没有选择，
 or the fail to instructions, assuming the branch wasn't taken,
 
 293
 00:17:19,580 --> 00:17:25,530
+甚至在 CPU 知道条件是否为真之前，
 that is, even before the CPU knows whether this conditional is true,
 
 294
 00:17:25,890 --> 00:17:30,300
+它会选择一种或另一种方式，并开始沿着这条路径执行，
 it'll choose one way or the other and start executing down that path,
 
 295
 00:17:30,480 --> 00:17:33,680
+尽管这可能是条错误的路径，还不知道。
 even though it might be the wrong path, doesn't know yet.
 
 296
 00:17:34,320 --> 00:17:35,400
+所以在这种情况下，
 And so in this case,
 
 297
 00:17:35,580 --> 00:17:37,380
+也许在这个加载完成之前，
 maybe before this load completes,
 
 298
 00:17:37,380 --> 00:17:39,780
+在知道 valid 的值之前，
 and before the value of valid is known,
 
 299
 00:17:40,020 --> 00:17:43,800
+CPU 已经开始执行指令 4 ，
 the CPU may start executing instruction 4
 
 300
 00:17:44,250 --> 00:17:47,790
+并加载 r0 中的值，
 and do the load with whatever value is sitting in r0,
 
 301
 00:17:47,880 --> 00:17:49,680
+它可能是也可能不是有效的指针，
 which may or may not be a valid pointer
 
 302
 00:17:50,100 --> 00:17:52,500
+一旦加载产生了一些结果，
 and once that load yields something,
 
 303
 00:17:52,650 --> 00:17:54,180
+甚至可以加 1 ，
 maybe even add one to it
 
 304
 00:17:54,180 --> 00:17:56,220
+并将寄存器 3 设置为那个值。
 and set register 3 equal to that value.
 
 305
 00:17:56,840 --> 00:17:59,030
+也许在很久之后，
 And then maybe a long time later,
 
 306
 00:17:59,030 --> 00:18:02,360
+当第 2 行的加载最终完成时，
 when this load at line 2 finally completes,
 
 307
 00:18:02,750 --> 00:18:06,320
+现在我们知道 valid 的值是什么，
 now we know what the value of valid is,
 
 308
 00:18:06,590 --> 00:18:08,990
+CPU 会，这个真的，
 the CPU will then, this real,
 
 309
 00:18:09,020 --> 00:18:11,180
+它跟踪了这样一个事实，
 you know you know it kept track of the fact,
 
 310
 00:18:11,180 --> 00:18:13,940
+它执行第 4 行和第 5 行，
 that it executed lines 4 and 5
 
 311
 00:18:13,940 --> 00:18:16,310
+但并不知道这样做是否合适，
 without really knowing whether that was proper,
 
 312
 00:18:17,060 --> 00:18:20,270
+如果 valid 是 1 ，那没问题，继续运行，
 if valid is 1, then that's fine, it just keeps going,
 
 313
 00:18:20,300 --> 00:18:23,810
+如果 valid 为 0 ， CPU 足够聪明
 if valid is 0, then the CPU has enough cleverness
 
 314
 00:18:23,810 --> 00:18:28,700
+来取消它执行第 4 行和第 5 行的结果，
 to cancel the effects of its execution of line 4 and 5,
 
 315
 00:18:28,760 --> 00:18:33,140
+并在第 7 行的分支之后的适当位置重新开始执行。
 and restart execution in the proper place after the branch at line 7.
 
 316
 00:18:34,260 --> 00:18:36,690
+这种在你知道之前执行代码，
 And this execution of code before you know
 
 317
 00:18:36,690 --> 00:18:40,440
+你是否应该执行代码之前，被称为推测，
 whether you really should be executing it is called speculation,
 
 318
 00:18:46,700 --> 00:18:48,920
+再说一次，重点是性能，
 and again, the point is performance,
 
 319
 00:18:48,920 --> 00:18:50,510
+如果 CPU 猜测是正确的，
 if the CPU guess is right,
 
 320
 00:18:51,180 --> 00:18:54,540
+那么它在开始执行这些指令时就有了很大的优势，
 then it got a big head start executing these instructions,
 
 321
 00:18:54,540 --> 00:18:57,960
+而不必等待昂贵的内存加载。
 and didn't have to wait for the expensive memory load.
 
 322
 00:19:00,660 --> 00:19:02,220
+对于这意味着什么，有什么问题吗？
 Any questions about what this means?
 
 323
 00:19:08,940 --> 00:19:19,250
+好的，这个机器，硬件， CPU 里的晶体管都是非常复杂的，
 Okay, this machinery, the hardware, the transistors in the CPU for speculation are extremely complex,
 
 324
 00:19:19,610 --> 00:19:22,970
+在 CPU 中有大量的工作来完成这项工作，
 there's a huge amount going on in the CPU to make this work,
 
 325
 00:19:23,440 --> 00:19:25,900
+没有一个是公开的，
 none of which is published, right,
 
 326
 00:19:25,900 --> 00:19:29,510
+整个都是英特尔内部的东西，
 it's a whole Intel internal stuff,
 
 327
 00:19:29,570 --> 00:19:31,970
+不在机器手册里。
 not in, not in the machine manual.
 
 328
 00:19:32,550 --> 00:19:36,720
+所以围绕 meltdown 和攻击，
 So surrounding meltdown and attacks
 
 329
 00:19:36,720 --> 00:19:38,520
+是一个很大的猜测，
 like it is a huge amount of speculation
 
 330
 00:19:38,520 --> 00:19:41,400
+关于 CPU 内部可能发生的事，
 about what's probably going on inside the CPU
 
 331
 00:19:41,400 --> 00:19:44,220
+使这种攻击工作或不工作。
 in order to make such attack work or not work.
 
 332
 00:19:45,090 --> 00:19:48,460
+好了，还是回到预测。
 Okay, back to speculation though.
 
 333
 00:19:55,210 --> 00:19:57,160
+有一件事是，
 One thing that's going on is that,
 
 334
 00:19:57,400 --> 00:20:05,460
+为了取消推测预测失败的执行，
 in order to undo speculative failed speculative mispredicted speculative execution,
 
 335
 00:20:05,670 --> 00:20:09,900
+机器保留了寄存器的影子版本，
 the machine had keeps shadow versions of registers essentially,
 
 336
 00:20:10,200 --> 00:20:12,690
+它被分配给寄存器 2 ，寄存器 3 ，
 you know it assigned to registers 2, register 3,
 
 337
 00:20:12,690 --> 00:20:15,900
+它分配一个临时的寄存器，
 but it's assigning kind of a temporary registers,
 
 338
 00:20:16,560 --> 00:20:19,350
+如果预测成功，
 if speculation succeeds,
 
 339
 00:20:19,530 --> 00:20:23,010
+那些影子寄存器会变为真实寄存器，
 then those registers those shadow registers become the real registers,
 
 340
 00:20:23,040 --> 00:20:24,060
+如果失败，
 if it fails,
 
 341
 00:20:24,120 --> 00:20:28,380
+CPU 会丢弃那些影子寄存器。
 then those shadow registers discarded the CPU discards the shadow registers.
 
 342
 00:20:28,710 --> 00:20:32,660
+所以这两个任务 r2 和 r3 就像从来没有发生过。
 So these two assignments r2 and r3 would just be as if they never happened.
 
 343
 00:20:37,310 --> 00:20:39,860
+所以，在这段代码中，
 So in this code,
 
 344
 00:20:39,860 --> 00:20:45,920
+我们需要考虑如果寄存器 0 是有效指针会发生什么，
 we need to think about what happens if register 0 is a valid pointer
 
 345
 00:20:45,920 --> 00:20:49,270
+还有如果它不是一个有效的指针呢？
 and what happens if it's not a valid pointer, right.
 
 346
 00:20:49,300 --> 00:20:52,690
+如果我们预测执行第 4 行，
 If we're speculatively executing line 4,
 
 347
 00:20:53,140 --> 00:20:56,560
+并且寄存器 2 是有效指针，
 and register 2 is a valid pointer,
 
 348
 00:20:56,560 --> 00:21:00,010
+然后 CPU 会执行加载，
 then it turns out the CPU will actually do the load,
 
 349
 00:21:00,700 --> 00:21:04,900
+至少加载到寄存器 2 的临时版本中，
 and loaded into at least the transient version of register 2,
 
 350
 00:21:04,900 --> 00:21:05,980
+所以我们会出去，
 so we'll actually go out
 
 351
 00:21:05,980 --> 00:21:10,650
+尝试获取 r0 所指向的内容，
 and and try to fetch what r0 points to
 
 352
 00:21:10,650 --> 00:21:12,660
+那么这肯定会工作，
 and that will certainly work
 
 353
 00:21:12,660 --> 00:21:17,040
+如果 r0 指向的数据在缓存中，
 if the data r0 is pointed to is sitting in the cache,
 
 354
 00:21:17,130 --> 00:21:22,050
+我不知道 CPU 是否会加载，
 and I don't know if if the CPU will do the load,
 
 355
 00:21:22,080 --> 00:21:23,370
+如果它在缓存中未命中，
 if it misses in the cache
 
 356
 00:21:23,370 --> 00:21:25,230
+它可能必须从内存中加载。
 and has to load from RAM, it might.
 
 357
 00:21:27,880 --> 00:21:29,680
+但是，也许对我们来说更有趣的问题是，
 But, maybe the more interesting question for us,
 
 358
 00:21:29,680 --> 00:21:32,920
+对于这个攻击，如果寄存器 0 不是有效的指针，
 for this attack is what happens if register 0 is not a valid pointer,
 
 359
 00:21:36,140 --> 00:21:40,010
+在这种情况下，如果我们在这里预测执行，
 in that case, if we're speculatively executing here,
 
 360
 00:21:40,980 --> 00:21:45,210
+机器在这里不会出错，
 the machine can't fault at this point,
 
 361
 00:21:45,210 --> 00:21:46,710
+因为我们预测执行，
 because we're speculatively executing,
 
 362
 00:21:46,710 --> 00:21:50,430
+机器不知道，它可以知道 r0 是无效的，
 machine doesn't know, it may know that r0 was an invalid,
 
 363
 00:21:50,880 --> 00:21:56,490
+这个预测执行指令试图使用无效指针，无效地址，
 that this speculatively executed instruction tried to use an invalid pointer, an invalid address,
 
 364
 00:21:56,490 --> 00:21:58,020
+但它不会产生页面错误，
 but it can't page fault,
 
 365
 00:21:58,110 --> 00:22:01,050
+因为它不能这个执行
 because it's not sure whether this execution
 
 366
 00:22:01,080 --> 00:22:07,230
+valid 是正确预测执行还是错误预测，
 is valid is correct speculative execution or misspeculation,
 
 367
 00:22:07,230 --> 00:22:08,820
+所以它只是，
 and so it's only,
 
 368
 00:22:09,120 --> 00:22:13,720
+所以，它不会在第 4 行产生错误，
 so, so it can't actually raise a fault on line 4
 
 369
 00:22:13,720 --> 00:22:17,680
+直到 valid 的值是知道的，
 until after valid value of valid is known,
 
 370
 00:22:17,680 --> 00:22:23,770
+在这个预测分支之后，
 and after this branch, this speculative predicted branch,
 
 371
 00:22:23,800 --> 00:22:28,120
+在机器知道情况之后，
 after we know after the machine knows what the condition is,
 
 372
 00:22:28,510 --> 00:22:34,900
+如果机器看到第 4 寄存器 0 是有效地址，
 if the machine see if the machine's that line 4 sees oh register 0 is an valid address,
 
 373
 00:22:35,580 --> 00:22:38,100
+然后 valid 是 1 ，
 and then valid turns out to be 1,
 
 374
 00:22:38,370 --> 00:22:42,300
+然后，只有这样，机器才会真正产生页面错误，
 then, and only then does the machine actually generate the page fault,
 
 375
 00:22:42,570 --> 00:22:46,740
+如果 r0 是无效地址，则有效地址是 0 ，
 if r0 is an invalid address, then valid turns out to be 0,
 
 376
 00:22:46,770 --> 00:22:50,030
+机器不会产生页面错误。
 the machine does not generate a page fault.
 
 377
 00:22:50,960 --> 00:22:53,480
+所以，关于是否出错的决定
 So the, the decision about whether to fault
 
 378
 00:22:53,540 --> 00:22:57,020
+可能会推迟数百个周期，
 is deferred possibly for hundreds of cycles
 
 379
 00:22:57,110 --> 00:22:59,150
+直到 valid 的值是知道的，
 until the value of valid is known,
 
 380
 00:22:59,420 --> 00:23:02,390
+这里的专业术语，
 then the technical term for the point at which
 
 381
 00:23:02,390 --> 00:23:08,570
+指令是否被正确预测执行，
 we know whether an instruction was correctly speculatively executed
 
 382
 00:23:08,870 --> 00:23:13,040
+而不是被丢弃，叫做 retirement 。
 rather than being thrown away is called retirement.
 
 383
 00:23:15,600 --> 00:23:19,430
+所以我们说一条指令是预测的，
 So we say an instruction is speculative
 
 384
 00:23:19,430 --> 00:23:21,020
+在某个时刻退出了，
 and at some point it's retired,
 
 385
 00:23:21,020 --> 00:23:24,490
+那么我们知道它要么会被扔掉，
 and that's when we know it's either going to be thrown away
 
 386
 00:23:24,490 --> 00:23:29,530
+要么是真实的，并应该提交到机器的可见状态，
 or what's real and should be its effect should be committed to the visible state of the machine
 
 387
 00:23:29,800 --> 00:23:31,090
+这个规则是，
 and the rule is that,
 
 388
 00:23:33,220 --> 00:23:35,560
+指令能退出，
 instruction can only be retired,
 
 389
 00:23:35,710 --> 00:23:40,990
+如果首先完成了内存加载的执行，比如加 1 操作，
 if first of all is finished executing loading memory, you're adding one to something,
 
 390
 00:23:40,990 --> 00:23:43,570
+以及它之前的每条指令，
 and every instruction before it,
 
 391
 00:23:43,570 --> 00:23:45,670
+在它还没有退出之前就执行了，
 was executed before it has also retired,
 
 392
 00:23:46,090 --> 00:23:48,730
+所以，第 4 行不能退出，
 so this line 4 can't be retired
 
 393
 00:23:48,730 --> 00:23:54,890
+直到 valid 的加载完成，状态是可评估的，
 until the load of valid completes and the conditions is evaluated,
 
 394
 00:23:54,890 --> 00:23:56,000
+只有这样才能退出，
 only then can be retired,
 
 395
 00:23:56,270 --> 00:23:58,130
+所以它可能会出错，
 so it's going to fault, it may it's gonna fault,
 
 396
 00:23:58,280 --> 00:24:03,260
+可能在内存加载后数百条指令之后，
 possibly hundreds of instructions after it is the memory load,
 
 397
 00:24:05,370 --> 00:24:06,990
+或者想要加载内存。
 or attempted to do the memory load.
 
 398
 00:24:11,630 --> 00:24:14,240
+作为这个攻击的关键细节，
 And as a critical detail for this attack,
 
 399
 00:24:16,690 --> 00:24:19,060
+还有更多的。
 there's an even more.
 
 400
 00:24:19,870 --> 00:24:22,030
+如果让它，
 If lets its,
 
 401
 00:24:23,210 --> 00:24:25,220
+如果 r0 中的地址是无效的，
 if the address in r0 is invalid
 
 402
 00:24:25,220 --> 00:24:27,350
+并且在页表中根本没有映射，
 and has no mapping in the page table at all,
 
 403
 00:24:27,530 --> 00:24:30,230
+然后不知道会发生什么。
 then actually don't know what happens.
 
 404
 00:24:32,850 --> 00:24:37,380
+如果 r0 中的地址具有页表映射，
 If the address in r0 has a page table mapping,
 
 405
 00:24:37,410 --> 00:24:39,210
+但是没有权限，
 but there's no permission for it,
 
 406
 00:24:39,240 --> 00:24:41,940
+也就是 PTE_U 标志没有设置，
 that is the PTE_U flag is not set,
 
 407
 00:24:42,120 --> 00:24:45,360
+那么英特尔机器做的是，
 then what Intel machines actually do is,
 
 408
 00:24:45,390 --> 00:24:50,640
+加载数据并将其分配到临时寄存器 2 中，
 load that data and assign it into the transient register 2,
 
 409
 00:24:51,840 --> 00:24:57,180
+它可以被第 5 行的预测执行使用，
 and where it can be used by the speculative execution of line 5,
 
 410
 00:24:57,330 --> 00:25:01,320
+所以即使 r0 是一个我们没有权限的地址，
 so even if r0 was was an address for which we don't have permission,
 
 411
 00:25:01,320 --> 00:25:02,610
+因为它是内核地址，
 because it's a kernel address,
 
 412
 00:25:02,820 --> 00:25:06,930
+我们仍然会看到它的值加载到 r3 中，它的值加 1 ，
 we'll still see it's value loaded into r3 and its value plus 1,
 
 413
 00:25:06,990 --> 00:25:10,320
+抱歉，我们看不到它，但它会加载到 r2 中，
 sorry, we won't see it, but it will be loaded into r2
 
 414
 00:25:10,680 --> 00:25:12,630
+再加上 1 到 r3 ，
 and that plus one at r3
 
 415
 00:25:12,780 --> 00:25:16,050
+然后当这个加载退出后，
 and then when this load is retired,
 
 416
 00:25:16,290 --> 00:25:20,340
+机器会意识到那是一个无效的加载，
 the machine will realize aha, that was an invalid load,
 
 417
 00:25:20,370 --> 00:25:22,620
+因为页表条目不允许它，
 because the page table entry didn't allow it,
 
 418
 00:25:23,040 --> 00:25:24,690
+所以我们会生成一个错误，
 and so we're going to raise a fault,
 
 419
 00:25:24,690 --> 00:25:28,650
+并取消后续指令的执行，
 and cancel the execution of the subsequent instructions,
 
 420
 00:25:28,650 --> 00:25:31,830
+并取消这个指令的结果，
 and cancel the effects of this instruction,
 
 421
 00:25:31,890 --> 00:25:35,170
+回退对 r2 和 r3 的修改。
 undo the modification to r2 and r3.
 
 422
 00:25:35,380 --> 00:25:41,460
+所以在这个例子中，有两种预测在进行，
 So in this example, there's two speculations going on,
 
 423
 00:25:41,490 --> 00:25:44,640
+一个是我们在预测这个分支，
 one is we're speculating about where this branch,
 
 424
 00:25:44,640 --> 00:25:46,950
+机器预测这个分支的去向，
 machines speculating about where this branch went
 
 425
 00:25:47,400 --> 00:25:49,560
+只是说，不管它去哪条路，
 and just saying oh it went one way or the other,
 
 426
 00:25:49,560 --> 00:25:51,390
+我只是想试试看，
 just gonna give that a shot speculatively,
 
 427
 00:25:51,990 --> 00:25:55,380
+另外，每次加载后都会有预测执行，
 in addition there's speculative execution after each load,
 
 428
 00:25:55,380 --> 00:25:57,000
+我们预测，
 we're essentially speculating about
 
 429
 00:25:57,000 --> 00:26:03,560
+机器预测那个加载是否成功，关于加载是否成功完成。
 whether the machine is speculating about whether that load complete successfully.
 
 430
 00:26:03,920 --> 00:26:07,910
+在加载的情况下，英特尔机器总是继续运行，
 And in the case of a load, Intel machines always just go on,
 
 431
 00:26:08,150 --> 00:26:10,010
+如果可以提供数据，
 you know if data could be provided,
 
 432
 00:26:11,110 --> 00:26:12,130
+因为它在缓存中，
 because it's in the cache,
 
 433
 00:26:12,130 --> 00:26:14,920
+或者至少页表条目存在，权限不存在，
 and at least the page table entry exists, permissions are not,
 
 434
 00:26:15,220 --> 00:26:18,160
+机器将预测继续执行，
 the machine will speculatively continue to execute
 
 435
 00:26:18,520 --> 00:26:20,650
+只有在退出时，
 and only on retirement,
 
 436
 00:26:20,650 --> 00:26:23,950
+加载才会产生故障，
 the load will actually generate the fault,
 
 437
 00:26:24,040 --> 00:26:26,140
+这将导致预测被取消。
 and that will cause the speculation to be cancelled.
 
 438
 00:26:28,660 --> 00:26:32,290
+好的，关于这个东西，有什么问题吗？
 Alright, any questions about this stuff?
 
 439
 00:26:39,870 --> 00:26:43,230
+我有点困惑第二种猜测，
 I'm a little confused about, the second speculation
 
 440
 00:26:43,230 --> 00:26:45,630
+它将 r0 加载到 r2 中，
 which is loading r0 into r2,
 
 441
 00:26:46,290 --> 00:26:52,140
+那么，这是否意味着将 r0 的值加载到 r2 中，
 so, does that mean that like the value of r0 is loaded into r2
 
 442
 00:26:52,140 --> 00:26:53,610
+并在稍后检查标志？
 and the flags are checked later?
 
 443
 00:26:56,900 --> 00:27:01,180
+是的，发生了什么，是的，完全正确，
 Yes, yes, so what happens, yes, that's exactly, right,
 
 444
 00:27:01,270 --> 00:27:03,100
+所以实际发生的情况是，
 so what actually happens is that
 
 445
 00:27:03,100 --> 00:27:04,630
+在预测阶段，
 during the speculative phase,
 
 446
 00:27:07,190 --> 00:27:08,930
+不管 r0 指向的是什么，
 whatever it is that r0 points to,
 
 447
 00:27:09,080 --> 00:27:12,590
+如果它指向什么东西，
 if there's sort of if it points to anything,
 
 448
 00:27:12,620 --> 00:27:14,060
+如果 r0 指向任何东西，
 if r0 points to anything,
 
 449
 00:27:14,120 --> 00:27:18,770
+那么内存位置的数据将被加载到 r2 中，
 then the data that memory location will be loaded into r2,
 
 450
 00:27:19,740 --> 00:27:22,590
+稍后，当这个加载退出时，
 later, when this load is retired,
 
 451
 00:27:24,280 --> 00:27:27,280
+然后会检查权限，
 and it turned, then the permissions will be checked,
 
 452
 00:27:28,560 --> 00:27:30,930
+如果我们没有加载的权限，
 and if we didn't have permission to do that load,
 
 453
 00:27:31,610 --> 00:27:35,510
+那么所有后续指令结果会被取消，
 then all subsequent instructions effects will be cancelled,
 
 454
 00:27:35,510 --> 00:27:38,270
+所有这些寄存器的修改都会被撤销，
 like all these modifications registere will be undone,
 
 455
 00:27:39,180 --> 00:27:41,880
+错误会出现，
 and fault will be raised,
 
 456
 00:27:42,180 --> 00:27:47,130
+就像指令 4 之前的机器核寄存器一样。
 with the state of the machines and registers as they were just before instruction 4.
 
 457
 00:27:47,250 --> 00:27:49,080
+好的，这很有趣。
 Okay, that's interesting.
 
 458
 00:27:49,780 --> 00:27:50,350
+是的。
 Yes.
 
 459
 00:27:52,700 --> 00:27:54,110
+是的，我还有一个问题，
 Yes, I also have a question,
 
 460
 00:27:54,350 --> 00:27:58,610
+是否有限制 CPU 的方法，
 is there no possible way to restrict the CPU
 
 461
 00:27:58,640 --> 00:28:02,330
+在预测加载之前限制 CPU 检查权限。
 from checking permissions before doing a speculative load.
 
 462
 00:28:06,380 --> 00:28:12,140
+你的意思是，有没有办法让机器在加载之前做检查？
 You mean, is there a way to cause the machine to do the check before the load?
 
 463
 00:28:13,370 --> 00:28:14,900
+是的，我想更具体一点，
 Yes, I guess more concrete,
 
 464
 00:28:14,900 --> 00:28:17,360
+这是这个问题的唯一原因，
 like the only reason this is a problem or,
 
 465
 00:28:17,360 --> 00:28:22,340
+但是其中一种方法是我们只加载一个页面，
 but one of the ways is that we're just loading a page that,
 
 466
 00:28:23,170 --> 00:28:29,020
+如果我们意识到它的权限会变坏，
 if we can be aware that it has permissions that are going to be bad somehow,
 
 467
 00:28:29,110 --> 00:28:32,980
+我们访问一个我们不应该能够访问的页面，
 we're accessing a page that we don't we shouldn't be able to access,
 
 468
 00:28:33,310 --> 00:28:36,820
+预测执行能否取消，
 the can the speculative execution be cancelled,
 
 469
 00:28:36,820 --> 00:28:38,710
+假设我们可以读取这些权限。
 given that we can read these permissions.
 
 470
 00:28:40,500 --> 00:28:42,810
+是的，就是，
 Yes, in a, yes that's,
 
 471
 00:28:42,810 --> 00:28:46,110
+好的，有两个答案，
 yeah, well, there's two answers,
 
 472
 00:28:46,110 --> 00:28:49,680
+一个是，这不是英特尔 CPU 的实际工作方式，
 one is that's not the way the Intel chips CPUs actually worked,
 
 473
 00:28:50,700 --> 00:28:53,400
+另一个答案是是的，
 and the other answer is yes, it would have been,
 
 474
 00:28:54,300 --> 00:28:56,610
+我相信，那会更简单，
 I I believe it would have been easy for them
 
 475
 00:28:56,610 --> 00:29:00,690
+对预测加载做强制检查，
 to have done and enforce that check even for speculative loads,
 
 476
 00:29:00,690 --> 00:29:04,530
+即使在预测寄存器 2 中，也永远不会被写入。
 so that even in speculation register 2 would never have been written.
 
 477
 00:29:05,980 --> 00:29:07,540
+所以，也许。
 So maybe.
 
 478
 00:29:08,920 --> 00:29:11,080
+事实上，
 And indeed, it turns out that,
 
 479
 00:29:11,080 --> 00:29:12,940
+我注意到论文中提到，
 you may know, I've noticed the paper mentioned that,
 
 480
 00:29:12,940 --> 00:29:17,290
+meltdown 似乎不适用于 AMD CPU ，
 the meltdown seems not to work on AMD CPUs,
 
 481
 00:29:17,440 --> 00:29:24,030
+即使 AMD CPU 的使用手册与 Intel CPU 相同，
 even though AMD CPUs, the instruction manual is the same as for Intel CPUs,
 
 482
 00:29:24,030 --> 00:29:27,780
+是相同的指令集，也就是相同的东西，
 essentially on the same instruction set and the instructions mean the same things,
 
 483
 00:29:27,840 --> 00:29:30,810
+这个攻击在 AMD CPU 上不起作用，
 the attack doesn't work on AMD CPUs
 
 484
 00:29:31,140 --> 00:29:35,190
+人们普遍认为原因是 AMD CPU ，
 and it's widely believed that the reason is that AMD CPUs,
 
 485
 00:29:36,080 --> 00:29:38,240
+即使是预测执行时，
 even when speculatively executing,
 
 486
@@ -1944,4145 +2429,5181 @@ if you don't have permission to read this address,
 
 487
 00:29:43,930 --> 00:29:48,160
+甚至不会预测加载值到 r2 中，
 won't even speculatively loads the value to r2,
 
 488
 00:29:49,470 --> 00:29:52,200
+这就是为什么攻击在 AMD CPU 上不起作用的原因，
 and that's why the attack didn't work on AMD CPUs
 
 489
 00:29:52,410 --> 00:29:57,840
+最近的英特尔 CPU 显然已经采用了这种方法，
 and recent Intel CPUs apparently have adopted that approach,
 
 490
 00:29:57,840 --> 00:30:05,330
+不会预测加载，如果它们没有权限。
 and actually won't won't speculatively load, if they don't have permissions.
 
 491
 00:30:06,500 --> 00:30:07,220
+据我所知，
 And as far as I know,
 
 492
 00:30:07,220 --> 00:30:11,290
+这里没有明显的性能损失，
 there's no particular sacrifice at performance,
 
 493
 00:30:11,320 --> 00:30:12,910
+我想信息都在那里了，
 I think the information was all there,
 
 494
 00:30:13,540 --> 00:30:18,550
+但我不知道，可能只是几个[]，
 but for just I don't know, just say maybe a few [],
 
 495
 00:30:18,550 --> 00:30:21,040
+他们决定只在退出时使用。
 they decided only to apply it on retirement.
 
 496
 00:30:23,620 --> 00:30:24,400
+因为他们似乎就是这样。
 Because they seem to.
 
 497
 00:30:24,400 --> 00:30:25,510
+那非常有趣。
 That's very interesting.
 
 498
 00:30:28,400 --> 00:30:31,940
+是的，我的意思是，我提醒你这里有很多猜测，
 Yeah, I mean, let me just warn you this there's a lot of guesswork here,
 
 499
 00:30:33,050 --> 00:30:35,360
+我相信我说的是真的，
 and I believe what I'm saying is true,
 
 500
 00:30:35,360 --> 00:30:40,940
+但是英特尔和 AMD 并没有披露发生的事情。
 but in Intel and AMD have not been very revealing about what's going on.
 
 501
 00:30:43,190 --> 00:30:49,130
+好的，这里有一些很重要的术语，
 Okay, thers's some terminology here that's important,
 
 502
 00:30:49,250 --> 00:30:53,090
+当你在 CPU 手册中读到，
 the when you read in the manual for the CPU,
 
 503
 00:30:53,090 --> 00:30:55,430
+它说，加法指令使用两个寄存器，
 that says oh you know an add instruction takes two registers
 
 504
 00:30:55,430 --> 00:30:56,900
+对它们相加，然后放到第三个寄存器中，
 and adds them and puts them in a third,
 
 505
 00:30:56,930 --> 00:31:01,680
+这种设计方面的东西叫做架构，
 that stuff, that aspect of the design is called architectural,
 
 506
 00:31:03,130 --> 00:31:08,830
+一种[]行为，
 sort of [] behavior,
 
 507
 00:31:10,350 --> 00:31:12,300
+机器的[]行为，
 the [] behavior of the machine,
 
 508
 00:31:12,690 --> 00:31:14,940
+所以，机器的[]行为是，
 and so the [] behavior of machine is that,
 
 509
 00:31:14,940 --> 00:31:17,670
+如果你从某个地址加载时，产生页面错误，
 if your load from an address you know permissions for you get a page fault [],
 
 510
 00:31:17,670 --> 00:31:18,750
+则不允许加载，
 you're not allowed to load,
 
 511
 00:31:19,710 --> 00:31:23,340
+这与机器实际所做的不同，
 that's in distinction to what the machines actually doing,
 
 512
 00:31:23,340 --> 00:31:27,270
+就是所谓的微体系结构。
 which is called Micro-Architectural.
 
 513
 00:31:29,540 --> 00:31:32,330
+这是机器有预测执行，
 That is actually the machine has speculating executions
 
 514
 00:31:32,330 --> 00:31:34,670
+做这些疯狂的事情，没有告诉你的，
 doing all these crazy things without telling you,
 
 515
 00:31:34,820 --> 00:31:38,420
+CPU 设计者的目的，
 and the intent of the CPU designers,
 
 516
 00:31:38,420 --> 00:31:42,140
+在设计所有这些复杂的微体系架构优化时，
 when they design all these complex micro-architectural optimizations
 
 517
 00:31:42,140 --> 00:31:43,490
+它们是透明的，
 is that they be transparent,
 
 518
 00:31:43,760 --> 00:31:45,710
+是的，它在内部做所有这些事情，
 that yeah, it's doing all this stuff internally,
 
 519
 00:31:45,710 --> 00:31:48,950
+但是看起来你从程序中得到的结果
 but it looks the results you get from programs
 
 520
 00:31:48,980 --> 00:31:51,710
+和一台更简单的机器上得到的结果是一样的，
 are the same results you get from a simpler machine,
 
 521
 00:31:51,710 --> 00:31:54,710
+做了手册中简单的事情。
 that just did the straightforward thing that was in the manual.
 
 522
 00:31:55,500 --> 00:31:57,210
+它们应该是透明的。
 They are intended to be transparent
 
 523
 00:31:57,240 --> 00:32:00,730
+所以，比如，在某种程度上，
 and so you know, for example, at some level,
 
 524
 00:32:00,730 --> 00:32:03,370
+Intel 在这里做的事情是透明的，
 what Intel is doing here is transparent,
 
 525
 00:32:03,370 --> 00:32:06,970
+是的，也许在你加载内存的时候，他们没有检查权限，
 yeah, maybe they don't check for permissions when you when you do the memory load,
 
 526
 00:32:07,180 --> 00:32:09,940
+但是如果退出有问题的话，
 but if there was a problem on retirement,
 
 527
 00:32:09,940 --> 00:32:11,560
+它会取消所有这些影响，
 it's gonna undo all these effects
 
 528
 00:32:11,560 --> 00:32:13,360
+所以你永远不会看到那些内存，
 and so you'll never see that memory,
 
 529
 00:32:13,360 --> 00:32:14,410
+你不应该看到，
 you weren't supposed to see,
 
 530
 00:32:14,410 --> 00:32:17,890
+所以，看起来和手册上说的一样，
 so gosh that looks just like what the manual said,
 
 531
 00:32:17,980 --> 00:32:20,110
+你不允许加载没有权限的东西。
 you're not allowed to load stuff you don't have permission for.
 
 532
 00:32:22,040 --> 00:32:23,690
+所以这个区别是，
 So this distinction is,
 
 533
 00:32:26,050 --> 00:32:27,730
+这个攻击的很多内容，
 a lot of what this attack is playing,
 
 534
 00:32:27,730 --> 00:32:30,190
+在这里，它知道所有攻击的东西，
 on that it knows all the attack,
 
 535
 00:32:30,190 --> 00:32:32,380
+知道很多内部发生了什么。
 knows a lot about what's going on inside.
 
 536
 00:32:35,840 --> 00:32:40,240
+好的，关于预测执行，还有其他问题吗？
 Okay, other questions about speculative execution?
 
 537
 00:32:47,840 --> 00:32:50,590
+好的，我暂时把它放在一边，
 Okay, I'm gonna put that aside for a moment
 
 538
 00:32:50,590 --> 00:32:53,440
+讨论一下微架构的另一部分，
 and talk about another piece of micro-architecture,
 
 539
 00:32:59,240 --> 00:33:03,410
+那就是缓存。
 that's caches.
 
 540
 00:33:06,420 --> 00:33:08,730
+每个人都知道有缓存，
 And these again, everybody knows caches are there,
 
 541
 00:33:08,730 --> 00:33:12,090
+但是它们或多或少是透明的。
 but you know they're supposed to be more or less more or less transparent.
 
 542
 00:33:16,130 --> 00:33:17,720
+让我画一张缓存的图，
 And let me draw a picture of the caches,
 
 543
 00:33:17,720 --> 00:33:19,490
+我认为这与缓存结构有关，
 I think are relevant to the cache structure,
 
 544
 00:33:19,490 --> 00:33:21,590
+我认为这与 meltdown 相关。
 I think is most relevant to meltdown.
 
 545
 00:33:21,650 --> 00:33:23,360
+所以首先你有，
 So first of all, you have the,
 
 546
 00:33:24,500 --> 00:33:28,800
+我们有核心，是机器的一部分，
 we have the core which is the you know part of the machine,
 
 547
 00:33:28,800 --> 00:33:31,650
+它解析指令并具有寄存器，
 that parses instructions and has registers
 
 548
 00:33:31,650 --> 00:33:34,470
+并且有加法单元和除法单元，
 and has an addition unit and division unit,
 
 549
 00:33:34,470 --> 00:33:39,300
+不管机器的什么执行部分，
 and you know whatever the execution part of the machine,
 
 550
 00:33:39,300 --> 00:33:44,130
+然后，当它需要进行加载或保存时，
 and then, whenever it needs to do a load or store,
 
 551
 00:33:45,710 --> 00:33:50,270
+它与内存系统交互，
 it talks to the memory system,
 
 552
 00:33:51,380 --> 00:33:53,360
+内存系统具有高速缓存，
 and the memory system has a bunch of caches,
 
 553
 00:33:53,360 --> 00:33:55,700
+在我们所说的机器中，
 so in particular in the machines, we're talking about,
 
 554
 00:33:55,700 --> 00:34:03,140
+有一种缓存叫做 L1 缓存，
 there's a data cache called L1 data cache,
 
 555
 00:34:03,620 --> 00:34:10,590
+可能是 64 千字节的大小或不是很大，
 that is maybe you know 64 kilobytes in size or something not very big,
 
 556
 00:34:10,590 --> 00:34:11,940
+但它的速度非常快，
 but it's extremely fast,
 
 557
 00:34:12,150 --> 00:34:15,630
+如果你需要的数据在 L1 缓存中，
 if you, if the data you need is in the L1 cache,
 
 558
 00:34:15,630 --> 00:34:18,360
+你会在几个周期内得到回复，
 that you get back to you in a couple of cycles,
 
 559
 00:34:18,390 --> 00:34:19,890
+而 L1 缓存的结构，
 and the structure of the L1 cache,
 
 560
 00:34:19,890 --> 00:34:22,200
+它有一些行，
 it has a bunch of lines are called lines,
 
 561
 00:34:22,920 --> 00:34:25,770
+每个可能保存 64 字节的数据，
 each of which holds probably 64 bytes of data,
 
 562
 00:34:25,860 --> 00:34:29,520
+这些行是缓存表的索引，
 the lines are indexed the table really the cache,
 
 563
 00:34:29,670 --> 00:34:32,910
+这些行通过虚拟地址进行索引，
 the lines are indexed by virtual address,
 
 564
 00:34:33,600 --> 00:34:36,150
+如果虚拟地址在缓存中，
 if the virtual addresses in the cache,
 
 565
 00:34:36,150 --> 00:34:41,220
+然后，缓存保存具有该虚拟地址的数据，
 then, the cache holds the data with that virtual address
 
 566
 00:34:41,370 --> 00:34:46,410
+事实证明，
 and in addition as it turns out, it's believed,
 
 567
 00:34:47,520 --> 00:34:50,910
+L1 缓存条目包含权限的复制，
 the L1 cache entry contains a copy of the permissions
 
 568
 00:34:50,910 --> 00:34:54,870
+从对应于这个虚拟地址的页表条目获得的（权限）。
 taken from the page table entry that corresponds to this virtual address.
 
 569
 00:34:55,460 --> 00:35:00,210
+所以，这里有一张表，
 So, there's a whole, this is it a table,
 
 570
 00:35:01,270 --> 00:35:03,100
+当内核使用加载指令时，
 when the core is used load instruction,
 
 571
 00:35:03,460 --> 00:35:05,290
+发生的第一件事是，
 the first thing that happens is that,
 
 572
 00:35:05,290 --> 00:35:07,330
+硬件在 L1 缓存中查找，
 the hardware looks in the L1 cache
 
 573
 00:35:07,330 --> 00:35:09,670
+查看是否存在一个缓存条目，
 and see if there's a cache entry
 
 574
 00:35:09,670 --> 00:35:14,350
+它的虚拟地址与所请求的匹配，
 whose virtual address matches the requested,
 
 575
 00:35:15,610 --> 00:35:16,870
+我们想要加载的地址，
 the address we're trying to load from it,
 
 576
 00:35:16,870 --> 00:35:20,680
+如果这样，我们可以让机器从缓存中返回这些数据，
 and if so, that we can just the machine just returns this data from the cache,
 
 577
 00:35:20,980 --> 00:35:22,030
+完成地非常快，
 were done very quickly,
 
 578
 00:35:22,300 --> 00:35:24,190
+如果它们不在 L1 缓存中，
 if they did is not in L1 cache,
 
 579
 00:35:24,190 --> 00:35:27,140
+那么下一步是，
 then the next step is that we,
 
 580
 00:35:27,170 --> 00:35:31,910
+内存系统的其他部分是用物理地址寻址，
 the rest of the memory system is is in is addressed with physical addresses,
 
 581
 00:35:31,910 --> 00:35:33,980
+所以在这里，我们需要一个物理地址，
 so we at this point, we're going to need a physical address,
 
 582
 00:35:33,980 --> 00:35:36,020
+如果我们没有在 L1 缓存中命中，
 if we missed the L1 cache,
 
 583
 00:35:36,350 --> 00:35:41,090
+这个转换后备缓冲器是页表项的缓存，
 this translation look-aside buffer is a cache of page table entries,
 
 584
 00:35:41,240 --> 00:35:43,100
+它将查找虚拟地址，
 it's going to look up the virtual address,
 
 585
 00:35:43,100 --> 00:35:46,750
+程序在转换后备缓冲器中发出的虚拟地址，
 that the program issued in the translation look aside buffer,
 
 586
 00:35:47,470 --> 00:35:48,160
+它可能不在那里，
 it may not be there,
 
 587
 00:35:48,160 --> 00:35:49,810
+在这种情况下，我们现在有很多工作要做，
 in which case, now we got a lot of work to do,
 
 588
 00:35:49,810 --> 00:35:53,740
+因为我们必须为内存加载相关的页表条目。
 because we've got to load the relevant page table entry for memory.
 
 589
 00:35:54,290 --> 00:35:56,780
+但是我们假设我们命中了转换后备缓冲器，
 But let's assume we hittin the translation look-aside buffer,
 
 590
 00:35:56,900 --> 00:36:00,710
+我们现在可以获得所需的物理地址，
 we can now get the needed physical address,
 
 591
 00:36:00,890 --> 00:36:04,130
+通常会有另一个更大的缓存，
 typically there's another cache, another much bigger cache,
 
 592
 00:36:04,830 --> 00:36:09,000
+这是物理地址的索引。
 that's physically indexed index with the physical address.
 
 593
 00:36:10,880 --> 00:36:12,740
+现在我们有了物理地址，
 And so we might, now that we have a physical address,
 
 594
 00:36:12,740 --> 00:36:14,000
+我们可以查看这个缓存，
 we can look at this cache,
 
 595
 00:36:14,690 --> 00:36:16,610
+如果我们在这里没有命中，
 and if we miss there,
 
 596
 00:36:16,610 --> 00:36:19,910
+那么我们发送物理地址到内存系统，
 then we have to send the physical address after the RAM system,
 
 597
 00:36:20,150 --> 00:36:20,900
+需要很长时间，
 takes a long time,
 
 598
 00:36:20,900 --> 00:36:22,100
+但是当我们最终拿回数据时，
 but when we finally get data back,
 
 599
 00:36:22,100 --> 00:36:24,020
+我们可以填充 L2 缓存，
 then we can populate the L2 cache,
 
 600
 00:36:24,650 --> 00:36:28,220
+并用我们从内存中取回的内容填充 L1 缓存，
 and populate the L1 cache with the stuff we got back from RAM
 
 601
 00:36:28,400 --> 00:36:31,870
+并将数据返回给内核。
 and return the the data back to the core.
 
 602
 00:36:36,730 --> 00:36:37,690
+这就是缓存。
 So this is caching.
 
 603
 00:36:43,060 --> 00:36:49,140
+只是，通过隐藏的 L1 缓存需要几个周期，
 Just, by the, by the hidden L1 cache practice a few cycles,
 
 604
 00:36:49,140 --> 00:36:52,470
+隐藏的 L2 缓存可能需要十几个周期，
 hidden the L2 cache probably takes a dozen or two cycles,
 
 605
 00:36:52,620 --> 00:36:56,070
+而错过那些，可能需要几百个循环，
 and miss that, requires you to go around probably takes you a couple hundred cycles,
 
 606
 00:36:56,800 --> 00:36:59,400
+这些周期，
 these cycles are, you know,
 
 607
 00:36:59,910 --> 00:37:03,540
+比如，在 2GHz 的机器上是半秒。
 let's say half a second on a 2 GHz machine.
 
 608
 00:37:05,130 --> 00:37:08,100
+所以，有高速缓存是非常有利的，
 So it's extremely advantageous to have caching you would,
 
 609
 00:37:08,100 --> 00:37:09,000
+如果没有缓存，
 if you didn't have cache
 
 610
 00:37:09,000 --> 00:37:12,630
+你将损失几百倍的性能，
 and you would be sacrificing a factor of a couple of hundred in performance,
 
 611
 00:37:12,750 --> 00:37:16,950
+这些缓存对于良好的性能是非常关键的。
 these are just absolutely critical to decent performance, these caches.
 
 612
 00:37:20,000 --> 00:37:26,590
+现在，这个缓存是 L1 缓存，
 Now, this caches is the L1 cache,
 
 613
 00:37:27,140 --> 00:37:30,740
+两个缓存都可以包含，
 well, both turns out both both these caches can contain,
 
 614
 00:37:31,010 --> 00:37:32,360
+如果我们在用户空间运行，
 if we're running in user space,
 
 615
 00:37:32,360 --> 00:37:36,110
+这两个缓存，在操作系统中都是 meltdown 针对的，
 both these caches in the operating system's meltdown was aimed at,
 
 616
 00:37:36,320 --> 00:37:39,920
+这两个缓存都可以包含用户数据和内核数据，
 both of these caches can contain both user data and kernel data,
 
 617
 00:37:40,700 --> 00:37:42,680
+L2 缓存可以包含内核数据，
 the L2 cache can contain kernel data,
 
 618
 00:37:42,680 --> 00:37:49,420
+因为它是物理地址的，所以不会有问题。
 because it's physically addressed, there's no problem.
 
 619
 00:37:49,540 --> 00:37:52,360
+L1 缓存要稍微复杂一些，
 The L1 cache is a little bit trickier,
 
 620
 00:37:52,360 --> 00:37:53,200
+它是虚拟地址，
 it's virtual addresses,
 
 621
 00:37:53,200 --> 00:37:55,180
+当我们切换页表时，
 when we change page tables,
 
 622
 00:37:55,390 --> 00:37:57,670
+L1 缓存的内容不再有效，
 the contents of the L1 cache are no longer valid,
 
 623
 00:37:57,670 --> 00:37:59,350
+因为我们切换了页表，
 because we change page tables,
 
 624
 00:37:59,350 --> 00:38:01,990
+这意味着虚拟地址的含义改变了，
 that means that the meaning of virtual addresses changed,
 
 625
 00:38:01,990 --> 00:38:04,750
+所以当切换页表时，你必须刷新 L1 缓存，
 so you'd have to flush the L1 cache, when change page tables,
 
 626
 00:38:04,960 --> 00:38:10,520
+尽管有更复杂的技巧可以让你避免这种情况，
 although there's more complex tricks that allow you to avoid that,
 
 627
 00:38:10,850 --> 00:38:15,140
+但是，在这篇论文的时代的操作系统，
 and so but the fact that these operating systems in the days of this paper,
 
 628
 00:38:15,260 --> 00:38:19,070
+在用户空间和内核空间之间切换时，不会切换页表，
 didn't change page tables, when changing between user space and kernel space,
 
 629
 00:38:19,070 --> 00:38:20,000
+因为两者都是映射的，
 because both were mapped,
 
 630
 00:38:20,150 --> 00:38:24,470
+这意味着，我们不必刷新 L1 缓存中的数据，
 meant that, data we didn't have to flush the L1 cache,
 
 631
 00:38:24,710 --> 00:38:28,010
+这意味着 L1 缓存中同时包含用户数据和内核数据，
 and that mean the L1 cache would have both user and kernel data in it,
 
 632
 00:38:28,010 --> 00:38:29,750
+它使得系统调用变得更快，
 and that it made system calls even faster,
 
 633
 00:38:30,200 --> 00:38:31,670
+如果你调用一个系统调用，
 if you call a system call,
 
 634
 00:38:31,670 --> 00:38:32,570
+系统调用返回，
 the system call returns,
 
 635
 00:38:32,570 --> 00:38:37,750
+缓存中可能仍然有有用的用户数据，
 there's still gonna be likely still to be useful user data in the caches,
 
 636
 00:38:37,750 --> 00:38:40,040
+因为我们没有改变，
 because we never changed,
 
 637
 00:38:40,040 --> 00:38:42,980
+我们没有改变页表或这些地址的含义。
 we never changed page tables or changed the meanings of these addresses.
 
 638
 00:38:45,620 --> 00:38:47,750
+不管怎样，这里可能有内核数据，
 Anyway, so there's likely to be kernel data,
 
 639
 00:38:48,110 --> 00:38:49,340
+即使你正在用户空间运行，
 even if you're running a user space,
 
 640
 00:38:49,340 --> 00:38:52,710
+L1 缓存中也很可能有内核数据，
 is likely to be kernel data in the L1 cache,
 
 641
 00:38:53,070 --> 00:38:55,770
+这些权限是从 TLB 复制出来的，
 and it's these permissions which are copied out of the TLB,
 
 642
 00:38:55,770 --> 00:38:57,330
+从页表条目复制来的，
 copied out of page table entries,
 
 643
 00:38:57,510 --> 00:39:01,290
+告诉机器，即使数据在缓存中，
 that tells the machine that oh even though the data is in the cache,
 
 644
 00:39:01,320 --> 00:39:02,490
+你不能查看它，
 you're not allowed to see it,
 
 645
 00:39:03,130 --> 00:39:05,050
+并引发页面错误。
 and raise raise a page fault.
 
 646
 00:39:11,870 --> 00:39:13,940
+所以现在是提这件事的好时机，
 So this is a good time to mention that,
 
 647
 00:39:15,220 --> 00:39:22,390
+即使微结构优化的目的是它们是完全透明的，
 even though the intent of micro-architectural optimizations is they be completely transparent,
 
 648
 00:39:24,910 --> 00:39:26,650
+那不可能是真的，
 that can't possibly be true,
 
 649
 00:39:26,740 --> 00:39:30,730
+因为这些微架构优化的全部目的
 because the whole point of these micro-architectural optimizations
 
 650
 00:39:30,730 --> 00:39:33,040
+几乎就是为了提高性能，
 is almost always to improve performance,
 
 651
 00:39:33,160 --> 00:39:39,250
+所以，它们至少在性能方面是可见的，
 and so they will be guaranteed to be at least visible in terms of performance,
 
 652
 00:39:39,310 --> 00:39:41,680
+你可以判断你的机器是否有缓存，
 as you could tell if your machine has a cache or not,
 
 653
 00:39:41,710 --> 00:39:43,360
+因为如果它没有缓存，
 because if it doesn't have a cache,
 
 654
 00:39:43,390 --> 00:39:46,600
+它的运行速度会慢几百倍，
 it'll run a couple hundred times slower, right,
 
 655
 00:39:47,020 --> 00:39:50,980
+另外，你还可以判断要获取的数据在哪里，
 in addition you can tell where the data you're trying to fetch,
 
 656
 00:39:51,010 --> 00:39:53,350
+如果你能足够精确地测量时间，
 if you're capable of measuring time accurately enough,
 
 657
 00:39:53,590 --> 00:39:55,600
+你做加载，你就能看出来，
 and you do a load, you can tell,
 
 658
 00:39:55,900 --> 00:39:59,440
+如果加载在几个周期内返回，数据一定已被缓存，
 if the load returned in a couple cycles, the data must have been cached,
 
 659
 00:39:59,440 --> 00:40:02,380
+如果加载在百倍周期之后返回，
 if the load returned after a hundred times that,
 
 660
 00:40:03,360 --> 00:40:05,820
+它们可能是从内存加载的，
 they probably had to be loaded from RAM,
 
 661
 00:40:06,210 --> 00:40:07,650
+所以差异是明显的，
 and so the differences are profound,
 
 662
 00:40:07,650 --> 00:40:12,600
+如果你能测量出几纳秒甚至几十纳秒的时间，
 and if you can measure time to you know a few nanoseconds or even tens of nanoseconds,
 
 663
 00:40:12,780 --> 00:40:14,070
+你可以分辨出不同之处，
 you can tell the difference,
 
 664
 00:40:14,220 --> 00:40:15,420
+所以在性能层面上，
 so in the performance level,
 
 665
 00:40:15,510 --> 00:40:18,390
+微架构绝对不透明的。
 is micro-architecture is absolutely not transparent.
 
 666
 00:40:19,120 --> 00:40:22,330
+我们谈论的所有东西，分支预测，缓存或其他，
 And all the things we talk about, branch prediction caches or whatever,
 
 667
 00:40:22,330 --> 00:40:28,300
+所有这些东西至少在时间上是间接可见的。
 all that stuff is at least indirectly visible to timing.
 
 668
 00:40:30,990 --> 00:40:32,190
+所以，当然很多人，
 And so, of course many people,
 
 669
 00:40:32,190 --> 00:40:40,020
+即使微架构设计在任何细节层面上都是保密的，
 even though the micro-architectural design is sort of in any detailed level secret,
 
 670
 00:40:40,440 --> 00:40:42,990
+对于 Intel 来说，如何实现是他们的私有业务，
 to Intel, it's their private business how they implement this,
 
 671
 00:40:43,020 --> 00:40:48,630
+事实上，它一直以来都是很多人非常感兴趣的，
 in fact it's all along been of extremely intense interest to a lot of people,
 
 672
 00:40:48,630 --> 00:40:50,310
+因为它对性能影响很大。
 because it affects performance a lot.
 
 673
 00:40:50,520 --> 00:40:55,230
+所以，编译器编写者对微体系结构了解很多，
 So a compiler writers for example know a lot about micro-architecture,
 
 674
 00:40:55,230 --> 00:40:58,350
+因为，许多编译器优化
 because, the most many many compiler optimizations
 
 675
 00:40:58,350 --> 00:41:04,890
+都在隐式地利用人们对机器内部的良好猜测。
 are implicitly exploiting people's good guesses about what the machines actually doing inside.
 
 676
 00:41:05,500 --> 00:41:11,800
+并且实际上 CPU 制造商发布了优化指南，
 And indeed the CPU manufacturers publish optimization guides,
 
 677
 00:41:11,830 --> 00:41:15,010
+揭示了一些微架构的技巧，
 that reveal some of the micro-architectural tricks,
 
 678
 00:41:15,100 --> 00:41:16,840
+但它们很少涉及太多细节，
 but they rarely go into much detail,
 
 679
 00:41:17,410 --> 00:41:23,560
+当然没有足够的细节来真正理解为什么 meltdown 会起作用。
 certainly not enough detail to really understand exactly why meltdown works.
 
 680
 00:41:24,180 --> 00:41:27,240
+所以微架构的东西处于
 So the micro-architecture stuff is sort of sits somewhere
 
 681
 00:41:27,240 --> 00:41:34,540
+在透明、可见和隐藏之间，
 between supposed to be transparent and visible and hidden and sort of partially,
 
 682
 00:41:34,630 --> 00:41:39,460
+当然有很多人感兴趣，
 you know certainly a lot of people are interested
 
 683
 00:41:39,460 --> 00:41:41,800
+很多人知道关于它的各种随机的事情。
 and a lot of people know all kinds of random things about it.
 
 684
 00:41:43,800 --> 00:41:50,420
+好的，所以为什么这些缓存的东西对于 meltdown 是感兴趣的，
 Okay, so the reason why this cache stuff is interesting for meltdown,
 
 685
 00:41:50,540 --> 00:41:53,390
+首先，关于缓存，有什么问题吗？
 first of all, any questions about about caching?
 
 686
 00:41:58,660 --> 00:42:02,530
+好的，那么让我来谈谈，
 Okay, let me talk them,
 
 687
 00:42:03,720 --> 00:42:09,300
+关于论文使用缓存的主要方式，
 about sort of main way that the paper uses caching,
 
 688
 00:42:09,300 --> 00:42:13,800
+论文讨论了这种技术，刷新并重新加载。
 the paper talks about this technique called flush, flush and reload.
 
 689
 00:42:18,740 --> 00:42:21,760
+刷新和重新加载的目的是什么，
 And, what flush and reload is up to,
 
 690
 00:42:21,760 --> 00:42:23,710
+它回答的问题是，
 is that it's answering the question
 
 691
 00:42:24,850 --> 00:42:33,350
+是否有一段特定的代码使用了位于特定地址的内存。
 did a particular piece of code use the memory at a particular address.
 
 692
 00:42:33,840 --> 00:42:39,120
+这不是直接的安全漏洞，
 And it's not directly a security exploit,
 
 693
 00:42:39,120 --> 00:42:41,820
+因为它只对你能得到的内存起作用。
 because it only works for memory that you can get at.
 
 694
 00:42:42,210 --> 00:42:43,380
+所以如果你的用户代码，
 So if your user code
 
 695
 00:42:43,380 --> 00:42:45,060
+你有一些内存，那就是你的内存，
 and you have some memory, that's your memory
 
 696
 00:42:45,060 --> 00:42:45,960
+你可以使用它，
 and you're allowed to use it,
 
 697
 00:42:46,140 --> 00:42:48,600
+你可以调用自己的一个函数，
 you can and you call one of your own functions
 
 698
 00:42:48,600 --> 00:42:52,110
+然后你就可以区分，
 or then you'll be able to tell,
 
 699
 00:42:52,110 --> 00:42:54,120
+你可以用刷新和重新加载来区分，
 you can use flush and reload to tell,
 
 700
 00:42:54,120 --> 00:42:58,800
+你刚才执行的函数是否使用了内存，
 whether the function your function, you just executed used your memory,
 
 701
 00:42:59,320 --> 00:43:02,740
+你不能直接使用这个攻击或者它不是攻击，
 you can't directly use this attack or it's not an attack,
 
 702
 00:43:02,770 --> 00:43:04,990
+你可以使用这个技术来确定
 you can use this technique to figure out,
 
 703
 00:43:04,990 --> 00:43:09,010
+其他进程使用的是否是私有内存，
 if some other process use that process is private memory,
 
 704
 00:43:11,110 --> 00:43:14,590
+不过，因为进程有时会共享内存，是的，
 although, because processes sometimes share memory, yeah,
 
 705
 00:43:16,180 --> 00:43:18,220
+你也许还能做到，
 you may still be able to do,
 
 706
 00:43:18,220 --> 00:43:20,210
+正确的说法是，
 well, the right way to put it is
 
 707
 00:43:20,210 --> 00:43:22,760
+你只能找到被允许访问的内存。
 you can only find out about memory you're allowed to access.
 
 708
 00:43:23,540 --> 00:43:24,980
+好的，那么回答这个问题，
 Okay, so answering the question,
 
 709
 00:43:25,780 --> 00:43:29,620
+有没有一个特定的函数使用这个内存。
 did did a particular function use this memory.
 
 710
 00:43:29,650 --> 00:43:35,960
+所以，第一步，我们要刷新，
 So, step one, is we're gonna flush,
 
 711
 00:43:35,960 --> 00:43:39,050
+假设我们对地址 x 感兴趣，
 supposing we were interested in address x,
 
 712
 00:43:41,240 --> 00:43:43,130
+我们要刷新缓存，
 we want to flush the cache,
 
 713
 00:43:43,130 --> 00:43:47,600
+我们希望确保缓存不包含内存位置 x ，
 we want to make sure the cache doesn't contain the memory location x,
 
 714
 00:43:47,600 --> 00:43:49,850
+为了我们的方便，
 and it turns out that for our convenience,
 
 715
 00:43:50,270 --> 00:43:55,600
+Intel 提供了一个名为 clFlash 的指令，
 Intel supplies an instruction, called clFlash,
 
 716
 00:43:56,680 --> 00:43:58,210
+你给它一个地址，
 and you give it an address
 
 717
 00:43:58,720 --> 00:44:01,660
+并且它将删除，
 and it will get rid of,
 
 718
 00:44:01,660 --> 00:44:06,730
+它将确保那个位置不会缓存，
 it will ensure that that location is not cached any of the caches,
 
 719
 00:44:07,120 --> 00:44:08,440
+所以这是非常方便的。
 and so that's super convenient.
 
 720
 00:44:10,360 --> 00:44:12,790
+即使机器没有提供这条指令，
 Even if the machine didn't provide this instruction,
 
 721
 00:44:12,790 --> 00:44:15,760
+有很多方法可以从缓存中清除东西，
 that it turns out, there's ways of getting rid of stuff from the cache,
 
 722
 00:44:15,760 --> 00:44:19,810
+比如，如果你知道缓存中保存 64 千字节，
 like for example if you know the cache holds 64 kilobytes,
 
 723
 00:44:19,840 --> 00:44:22,810
+那么很可能的情况是，
 then it's likely to be the case,
 
 724
 00:44:22,810 --> 00:44:26,410
+如果你加载 64 千字节的随机内存，
 that if you load 64 kilobytes of random memory,
 
 725
 00:44:26,760 --> 00:44:28,710
+只是加载指令，
 you know just load instructions that,
 
 726
 00:44:29,010 --> 00:44:32,040
+这些将被加载到缓存中，
 those will be loaded into the cache,
 
 727
 00:44:32,250 --> 00:44:35,760
+在将 64 千字节的新数据加载到缓存后，
 and after you've loaded 64 kilobytes of new data into the cache,
 
 728
 00:44:36,360 --> 00:44:38,100
+之前放在里面的东西肯定都不见了，
 everything that used to be in it must be gone,
 
 729
 00:44:38,130 --> 00:44:41,130
+因为缓存只能容纳 64 千字节的大小。
 because the cache can only hold 64 kilobytes or whatever it may be.
 
 730
 00:44:41,580 --> 00:44:44,540
+所以即使没有这个指令，
 So, even without this [] instruction,
 
 731
 00:44:44,600 --> 00:44:47,090
+你仍然可以刷新缓存中的所有内容。
 you can still flush everything in the cache.
 
 732
 00:44:47,660 --> 00:44:49,040
+那么第二步是，
 Then step two is,
 
 733
 00:44:49,250 --> 00:44:54,770
+你感兴趣的是某段特定的代码是否使用了数据 x ，
 you're interested in whether some particular piece of code uses data x,
 
 734
 00:44:54,770 --> 00:44:57,140
+你只需要调用那个代码，
 you just call that code whatever it is,
 
 735
 00:44:57,920 --> 00:45:01,580
+它所做的事情，可能使用 x ，也可能不使用，
 and it does what it does maybe uses x, maybe doesn't,
 
 736
 00:45:02,590 --> 00:45:06,670
+现在你想要确认 x 是否在缓存中，
 now you wanna tell if x is actually in the cache,
 
 737
 00:45:06,670 --> 00:45:08,980
+因为是，你刷新缓存，
 because if it is if you flushed from the cache,
 
 738
 00:45:09,010 --> 00:45:09,970
+如果它现在在缓存里，
 if it's in the cache now,
 
 739
 00:45:09,970 --> 00:45:12,130
+一定是 f 导致加载，
 it must be that f causes to be loaded,
 
 740
 00:45:12,670 --> 00:45:13,900
+除非有其他事情发生。
 unless something else is going on.
 
 741
 00:45:14,140 --> 00:45:17,170
+所以你需要加载，
 So you need to, you want to do a load,
 
 742
 00:45:17,170 --> 00:45:19,120
+但是你想知道加载需要多长时间，
 but you wanna know how long the load takes,
 
 743
 00:45:19,450 --> 00:45:21,700
+所以我们说的是纳秒，
 so we're only talking about nanoseconds,
 
 744
 00:45:21,700 --> 00:45:24,310
+比如 5 纳秒对比 100 纳秒，
 like five nanoseconds versus hundred nanoseconds here,
 
 745
 00:45:24,310 --> 00:45:26,200
+我们怎样才能如此精确地测量时间，
 how can we measure time that accurately,
 
 746
 00:45:26,380 --> 00:45:29,170
+这是一项艰巨的任务，
 that's a tough assignment,
 
 747
 00:45:29,170 --> 00:45:32,740
+然而， CPU 再次来到 [ra] ，
 however again the CPUs come to [ra],
 
 748
 00:45:32,740 --> 00:45:37,360
+提供了获取周期粒度时间的指令，
 in fact provide instruction which gives you cycle granularity time,
 
 749
 00:45:39,620 --> 00:45:41,360
+它叫做 rdtsc ，
 and it's called rdtsc,
 
 750
 00:45:42,010 --> 00:45:47,140
+所以我们只需要执行 rdtsc 指令，
 so we're just gonna execute the rdtsc instruction,
 
 751
 00:45:47,170 --> 00:45:50,140
+它告诉我们已经过去的周期数，
 which tells us essentially the number of cycles that have elapsed,
 
 752
 00:45:50,140 --> 00:45:53,620
+从机器启动以来已经过去的机器周期。
 since the machine cycles have elapsed since the machine started.
 
 753
 00:45:54,330 --> 00:45:56,580
+如果它是 2GHz 的机器，
 And since it's probably 2 GHz machine,
 
 754
 00:45:56,580 --> 00:46:00,120
+这意味着，我们这里的精确度是 0.5 纳秒，
 that means that the precision we have here is half a nanosecond,
 
 755
 00:46:00,830 --> 00:46:01,820
+它相当小。
 its pretty small.
 
 756
 00:46:02,360 --> 00:46:04,850
+现在我们要加载，
 Now we're gonna load,
 
 757
 00:46:06,500 --> 00:46:13,840
+比如 junk = *x ，
 we're just gonna say junk equals star x,
 
 758
 00:46:13,870 --> 00:46:17,860
+我们要加载位置 x 的数据，
 we're going to load the data of location x,
 
 759
 00:46:18,250 --> 00:46:19,690
+我再获取一下时间，
 I get the time again,
 
 760
 00:46:23,300 --> 00:46:26,750
+看一下 b 减去 a 的差值，
 and look at the difference right, b minus a,
 
 761
 00:46:29,450 --> 00:46:33,620
+如果 b 减去 a 等于 5 、 6 、 7 或其他，
 if b minus a is you know 5 or 6 or 7 or something,
 
 762
 00:46:33,620 --> 00:46:36,530
+这意味着这个加载命中了缓存，
 that means that this load hit in the cache,
 
 763
 00:46:36,530 --> 00:46:38,600
+这意味着这个函数使用了数据，
 and that means that this function used the data,
 
 764
 00:46:38,870 --> 00:46:41,180
+如果 b 减去 a 是 150 ，
 if b minus a is 150,
 
 765
 00:46:41,930 --> 00:46:45,530
+则意味着 x 不在缓存中，
 then that means that x wasn't in the cache,
 
 766
 00:46:45,980 --> 00:46:50,410
+这可能意味着 f ，
 and yeah you know that may probably means that f,
 
 767
 00:46:50,410 --> 00:46:52,660
+这可能意味着 f 从未使用过 x ，
 that may mean that did never used x,
 
 768
 00:46:52,690 --> 00:46:54,520
+这并不完全是一成不变的，
 that's not quite that cut and dry,
 
 769
 00:46:54,520 --> 00:46:57,970
+因为 f 可能使用了 x ，然后使用了其他东西，
 because f might have used x and then use something else,
 
 770
 00:46:58,330 --> 00:47:00,940
+与缓存中的 x 冲突，
 that conflicted with x in the cache
 
 771
 00:47:00,940 --> 00:47:03,460
+并且使 x 被踢出缓存。
 and caused x to be kicked out of the cache again.
 
 772
 00:47:03,580 --> 00:47:05,470
+但是，对于简单的情况，
 But, for simple situations,
 
 773
 00:47:06,910 --> 00:47:11,260
+b 减去 a 的值非常大，意味着 f 没有使用它，
 a very large value of b minus a, means f didn't use it,
 
 774
 00:47:11,260 --> 00:47:15,670
+在 b 减去 a 的较小值中，表示 f 使用了那个数据。
 in a small value of b minus a, means that f did use that data.
 
 775
 00:47:18,070 --> 00:47:19,900
+所以这还不是攻击，
 So this is not an attack yet,
 
 776
 00:47:19,900 --> 00:47:24,760
+因为我们必须能够访问这个内存，
 because again we have to be able to access this memory,
 
 777
 00:47:24,760 --> 00:47:26,230
+这是我们的内存。
 so this is our memory.
 
 778
 00:47:28,290 --> 00:47:31,560
+关于刷新并重新加载，有什么问题吗？
 Any questions about flush plus reload?
 
 779
 00:47:40,340 --> 00:47:44,140
+好的，我想这是所有的准备工作，
 Alright, I think that's all the preliminaries,
 
 780
 00:47:44,470 --> 00:47:46,360
+让我们回到 meltdown 。
 let's go back to meltdown.
 
 781
 00:47:48,910 --> 00:47:51,040
+所以这是一个更完整的版本，
 So this is a more full version,
 
 782
 00:47:51,040 --> 00:47:53,800
+我在开始时向你们展示的 meltdown 的关键，
 I showed you sort of core meltdown at the beginning,
 
 783
 00:47:53,920 --> 00:47:57,280
+这是一个更完整的 meltdown 。
 this is a more complete meltdown.
 
 784
 00:47:59,690 --> 00:48:02,960
+所以现在我增加了刷新并重新加载的部分。
 And so we actually now have I added the flush and reload part.
 
 785
 00:48:04,380 --> 00:48:06,150
+同样，我们再次声明这个 buf ，
 Again, we're going to declare this buffer,
 
 786
 00:48:06,210 --> 00:48:08,940
+我们的想法是，
 and the idea is that,
 
 787
 00:48:09,090 --> 00:48:13,050
+我们只从内核中取出一位，
 depending on we're gonna be just fetching one bit from the kernel,
 
 788
 00:48:13,200 --> 00:48:17,370
+我们要把这一位乘以 4096 ，
 we're going to multiply that one bit by 4096,
 
 789
 00:48:17,370 --> 00:48:19,440
+所以我们希望使用刷新并重新加载，
 so we're hoping to use flush plus reload
 
 790
 00:48:19,440 --> 00:48:22,110
+来查看 buf 0 在缓存中，
 to see that either buf of 0 is in the cache
 
 791
 00:48:22,110 --> 00:48:24,540
+或 buf 4096 在缓存中，
 or buffer of 4096 is in the cache,
 
 792
 00:48:24,690 --> 00:48:29,130
+之所以会有很大的分离，
 and the reason for the large separation there
 
 793
 00:48:30,280 --> 00:48:33,700
+是因为这个硬件有一个预取器，
 is that apparently the pref-, this hardware has a prefetcher in it,
 
 794
 00:48:33,700 --> 00:48:35,560
+所以，如果你从内存加载一个内容，
 so if you load one thing from memory,
 
 795
 00:48:35,770 --> 00:48:38,290
+它也会从内存加载下一部分内容，
 it will load the next couple things up from memory too,
 
 796
 00:48:38,320 --> 00:48:39,580
+下一部分缓存行，
 the next couple of cache lines,
 
 797
 00:48:39,760 --> 00:48:42,790
+所以我们不能有两个不同的缓存行，
 and so we can't have the two different cache lines,
 
 798
 00:48:42,820 --> 00:48:46,150
+我们在特别近的地方进行刷新和重新加载，
 that we're going to apply flush and reload to be to be particularly close,
 
 799
 00:48:46,560 --> 00:48:47,730
+需要距离足够远，
 need to be far enough apart,
 
 800
 00:48:47,730 --> 00:48:52,320
+即使是硬件预加载也不会造成困惑。
 that even prefetch, hardware prefetching won't cause confusion.
 
 801
 00:48:53,030 --> 00:48:54,530
+所以我们把整个论文分开，
 So we put the whole page apart,
 
 802
 00:48:55,760 --> 00:48:56,750
+现在是刷新部分，
 the flash part now,
 
 803
 00:48:56,780 --> 00:48:58,850
+我们只是调用这个 clflush 指令
 we just call this clflush instruction
 
 804
 00:48:59,060 --> 00:49:05,970
+确保 buf 的相关部分没有被缓存。
 to make sure that the relevant parts of our buf are not catched.
 
 805
 00:49:06,700 --> 00:49:19,470
+现在，我们利用，
 Now, we're exploiting,
 
 806
 00:49:19,500 --> 00:49:22,800
+第 7 行可能不是必要的，
 this line 7 is not maybe may or may not be necessary,
 
 807
 00:49:22,800 --> 00:49:26,850
+但这里发生的事情是，我们正在利用，
 but what what's going on here is we're exploiting this sort of,
 
 808
 00:49:27,360 --> 00:49:35,000
+我将利用这段时间的空隙，
 I'm going to be exploiting the gap in time between,
 
 809
 00:49:36,030 --> 00:49:41,780
+我们做这个第 10 行的加载内核地址，
 you know, we we're doing this load line 10 to load a kernel address,
 
 810
 00:49:41,780 --> 00:49:42,860
+但是它会出错，
 so it's gonna fault,
 
 811
 00:49:43,700 --> 00:49:47,990
+但是我们希望能够预测执行其他指令，
 but we're hoping to be able to execute another couple of instructions speculatively,
 
 812
 00:49:48,080 --> 00:49:51,140
+在这条指令退出之前，
 before this instruction is retired,
 
 813
 00:49:51,230 --> 00:49:55,520
+在它引发故障并取消这些指令之前，
 and before it actually raises the fault and cancels these instructions, right,
 
 814
 00:49:55,610 --> 00:49:58,880
+如果这个负载退出，
 if the fault if this load would be retired,
 
 815
 00:49:58,880 --> 00:50:00,290
+比如在这一点上，
 say at this point,
 
 816
 00:50:00,700 --> 00:50:02,440
+那对我们来说太早了，
 that would be too early for us,
 
 817
 00:50:02,620 --> 00:50:07,240
+因为我们需要预测执行第 13 行，
 because it's going to turn out we actually need line 13 to be speculatively executed
 
 818
 00:50:07,510 --> 00:50:08,980
+才能完成攻击，
 in order to complete the attack,
 
 819
 00:50:09,160 --> 00:50:10,780
+所以，我们希望确保
 so we want to make sure that
 
 820
 00:50:10,780 --> 00:50:14,470
+这个加载不会退出，时间越长越好，
 this load isn't retired for as long as possible,
 
 821
 00:50:15,150 --> 00:50:20,120
+以延迟故障和延迟预测取消。
 in order to delay the fault and delay the speculative cancellation.
 
 822
 00:50:20,480 --> 00:50:24,920
+我们知道指令不会在所有之前的指令都退出之前退出，
 Now we know instructions aren't retired until all previous instructions have retired,
 
 823
 00:50:25,400 --> 00:50:26,480
+这是规则之一。
 it's one of the rules.
 
 824
 00:50:27,090 --> 00:50:28,560
+所以在第 7 行，
 So at line 7,
 
 825
 00:50:28,620 --> 00:50:32,010
+我们将使用一些昂贵的指令，
 I'm imagining that we're going to launch some expensive instruction,
 
 826
 00:50:32,010 --> 00:50:33,600
+这些指令很长一段时间内都不会完成，
 that doesn't complete for a long time,
 
 827
 00:50:33,840 --> 00:50:37,110
+也许它加载其他已知必须来自内存的内容，
 maybe it loads something else that's known to have to come from RAM,
 
 828
 00:50:37,110 --> 00:50:38,580
+所以这需要几百个周期，
 so it'll take a few hundred cycles,
 
 829
 00:50:38,580 --> 00:50:41,760
+或者它做除法或平方根之类的，
 or maybe it does a divide or a square root or something,
 
 830
 00:50:41,760 --> 00:50:43,980
+无论什么需要很长时间的事情，
 who knows what something that takes a long time,
 
 831
 00:50:44,070 --> 00:50:46,320
+它在很长一段时间内都不会退出，
 it won't be retired for a long time,
 
 832
 00:50:46,530 --> 00:50:50,340
+因此导致这个负载在很长一段时间内不会退出，
 and therefore will cause this load not to be retired for a long time,
 
 833
 00:50:50,550 --> 00:50:53,940
+让这些指令有时间预测执行。
 giving these instructions time to execute speculatively.
 
 834
 00:50:57,420 --> 00:50:59,010
+好的，现在我们再次假设，
 Right, now we're assuming again,
 
 835
 00:50:59,010 --> 00:51:01,830
+我们在内核中有一个虚拟地址，
 we have a virtual address in the kernel,
 
 836
 00:51:04,680 --> 00:51:06,960
+执行第 10 行，
 gonna execute line 10,
 
 837
 00:51:07,140 --> 00:51:09,150
+第 10 行不会出现错误，
 line ten won't raise a fault, until that,
 
 838
 00:51:09,150 --> 00:51:10,590
+我们知道它会出现错误，
 we know it's going to raise a fault,
 
 839
 00:51:10,590 --> 00:51:12,120
+但是退出前不会出现错误，
 won't raise a fault until retires,
 
 840
 00:51:12,120 --> 00:51:15,300
+但是我们已经设置好了，
 but we're intending, we believe we've set things up,
 
 841
 00:51:15,300 --> 00:51:17,640
+所以暂时不会退出，因为它还没有退出，
 so won't retire for a while, since it hasn't retired,
 
 842
 00:51:18,390 --> 00:51:20,190
+而且因为在 Intel CPU 上，
 and because on Intel CPUs,
 
 843
 00:51:20,310 --> 00:51:23,790
+即使你不被允许查看，数据也会返回，
 the data is returned, even if you weren't allowed to see it,
 
 844
 00:51:23,940 --> 00:51:26,830
+数据返回用于预测执行，
 the data return for speculative execution,
 
 845
 00:51:26,830 --> 00:51:28,270
+即使你没有权限，
 even if you did not permission,
 
 846
 00:51:28,840 --> 00:51:32,050
+这意味着我们可以预测执行，
 that means that we can speculatively execute,
 
 847
 00:51:32,320 --> 00:51:34,420
+机器将预测执行第 11 行，
 the machine will speculatively execute line 11
 
 848
 00:51:34,420 --> 00:51:37,560
+并获得内核数据的低位，
 and get the low bit of kernel data now,
 
 849
 00:51:38,040 --> 00:51:40,140
+乘以 4096 ，
 multiplied by 4096,
 
 850
 00:51:40,350 --> 00:51:43,770
+第 13 行是另一个加载，
 line 13 is itself a load, it's another load,
 
 851
 00:51:44,570 --> 00:51:50,800
+使用 buf 的地址加上 r2 的内容的地址，
 using an address basically the address of buf plus the contents of r2,
 
 852
 00:51:51,570 --> 00:51:54,510
+我们知道它会被取消，
 we know it's going to get cancelled,
 
 853
 00:51:55,160 --> 00:51:57,620
+因为我们知道这个会产生错误，
 because we know this will fault, right,
 
 854
 00:51:57,620 --> 00:52:00,440
+我们知道对 r3 的写入会被取消，
 we know the actual write to r3 will be cancelled,
 
 855
 00:52:00,470 --> 00:52:09,250
+但是第 13 行将导致来自 buf 的一些数据加载到缓存中，
 but line 13 will cause some data from buf to be loaded into the cache,
 
 856
 00:52:09,520 --> 00:52:12,400
+即使它最终不会影响到寄存器 3 ，
 even if it doesn't end up affecting register 3,
 
 857
 00:52:12,490 --> 00:52:17,860
+所以，第 13 行将导致某些内容被加载到缓存中，
 so r3, line 13 is going to cause something to be loaded into the cache,
 
 858
 00:52:18,100 --> 00:52:21,250
+这取决于低位是否为 0 或 1 ，
 and this case depending on whether the low bit is 0 or 1,
 
 859
 00:52:21,880 --> 00:52:28,660
+第 13 行将导致缓存包含 buf 0 或 buf 4096 ，
 line 13 will cause the actual cache to contain either buf 0 or buf 4096,
 
 860
 00:52:30,010 --> 00:52:33,250
+然后，
 then, right, then that,
 
 861
 00:52:33,460 --> 00:52:35,440
+即使 r2 和 r3 已经取消，
 even though r2 and r3 are cancelled,
 
 862
 00:52:35,500 --> 00:52:38,200
+变化会在缓存中，
 the change in the cache,
 
 863
 00:52:38,230 --> 00:52:40,600
+因为假设它是隐藏的微架构状态，
 because it's supposed to be hidden micro-architectural state,
 
 864
 00:52:40,600 --> 00:52:43,420
+实际上，缓存会被修改。
 that will actually be the cache will be changed.
 
 865
 00:52:44,680 --> 00:52:46,600
+最后，在某个时刻，错误将会发生，
 Finally, at some point, the fault will happen,
 
 866
 00:52:46,990 --> 00:52:50,740
+我们需要在错误后进行恢复，
 and we need to sort of recover after the fault,
 
 867
 00:52:50,740 --> 00:52:52,510
+但这只是一个页面错误，
 but it's just a page fault,
 
 868
 00:52:52,510 --> 00:52:57,160
+你可以或者用户进程可以注册一个页面错误处理程序，
 and it turns out you can or user process can register a page fault handler
 
 869
 00:52:57,340 --> 00:52:59,200
+并在页面错误后重新获得控制权，
 and get control back after a page fault,
 
 870
 00:52:59,200 --> 00:53:03,730
+论文还提到了几种在故障发生后可以继续的方法。
 and the paper mentions a couple of other ways of being able to continue after the fault.
 
 871
 00:53:05,470 --> 00:53:06,940
+现在我们要做的就是找出
 And now all we have to do is figure out
 
 872
 00:53:06,940 --> 00:53:11,440
+加载到缓存中的是 buf 0 还是 buf 4096 ，
 whether it was buf 0 or buf 4096, that was loaded into the cache,
 
 873
 00:53:11,620 --> 00:53:13,930
+现在我们可以做刷新并重新加载的重新加载部分，
 and now we can do the reload part of flush and reload,
 
 874
 00:53:14,050 --> 00:53:17,290
+我们读出准确的时间，
 we read the accurate time,
 
 875
 00:53:18,120 --> 00:53:20,460
+加载 buf 0 ，再读一遍时间，
 load buf 0, read the time again,
 
 876
 00:53:20,460 --> 00:53:22,800
+加载 buf 1 ，再读一次时间，
 load buf 1, read the time again,
 
 877
 00:53:22,800 --> 00:53:24,780
+比较这两个时间上的差异，
 and compare the two differences in time,
 
 878
 00:53:24,930 --> 00:53:27,570
+无论哪一个花费的时间较短，
 and whichever one of these took a shorter amount of time,
 
 879
 00:53:28,140 --> 00:53:34,520
+可能指示内核数据的低位是 0 还是 1 。
 is likely to indicate whether the low bit of the kernel data was 0 or 1.
 
 880
 00:53:39,350 --> 00:53:43,490
+然后我们将其重复几十亿次，
 And then we report that repeat that a couple of billion times,
 
 881
 00:53:44,270 --> 00:53:45,770
+我们可以扫描所有内核内存。
 we can scan all of kernel memory.
 
 882
 00:53:47,100 --> 00:53:49,080
+但是在这个例子中，
 But in this example,
 
 883
 00:53:49,230 --> 00:53:52,560
+如果 b 减去 a 小于 c 减去 b ，
 if b minus a smaller than c minus b,
 
 884
 00:53:52,560 --> 00:53:56,400
+这是否意味着 buf 0 被缓存了。
 doesn't that mean that buf of 0 was cached.
 
 885
 00:53:57,060 --> 00:54:00,420
+让我看看是不是搞错了，
 Let's see if I got this wrong,
 
 886
 00:54:00,450 --> 00:54:03,630
+b 减去 a 意味着 buf 0 是缓存的，
 b minus a yeah means the buf 0 was cache,
 
 887
 00:54:03,630 --> 00:54:06,600
+是的，你说得对。
 oh yeah yeah yeah you're right.
 
 888
 00:54:10,790 --> 00:54:15,180
+现在我们[]，做得好。
 Now we're [], good catch.
 
 889
 00:54:17,540 --> 00:54:19,670
+哦，抱歉，你是否需要，
 Oh, sorry, do you need for,
 
 890
 00:54:19,820 --> 00:54:25,010
+在第 9 行之前是否有一个 if ，
 before we had an if before like 9,
 
 891
 00:54:25,700 --> 00:54:30,050
+我们是否需要 if ，还是仍然会这样。
 do we need if now or is it is still at all.
 
 892
 00:54:31,980 --> 00:54:38,280
+为了帮助我阐明预测执行的正当理由，
 The efforts to help me illustrate the legitimate reasons for speculative execution,
 
 893
 00:54:38,820 --> 00:54:43,410
+即使我们不知道分支是否被选择，也要继续计算，
 keep computing even though we don't know whether the branch took or not,
 
 894
 00:54:43,410 --> 00:54:47,610
+但是这里真正的猜测核心是，
 but here the real core of the speculation is that,
 
 895
 00:54:47,670 --> 00:54:51,740
+我们不知道这个加载载会出现错误，
 we don't know if this load will fault, right,
 
 896
 00:54:51,740 --> 00:54:56,150
+所以机器预测执行通过加载，
 and so we're the machines speculatively executing past the load,
 
 897
 00:54:56,330 --> 00:55:00,830
+理论上，很可能不会出现错误，
 on the theory that it's probably most don't fault, right,
 
 898
 00:55:00,830 --> 00:55:02,090
+即使它们可能需要很长时间，
 even though they may take a long time,
 
 899
 00:55:02,090 --> 00:55:04,340
+比如一次加载可能需要数百个循环，
 like a load could take hundreds of cycles,
 
 900
 00:55:04,970 --> 00:55:06,440
+所以我们希望能够，
 and so we'd love to be able to,
 
 901
 00:55:06,470 --> 00:55:09,530
+这样机器就会预测执行通过加载，
 so the machine will speculatively execute pass the load,
 
 902
 00:55:10,040 --> 00:55:14,140
+即使它不知道会不会出错，
 even though it doesn't, not knowing whether it's going to fault or not,
 
 903
 00:55:14,140 --> 00:55:16,300
+如果加载出现错误，
 and if the load did fault,
 
 904
 00:55:16,300 --> 00:55:18,460
+然后它会取消所有这些预测执行，
 it will then undo all this speculative execution,
 
 905
 00:55:18,730 --> 00:55:20,980
+这里会出现预测执行，
 there's a speculative execution comes up,
 
 906
 00:55:21,670 --> 00:55:27,970
+任何时刻，你有一条长时间运行的指令可能会或不会成功，
 any time you have a long running instruction that may or may not succeed,
 
 907
 00:55:28,000 --> 00:55:29,080
+比如除法，
 so like divide,
 
 908
 00:55:29,110 --> 00:55:31,030
+我们不知道它是否被零除，
 so we know whether it's going to be divided by zero or not,
 
 909
 00:55:31,030 --> 00:55:33,940
+所以除法器后的指令也在猜测。
 you know so instructions after divider also speculated.
 
 910
 00:55:35,980 --> 00:55:39,070
+不管怎样，真正的预测执行从这里开始，
 Anyway, the speculation, the real critical speculation starts here,
 
 911
 00:55:39,070 --> 00:55:40,120
+实际上我们试着，
 now, in fact we tried,
 
 912
 00:55:41,260 --> 00:55:43,930
+为了让攻击更有可能成功，
 in order to make the attack likely more successful,
 
 913
 00:55:43,930 --> 00:55:46,570
+我们确保预测从这里开始，
 we sort of ensure that speculation starts here,
 
 914
 00:55:46,570 --> 00:55:48,790
+所以这才是我们真正关心的预测。
 but this is the real speculation we care about.
 
 915
 00:56:01,640 --> 00:56:02,690
+还有其他问题吗？
 Other questions?
 
 916
 00:56:06,100 --> 00:56:10,730
+对于这个例子我们只读了一位，
 For this example we've only read one bit,
 
 917
 00:56:13,050 --> 00:56:16,590
+是否可以做一些简单的修改，
 is is there some likes really small, simple modification,
 
 918
 00:56:16,590 --> 00:56:19,890
+我们可以读取完整的寄存器大小的位。
 that we could make to read like a full register size of bits.
 
 919
 00:56:20,100 --> 00:56:22,590
+是的，运行 64 次，每个位一次。
 Yeah, run this 64 times, one for each bit.
 
 920
 00:56:24,810 --> 00:56:29,760
+为什么不能一次读取 64 位呢？
 Why is it not possible to just read 64 bits at a time?
 
 921
 00:56:30,790 --> 00:56:34,290
+六十，你需要这个 buf ，
 A sixty, sixty, well you need the buf,
 
 922
 00:56:34,320 --> 00:56:36,660
+这个 buf 的大小必须是，
 the size of this buffer has to be
 
 923
 00:56:36,660 --> 00:56:44,430
+达到 2 的位数次方的 4096 倍，
 to the you know two to the number of bits, you're reading times 4096 or something,
 
 924
 00:56:44,670 --> 00:56:46,050
+所以 64 位太大了，
 so 64 bits is too big,
 
 925
 00:56:46,050 --> 00:56:48,810
+我们没有足够的内存来制作那么大的 buf ，
 we don't have enough memory to a make a buffer that big,
 
 926
 00:56:50,810 --> 00:56:52,700
+我们需要这个设置的方式。
 we need this, the way this is set up.
 
 927
 00:56:54,810 --> 00:57:00,310
+但不管怎样， 64 位太多了，
 But anyway, 64 bits too much,
 
 928
 00:57:00,310 --> 00:57:02,080
+你可以一次读取 8 位，
 you could certainly 8 bit of time,
 
 929
 00:57:02,320 --> 00:57:09,350
+让缓冲器大小为 256 乘以 4096 。
 and have this buf size be 256 times 4096.
 
 930
 00:57:11,620 --> 00:57:13,060
+这篇论文讨论了，
 The paper actually argues the,
 
 931
 00:57:14,860 --> 00:57:16,540
+论文观察到，
 the paper observes,
 
 932
 00:57:18,150 --> 00:57:23,500
+由于大部分时间都在刷新并重新加载，
 that since the most of the time is here in the flush reload,
 
 933
 00:57:25,380 --> 00:57:27,720
+如果你一次读取一个字节，
 if you read a byte at a time,
 
 934
 00:57:28,620 --> 00:57:36,750
+则计算出字节的那些位需要 256 次刷新和重新加载，
 then figuring out what the bits of that byte are takes 256 flush and reloads,
 
 935
 00:57:38,310 --> 00:57:40,140
+每个可能值对应一个。
 one for each possible value.
 
 936
 00:57:40,800 --> 00:57:42,780
+如果一次加载一个位，
 If you load a bit at a time,
 
 937
 00:57:43,140 --> 00:57:47,470
+那么每个位只需要一次刷新和重新加载，
 then each bit takes just one flush plus reload,
 
 938
 00:57:47,470 --> 00:57:51,460
+可以是两个刷新并重新加载，
 are sort of two two are two flush plus reloads,
 
 939
 00:57:51,610 --> 00:57:52,930
+所以如果你一次需要一个位，
 so if you need a bit of time,
 
 940
 00:57:53,140 --> 00:57:56,170
+那么你只需要 16 次刷新并重新加载，
 then you end up only doing 16 flush plus reloads,
 
 941
 00:57:56,170 --> 00:57:57,160
+如果你一次读取一个字节，
 if you read a byte at a time,
 
 942
 00:57:57,160 --> 00:57:59,800
+则需要执行 256 次刷新和重新加载，
 you end up doing 256 flush plus reloads,
 
 943
 00:58:00,160 --> 00:58:00,910
+这篇论文说，
 the paper says that,
 
 944
 00:58:00,910 --> 00:58:04,000
+一次做一位比一次做一个字节要快。
 it's faster to do it a bit at a time than a byte at a time.
 
 945
 00:58:05,890 --> 00:58:10,500
+这看起来有点违反直觉，但似乎是真的。
 Which seems a little counterintuitive, seems to be true.
 
 946
 00:58:18,960 --> 00:58:20,010
+还有其他问题吗？
 Other questions?
 
 947
 00:58:28,760 --> 00:58:32,810
+那么这个用户程序，这个程序要从哪里运行，
 So where would this user program, will this program have to be run from,
 
 948
 00:58:33,890 --> 00:58:37,400
+机器上有没有什么特别的位置，
 is there any particular location on the machine,
 
 949
 00:58:37,400 --> 00:58:38,690
+不一定是，
 that doesn't have to be,
 
 950
 00:58:39,480 --> 00:58:41,220
+我想说你把它写在哪里？
 where would you write it I guess?
 
 951
 00:58:43,650 --> 00:58:47,340
+这个程序是从哪里运行的，可以是一个用户程序吗？
 Where would this program be run from, can be a user program?
 
 952
 00:58:47,880 --> 00:58:53,250
+是的，那取决于你有什么样的权限使用这台机器，
 Well yeah, that depends on what kind of access, you have to the machine,
 
 953
 00:58:53,250 --> 00:58:55,740
+以及你想要窃取的数据在哪里，
 and where the data is that you want to steal,
 
 954
 00:58:56,070 --> 00:58:59,360
+谁知道呢。
 and then you know who knows, right.
 
 955
 00:58:59,360 --> 00:59:02,150
+比如，假设，
 But for example is supposing,
 
 956
 00:59:03,000 --> 00:59:05,610
+你登录到 Athena 机器，
 you're logged into Athena [] machine,
 
 957
 00:59:06,030 --> 00:59:08,160
+这里有另外几百个用户，
 it was a couple hundred other users,
 
 958
 00:59:08,250 --> 00:59:10,170
+你想窃取某人的密码，
 and you want to steal somebody's password,
 
 959
 00:59:11,470 --> 00:59:12,340
+而且你很有耐心，
 and you're patient,
 
 960
 00:59:13,030 --> 00:59:15,160
+你可以使用，让我们假设，
 you can use and let's assume,
 
 961
 00:59:15,160 --> 00:59:17,320
+Athena 在几年前，
 that Athena is you know a couple years ago
 
 962
 00:59:17,320 --> 00:59:19,000
+Athena 运行的 Linux 版本
 and Athena was running a version of Linux
 
 963
 00:59:19,000 --> 00:59:22,840
+将内核映射到每个进程地址空间，
 that mapped the kernel into every user's every processes address space,
 
 964
 00:59:23,140 --> 00:59:26,080
+然后你就可以用 meltdown 得到一个个位，
 then you can use meltdown to get out bit by bit,
 
 965
 00:59:26,560 --> 00:59:27,430
+内核中的所有内容，
 everything in the kernel,
 
 966
 00:59:27,430 --> 00:59:30,820
+包括 IO 缓冲区和网络缓冲区等，
 including [] IO buffers and the network buffers and stuff,
 
 967
 00:59:30,910 --> 00:59:32,590
+如果有人在输入密码，
 and if somebody's typing their password,
 
 968
 00:59:32,620 --> 00:59:34,390
+如果你够幸运或有耐心，
 if you're lucky or patient,
 
 969
 00:59:35,340 --> 00:59:36,570
+有人在输入密码，
 and somebody's typing you know password,
 
 970
 00:59:36,570 --> 00:59:37,830
+你加载所有内核内存，
 and you load all of kernel memory,
 
 971
 00:59:37,860 --> 00:59:41,760
+你将在内核内存中看到那个密码。
 you're going to see that password in kernel memory, right.
 
 972
 00:59:42,580 --> 00:59:44,920
+并且内核可能映射，
 And because in fact the kernel probably maps
 
 973
 00:59:44,950 --> 00:59:47,590
+比如 xv6 映射所有物理内存，
 like xv6 maps all of physical memory,
 
 974
 00:59:47,830 --> 00:59:49,690
+这意味着你可能可以读取所有物理内存，
 that means you can probably read all physical memory,
 
 975
 00:59:49,690 --> 00:59:53,200
+即所有其他进程内存，
 that is all of all other processes memory,
 
 976
 00:59:53,320 --> 00:59:55,690
+在分时机器上使用这项技术。
 using this technique on a time sharing machine.
 
 977
 00:59:56,640 --> 01:00:01,500
+所以，我可以看到每个人的文本编辑器内容或我喜欢的任何内容。
 So I can see what's everybody's in text editor contents or whatever I like.
 
 978
 01:00:02,500 --> 01:00:04,330
+现在你必须，
 Now you have to,
 
 979
 01:00:05,460 --> 01:00:06,630
+这是一种你可以使用它的方式，
 that's a way you could use it,
 
 980
 01:00:06,630 --> 01:00:08,010
+如果你使用的是分时机器，
 if you're using a time machine,
 
 981
 01:00:08,010 --> 01:00:11,600
+对于其他情况，情况会有所不同。
 for other situations, you know it would be different.
 
 982
 01:00:12,270 --> 01:00:13,170
+了解了。
 Make sense.
 
 983
 01:00:13,920 --> 01:00:16,740
+分时技术不再那么普及了，
 In time sharing is not that pervasive anymore,
 
 984
 01:00:16,980 --> 01:00:20,130
+但最致命的场景
 but the sort of killer scenario
 
 985
 01:00:20,130 --> 01:00:21,990
+将是某种云计算，
 would be some kind of cloud computing thing,
 
 986
 01:00:21,990 --> 01:00:25,260
+你使用像亚马逊这样的云提供商，
 where you're using a cloud provider like Amazon,
 
 987
 01:00:25,650 --> 01:00:28,620
+而且在同一台机器上运行多个客户机。
 and you know which runs many customers on the same machine.
 
 988
 01:00:29,280 --> 01:00:33,480
+取决于他们如何设置虚拟机监视器的细节，
 And depending on the details of how they set up their virtual machine monitor
 
 989
 01:00:33,480 --> 01:00:36,090
+或者容器系统之类的。
 or container system or whatever it may be.
 
 990
 01:00:36,450 --> 01:00:40,640
+如果你从亚马逊购买时间，
 If you buy time from Amazon,
 
 991
 01:00:41,330 --> 01:00:46,720
+然后，也许你可以窥探其他客户机软件的内存，
 then you may be able to peer into the memory of other customer's software
 
 992
 01:00:46,720 --> 01:00:48,580
+运行在同一台亚马逊机器上的。
 running on the same Amazon machine maybe.
 
 993
 01:00:50,730 --> 01:00:51,900
+所以我认为这是真的，
 So I think that's really,
 
 994
 01:00:53,230 --> 01:00:55,120
+这可能就是人们实际使用它的方式。
 yeah, that's how people actually use this probably.
 
 995
 01:00:55,300 --> 01:00:59,170
+另一个可能有用的是你的浏览器，
 Actually another time that might be useful is your browser,
 
 996
 01:00:59,170 --> 01:00:59,800
+当你在浏览时，
 when you're browsing,
 
 997
 01:00:59,800 --> 01:01:03,070
+Web 浏览器会在其中运行许多不受信任的代码，
 the web browser actually runs a lot of code in it that is not trusted,
 
 998
 01:01:03,070 --> 01:01:05,350
+是由你随机访问的网站提供的，
 that is supplied by the random websites you visit,
 
 999
 01:01:07,330 --> 01:01:08,860
+也许是以插件的形式，
 maybe in the form of plugins,
 
 1000
 01:01:09,070 --> 01:01:12,370
+也许是 Javascript 的形式加载到您的浏览器中，
 may be in the form of Javascript, that's loaded in your browser,
 
 1001
 01:01:12,370 --> 01:01:15,840
+由浏览器编译并执行，
 and compiled by the browser and execute it,
 
 1002
 01:01:15,990 --> 01:01:19,500
+这是可能的，实施这个攻击，
 and it is possible, that this attack could be carried out
 
 1003
 01:01:19,770 --> 01:01:25,340
+通过你浏览网页时，在浏览器中运行的代码。
 by code that you run in your browser when you browse the web.
 
 1004
 01:01:26,190 --> 01:01:26,970
+你可能不会，
 That you may not,
 
 1005
 01:01:28,060 --> 01:01:30,220
+即使它从网站上运行他们的加载，
 even though it's running their load from websites
 
 1006
 01:01:30,220 --> 01:01:32,620
+他们也会窃取你笔记本电脑中的任何东西。
 and they would steal whatever stuff is sitting in your laptop.
 
 1007
 01:01:33,790 --> 01:01:36,040
+我不知道这件事的细节是不是真的行得通。
 I don't know if the details of that quite work out.
 
 1008
 01:01:37,180 --> 01:01:42,190
+有没有人演示过通过 Javascript 或 WebAssembly 的攻击？
 Has anyone demonstrated an attack through either Javascript or like WebAssembly?
 
 1009
 01:01:42,250 --> 01:01:43,150
+我不知道，
 I don't know, I don't,
 
 1010
 01:01:43,150 --> 01:01:46,300
+我觉得人们肯定会担心 WebAssembly 。
 I I feel certainly people worried about WebAssembly.
 
 1011
 01:01:46,920 --> 01:01:49,230
+我不知道攻击是否真的有可能，
 I don't know whether the attack was literally possible,
 
 1012
 01:01:50,010 --> 01:01:53,280
+对于 Javascript ，我知道，
 for Javascript I know that,
 
 1013
 01:01:53,900 --> 01:01:57,760
+也许症结在于准确的时间。
 maybe the sticking point was the accurate time, I mean.
 
 1014
 01:01:59,370 --> 01:02:01,620
+你不能得到这个纳秒的时间，
 You couldn't quite get this nanosecond timing,
 
 1015
 01:02:01,680 --> 01:02:04,770
+所以你现在不能执行刷新并重新加载，
 so you couldn't quite execute flush and reload now,
 
 1016
 01:02:04,770 --> 01:02:07,200
+除非一些更聪明的人
 whether somebody with a bit more cleverness
 
 1017
 01:02:07,200 --> 01:02:08,430
+可以想出一个办法来做这件事，
 could figure out a way to do it,
 
 1018
 01:02:08,430 --> 01:02:13,250
+我不知道 WebAssembly 更接近运行机器代码，
 I don't know WebAssembly is much closer to running machine code,
 
 1019
 01:02:13,250 --> 01:02:16,610
+我不知道细节是怎么回事，
 and you know I I don't know exactly how the details worked out,
 
 1020
 01:02:16,610 --> 01:02:21,160
+但是，很多人很快就想到了。
 but, oh boy was, so many people rapidly thought about.
 
 1021
 01:02:25,250 --> 01:02:29,180
+好的，事实是攻击并不总是有效的，
 Okay, it turns out the attack doesn't always work,
 
 1022
 01:02:29,420 --> 01:02:30,740
+原因是，
 like and for reasons that,
 
 1023
 01:02:30,830 --> 01:02:31,520
+我不认为，
 I don't think,
 
 1024
 01:02:31,550 --> 01:02:35,120
+作者从未解释过或只是猜测过，
 the author never explained or only speculated about,
 
 1025
 01:02:35,120 --> 01:02:38,000
+你可以看到，我不知道你是否能看到这个，
 and you can see, I don't know if you can see this,
 
 1026
 01:02:38,000 --> 01:02:39,140
+也许你看不到这个，
 well, maybe you can't see this,
 
 1027
 01:02:39,170 --> 01:02:41,990
+但如果你翻到他们论文的最后一页，
 but if you turn the last page of their paper,
 
 1028
 01:02:42,260 --> 01:02:44,060
+你会看到它实际的输出，
 you'll see the output it's actually,
 
 1029
 01:02:44,150 --> 01:02:47,150
+他们在自己的机器上发动了攻击，
 you know, they mounted the attack on their own machines
 
 1030
 01:02:47,150 --> 01:02:51,080
+并从自己的机器上的内核中提取了一系列数据。
 and extracted a bunch of data from their own, the kernel on their own machine.
 
 1031
 01:02:51,530 --> 01:02:53,670
+如果你仔细看，
 And, if you look closer,
 
 1032
 01:02:53,670 --> 01:02:56,040
+你会发现这些很多行，
 you'll see there's a huge all these lines
 
 1033
 01:02:56,370 --> 01:03:01,410
+都是 xx xxx ， x 以及点，
 are just xx xxx xxx, all these lines x x with dots,
 
 1034
 01:03:01,560 --> 01:03:04,620
+在这些地方，他们没有提取到任何东西，
 these are places where they didn't manage to extract anything,
 
 1035
 01:03:04,650 --> 01:03:06,120
+meltdown 失效了，
 where meltdown failed,
 
 1036
 01:03:06,540 --> 01:03:08,880
+尽管他们重复了很多次。
 even though they repeated it many times.
 
 1037
 01:03:09,340 --> 01:03:11,530
+你可以看出他们一定是，
 And you can tell they must have been,
 
 1038
 01:03:11,650 --> 01:03:16,480
+这个论文的攻击版本重试了很多次，
 you know they were the papers version of this attack was re-trying many many times,
 
 1039
 01:03:16,480 --> 01:03:19,570
+因为第 6.2 节谈到了性能，
 because for example section 6.2 talks about performance,
 
 1040
 01:03:19,870 --> 01:03:21,340
+表示在某些情况下，
 says that in some cases,
 
 1041
 01:03:21,490 --> 01:03:24,910
+它们可以提取数据的速率仅为每秒 10 字节，
 the rate at which they could extract data was only ten bytes per second,
 
 1042
 01:03:25,450 --> 01:03:27,640
+这意味着他们在那里一次又一次地尝试，
 which means they were sitting there trying again and again and again,
 
 1043
 01:03:27,640 --> 01:03:31,660
+在几千次之后，他们终于设法获得了一些数据，
 and after thousands of times they finally managed to get some data,
 
 1044
 01:03:31,660 --> 01:03:32,230
+也就是，
 that is that,
 
 1045
 01:03:32,730 --> 01:03:37,860
+刷新并重新加载表示两个缓存行有不同的加载时间。
 flush plus reload indicated that the two cache lines at different load times.
 
 1046
 01:03:39,270 --> 01:03:40,710
+所以有一些无法解释的事情，
 So there's something unexplained going on
 
 1047
 01:03:40,710 --> 01:03:45,180
+关于为什么 meltdown 失败的频率很高，
 about why it's quite frequent for meltdown actually fail,
 
 1048
 01:03:45,210 --> 01:03:47,580
+获取一些数据，获取真实的数据，
 get some data actually got real data here,
 
 1049
 01:03:48,140 --> 01:03:49,970
+还有一堆他们没有得到的数据，
 there's also a bunch of data that they didn't get,
 
 1050
 01:03:50,420 --> 01:03:54,370
+我不知道人们，
 and I don't know if people,
 
 1051
 01:03:54,370 --> 01:03:56,410
+据我所知，人们并不确定，
 as far as I know, people are not really sure,
 
 1052
 01:03:56,410 --> 01:04:00,340
+它成功或不成功的时候的条件是什么，
 what all the conditions are about when it succeeds when it doesn't,
 
 1053
 01:04:00,490 --> 01:04:03,130
+你知道最直接的可能性是，
 you know the most straightforward possibility is that,
 
 1054
 01:04:03,130 --> 01:04:07,420
+如果内核数据在 L1 缓存中，则 meltdown 成功，
 if the kernel data is in the L1 cache, the meltdown succeeds,
 
 1055
 01:04:07,420 --> 01:04:10,540
+如果内核数据不在 L1 缓存中，则不会成功。
 and the kernel data is not in the L1 cache, doesn't succeed.
 
 1056
 01:04:10,600 --> 01:04:15,010
+这很容易让人相信就是正在发生的事情，
 That's very easy to believe that that could be what's going on,
 
 1057
 01:04:15,760 --> 01:04:17,500
+因为如果它不在 L1 缓存中，
 because if it's not in the L1 cache,
 
 1058
 01:04:17,620 --> 01:04:21,490
+会有一大堆更多的机制参与到预测加载中，
 then there's a whole bunch more machinery involved in speculative load
 
 1059
 01:04:21,730 --> 01:04:26,740
+很容易想象 CPU 对于预测加载，
 and it's easy to imagine that the CPU for speculative load,
 
 1060
 01:04:26,770 --> 01:04:28,990
+可能还不知道是否需要，
 that's maybe not known if it's even needed,
 
 1061
 01:04:29,590 --> 01:04:34,840
+不会费心去从内存加载东西。
 would not bother doing all the work required to load stuff from RAM.
 
 1062
 01:04:36,440 --> 01:04:39,280
+但是，事情并没有那么简单，
 But, it's not quite that simple,
 
 1063
 01:04:40,150 --> 01:04:41,500
+你可以看出事情没有那么简单，
 you can tell it's not quite that simple,
 
 1064
 01:04:41,500 --> 01:04:44,290
+因为论文中说到有时当他们尝试，
 because the paper says that sometimes when they tried,
 
 1065
 01:04:44,380 --> 01:04:47,650
+重试了很多次，最后奏效了，
 retried many times and it finally worked,
 
 1066
 01:04:47,710 --> 01:04:50,970
+所以有一些更复杂的情况，
 so there's some more complex condition,
 
 1067
 01:04:51,000 --> 01:04:54,360
+也许是在 CPU 内部的竞争，
 maybe a race effectively race inside the CPU
 
 1068
 01:04:54,750 --> 01:04:57,030
+它偶尔可以工作，
 under which it occasionally works,
 
 1069
 01:04:57,800 --> 01:04:59,990
+即使对于不在缓存中的数据。
 even for data that's not not in the cache.
 
 1070
 01:05:06,670 --> 01:05:08,650
+论文的结尾也是，
 The end of the paper is actually also,
 
 1071
 01:05:08,650 --> 01:05:10,420
+如果你还没读到，它值得一读，
 if you didn't get that for worth reading,
 
 1072
 01:05:10,420 --> 01:05:13,570
+因为它解释了一种更真实的世界，
 because it does explain a sort of more real world,
 
 1073
 01:05:13,570 --> 01:05:15,700
+我们想找出这件事，
 like we wanted to find out this particular thing,
 
 1074
 01:05:15,700 --> 01:05:20,410
+我们知道火狐的密码管理器里有密码，
 you know this, we know there's passwords stored in our Firefox's password manager,
 
 1075
 01:05:20,440 --> 01:05:21,430
+我们想把它们弄出来，
 we wanted to get them out
 
 1076
 01:05:21,820 --> 01:05:23,680
+然后用 meltdown 偷走他们，
 and steal them using meltdown,
 
 1077
 01:05:23,860 --> 01:05:26,680
+你怎么找出地址，
 you know what are all the, how do you find out what the addresses,
 
 1078
 01:05:26,680 --> 01:05:30,100
+比如，他们策划了一场完整的攻击，
 for example, they sort of lay out a complete attack,
 
 1079
 01:05:30,340 --> 01:05:34,290
+我的意思是，完全由学者进行的攻击不是真正的袭击者，
 I mean, a complete attack done by academics not real attackers,
 
 1080
 01:05:34,290 --> 01:05:37,290
+但尽管如此，并填补了许多[务实]的细节。
 but nevertheless and filling many of the [pragmatic] details.
 
 1081
 01:05:40,630 --> 01:05:44,290
+我唯一想谈的就是他的修复，
 The only thing I want to talk about is his fixes,
 
 1082
 01:05:45,090 --> 01:05:46,380
+你已经了解了一点。
 you've already touched on a little bit.
 
 1083
 01:05:47,230 --> 01:05:52,560
+这篇论文发表后，引起了很大的关注。
 When this paper came out, it got a lot of attention,
 
 1084
 01:05:52,560 --> 01:05:54,180
+实际上，还有另一篇论文，
 and there was actually another second paper
 
 1085
 01:05:54,180 --> 01:05:57,960
+由同样的人撰写的关于不同攻击的论文，
 by overlapping set of people about a different attack,
 
 1086
 01:05:57,960 --> 01:06:03,320
+也在 CPU 内部使用了不同类型的预测，称为 spectre 。
 that also used different, different kind of speculation inside CPUs, called spectre.
 
 1087
 01:06:03,350 --> 01:06:06,650
+所以，这两份文件同时出来了，
 So the pair of papers came out at the same time
 
 1088
 01:06:06,680 --> 01:06:09,920
+非常令人兴奋。
 and was very exciting.
 
 1089
 01:06:10,160 --> 01:06:11,150
+所以人们争先恐后地，
 And so people hustled,
 
 1090
 01:06:11,150 --> 01:06:13,700
+人们意识到这是极具破坏性的，
 people realize that boy, this is extremely damaging,
 
 1091
 01:06:13,700 --> 01:06:14,990
+因为我们现在谈论的是，
 because now we're talking about is that
 
 1092
 01:06:15,110 --> 01:06:17,510
+隔离性被打破了。
 you know isolation has been broken, right.
 
 1093
 01:06:17,940 --> 01:06:21,060
+所以基本上不用再想它了，
 You're gonna hardly, so basically hardly even think about it anymore,
 
 1094
 01:06:21,060 --> 01:06:26,430
+但是这是一种打破页表保护的技术，
 but you know this thing, this is a technique for breaking page table protections,
 
 1095
 01:06:26,460 --> 01:06:30,390
+这就是我们如何实施用户和内核之间的隔离，
 which is you know how we enforce isolation between user and kernel,
 
 1096
 01:06:30,390 --> 01:06:33,840
+这就是根本性的攻击，
 it's like deeply fundamental attack,
 
 1097
 01:06:34,350 --> 01:06:39,060
+或者以任何方式破坏一项极其重要的安全措施，
 or anyway undermines an extremely important piece of security,
 
 1098
 01:06:40,160 --> 01:06:41,330
+从一个非常普遍的角度来看，
 in a very general way right,
 
 1099
 01:06:41,330 --> 01:06:42,410
+看起来你能看到任何东西。
 seems like you could read anything.
 
 1100
 01:06:43,790 --> 01:06:47,600
+所以人们非常争先恐后地部署修复方案，
 And so people really really hustled, to a deploy fixes for this,
 
 1101
 01:06:47,600 --> 01:06:52,490
+很多操作系统出了立即修复，
 in the immediate fix that a lot of operating systems installed
 
 1102
 01:06:52,490 --> 01:06:56,730
+在这篇论文发表后的几周内，
 within weeks of this paper coming out
 
 1103
 01:06:56,730 --> 01:06:59,400
+有时已经安装了这个叫做 KASLR 的东西，
 and sometimes had already installed this thing called KASLR,
 
 1104
 01:07:00,180 --> 01:07:03,510
+现在在 Linux 中称为 kpti ，
 which is now called kpti in Linux,
 
 1105
 01:07:03,540 --> 01:07:06,060
+这是一个相当直截了当的想法，
 and it's a pretty straightforward idea,
 
 1106
 01:07:06,330 --> 01:07:10,470
+这个想法就是不将内核映射放在用户页表中，
 the idea is just like not to put the kernel mappings in the user page table,
 
 1107
 01:07:11,010 --> 01:07:15,030
+并且如 xv6 中的那样，
 and instead as in xv6,
 
 1108
 01:07:15,900 --> 01:07:18,540
+在系统调用期间切换页表，
 switch page tables during system calls,
 
 1109
 01:07:18,540 --> 01:07:21,990
+所以用户空间只有用户映射发起系统调用，
 so user space just user mappings make a system call,
 
 1110
 01:07:22,020 --> 01:07:24,870
+有类似 xv6 中的 trampoline 的安排，
 there's some kind of trampoline arrangement like in xv6,
 
 1111
 01:07:24,870 --> 01:07:29,190
+你将页表切换到具有内核映射的页表，
 and you switch page tables to a page table that has the kernel mappings
 
 1112
 01:07:29,190 --> 01:07:30,240
+为了执行内核。
 in order to execute the kernel.
 
 1113
 01:07:32,080 --> 01:07:34,780
+这会导致攻击无法工作，
 And that causes attack cannot work,
 
 1114
 01:07:34,990 --> 01:07:41,210
+因为在那里你切换了页表，
 because the, in that because you switch page tables,
 
 1115
 01:07:41,840 --> 01:07:45,470
+在 r1 中的这个虚拟地址，
 this virtual address in r1,
 
 1116
 01:07:47,400 --> 01:07:51,780
+不仅不再有效，而且不再有意义，
 it's not only no longer valid, it's no longer meaningful,
 
 1117
 01:07:51,990 --> 01:07:54,300
+因为没有给它的转换，
 because there's no translation for it,
 
 1118
 01:07:55,080 --> 01:07:58,140
+所以 CPU 不知道如何处理它，
 so the CPU doesn't know what to do with it,
 
 1119
 01:07:58,790 --> 01:08:00,950
+这个虚拟地址不会被缓存，
 like this virtual address won't be cached,
 
 1120
 01:08:01,250 --> 01:08:03,470
+它甚至不在 TLB 中，
 it's not even in the TLB,
 
 1121
 01:08:03,830 --> 01:08:05,600
+所以内核没有方法
 so there's just no way for the kernel
 
 1122
 01:08:05,600 --> 01:08:08,930
+决定哪个内存对应于这个虚拟地址。
 to decide what memory corresponds to this virtual address.
 
 1123
 01:08:10,600 --> 01:08:12,670
+当这种攻击在用户空间中执行时，
 You know when this attack is executed in user space,
 
 1124
 01:08:12,880 --> 01:08:15,670
+因为这个内核的虚拟地址不再有任何意义，
 because this virtual, this kernel virtual address no longer means anything,
 
 1125
 01:08:16,520 --> 01:08:19,520
+不是非法的，只是没有意义，
 it's not, it's not illegal, it's just meaningless,
 
 1126
 01:08:20,300 --> 01:08:22,550
+所以这会导致攻击不起作用。
 and so that would cause the attack not to work.
 
 1127
 01:08:23,420 --> 01:08:26,870
+这个 KASLR 修复的缺点是，
 The downside of this KASLR fixes,
 
 1128
 01:08:26,870 --> 01:08:30,110
+现在系统调用更昂贵了，因为要切换页表。
 that now system calls are more expensive, because switching page tables.
 
 1129
 01:08:32,610 --> 01:08:34,080
+如果你不执行任何操作，
 If you don't do anything,
 
 1130
 01:08:34,110 --> 01:08:37,680
+切换页表会导致 TLB 刷新，
 switching page tables causes the TLB flushed,
 
 1131
 01:08:37,680 --> 01:08:41,430
+因为现在所有那些虚拟地址和 TLB 都是错误的虚拟地址，
 because now all those virtual addresses and TLB are the wrong virtual addresses,
 
 1132
 01:08:41,430 --> 01:08:43,200
+不再与这个页表对应，
 that don't correspond to this page table anymore,
 
 1133
 01:08:43,350 --> 01:08:45,510
+它会导致 L1 缓存被刷新，
 and it causes the L1 cache to be flushed,
 
 1134
 01:08:45,510 --> 01:08:46,830
+因为它是虚拟地址，
 because it's virtually address
 
 1135
 01:08:47,340 --> 01:08:50,310
+所以，在某些机器上，
 and so on on some machines,
 
 1136
 01:08:50,310 --> 01:08:54,160
+切换页表会使系统调用变得相当慢。
 the switching page tables made system calls considerably slower.
 
 1137
 01:08:56,820 --> 01:08:59,820
+在最近的机器中，有一种叫做 PCID 的技巧，
 In an recent machines actually have this trick called PCID,
 
 1138
 01:08:59,820 --> 01:09:01,380
+你可以查到，
 which you can look up,
 
 1139
 01:09:01,380 --> 01:09:02,160
+但基本上是，
 but basically makes it,
 
 1140
 01:09:02,160 --> 01:09:05,610
+你可以避免切换页表时刷新这些缓存，
 so you can avoid flushing these caches on a page table switch,
 
 1141
 01:09:05,640 --> 01:09:06,930
+虽然还需要一些时间。
 although it still takes some time.
 
 1142
 01:09:07,920 --> 01:09:10,260
+如果你在网络上随便看看，
 And if you poke around the web looking for people,
 
 1143
 01:09:10,260 --> 01:09:12,060
+当时有很多人担心，
 there was a lot of worry at the time,
 
 1144
 01:09:12,060 --> 01:09:17,310
+这种拆分，这种两页表的想法会非常慢，
 that this split, that this two page table idea would be unacceptably slow,
 
 1145
 01:09:17,640 --> 01:09:21,390
+事实上，这并不是一个严重的问题，
 now in fact, that didn't really turn out to be a serious problem,
 
 1146
 01:09:21,420 --> 01:09:22,320
+如果你四处看看，
 and if you poke around,
 
 1147
 01:09:22,320 --> 01:09:26,130
+你会发现人们对典型工作量的猜测，
 you'll see that people's guesses about typical workloads,
 
 1148
 01:09:26,460 --> 01:09:29,880
+它对典型工作量的整体性能有多大影响，
 you know how much it impacts overall performance of typical workloads,
 
 1149
 01:09:29,880 --> 01:09:34,950
+毕竟不会把所有的时间都花在进入和退出内核上，大概是 5% ，
 which after all, don't spend all their time entering and exiting kernel, is like 5%,
 
 1150
 01:09:35,970 --> 01:09:37,770
+所以这并不是一个很糟糕的决定。
 so it wasn't such a bad deal.
 
 1151
 01:09:41,690 --> 01:09:45,940
+关于 KASLR 修复，有什么问题吗？
 Any questions about this KASLR fix?
 
 1152
 01:09:52,620 --> 01:09:54,930
+所以人们很快就接受了这项技术，
 So people adopted this pretty rapidly,
 
 1153
 01:09:55,260 --> 01:09:57,750
+事实上，已经有内核采用了它，
 in fact there had been kernels that had already adopted it,
 
 1154
 01:09:57,750 --> 01:09:59,610
+因为它防御了一些其他的攻击。
 because it defended against some other attacks.
 
 1155
 01:10:02,200 --> 01:10:04,450
+还有一个合理的硬件修复方案，
 There's also a reasonable hardware fix,
 
 1156
 01:10:04,450 --> 01:10:08,230
+我相信 Intel 是在最近的处理器中制造的，
 that I believe Intel it's actually made in recent processors
 
 1157
 01:10:08,230 --> 01:10:09,730
+而 AMD 已经制造了，
 and that AMD had already made,
 
 1158
 01:10:09,730 --> 01:10:17,540
+这是因为权限，
 and that's basically to because the, in fact, the permission,
 
 1159
 01:10:17,900 --> 01:10:20,480
+这是缓存的结构，
 you know this is the structure of the cache,
 
 1160
 01:10:20,480 --> 01:10:24,110
+当指令从 L1 缓存中加载某些东西时，
 when an instruction loads something from the L1 cache,
 
 1161
 01:10:24,110 --> 01:10:26,300
+比如我们试图攻击的内核数据，
 like this kernel data, we're trying to attack,
 
 1162
 01:10:27,050 --> 01:10:32,810
+人们相信权限就在缓存条目中，
 the permissions or people believe that the permissions are sitting right there in the cache entry,
 
 1163
 01:10:33,050 --> 01:10:36,200
+所以， CPU 在该点检查权限不会有任何问题，
 and so there's no trouble with the CPU checking the permissions at that point,
 
 1164
 01:10:36,290 --> 01:10:41,860
+实际上， AMD CPU 和现代的 Intel CPU ，
 and indeed, AMD CPUs and perhaps modern Intel CPUs
 
 1165
 01:10:42,070 --> 01:10:43,930
+会很早就进行权限检查，
 will actually do the permission check very early
 
 1166
 01:10:43,930 --> 01:10:45,880
+不会返回这个数据，
 and won't return this data,
 
 1167
 01:10:46,120 --> 01:10:47,920
+它们甚至不会把它返回给核心，
 they won't even return it to the core,
 
 1168
 01:10:48,040 --> 01:10:49,780
+如果权限检查不起作用。
 if the permission checks don't workout.
 
 1169
 01:10:49,930 --> 01:10:55,810
+所以这些预测指令不能看到被禁止的数据。
 So there's none of this speculative instructions are able to see forbidden data.
 
 1170
 01:10:57,120 --> 01:11:00,000
+我不知道你是否知道这个问题的答案，
 So I I don't know if you know the answer to this question
 
 1171
 01:11:00,000 --> 01:11:04,800
+可能只是推测，但并不是有意的，
 is probably just speculative, but no [] intended,
 
 1172
 01:11:04,830 --> 01:11:07,710
+但是为什么你认为 Intel 会这么做，
 but why, why do you think Intel would do this,
 
 1173
 01:11:07,740 --> 01:11:08,820
+这看起来像是。
 like this seems like.
 
 1174
 01:11:09,120 --> 01:11:09,720
+好的。
 Okay.
 
 1175
 01:11:09,930 --> 01:11:12,210
+因为在我看来，这似乎是一场讨论，
 Because to me, it seems like it was a discussion,
 
 1176
 01:11:12,210 --> 01:11:15,030
+我们应该检查临时指令的权限吗，
 shall we check permissions on transient instructions
 
 1177
 01:11:15,030 --> 01:11:18,990
+他们只是想，为什么麻烦只需要一个简单的检查。
 and they were just like know why, why bother will need just a simple check.
 
 1178
 01:11:19,740 --> 01:11:20,610
+为什么，
 Why bother,
 
 1179
 01:11:20,790 --> 01:11:24,420
+用户无法以任何一种方式查看数据，
 indeed stuff transparent and the users not be able to see the data either way,
 
 1180
 01:11:24,660 --> 01:11:26,220
+通过早期检查。
 during the check early.
 
 1181
 01:11:26,540 --> 01:11:30,290
+这就像是一条非常关键的路径上的门，
 You know that's like some gates on a pretty critical path, right,
 
 1182
 01:11:30,290 --> 01:11:34,830
+L1 数据缓存的核心，
 the the you know the core of L1 data cache,
 
 1183
 01:11:35,340 --> 01:11:37,770
+路径对性能极为关键，
 path is extremely performance critical,
 
 1184
 01:11:38,010 --> 01:11:40,890
+如果你能减少几个晶体管，
 you know if you can shave a few transistors off the,
 
 1185
 01:11:42,200 --> 01:11:43,910
+从关键路径上减少，
 you know off the critical path here,
 
 1186
 01:11:43,910 --> 01:11:46,640
+在发出指令和取回数据之间，
 between issuing instruction and getting the data back,
 
 1187
 01:11:46,880 --> 01:11:50,270
+这可能会让你拥有稍微快一点的周期时间，
 you know that may may allow you to have a slightly faster cycle time
 
 1188
 01:11:50,270 --> 01:11:51,770
+并更快地运行程序。
 and run programs faster.
 
 1189
 01:11:53,820 --> 01:11:55,080
+所以一定是这样的，
 And so it's got to be the case,
 
 1190
 01:11:55,080 --> 01:11:56,640
+我不知道一定是这样的，
 that I don't know got to be the case,
 
 1191
 01:11:56,640 --> 01:11:58,920
+但不难想象，
 but it's easy to imagine that,
 
 1192
 01:11:58,920 --> 01:12:01,110
+会花费几个晶体管，
 it would have cost them a few transistors
 
 1193
 01:12:01,380 --> 01:12:04,320
+来提前检查权限，
 to actually enforce the permissions early,
 
 1194
 01:12:04,650 --> 01:12:08,310
+因为退出后，他们仍然需要所有的东西，
 because after all they still need all of the stuff at retirement,
 
 1195
 01:12:08,490 --> 01:12:11,880
+这并不是说早做就能省去他们以后的一些工作，
 it's not like doing it early would save them some work later on,
 
 1196
 01:12:12,030 --> 01:12:15,210
+他们仍然必须将错误推迟到退出。
 they still have to defer the fault until retirement.
 
 1197
 01:12:17,400 --> 01:12:18,750
+所以所有的东西，还在那里，
 So all that stuff, still there,
 
 1198
 01:12:19,750 --> 01:12:23,860
+我只是猜测，这看起来不会有什么好处，
 I'm just guessing that it didn't seem like it would have any advantages
 
 1199
 01:12:23,860 --> 01:12:26,620
+而且会有一点额外的工作。
 and would have been a little bit of extra work.
 
 1200
 01:12:30,000 --> 01:12:32,460
+以及进入任何一种完全不可见的方式，
 And into either way completely invisible,
 
 1201
 01:12:33,030 --> 01:12:35,790
+在架构层面上，理论上也是不可见的。
 theoretically invisible too, at the architectural level.
 
 1202
 01:12:36,390 --> 01:12:41,700
+是否有内核决定恢复 KASLR 修复程序，
 Did any kernel decide to like revert this KASLR fix,
 
 1203
 01:12:41,700 --> 01:12:44,820
+现在 Intel 已经修复了 CPU ，
 now that be like Intel has fixed the CPU,
 
 1204
 01:12:44,910 --> 01:12:47,250
+来再次提高性能。
 do improve performance again.
 
 1205
 01:12:47,430 --> 01:12:49,200
+我知道很多内核都是可选的，
 I know it's optional on a lot of kernels,
 
 1206
 01:12:49,290 --> 01:12:55,750
+我不太清楚 Intel 的修复是怎么回事，
 I'm not totally sure what's going on with the Intel fix,
 
 1207
 01:12:55,870 --> 01:12:57,970
+我肯定他们已经有了解决办法，
 I'm fairly sure that they have this fix out there,
 
 1208
 01:12:57,970 --> 01:13:02,750
+但确切地说，我不知道发生了什么。
 but exactly you know I I I don't really know what's going on.
 
 1209
 01:13:03,140 --> 01:13:04,220
+我认为在 Linux 内核中，
 I think in the Linux kernel,
 
 1210
 01:13:04,220 --> 01:13:07,370
+你可以直接问哪些硬件实现了修复，
 you can just ask which hardware fixes have been implemented,
 
 1211
 01:13:07,370 --> 01:13:11,360
+Linux 会修改启用[缓解]，
 and Linux you know changes the [mitigation] that enables
 
 1212
 01:13:11,360 --> 01:13:13,280
+根据硬件告诉它的。
 depending on what actually the hardware tells it.
 
 1213
 01:13:14,840 --> 01:13:15,410
+也有可能。
 So might.
 
 1214
 01:13:15,410 --> 01:13:18,140
+所以你可以这么做，
 Oh so, so you can, you can actually do that,
 
 1215
 01:13:18,140 --> 01:13:21,170
+你可以读取足够的关于处理器的信息，
 like you can read enough info about the processor
 
 1216
 01:13:21,260 --> 01:13:23,750
+内核知道如何去做。
 as the kernel to know whether what to do.
 
 1217
 01:13:23,990 --> 01:13:25,940
+你可以运行你的笔记本电脑，
 You can run your run your laptop,
 
 1218
 01:13:25,940 --> 01:13:26,750
+有一个 Linux 命令，
 there's a Linux command,
 
 1219
 01:13:26,750 --> 01:13:31,420
+它会告诉你，
 that is actually yeah on like which is why it tells you,
 
 1220
 01:13:31,420 --> 01:13:34,990
+在硬件中实施了哪些修复，
 exactly what fixes have been implemented where things are mitigated in hardware,
 
 1221
 01:13:36,040 --> 01:13:39,550
+这是范围很广的各自的应用程序攻击。
 this is a wide range of these respective applications attacks.
 
 1222
 01:13:40,380 --> 01:13:43,170
+你是说 Linux 会使用组合页表，
 Are you saying that Linux will actually use the combined page table,
 
 1223
 01:13:43,170 --> 01:13:44,220
+如果 CPU 。
 if the CPU.
 
 1224
 01:13:45,360 --> 01:13:45,900
+好的。
 Cool.
 
 1225
 01:13:51,020 --> 01:13:52,940
+我想， 99% 确认，
 I think it was, for 99%,
 
 1226
 01:13:52,940 --> 01:13:54,200
+我最近没有检查过，
 I haven't checked it recently,
 
 1227
 01:13:54,230 --> 01:13:56,450
+我相信情况仍是如此。
 I believe that's still the case.
 
 1228
 01:14:04,040 --> 01:14:06,080
+抱歉，那么人们是怎么做的，
 Sorry, so what were people doing,
 
 1229
 01:14:06,110 --> 01:14:08,840
+比如他们是怎么找到这个的，
 like like how did they find find this,
 
 1230
 01:14:08,990 --> 01:14:10,820
+他们想要做什么。
 what are they trying to do.
 
 1231
 01:14:11,180 --> 01:14:12,560
+他们想做什么，
 What are they trying to do,
 
 1232
 01:14:12,860 --> 01:14:14,480
+试图闯入计算机。
 trying to break into computers.
 
 1233
 01:14:14,900 --> 01:14:20,980
+谁知道他们实际想做什么，
 Well, the, who knows what they're really trying to do,
 
 1234
 01:14:21,040 --> 01:14:25,570
+我的意思是这些论文是由不同的学者撰写的，
 I mean the papers are written by various academics,
 
 1235
 01:14:25,570 --> 01:14:32,300
+也许他们的研究发现了安全问题。
 maybe you know their research is finding security problems.
 
 1236
 01:14:32,390 --> 01:14:33,740
+我认为更多的是，
 I think more that guys find,
 
 1237
 01:14:33,740 --> 01:14:36,020
+人们很长时间以来的动机是，
 that one thing the motive for a long time is,
 
 1238
 01:14:36,020 --> 01:14:38,990
+他们想要打破地址空间的随机化。
 they wanted to break address space randomization.
 
 1239
 01:14:40,020 --> 01:14:41,670
+他们有更早的论文，
 And they had earlier papers,
 
 1240
 01:14:41,670 --> 01:14:45,000
+使用不同的方案试图打破地址随机化，
 you know the different schemes trying to break address randomization,
 
 1241
 01:14:45,000 --> 01:14:47,700
+所以，有一组的研究人员
 so only one group of one stream of researchers
 
 1242
 01:14:47,700 --> 01:14:50,280
+在这个领域，有这方面的背景。
 that were in this area had that as a background.
 
 1243
 01:14:50,860 --> 01:14:54,400
+我认为 project zero 是从一个完全不同的角度来的。
 I think project zero people came from a completely different angle.
 
 1244
 01:15:00,170 --> 01:15:02,840
+这是，像 Robert 之前说过的，
 This is people have seen Robert said before,
 
 1245
 01:15:02,840 --> 01:15:04,850
+人们在这个领域已经工作了几十年，
 people have been working in this area for decades,
 
 1246
 01:15:04,850 --> 01:15:11,610
+试着找出漏洞，他们可以利用并理解。
 you know trying find bugs they can exploit and understand.
 
 1247
 01:15:17,160 --> 01:15:20,730
+所以，我想这是一个很难回答的问题，
 So, I guess this, how this is a hard question to answer,
 
 1248
 01:15:20,730 --> 01:15:27,100
+但有多大可能会发生另一起类似的 meltdown 事件，
 but like how likely is it that there's another like meltdown out there,
 
 1249
 01:15:27,100 --> 01:15:27,790
+因为看起来。
 because it seems.
 
 1250
 01:15:27,790 --> 01:15:29,380
+极有可能。
 Extremely likely.
 
 1251
 01:15:29,560 --> 01:15:30,160
+好的，
 Okay,
 
 1252
 01:15:30,790 --> 01:15:35,530
+从根本上讲，微架构露变化。
 like micro, the fundamentally like thing with micro-architecture like exposing changes.
 
 1253
 01:15:37,040 --> 01:15:39,920
+是的，我想事情是这样的，
 That's right, I I think what's going on is that,
 
 1254
 01:15:39,920 --> 01:15:44,840
+CPU 厂商几十年来一直是，
 the CPU manufacturers have for decades and decades have been,
 
 1255
 01:15:45,490 --> 01:15:49,600
+会加上越来越多的[乐观的]，
 you know often adding more and more and more [optimistic],
 
 1256
 01:15:49,600 --> 01:15:52,750
+有许多很酷的小技巧，
 there's many many many sort of cool little tricks
 
 1257
 01:15:52,750 --> 01:15:56,050
+在微架构中，让事情进行得更快，
 inside the micro-architecture for making things go faster,
 
 1258
 01:15:56,290 --> 01:16:02,050
+人们并不太担心，
 and you know now and end people didn't worry that much
 
 1259
 01:16:02,050 --> 01:16:03,580
+或者只是没有引起注意，
 or it just wasn't on the radar,
 
 1260
 01:16:03,580 --> 01:16:06,880
+这可能是一个严重的安全问题，
 that this could be a serious security problem,
 
 1261
 01:16:07,330 --> 01:16:09,820
+所以现在人们非常意识到，
 and so now people now very aware that,
 
 1262
 01:16:09,820 --> 01:16:11,710
+这可能是一个严重的安全问题，
 this stuff could be a serious security problem,
 
 1263
 01:16:11,740 --> 01:16:13,840
+但我们现在所处的位置是，
 but we're now in a position where we're living
 
 1264
 01:16:13,840 --> 01:16:18,280
+在 CPU 内部 30 年来的聪明想法中。
 with you know thirty years of clever ideas inside the CPUs.
 
 1265
 01:16:18,640 --> 01:16:20,770
+所以，很多，
 And so, indeed a bunch of,
 
 1266
 01:16:21,040 --> 01:16:22,450
+自从这篇论文发表以来，
 since this paper came out,
 
 1267
 01:16:22,450 --> 01:16:23,950
+在这篇论文发表之前，
 and indeed before this paper came out,
 
 1268
 01:16:24,100 --> 01:16:25,300
+一大堆，
 a bunch of kind of,
 
 1269
 01:16:25,510 --> 01:16:30,310
+这种类型的攻击已经曝光，
 a bunch of this style of attacks have come to light exploiting
 
 1270
 01:16:30,490 --> 01:16:38,110
+各种不同的微结构 CPU ，
 various different micro-architectural these and CPUs,
 
 1271
 01:16:38,230 --> 01:16:40,330
+所以我认为一段时间，
 so I think this is gonna be a while,
 
 1272
 01:16:40,330 --> 01:16:42,490
+在[稳定]之前。
 before this all laid to rest.
 
 1273
 01:16:42,760 --> 01:16:45,580
+在过去的两年里，我们看过安全会议，
 We've looked at security conferences in the last you know two years,
 
 1274
 01:16:45,580 --> 01:16:48,730
+基本上每年的会议
 basically every year every conference basically session
 
 1275
 01:16:48,730 --> 01:16:53,370
+都是关于利用预测执行属性，
 on like exploiting speculative execution properties,
 
 1276
 01:16:53,460 --> 01:16:56,220
+看看他们是否会发动攻击。
 and see if they can make attacks work.
 
 1277
 01:16:57,210 --> 01:16:59,460
+也许一个更大的问题是，
 And maybe a larger question is whether,
 
 1278
 01:17:00,240 --> 01:17:01,800
+情况是不是，
 you know whether the situation is,
 
 1279
 01:17:01,830 --> 01:17:06,390
+有 15 、 20 或 30 件事情，
 well, you know there's you know 15 or 20 or 30 things,
 
 1280
 01:17:06,390 --> 01:17:08,700
+需要解决，
 that sort of have to be worked out,
 
 1281
 01:17:08,700 --> 01:17:10,380
+然后我们完成了，
 and then we'll be done,
 
 1282
 01:17:11,470 --> 01:17:20,330
+或者有更高层次的方法出了问题，
 or whether there's some much higher levels approach gone wrong,
 
 1283
 01:17:20,360 --> 01:17:21,590
+你知道我们所有，
 you know that we all,
 
 1284
 01:17:22,260 --> 01:17:23,970
+这可能太悲观了，
 this is probably way too pessimistic,
 
 1285
 01:17:23,970 --> 01:17:27,510
+但人们对隔离作为一种想法很有信心，
 but people have a lot of faith in isolation as an idea,
 
 1286
 01:17:27,510 --> 01:17:29,460
+有一件完全合理的事情要做，
 that there's a totally reasonable thing to do,
 
 1287
 01:17:30,900 --> 01:17:33,450
+假设隔离起作用，并将设计一些东西，
 assume that isolation works and will design stuff,
 
 1288
 01:17:33,450 --> 01:17:37,530
+比如云计算和在浏览器中运行 Javascript ，
 like cloud computing and running Javascript in the browser
 
 1289
 01:17:37,530 --> 01:17:38,970
+以及所有这些假设下的东西，
 and all this stuff under the assumption,
 
 1290
 01:17:39,000 --> 01:17:40,440
+这可能不是真的，
 which is not actually true,
 
 1291
 01:17:40,440 --> 01:17:43,020
+但它被认为是足够接近真实的，
 but it was close enough believed to be close enough to true,
 
 1292
 01:17:43,260 --> 01:17:47,520
+这种隔离导致它们不会成为严重的安全问题，
 that isolation will just you know cause they're not to be serious security problems,
 
 1293
 01:17:47,850 --> 01:17:50,690
+这实际上可能还是可行的，
 and that's actually probably still doable,
 
 1294
 01:17:50,900 --> 01:17:55,540
+但可以肯定的是，这个微架构攻击
 but this whole [] of micro-architectural attacks
 
 1295
 01:17:56,390 --> 01:17:59,750
+并没有让这个故事看起来更有说服力。
 not made that story seem more convincing, that's for sure.
 
 1296
 01:18:02,400 --> 01:18:04,020
+更进一步的，
 Just to add on to that,
 
 1297
 01:18:04,410 --> 01:18:09,630
+我不确定 [] CPU 设计，
 I'm not sure a [] levels expertise would like CPU design,
 
 1298
 01:18:09,630 --> 01:18:18,210
+但是，能不能直接扩展 CPU ，在没有微体系结构的情况下，
 but to what extent can CPU design be made straightforwardly without a micro-architecture,
 
 1299
 01:18:18,390 --> 01:18:21,810
+仍然保持它的高性能。
 while still preserving its high performance.
 
 1300
 01:18:21,990 --> 01:18:25,240
+性能，我是说，人们相信这些东西。
 Performance, I mean, people believe this stuff.
 
 1301
 01:18:25,480 --> 01:18:27,970
+安全也不错，不过是的。
 Nicely security too, but yeah.
 
 1302
 01:18:28,060 --> 01:18:29,620
+有些事情很明显是可以修复的，
 Well, some of this clearly can be fixed,
 
 1303
 01:18:29,620 --> 01:18:30,670
+比如这个 meltdown 事件，
 like this meltdown thing,
 
 1304
 01:18:30,670 --> 01:18:34,780
+我的意思是有一个修复，你可以检查权限，
 I mean there is a fix this you actually check the permissions,
 
 1305
 01:18:35,230 --> 01:18:39,010
+可能不会损失任何性能，
 that probably doesn't sacrifice any performance,
 
 1306
 01:18:39,220 --> 01:18:40,870
+对于已经出现的其他一些攻击，
 for some of the other attacks that have come up,
 
 1307
 01:18:43,590 --> 01:18:46,710
+还不清楚你可以在不损失性能的情况下修复它们，
 it's not clear that you could fix them without sacrificing performance,
 
 1308
 01:18:46,770 --> 01:18:48,090
+我是说一些非常深的东西，
 I mean some of this very very deep,
 
 1309
 01:18:48,090 --> 01:18:49,860
+就像我们分享的事实，
 like the fact that we're sharing
 
 1310
 01:18:50,130 --> 01:18:53,870
+这里有很多分享，
 you know, this there's a lot of sharing,
 
 1311
 01:18:53,870 --> 01:18:55,850
+比如云环境中的时间共享，
 like a time sharing a cloud environment,
 
 1312
 01:18:55,850 --> 01:18:57,050
+有很多共享，
 there's just a lot of sharing,
 
 1313
 01:18:57,290 --> 01:19:06,890
+比如，假设你的云服务器上有一个磁盘驱动器或网络，
 and so, for example suppose there's a disk drive or a network on your cloud server, right,
 
 1314
 01:19:07,400 --> 01:19:11,240
+你也许能得到云服务器上其他人的信息，
 gosh, you might be able to get information about the other people on that cloud server,
 
 1315
 01:19:11,450 --> 01:19:13,880
+只需观察它们的流量，
 simply by watching how their traffic
 
 1316
 01:19:13,880 --> 01:19:18,140
+干扰你的磁盘流量、网络流量或内存流量等。
 interferes with your traffic disk traffic or network traffic or memory traffic or something.
 
 1317
 01:19:18,290 --> 01:19:19,460
+所以有一种，
 So there's some sort of,
 
 1318
 01:19:20,240 --> 01:19:20,990
+我不知道，
 I, you know I don't know,
 
 1319
 01:19:20,990 --> 01:19:21,770
+但这是实际的，
 but that's practical,
 
 1320
 01:19:21,770 --> 01:19:24,890
+也许很多事情，
 maybe it's not although you know for many many things
 
 1321
 01:19:24,890 --> 01:19:25,940
+人们在这些事情中说，
 in which people said point that
 
 1322
 01:19:25,940 --> 01:19:27,590
+攻击可能是不实际的，
 attack just doesn't seem to be practical,
 
 1323
 01:19:27,920 --> 01:19:30,540
+事实证明它很实用。
 you know it turned out to be practical enough.
 
 1324
 01:19:32,170 --> 01:19:33,460
+我认为。
 And I think.
 
 1325
 01:19:34,690 --> 01:19:36,790
+所以很多这种微架构的东西，
 And so a lot of this micro-architectural stuff,
 
 1326
 01:19:36,790 --> 01:19:38,860
+也许可以在不降低性能的情况下进行清理，
 maybe could be cleaned up without performance loss,
 
 1327
 01:19:38,860 --> 01:19:41,050
+或者可能无法在不损失性能的情况下进行清理，
 or maybe can't be cleaned up without performance loss,
 
 1328
 01:19:41,350 --> 01:19:42,730
+但我认为，
 but I think it's,
 
 1329
 01:19:43,750 --> 01:19:48,450
+我认为这是一个比我们实施修复更严重的问题，
 I think it's a much more serious problem than just we're gonna applies fixes,
 
 1330
 01:19:50,260 --> 01:19:51,130
+他们会消失的。
 they'll go away.
 
 1331
 01:19:52,650 --> 01:19:55,710
+而最尖锐的地方是密码学，
 And the place is the most acute is cryptography,
 
 1332
 01:19:55,950 --> 01:19:58,350
+已经有很多年，
 there's been many many years of
 
 1333
 01:19:58,880 --> 01:20:01,220
+人们在研究这种聪明，
 people looking into these kind of clever,
 
 1334
 01:20:02,210 --> 01:20:10,440
+通常缓存基于分时的密钥位，
 often cache timing based ways of sensing bit set of keys
 
 1335
 01:20:10,440 --> 01:20:12,510
+和其他人的密码，
 and other people's cryptographic,
 
 1336
 01:20:12,930 --> 01:20:17,100
+人们在同一台机器上运行密码学加密，
 people running running at cryptographic encryption on the same machine as you,
 
 1337
 01:20:17,580 --> 01:20:20,250
+你能猜出我的密钥吗，
 can you guess anything about my key
 
 1338
 01:20:20,250 --> 01:20:24,130
+通过观察，通过进行缓存计时，
 by watching, by doing cache timing,
 
 1339
 01:20:24,490 --> 01:20:25,810
+答案是绝对的。
 answer is absolutely.
 
 1340
 01:20:26,530 --> 01:20:29,140
+而且它不是微架构的 bug ，
 And it's not a micro-architectural bugs,
 
 1341
 01:20:32,010 --> 01:20:34,950
+它是经常分享的结果。
 it's just a consequence of sharing often.
 
 1342
 01:20:35,620 --> 01:20:37,210
+不管怎么说，我不知道这件事会怎样发展，
 Anyway I don't know how this is gonna play out,
 
 1343
 01:20:37,210 --> 01:20:38,800
+这不是直截了当的。
 but it's not it's not straightforward.
 
 1344
 01:20:40,610 --> 01:20:42,230
+我好奇的是，
 I mean this curious part is,
 
 1345
 01:20:42,230 --> 01:20:44,480
+当人们取得进展的时候，
 when people made progress on,
 
 1346
 01:20:44,810 --> 01:20:49,880
+只需测量 CPU 的电磁辐射，
 just measuring the like EM radiation from a CPU
 
 1347
 01:20:49,880 --> 01:20:53,000
+并找出正在运行的指令和其中包含的数据，
 and figuring out what instructions are run and what data is in it,
 
 1348
 01:20:53,270 --> 01:20:55,910
+使用机器学习有一定的精确度，
 with machine learning with like some accuracy,
 
 1349
 01:20:55,910 --> 01:20:58,100
+不是百分之百，不是很近，
 you know not a hundred percent, not nearly,
 
 1350
 01:20:58,100 --> 01:21:01,100
+但精确度高得吓人，
 but like a scary amount of accuracy,
 
 1351
 01:21:01,100 --> 01:21:02,870
+因为任何超过零的东西都是可怕的。
 because anything over zero is scary.
 
 1352
 01:21:07,840 --> 01:21:09,940
+是的，我们知道，
 Yeah, we all live in you know that's all,
 
 1353
 01:21:12,180 --> 01:21:14,970
+好的，攻击有界限的，
 well, there's a boundary between attacks that are,
 
 1354
 01:21:17,430 --> 01:21:20,520
+在可能的攻击之间有一定的门槛，
 there's some threshold between the attacks that are possible,
 
 1355
 01:21:20,520 --> 01:21:23,760
+但是，这看起来太贵了，
 but you know gosh just seems like that would be too expensive
 
 1356
 01:21:23,760 --> 01:21:27,150
+或者太痛苦，不管什么复杂的东西都不能实施。
 or awkward painful whatever complex to carry out.
 
 1357
 01:21:28,270 --> 01:21:31,220
+而且，攻击真的可能会发生，
 And, attacks really could be carried out,
 
 1358
 01:21:31,220 --> 01:21:33,260
+当然我们应该只防御第二类，
 of course we only should defend against the second class,
 
 1359
 01:21:33,260 --> 01:21:36,230
+因为第一类通常太贵了，无法防御，
 because the first class is often too expensive to defend against,
 
 1360
 01:21:36,620 --> 01:21:40,430
+但随着包含计算机的东西的价值变得越来越大，
 but as the value of stuff containing computers gets larger,
 
 1361
 01:21:40,430 --> 01:21:46,220
+攻击者变得更聪明，更接近共享环境，
 and attackers get more clever get more closer access to shared environments,
 
 1362
 01:21:47,000 --> 01:21:53,590
+攻击足够可行以防御变化的一种阈值。
 kind of threshold by which attacks are feasible enough to defend against changes.
 
 1363
 01:21:58,610 --> 01:22:03,080
+好了，我的课讲完了，
 Alright, I'm done with the lecture,
 
 1364
 01:22:03,080 --> 01:22:06,110
+如果有问题的话，我很乐意回答更多的问题。
 I'm happy to take more questions, if people have.
 
 1365
 01:22:09,210 --> 01:22:09,930
+谢谢。
 Thank you.
 
 1366
 01:22:11,280 --> 01:22:11,880
+谢谢。
 Thank you.
 
 1367
 01:22:12,750 --> 01:22:15,360
+谢谢，我有个关于缓存的问题，
 Thanks, I actually had a question about the cache,
 
 1368
 01:22:15,600 --> 01:22:21,090
+L1 缓存是每个 CPU 的。
 so the L1 cache is its per CPU, right.
 
 1369
 01:22:21,930 --> 01:22:22,530
+是的。
 Yes.
 
 1370
 01:22:23,430 --> 01:22:25,080
+而 L2 不是共享的。
 And L2 isn't shared.
 
 1371
 01:22:25,260 --> 01:22:28,980
+那么这张图对于每个 CPU 来说是不一样的，
 Well, so this picture is different for each CPU,
 
 1372
 01:22:28,980 --> 01:22:31,680
+对于不同型号的 CPU 是不一样的，
 for different models of CPU, etc,
 
 1373
 01:22:31,740 --> 01:22:35,870
+今天的习惯是，
 the the habit today is
 
 1374
 01:22:35,900 --> 01:22:40,040
+看起来比这个要复杂一点，
 looks it's a little bit more complex than this,
 
 1375
 01:22:40,160 --> 01:22:42,080
+通常是多核，
 typically a multiple cores,
 
 1376
 01:22:43,170 --> 01:22:46,230
+2 4 8 或 64 等，
 2 4 8 or 64 something,
 
 1377
 01:22:46,980 --> 01:22:48,990
+每一个都有一个 L1 缓存，
 each one has a L1 cache,
 
 1378
 01:22:48,990 --> 01:22:50,700
+它离 CPU 很近，
 that's quite close to the CPU,
 
 1379
 01:22:50,700 --> 01:22:52,830
+但它又快又小，
 but it's small fast and small,
 
 1380
 01:22:53,130 --> 01:22:55,620
+每个核心通常还有更大的 L2 缓存，
 each core typically also has a bigger L2 cache,
 
 1381
 01:22:55,620 --> 01:23:01,310
+它是专为那个 CPU 设计的。
 this you know it's sort of dedicated to that CPU.
 
 1382
 01:23:04,150 --> 01:23:12,930
+然后，通常会有一个共享的 L3 缓存，
 And then, and then there's often a shared L3 cache,
 
 1383
 01:23:13,170 --> 01:23:14,580
+通常但不总是，
 often but not always,
 
 1384
 01:23:14,760 --> 01:23:18,710
+另一种方法是使 L2 缓存的总和
 and another approach is to make the summation of the L2 cache
 
 1385
 01:23:18,710 --> 01:23:22,430
+在某种程度上方便所有 CPU 使用，
 is sort of convenient for all the CPUs to use,
 
 1386
 01:23:22,430 --> 01:23:25,280
+这样我可以超高速访问 L2 缓存，
 so that I have super high speed access to my L2 cache,
 
 1387
 01:23:25,280 --> 01:23:28,850
+但是我可以得到其他人稍微重一点的[处罚]，
 but I can get at other people said a slightly bigger [penalties],
 
 1388
 01:23:28,850 --> 01:23:30,650
+有效缓存大小越大，
 the effective cache size larger,
 
 1389
 01:23:30,740 --> 01:23:33,440
+所以，通常可以看到三级缓存，
 so often three see either three level caches
 
 1390
 01:23:33,440 --> 01:23:37,850
+或者是一种连接到二级缓存的缓存。
 or or a sort of joint to second level caches.
 
 1391
 01:23:41,000 --> 01:23:45,160
+通常 L2 和 L3 是物理寻址的， L1 是虚拟的。
 And typically the L2 and L3 are physically addressed, L1 is virtual.
 
 1392
 01:23:47,980 --> 01:23:54,830
+抱歉，有实际地址有什么意义。
 Sorry, so what's the point of having physically address, yeah, yeah it's.
 
 1393
 01:23:54,830 --> 01:23:59,810
+是的，这很简单， L1 缓存中的东西是虚拟地址缓存。
 Yeah, it's easy, the stuff in L1 cache, a virtual address cache.
 
 1394
 01:24:02,220 --> 01:24:05,850
+如果相同的数据使用不同的虚拟地址，
 If the same data is used with different virtual addresses,
 
 1395
 01:24:05,850 --> 01:24:09,510
+虚拟地址缓存不会帮你找到它，
 you can't you know the virtual address cache doesn't help you find it,
 
 1396
 01:24:10,060 --> 01:24:13,660
+如果这些 L2 缓存在不同地址下，
 if it was cache under a different address where these L2 caches,
 
 1397
 01:24:13,660 --> 01:24:14,920
+则数据是独立的，
 the data is independent,
 
 1398
 01:24:15,130 --> 01:24:18,880
+无论你的地址是什么虚拟地址。
 is usable no matter what virtual address you address it and.
 
 1399
 01:24:22,380 --> 01:24:24,330
+MMU 在哪里使用，
 Where does the MMU use,
 
 1400
 01:24:24,330 --> 01:24:27,180
+它相对于 TLB 中的所有这些缓存。
 it relative to all these caches in the TLB.
 
 1401
 01:24:27,210 --> 01:24:30,180
+哦，它不是，它是分布的，
 Oh, it's not it's distributed really,
 
 1402
 01:24:30,180 --> 01:24:33,570
+我的意思是，最明显的，
 because the I mean the most obvious,
 
 1403
 01:24:34,530 --> 01:24:37,500
+我认为在现实生活中，
 I mean I think in real life,
 
 1404
 01:24:38,930 --> 01:24:42,050
+TLB 最关键的是，
 the TLB the most critical thing is that TLB,
 
 1405
 01:24:42,050 --> 01:24:45,200
+我认为它通常与 L1 缓存并行索引。
 and I believe it's indexed in parallel with the L1 cache typically.
 
 1406
 01:24:46,300 --> 01:24:47,710
+所以如果你命中缓存，
 So if you hit in the cache,
 
 1407
 01:24:47,920 --> 01:24:50,350
+L1 缓存，尽管可能会有。
 the L1 cache great, although there may be a.
 
 1408
 01:24:52,740 --> 01:24:54,300
+不管怎样，如果你错过了 L1 缓存，
 Anyway, and if you miss the L1 cache,
 
 1409
 01:24:54,300 --> 01:24:56,220
+那么现在你有物理的，
 then now you have the physical,
 
 1410
 01:24:56,220 --> 01:24:57,990
+你同时在 TLB 中查找，
 you were looking up in that TLB at the same time,
 
 1411
 01:24:57,990 --> 01:25:00,000
+现在物理可以寻址了，
 now your physical can addressed,
 
 1412
 01:25:01,550 --> 01:25:05,690
+MMU 不只是一个放在某个地方的盒子，
 the MMU that was not just a single box that sits somewhere,
 
 1413
 01:25:05,690 --> 01:25:08,350
+它有点[牵涉其中]。
 it's actually kind of involved.
 
 1414
 01:25:09,890 --> 01:25:12,080
+好的，但这不是硬件吗，所以。
 Okay, but isn't it hardware, so.
 
 1415
 01:25:12,230 --> 01:25:13,730
+哦，一切都是硬件，是的。
 Oh, everything is yours hardware, yeah.
 
 1416
 01:25:15,530 --> 01:25:20,480
+但请记住，这些芯片上有数十亿个晶体管，
 But remember these you know these chips have billions of transistors on them,
 
 1417
 01:25:20,630 --> 01:25:22,610
+所以，是的，也许是硬件问题，
 so yeah, maybe it's hardware,
 
 1418
 01:25:22,610 --> 01:25:26,900
+但我们谈论的是非常复杂的硬件，
 but we're talking about massively complex hardware,
 
 1419
 01:25:27,140 --> 01:25:31,700
+它是使用非常复杂的软件设计，
 that's designed using very sophisticated software like design techniques,
 
 1420
 01:25:31,730 --> 01:25:36,150
+所以它可以做非常复杂的事情，
 so that it can do very very complex and sophisticated things,
 
 1421
 01:25:36,510 --> 01:25:37,410
+所以，它是硬件，
 so yeah, it's hardware,
 
 1422
 01:25:37,410 --> 01:25:41,660
+但是，它一点也不简单。
 but, yeah, it's not at all at all straightforward.
 
 1423
 01:25:43,320 --> 01:25:49,800
+表映射是否像页表映射一样最终会出现在缓存中，
 So do table mapping like page table mappings ever end up in the caches at all,
 
 1424
 01:25:49,800 --> 01:25:52,260
+或者它们总是通过 TLB 路由，
 or are they always just routed through that TLB,
 
 1425
 01:25:52,290 --> 01:25:53,400
+因为如果你错过了，
 because if you miss it,
 
 1426
 01:25:53,400 --> 01:25:55,890
+TLB 你必须去内存检索。
 that TLB you have to go to memory retrieve.
 
 1427
 01:25:55,890 --> 01:25:59,640
+对，所以它们肯定是 L2 缓存可以保存的，
 That right, so they're certainly the L2 cache will hold,
 
 1428
 01:26:00,790 --> 01:26:02,770
+从 L2 缓存的角度来看，
 from the point of view the L2 cache,
 
 1429
 01:26:03,190 --> 01:26:07,070
+TLB 未命中、 TLB 重新加载只是内存访问，
 TLB misses, TLB reloads are just memory accesses,
 
 1430
 01:26:07,070 --> 01:26:09,560
+所以 TLB 需要加载一堆页表垃圾文件，
 so that TLB needs to load a bunch of page table junk,
 
 1431
 01:26:09,860 --> 01:26:11,240
+这只是一个内存加载，
 it's just a memory load,
 
 1432
 01:26:11,240 --> 01:26:13,970
+可以很容易地将内容缓存到 L2 中。
 and it could use, stuff could easily be cached in the L2.
 
 1433
 01:26:13,970 --> 01:26:15,140
+但它必须跳到 L1 ，
 But it has to skip to L1,
 
 1434
 01:26:15,140 --> 01:26:17,180
+因为 L1 有虚拟地址，但是。
 because L1 has virtual addresses, but.
 
 1435
 01:26:17,180 --> 01:26:21,200
+我不认为 TLB 会查询 L1 。
 I don't think that TLB would consult the L1 for its.
 
 1436
 01:26:21,200 --> 01:26:21,560
+好的。
 Okay.
 
 1437
 01:26:22,510 --> 01:26:24,700
+因为它是虚拟地址。
 Because it's virtual addresses.
 
 1438
 01:26:25,980 --> 01:26:29,070
+然后是一件关于 spectre 攻击的事。
 And then one thing about the spectre attack.
 
 1439
 01:26:30,110 --> 01:26:32,510
+你怎么会，
 How would you, I,
 
 1440
 01:26:32,540 --> 01:26:37,190
+我至少听说过十几次 meltdown 检查，
 so so the thing is like I've heard about meltdown inspector like at least a dozen times,
 
 1441
 01:26:37,190 --> 01:26:39,710
+每次我看的时候都不明白，
 and every time I looked it up I would not understand it,
 
 1442
 01:26:39,710 --> 01:26:42,230
+所以这是我第一次真正明白发生了什么，
 so this is the first time I actually understand what's going on,
 
 1443
 01:26:42,410 --> 01:26:44,030
+但是对于 spectre ，
 but for spectre,
 
 1444
 01:26:44,150 --> 01:26:47,970
+它与 meltdown 有多么相似？
 is there, like how similar is it to meltdown?
 
 1445
 01:26:47,970 --> 01:26:48,600
+不是。
 It's not.
 
 1446
 01:26:48,840 --> 01:26:50,430
+不是，好的。
 It's not, okay.
 
 1447
 01:26:52,230 --> 01:26:53,970
+或者，他们会，
 Or, that they will,
 
 1448
 01:26:55,560 --> 01:26:59,700
+我对 spectre 攻击的理解是，通过训练分支预测器，
 my understanding the spectre attack is by training the branch predictor,
 
 1449
 01:26:59,730 --> 01:27:05,880
+另一个你想要攻击的代码。
 that you know the other code that you're trying to get attack stuff from.
 
 1450
 01:27:05,910 --> 01:27:11,060
+让我们假设另一个进程，你和它共享一些内存。
 Let's suppose it's another process you share some memory with it, right.
 
 1451
 01:27:11,060 --> 01:27:14,180
+因为它和你运行一样的程序，
 Yeah, because you're it's really the same program as you,
 
 1452
 01:27:14,180 --> 01:27:17,090
+但运行该程序的是其他用户。
 but it's some other user running the program, right.
 
 1453
 01:27:18,040 --> 01:27:29,920
+分支预测器使用的表共享在不同的，
 You can, the branch, the branch, the tables the branch predictor uses are shared between different,
 
 1454
 01:27:29,920 --> 01:27:31,420
+如果我运行 CPU ，
 if I run a CPU [],
 
 1455
 01:27:31,420 --> 01:27:34,390
+可能在同一 CPU 的不同超线程上运行，
 that you run or maybe run on different hyper threads of the same CPU,
 
 1456
 01:27:34,390 --> 01:27:37,990
+每个人都看到相同的分支预测器，
 everybody sees the same branch sees the same branch predictor,
 
 1457
 01:27:38,020 --> 01:27:41,350
+所以我可以训练分支预测器以某种方式预测分支，
 so I can train the branch predictor to predict branches in a certain way,
 
 1458
 01:27:41,590 --> 01:27:42,970
+然后我会让你运行，
 and then I'll let you run,
 
 1459
 01:27:44,230 --> 01:27:47,890
+你在运行我训练的分支预测器。
 you're running with my branch predictor training, right,
 
 1460
 01:27:47,890 --> 01:27:50,470
+这意味着我可以欺骗你的程序，
 and so that means I can essentially trick your program
 
 1461
 01:27:50,470 --> 01:27:53,980
+让它预测执行我选择的指令。
 into speculatively executing instructions of my choice.
 
 1462
 01:27:54,790 --> 01:27:55,840
+对，现在只是推测，
 Right, now it's only speculative,
 
 1463
 01:27:55,840 --> 01:27:56,830
+所以它们当然会被撤销，
 so of course they'll be undone,
 
 1464
 01:27:56,830 --> 01:28:00,370
+但是它们会导致缓存加载，
 but they they will cause cache loads,
 
 1465
 01:28:00,880 --> 01:28:03,580
+在某种程度上我可以控制。
 that to some extent I can control.
 
 1466
 01:28:04,180 --> 01:28:05,920
+因为我控制着预测执行，
 Because I control how you speculatively execute,
 
 1467
 01:28:05,920 --> 01:28:07,000
+如果我们共享内存，
 and then if we share memory,
 
 1468
 01:28:07,000 --> 01:28:09,340
+我可以使用刷新并重新加载来检测
 I can use flush and reload to sense
 
 1469
 01:28:09,930 --> 01:28:13,890
+你的程序加载了预测执行的哪个缓存行。
 what cache lines your program loaded this speculative execution.
 
 1470
 01:28:15,390 --> 01:28:16,890
+哦，那样的话，
 Oh, so in that case,
 
 1471
 01:28:16,890 --> 01:28:20,130
+你不需要，
 you don't need to, you don't need to,
 
 1472
 01:28:20,130 --> 01:28:24,750
+比如直接寻址一块内存，
 like know like directly address address a piece of memory,
 
 1473
 01:28:24,750 --> 01:28:28,590
+你只需要确保程序被预测执行，
 you just need to make sure that program will specularly executed,
 
 1474
 01:28:28,740 --> 01:28:31,020
+而在 meltdown 中，我们自己做的，
 like in meltdown, we did it ourselves,
 
 1475
 01:28:31,020 --> 01:28:34,200
+但在 spectre 中，直接到那里，
 but in spectre just directed there,
 
 1476
 01:28:34,590 --> 01:28:35,340
+这有点酷，
 that's kind of cool,
 
 1477
 01:28:35,370 --> 01:28:36,090
+因为你可以，
 because you can just say,
 
 1478
 01:28:36,090 --> 01:28:40,080
+只要通过训练分支预测器来加载这个秘密，
 oh you know just go and load that secret by training the branch predictor,
 
 1479
 01:28:40,080 --> 01:28:41,610
+而不需要知道秘密在哪里，
 without knowing where the secret is,
 
 1480
 01:28:42,300 --> 01:28:43,650
+你知道某些，
 like you gotta know someone,
 
 1481
 01:28:43,740 --> 01:28:45,510
+你一定要知道。
 yeah you kind of have to know.
 
 1482
 01:28:45,510 --> 01:28:47,160
+你需要知道非常详细的情况。
 You need to know great [] and great detail.
 
 1483
 01:28:47,160 --> 01:28:49,170
+是的，抱歉，你得知道。
 Yeah sorry, you have to know.
 
 1484
 01:28:49,350 --> 01:28:51,030
+但是你必须自己。
 But you have to yourself.
 
 1485
 01:28:51,060 --> 01:28:51,390
+是的。
 Yes.
 
 1486
 01:28:51,390 --> 01:28:52,200
+这不是秘密，
 That's not secret,
 
 1487
 01:28:52,200 --> 01:28:53,580
+你可能在运行一个程序，
 you're probably running a program that,
 
 1488
 01:28:54,000 --> 01:28:55,140
+我知道你在运行什么程序。
 I know what program you're running.
 
 1489
 01:28:55,140 --> 01:28:59,380
+好的，理解了，谢谢。
 Yeah, okay, that makes sense, thank you.
 
 1490
 01:29:01,700 --> 01:29:02,990
+是的，我只是在想，
 Yeah, I was just wondering,
 
 1491
 01:29:02,990 --> 01:29:06,830
+当像这样的一篇研究论文发表的时候，
 it seems like when you when a research paper, like this gets released,
 
 1492
 01:29:06,830 --> 01:29:09,200
+给到人们，
 it's out there for like people,
 
 1493
 01:29:09,200 --> 01:29:12,200
+Linux 和 Windows 以及 Intel 的人
 Linux and Windows and like Intel for them
 
 1494
 01:29:12,200 --> 01:29:14,750
+都在争先恐后地修补这个漏洞，
 to try to go and scramble to patch the bug,
 
 1495
 01:29:14,750 --> 01:29:17,900
+但是黑客也可以从这篇论文中学到东西，
 but it's also out there for hackers can start to learn from the paper,
 
 1496
 01:29:17,900 --> 01:29:19,640
+哦，这是一种我们可以使用的方法，
 like oh this is a method we could use,
 
 1497
 01:29:20,190 --> 01:29:22,740
+我在想，
 and I'm I'm wondering,
 
 1498
 01:29:22,740 --> 01:29:25,470
+作为一名研究人员，有没有一种普遍的做法，
 like it as a researcher is there a general practice
 
 1499
 01:29:25,470 --> 01:29:27,510
+我们正在写的论文
 of like as we're working on the paper
 
 1500
 01:29:27,510 --> 01:29:31,170
+会先给好人，
 will sort of tipoff the quote unquote good guys first,
 
 1501
 01:29:31,170 --> 01:29:32,040
+这样他们就可以。
 so that they can have.
 
 1502
 01:29:32,040 --> 01:29:37,380
+是的，作者先通知每一个 CPU 制造商和操作系统制造商。
 Yeah, authors informed every you know the CPU manufacturers and OS manufacturers
 
 1503
 01:29:37,380 --> 01:29:38,550
+在发表论文之前。
 before they publish the paper.
 
 1504
 01:29:39,030 --> 01:29:40,830
+有一个完整的协议，
 There's a whole, there's a whole protocol,
 
 1505
 01:29:41,460 --> 01:29:44,520
+这类事情会被接受，
 you know these kind of things would even be accepted anymore,
 
 1506
 01:29:44,520 --> 01:29:46,020
+除非你遵守协议。
 unless you follow the protocol.
 
 1507
 01:29:46,650 --> 01:29:48,660
+这并不意味着袭击者没有使用它，
 That doesn't mean the attackers weren't already using it, right,
 
 1508
 01:29:48,660 --> 01:29:52,650
+因为可能攻击者在 20 年前发现了这个，但是。
 because you probably know the attackers discovered this twenty years ago, but.
 
 1509
 01:29:53,070 --> 01:29:56,430
+好的，谢谢。
 Great, thank you.
 
 1510
 01:29:57,480 --> 01:29:59,280
+这不是直截了当的，
 It's not straightforward,
 
 1511
 01:29:59,370 --> 01:30:00,810
+我认为在这个特殊的情况下，
 I think in this particular case,
 
 1512
 01:30:00,810 --> 01:30:04,290
+我想 Intel 不太感兴趣，
 I think you know what some Intel was not too excited about,
 
 1513
 01:30:05,020 --> 01:30:08,530
+Linux 社区和 Intel 之间的合作并不完全顺利。
 the collaboration between the Linux community and Intel was not completely smooth, I think.
 
 1514
 01:30:10,940 --> 01:30:11,870
+当这种情况发生时，
 When this happened,
 
 1515
 01:30:12,530 --> 01:30:14,690
+我认为他们在做一些工作，但是。
 I think they worked at some of the case, but.
 
 1516
 01:30:18,670 --> 01:30:19,990
+我觉得有点吓人，
 I think it was kind of scary,
 
 1517
 01:30:19,990 --> 01:30:22,600
+因为我在维基百科上看到，
 because I I read on Wikipedia,
 
 1518
 01:30:22,600 --> 01:30:28,570
+Ubuntu 补丁是在论文发表后发布的，
 that the Ubuntu fix was published after the paper was published,
 
 1519
 01:30:28,600 --> 01:30:31,030
+我觉得很可怕，但是。
 which I found scary, but.
 
 1520
 01:30:38,120 --> 01:30:40,490
+非常感谢。
 Thank you so much.
 
 1521
 01:30:42,240 --> 01:30:42,960
+谢谢。
 Thank you.
 
 1522
 01:30:43,170 --> 01:30:45,660
+谢谢，我们下周见。
 Thank you, well see you next week.
 
