@@ -1,5936 +1,7420 @@
 1
 00:00:05,360 --> 00:00:06,920
+好的。
 Alright.
 
 2
 00:00:07,840 --> 00:00:12,700
+今天的基本主题是，
 The sort of underlying topic for today is
 
 3
 00:00:12,700 --> 00:00:17,650
+获得良好的多核性能，
 really getting multi-core, getting good multi-core performance,
 
 4
 00:00:18,200 --> 00:00:20,390
+在多核硬件上获得良好的性能，
 getting good performance on multi-core hardware,
 
 5
 00:00:20,870 --> 00:00:30,260
+这是一个非常有趣和令人着迷的话题，
 and that's actually very interesting and deep fascinating topic,
 
 6
 00:00:30,560 --> 00:00:35,180
+有很多不同的有趣的方面。
 with many many different interesting aspects.
 
 7
 00:00:35,210 --> 00:00:38,870
+今天，我们会讨论一小部分，
 Today, we're just gonna bite off a fairly small piece,
 
 8
 00:00:38,900 --> 00:00:46,010
+这就是如何在内核中获得良好的共享数据性能，
 and that's how to get a good performance for shared data in the kernel,
 
 9
 00:00:46,040 --> 00:00:49,340
+读的次数比写的次数多得多。
 that's read much more often than it's written.
 
 10
 00:00:49,750 --> 00:00:52,780
+有很多种具体的案例，
 And it turns out there's many kinds of specific cases,
 
 11
 00:00:53,140 --> 00:00:59,110
+获得良好的多核性能的不同想法是有用的。
 in which different ideas for getting good multi-core performance are useful.
 
 12
 00:01:02,070 --> 00:01:04,890
+我们今天要看的是 Linux 的 RCU ，
 We're gonna look at today is Linux's RCU,
 
 13
 00:01:04,890 --> 00:01:06,360
+它是非常成功的，
 which has been very successful,
 
 14
 00:01:06,360 --> 00:01:09,210
+对于读取繁重的内核数据。
 for sort of read heavy data, read heavy kernel data.
 
 15
 00:01:10,880 --> 00:01:16,550
+这里的一般背景是，
 The general sort of background here is that,
 
 16
 00:01:16,820 --> 00:01:18,620
+如果你有现代机器，
 if you have modern machines
 
 17
 00:01:18,620 --> 00:01:23,330
+有 4 8 16 或 64 核或任意多核，
 with four eight or sixteen or 64 or however many cores,
 
 18
 00:01:23,330 --> 00:01:25,070
+并行运行并共享内存，
 running in parallel and sharing memory,
 
 19
 00:01:25,190 --> 00:01:32,650
+内核实际上是一个并行进程，
 the the kernel is really a parallel process, it's a parallel program,
 
 20
 00:01:32,830 --> 00:01:35,260
+如果你想要有好的性能，
 and if you're going to get good performance,
 
 21
 00:01:35,260 --> 00:01:37,990
+你需要确保内核可以运行大量工作，
 you need to make sure that the kernel can run a lot of its work
 
 22
 00:01:37,990 --> 00:01:40,630
+在不同的内核上尽可能多地并行运行，
 as much as possible in parallel on different cores,
 
 23
 00:01:40,630 --> 00:01:42,670
+为了得到更多，
 in order to get that much more,
 
 24
 00:01:42,700 --> 00:01:46,900
+如果你在八个内核上并行运行内核，
 if you can run the kernel parallel on eight cores,
 
 25
 00:01:46,900 --> 00:01:48,130
+它们都在做有用的工作，
 all of them doing useful work,
 
 26
 00:01:48,130 --> 00:01:50,740
+你可以获得 8 倍的性能，
 you can get eight times the performance,
 
 27
 00:01:51,180 --> 00:01:54,120
+与内核只运行一个内核相比。
 than if the kernel could only run a single core.
 
 28
 00:01:54,810 --> 00:02:00,120
+在高级别上，这显然是可能的，
 And, at a high level, this should clearly be possible,
 
 29
 00:02:00,840 --> 00:02:03,750
+如果你的计算机上运行许多进程，
 if you have lots and lots of processes running on your computer,
 
 30
 00:02:03,930 --> 00:02:07,980
+首先，进程在内核中运行，
 the, first of all, the processes are running and executing in the kernel,
 
 31
 00:02:08,040 --> 00:02:11,070
+我们就没什么好担心的了，
 then we have very little to worry about,
 
 32
 00:02:11,100 --> 00:02:12,540
+它们很可能是并行运行的，
 they're likely to run in parallel
 
 33
 00:02:12,630 --> 00:02:15,090
+而不需要内核做任何事情，
 without any kernel having to do anything,
 
 34
 00:02:15,600 --> 00:02:18,390
+如果你正在运行多个应用程序，
 if the processes if you have many applications running,
 
 35
 00:02:18,390 --> 00:02:21,840
+而且它们很多时候都在进行系统调用，
 and they're all making system calls a lot of the time,
 
 36
 00:02:22,020 --> 00:02:25,260
+不同进程进行的不同系统调用
 different system calls made by different processes
 
 37
 00:02:25,290 --> 00:02:27,180
+似乎应该是独立的，
 just seem like they ought to be independent,
 
 38
 00:02:27,180 --> 00:02:30,000
+而且应该能够在许多情况下继续进行，
 and should be able to proceed in many cases,
 
 39
 00:02:30,000 --> 00:02:30,900
+尽管不是所有情况，
 though certainly not all,
 
 40
 00:02:30,900 --> 00:02:33,960
+但应该能够完全不受干扰地进行，
 but should be able to proceed completely without interference,
 
 41
 00:02:34,050 --> 00:02:35,850
+比如，如果两个进程是 fork 的，
 like if two processes are forking,
 
 42
 00:02:36,290 --> 00:02:40,100
+或者两个进程正在读取不同的管道，
 or two processes are reading different pipes
 
 43
 00:02:40,100 --> 00:02:43,400
+或者读或写不同的文件，
 or you know reading or writing different files,
 
 44
 00:02:43,430 --> 00:02:48,170
+它们没有明显的理由要相互干扰，
 there's no obvious reason why they should interfere with each other,
 
 45
 00:02:48,770 --> 00:02:52,490
+为什么它们不能以总吞吐量的 n 倍并行执行。
 why they shouldn't be able to execute in parallel at n times the total throughput.
 
 46
 00:02:53,300 --> 00:02:57,410
+但是问题是，内核有很多共享资源，
 But the problem is the kernel has a lot of shared resources,
 
 47
 00:02:58,850 --> 00:03:01,880
+为了，出于其他好的原因，
 in order to, you know for other good reasons,
 
 48
 00:03:01,880 --> 00:03:03,290
+内核共享了大量资源，
 the kernel shares a lot of resources,
 
 49
 00:03:03,290 --> 00:03:07,910
+比如内存、 CPU 、磁盘缓存和 inode 缓存，
 like memory and CPU and disk cache and inode cache,
 
 50
 00:03:08,030 --> 00:03:12,560
+所有这些在不同进程之间共享的内容，
 and all this other stuff that's actually under the hood shared between different processes,
 
 51
 00:03:13,370 --> 00:03:17,900
+这意味着即使两个处理器进行系统调用，
 and that means that even if two processors are doing system calls,
 
 52
 00:03:17,900 --> 00:03:19,910
+两个完全没有听说过对方的进程，
 two processes that have totally never heard of each other
 
 53
 00:03:19,910 --> 00:03:21,920
+并且不会交互进行系统调用，
 and aren't trying to interact make system calls,
 
 54
 00:03:22,010 --> 00:03:26,240
+如果那些系统调用碰巧分配内存或使用磁盘缓存，
 if those system calls happen to allocate memory or use disk cache,
 
 55
 00:03:26,540 --> 00:03:28,730
+更多涉及调度决策，
 more involve scheduling decisions,
 
 56
 00:03:28,820 --> 00:03:34,580
+它们很可能最终都使用内核中的数据结构，
 they may well end up both using data structures in the kernel,
 
 57
 00:03:34,580 --> 00:03:36,380
+因此，我们需要一些故事
 and therefore we need some story
 
 58
 00:03:36,500 --> 00:03:38,300
+来说明它们应该如何使用相同的数据，
 for how they're both supposed to use the same data
 
 59
 00:03:38,300 --> 00:03:42,590
+不会相互干扰，
 without getting underfoot, without interfering with each other,
 
 60
 00:03:42,740 --> 00:03:44,750
+多年来，我们付出了巨大的努力，
 and there's been enormous effort over the years,
 
 61
 00:03:44,750 --> 00:03:49,730
+让所有这些案例和内核都运行得很快。
 and making kernels, making all these cases and kernels run fast.
 
 62
 00:03:51,030 --> 00:03:55,620
+我们已经看到了一个以正确为导向的，也就是自旋锁，
 We've seen one of course that's oriented towards correctness namely spin locks,
 
 63
 00:03:56,640 --> 00:03:58,680
+自旋锁是直截了当的，
 spin locks are straightforward,
 
 64
 00:03:59,100 --> 00:04:01,530
+因为这样的事情很容易推理，
 as such things go and easy to reason about,
 
 65
 00:04:01,530 --> 00:04:05,460
+但你知道旋转锁的作用是阻止执行，
 but you know what spin lock does is prevent execution,
 
 66
 00:04:05,460 --> 00:04:08,490
+它的作用是阻止并行性，
 it prevents, its job is to prevent parallelism,
 
 67
 00:04:09,390 --> 00:04:12,240
+在两个进程之间可能存在问题的情况下，
 in cases where there might be a problem between two processes,
 
 68
 00:04:12,270 --> 00:04:15,930
+所以自旋锁直接会降低性能，
 so spin locks are just directly away to decrease performance,
 
 69
 00:04:15,930 --> 00:04:16,710
+这就是它们所做的。
 that's all they do.
 
 70
 00:04:17,010 --> 00:04:19,880
+当然，它们使得推理正确变得很容易，
 Of course, they make it easy to reason about correctness,
 
 71
 00:04:19,880 --> 00:04:22,820
+但它们绝对会阻止并行执行，
 but they absolutely prevent parallel execution,
 
 72
 00:04:23,150 --> 00:04:26,420
+这并不总是那么可取的。
 and you know that's not always that desirable.
 
 73
 00:04:29,010 --> 00:04:33,660
+好的，我们把重点放在读取为主的数据上，
 Okay, so again we're going to focus on read heavy data,
 
 74
 00:04:33,660 --> 00:04:34,920
+在这种情况下，
 on the case in which
 
 75
 00:04:35,010 --> 00:04:38,280
+你的数据主要是读取的，而写入相对较少。
 your data that's mostly read and relatively rarely written.
 
 76
 00:04:38,580 --> 00:04:42,180
+主要使用的例子是链表，单链表，
 And the main example in use is a linked list, a singly linked list,
 
 77
 00:04:42,360 --> 00:04:46,620
+所以你可以想出一个标准的链表，
 and so you can think of just a standard link to,
 
 78
 00:04:46,830 --> 00:04:47,610
+这张图，
 this diagram,
 
 79
 00:04:47,610 --> 00:04:53,670
+有某个全局变量，它是头指针，
 there's some sort of maybe global variable, that's a pointer, head pointer,
 
 80
 00:04:53,910 --> 00:04:58,440
+有一个指针，有一堆列表元素，
 just a pointer and there's a bunch of list elements,
 
 81
 00:04:59,230 --> 00:05:02,200
+每个列表元素都有一些数据，
 and each list element has some data
 
 82
 00:05:02,200 --> 00:05:03,670
+假设它是一个字符串，
 and I'll just say it's a string,
 
 83
 00:05:03,670 --> 00:05:09,460
+比如， hello 这种数据在这个元素中，
 like you know "hello" is this sort of data in this element,
 
 84
 00:05:09,520 --> 00:05:11,590
+并且每个元素还有下一个指针，
 and each element also has a next pointer,
 
 85
 00:05:12,250 --> 00:05:15,520
+指向下一个列表元素，
 that points the next list element,
 
 86
 00:05:19,270 --> 00:05:24,550
+最后有一个指向零的指针来标记结束，
 and then finally there's a pointer that points to zero to mark the end,
 
 87
 00:05:25,580 --> 00:05:27,140
+非常直截了当。
 very straightforward.
 
 88
 00:05:28,550 --> 00:05:29,750
+我们再次假设，
 And again we're gonna assume that,
 
 89
 00:05:29,750 --> 00:05:33,410
+我们感兴趣的这个列表的大部分只是读取，
 most uses of this list that we're interested in are just reads,
 
 90
 00:05:33,470 --> 00:05:37,470
+内核线程或其他什么东西使用这个列表，
 you know the the kernel thread or whatever it is that's using this list,
 
 91
 00:05:37,530 --> 00:05:39,180
+只是在扫描列表，寻找一些东西，
 is just scanning the list looking for something,
 
 92
 00:05:39,180 --> 00:05:40,680
+而不是试着修改列表。
 not trying to modify the list.
 
 93
 00:05:41,380 --> 00:05:43,540
+偶尔也会有写者，
 And occasional writers though,
 
 94
 00:05:43,900 --> 00:05:47,410
+如果没有写者的话，
 you know all if there were zero writers ever,
 
 95
 00:05:47,680 --> 00:05:49,690
+我们完全不需要担心这件事，
 we wouldn't need to have to worry about this at all,
 
 96
 00:05:49,690 --> 00:05:52,900
+因为那将是一个完全静态的永远不会改变的列表，
 because it'll be a completely static list, never changes,
 
 97
 00:05:52,900 --> 00:05:53,860
+我们可以自由读取，
 we can read it freely,
 
 98
 00:05:54,100 --> 00:05:55,360
+但是我们会想象一下，
 but we're going to imagine that,
 
 99
 00:05:55,360 --> 00:05:56,170
+每隔一段时间，
 every once in a while,
 
 100
 00:05:56,170 --> 00:05:57,880
+有人想要写入列表。
 somebody comes along and wants to write the list.
 
 101
 00:05:57,880 --> 00:05:58,720
+这可能意味着，
 So that may mean that,
 
 102
 00:05:59,380 --> 00:06:03,730
+某个其他线程想要修改保存在列表元素中的数据，
 some other thread wants to change the data stored in a list element,
 
 103
 00:06:03,730 --> 00:06:05,560
+或者可能删除一个元素，
 or maybe delete an element,
 
 104
 00:06:05,590 --> 00:06:08,170
+或者可能在某个地方插入一个新元素。
 or maybe insert a new element somewhere.
 
 105
 00:06:09,030 --> 00:06:13,110
+所以即使这样，我们的目标是读取为主，
 So even though, it's we're aiming at a mostly reads,
 
 106
 00:06:13,110 --> 00:06:14,550
+我们也要担心写入的问题，
 we do have to worry about writes,
 
 107
 00:06:14,550 --> 00:06:16,920
+我们需要在面对写入时确保读取的安全。
 we need to make the reads safe in the face of writes.
 
 108
 00:06:18,080 --> 00:06:20,330
+当然，在 xv6 中，
 Of course, in xv6,
 
 109
 00:06:20,330 --> 00:06:22,760
+我们只有一个锁来保护这个列表。
 we just have a lock protecting this list,
 
 110
 00:06:22,790 --> 00:06:25,010
+读者，不仅是写者，
 and a reader, that you know not only would writers,
 
 111
 00:06:25,010 --> 00:06:27,500
+在 xv6 中，不仅写者必须获取锁，
 in xv6, not only would writers have to acquire the lock,
 
 112
 00:06:27,530 --> 00:06:29,690
+而且写者也必须获取锁，
 but readers would have to acquire the lock too,
 
 113
 00:06:29,930 --> 00:06:32,090
+因为我们要排除这种情况，
 because we're going to rule out the situation,
 
 114
 00:06:32,090 --> 00:06:35,600
+在我们读取时，有人在修改列表，
 in which while we're reading somebody's actually modifying the list,
 
 115
 00:06:35,600 --> 00:06:41,810
+因为这可能会使读者看到部分更新的值，
 because that could cause sort of the reader to see half updated value
 
 116
 00:06:41,810 --> 00:06:43,910
+或者跟随无效的指针或其他什么。
 or follow an invalid pointer or something.
 
 117
 00:06:44,120 --> 00:06:46,400
+所以，在 xv6 中，我们有锁，
 So in xv6 we have locks,
 
 118
 00:06:48,500 --> 00:06:50,360
+但是，这有一个缺陷，
 but, that has a defect,
 
 119
 00:06:50,360 --> 00:06:52,820
+如果常见的情况下没有写者，
 that if the common cases there's no writers,
 
 120
 00:06:52,820 --> 00:06:56,870
+这意味着每次有人来读取时，
 it means that every time somebody comes along and reads,
 
 121
 00:06:57,800 --> 00:07:02,180
+在 xv6 中，它们抢占独占的， xv6 自旋锁是独占的，
 in xv6, they grab an exclusive, like xv6 spin locks are exclusive,
 
 122
 00:07:02,360 --> 00:07:04,610
+即使你有两个读者，
 even if you have just two readers,
 
 123
 00:07:04,610 --> 00:07:06,620
+一次也只有一个可以继续，
 only one of them can proceed at a time,
 
 124
 00:07:07,130 --> 00:07:09,620
+所以我们想要的，
 so what we'd like,
 
 125
 00:07:10,130 --> 00:07:12,260
+某种程度上是改善这种情况的一种方式，
 sort of one way to improve this situation,
 
 126
 00:07:12,350 --> 00:07:14,690
+就是有一种新的锁，
 would be to have a new kind of lock,
 
 127
 00:07:14,720 --> 00:07:18,380
+允许多个读者，但只允许一个写者。
 that allows multiple readers, but only one writer.
 
 128
 00:07:19,470 --> 00:07:21,540
+所以我接下来要探索这些，
 So I explore those next,
 
 129
 00:07:22,110 --> 00:07:24,270
+因为它们都很有趣，
 actually both because they're interesting,
 
 130
 00:07:24,480 --> 00:07:29,520
+因为它们帮助激发了对 RCU 的需求，
 because they they help motivate the need for RCU,
 
 131
 00:07:29,640 --> 00:07:31,290
+我们一会儿再谈。
 we'll talk about in a little while.
 
 132
 00:07:32,030 --> 00:07:35,120
+所以这个概念叫做读写锁，
 So there's, this notion called read write locks,
 
 133
 00:07:36,920 --> 00:07:41,960
+它的接口比我们使用的自旋锁的要复杂一些，
 and the interface is a little more complicated than the spin locks we're used to,
 
 134
 00:07:42,140 --> 00:07:44,330
+我们假设有一组调用，
 we're going to imagine that there's one set of call,
 
 135
 00:07:44,330 --> 00:07:46,820
+如果你只想读取什么，
 that you call if you just want to read something,
 
 136
 00:07:46,880 --> 00:07:52,860
+所以我们将想象有一个 r_lock 调用，并传递一个锁，
 so we're gonna imagine r_lock call and pass a lock
 
 137
 00:07:53,100 --> 00:07:55,650
+然后还有一个 r_unlock 调用，
 and then also an r_unlock call,
 
 138
 00:07:59,300 --> 00:08:00,350
+读者调用这些。
 and readers call these.
 
 139
 00:08:00,350 --> 00:08:04,250
+然后有一个 w_lock 调用和 w_unlock 调用，
 And then there's a w_lock call and a w_unlock call,
 
 140
 00:08:04,640 --> 00:08:08,500
+它的语义是，
 and the semantics are that
 
 141
 00:08:08,740 --> 00:08:15,100
+你可以让多个读者获取用于读取的锁，
 you can either have multiple readers acquire the lock for reading,
 
 142
 00:08:15,490 --> 00:08:17,920
+这样我们就会得到并行性，
 so we do then would get parallelism,
 
 143
 00:08:17,950 --> 00:08:23,540
+或者你可以有一个写者获取锁，
 or you can have exactly one writer have acquired the lock,
 
 144
 00:08:23,870 --> 00:08:25,160
+但你永远不能混在一起，
 but you can never have a mix,
 
 145
 00:08:25,160 --> 00:08:26,330
+你永远不能，
 you can never have be in,
 
 146
 00:08:26,330 --> 00:08:28,490
+锁排除了这种可能，
 the locks rule out the possible,
 
 147
 00:08:28,520 --> 00:08:31,100
+读写锁排除了这种可能，
 read, read write locks rule out the possibility
 
 148
 00:08:31,100 --> 00:08:35,000
+有人锁定写入锁并同时进行读取，
 of somebody having locked the lock for writing and also reading at the same time,
 
 149
 00:08:35,180 --> 00:08:39,080
+要么是一个写者，要么是多个读者，没有别的情况。
 you're either one writer or lots of readers, but nothing else.
 
 150
 00:08:41,030 --> 00:08:41,960
+所以这就是。
 So that's the.
 
 151
 00:08:42,620 --> 00:08:43,370
+有一个问题。
 A question.
 
 152
 00:08:43,490 --> 00:08:44,120
+好的。
 Yes.
 
 153
 00:08:44,820 --> 00:08:47,700
+这可能是关于实现细节，
 This may be an implementation detail,
 
 154
 00:08:47,970 --> 00:08:51,960
+但是这个锁方案设置了什么样的机制，
 but what kind of mechanisms does this locking scheme put in place
 
 155
 00:08:51,960 --> 00:08:57,120
+来防止当它们持有读锁时，有人写入。
 to prevent someone writing, while they hold a read lock.
 
 156
 00:08:57,150 --> 00:09:00,870
+没什么，就像 xv6 锁一样。
 Nothing, nothing, it's just like xv6 locks, completely.
 
 157
 00:09:01,380 --> 00:09:05,750
+我们谈论内核代码是由值得信赖的负责任的开发人员编写的，
 We're talking about kernel code written by trusted responsible developers
 
 158
 00:09:05,750 --> 00:09:08,090
+所以，就像 xv6 中的自旋锁一样，
 and so just like spin locks in xv6,
 
 159
 00:09:08,360 --> 00:09:13,140
+如果代码使用锁不正确，那么它就是不正确的，没有。
 if the code is using locks incorrect, it's incorrect, there's no.
 
 160
 00:09:13,140 --> 00:09:13,620
+好的。
 Okay.
 
 161
 00:09:15,450 --> 00:09:18,090
+这就是典型内核的编写方式，
 And this is the way you know typical kernels are written,
 
 162
 00:09:18,840 --> 00:09:20,610
+你需要假设，
 you just have to assume that,
 
 163
 00:09:22,210 --> 00:09:24,520
+开发内核的人遵循他们自己的规则。
 people developing the kernel are following their own rules.
 
 164
 00:09:26,190 --> 00:09:26,640
+好的。
 Okay.
 
 165
 00:09:26,790 --> 00:09:28,950
+好的，再说一遍我们关心的原因是，
 Okay, and again the reason why we care is that,
 
 166
 00:09:29,550 --> 00:09:32,790
+如果我们有一个读取为主的数据结构，
 if we have a mostly read mostly data structure,
 
 167
 00:09:32,790 --> 00:09:36,840
+我们希望有多个读者能够同时使用它，
 we'd love to have multiple readers be able to use it at the same time
 
 168
 00:09:36,840 --> 00:09:42,240
+通过拥有多个内核获得真正的加速。
 to get genuine speedup from having multiple cores.
 
 169
 00:09:44,230 --> 00:09:47,850
+好的，如果这里没有问题，
 Alright, so, if there were no problem here,
 
 170
 00:09:47,850 --> 00:09:48,810
+这就是答案，
 this would just be the answer,
 
 171
 00:09:48,810 --> 00:09:51,180
+我们不需要读今天的论文，
 we wouldn't have needed to read today's paper,
 
 172
 00:09:51,900 --> 00:09:53,370
+但事实证明，
 but it turns out that,
 
 173
 00:09:53,430 --> 00:09:55,980
+如果深入查看发生的细节，
 if you dig into the details of what actually happens,
 
 174
 00:09:56,640 --> 00:09:58,530
+当你使用读写锁时，
 when you use read write locks,
 
 175
 00:09:58,560 --> 00:10:01,530
+特别是对于大量读取的数据，
 especially for data that's actually read a lot,
 
 176
 00:10:01,710 --> 00:10:03,390
+这里有一些问题。
 there's some problems.
 
 177
 00:10:03,600 --> 00:10:06,000
+为了看看发生了什么，
 And in order to see what's going on,
 
 178
 00:10:06,000 --> 00:10:07,560
+我们必须看一下实现。
 we actually have to look at the implementation.
 
 179
 00:10:08,660 --> 00:10:16,160
+Linux 有一个读写锁实现，
 Linux indeed has a read/write lock implementation in it,
 
 180
 00:10:16,160 --> 00:10:23,270
+这是 Linux 代码的一种简化版本。
 and this is a kind of simplified version of the Linux code.
 
 181
 00:10:23,910 --> 00:10:26,520
+这里的想法是有一个 rwlock 结构体，
 The idea is that we have a struct rwlock,
 
 182
 00:10:26,700 --> 00:10:29,160
+就像 xv6 中的 lock 结构体，
 which is like struct lock in xv6,
 
 183
 00:10:29,160 --> 00:10:30,360
+而且它里面有一个计数，
 and it has a count in it,
 
 184
 00:10:31,420 --> 00:10:33,550
+如果计数为 0 ，
 if the count is 0,
 
 185
 00:10:33,610 --> 00:10:36,820
+这意味着锁没有被任何人以任何形式持有，
 that means that the lock is not held by anybody in any form,
 
 186
 00:10:36,910 --> 00:10:38,050
+如果计数为 -1 ，
 if the count is -1,
 
 187
 00:10:38,050 --> 00:10:40,150
+则表示写入者已加锁，
 that means that a writer has it locked,
 
 188
 00:10:41,020 --> 00:10:42,580
+如果计数大于 0 ，
 and if the count is greater than 0,
 
 189
 00:10:42,580 --> 00:10:45,820
+这意味着 n 个读取者已加锁，
 that means that n readers have it locked,
 
 190
 00:10:45,820 --> 00:10:46,900
+我们需要跟踪它们，
 and we need to keep track of them,
 
 191
 00:10:46,900 --> 00:10:48,790
+因为我们只能让一个写入者进来，
 because we can only let a writer in,
 
 192
 00:10:48,790 --> 00:10:50,860
+如果读取者数量降到 0 的话。
 if the number of readers descends to 0.
 
 193
 00:10:58,870 --> 00:11:00,940
+好的，有人问了关于添加的问题。
 Okay, so somebody asked about addings.
 
 194
 00:11:02,910 --> 00:11:06,120
+不，我不确定聊天里有问题，
 No, I'm not sure if there's a question in the chat,
 
 195
 00:11:06,660 --> 00:11:08,820
+如果有的话，请打断我。
 interrupt me if there is.
 
 196
 00:11:12,020 --> 00:11:19,410
+读锁定函数，它处于循环中，
 The read lock function, that's sit in a loop,
 
 197
 00:11:19,410 --> 00:11:20,700
+因为如果有写者，
 because if there's a writer,
 
 198
 00:11:20,700 --> 00:11:21,720
+我们必须等待写者，
 we have to wait for the writer,
 
 199
 00:11:25,660 --> 00:11:26,440
+它看起来，
 it looks,
 
 200
 00:11:31,680 --> 00:11:33,810
+它获得了当前 n 的值的副本，
 it grabs a copy of the current n value,
 
 201
 00:11:34,610 --> 00:11:36,920
+如果该值小于 0 ，则表示有一个写者，
 if this less than 0, that means there's a writer,
 
 202
 00:11:36,920 --> 00:11:39,350
+我们只需要继续我们的循环，继续旋转，
 and we just need to continue our loop, gonna spin,
 
 203
 00:11:39,350 --> 00:11:40,880
+等着写者离开，
 waiting for the writer to go away,
 
 204
 00:11:41,600 --> 00:11:45,830
+否则，我们想要增加这个值，
 otherwise we want to increment that value,
 
 205
 00:11:46,760 --> 00:11:48,680
+但是我们只想增加它，
 but we only want to increment it,
 
 206
 00:11:48,710 --> 00:11:51,470
+如果它仍然大于或等于 0 ，
 if it's still greater than or equal to 0,
 
 207
 00:11:51,470 --> 00:11:54,020
+所以我们不能，有很多事情我们不能做，
 so we can't, there's many things we can't do,
 
 208
 00:11:54,020 --> 00:11:55,760
+我们不能简单地加 1 ，
 we can't, for example, just add one,
 
 209
 00:11:55,760 --> 00:11:58,790
+使用标准的 n 等于 n 加 1 ，
 with standard n equals n plus one,
 
 210
 00:11:59,360 --> 00:12:01,280
+因为如果写入者偷偷进入，
 because if a writer sneaks in,
 
 211
 00:12:01,310 --> 00:12:04,460
+在我们检查 n 的值和尝试增加它之间，
 between when we check the value of n and when we actually try to increment it,
 
 212
 00:12:04,760 --> 00:12:07,460
+那么我们可能继续，并增加它，
 then we may actually go ahead and increment it,
 
 213
 00:12:07,460 --> 00:12:09,950
+而同时，某个写者把它设为 -1 ，
 at the same time, that some writer is setting it to -1,
 
 214
 00:12:10,100 --> 00:12:10,820
+这是不对的。
 which is wrong.
 
 215
 00:12:10,880 --> 00:12:12,080
+所以，我们需要增加它，
 So we need to increment it,
 
 216
 00:12:12,260 --> 00:12:15,530
+只有它在我们检查之后没有修改过值，
 only if it hasn't changed value since we checked it
 
 217
 00:12:15,710 --> 00:12:18,260
+并验证其大于或等于 0 ，
 and verified that is greater than or equal to 0,
 
 218
 00:12:18,950 --> 00:12:22,070
+人们这样做的方式是，
 and the way people do that is,
 
 219
 00:12:22,070 --> 00:12:25,880
+他们利用特殊的原子指令，
 they take advantage of special atomic or interlocked instructions,
 
 220
 00:12:25,910 --> 00:12:27,170
+这是你在前面看到的，
 which you saw before,
 
 221
 00:12:27,170 --> 00:12:31,470
+用于在 xv6 中实现自旋锁。
 for the, for implementation of spin locks in xv6.
 
 222
 00:12:31,920 --> 00:12:33,600
+而原子性指令，
 And the interlocked instruction,
 
 223
 00:12:33,600 --> 00:12:37,830
+这是一种特别方便的被称为比较和交换的指令，
 that's one that's particularly convenient to use as something called compare and swap,
 
 224
 00:12:38,250 --> 00:12:40,620
+这个想法是比较和交换有三个参数，
 the idea is the compare and swap takes three arguments,
 
 225
 00:12:40,980 --> 00:12:45,360
+我们要执行操作的某个内存位置的地址，
 the address of some location of memory that we want to act on,
 
 226
 00:12:46,320 --> 00:12:49,230
+我们认为它拥有的值，
 the value that we think it holds
 
 227
 00:12:49,260 --> 00:12:51,030
+以及我们希望它拥有的值。
 and the value that we'd like it to hold.
 
 228
 00:12:51,990 --> 00:12:53,820
+比较和交换的语义是，
 And the semantics of compare and swap are that,
 
 229
 00:12:53,820 --> 00:12:55,260
+硬件检查，
 the hardware checks,
 
 230
 00:12:55,380 --> 00:12:59,700
+硬件首先设置内部锁，
 the hardware first sort of basically sets an internal lock,
 
 231
 00:12:59,700 --> 00:13:05,040
+使得在给定内存位置上一次只执行一次比较和交换，
 that makes only one compare and swap executed a time on a given memory location,
 
 232
 00:13:05,340 --> 00:13:10,560
+然后硬件检查这个位置的当前值仍然是 x ，
 then the hardware checks that the current value of that location is indeed still x,
 
 233
 00:13:10,560 --> 00:13:12,210
+如果它仍然是 x ，
 and if it still x,
 
 234
 00:13:12,850 --> 00:13:16,210
+将它设置为第三个参数，它将是 x 加 1 ，
 sets it to this third argument, which is going to be x plus one,
 
 235
 00:13:16,720 --> 00:13:20,020
+然后指令产生 1 ，它的值，
 and then the instruction yields one, its value,
 
 236
 00:13:20,830 --> 00:13:24,550
+如果比较和交换观察到当前值不是 x ，
 if compare and swap observes that the current value isn't x,
 
 237
 00:13:24,970 --> 00:13:28,530
+那么它不会改变那个内存位置的值，
 then it doesn't change the value the memory location,
 
 238
 00:13:28,530 --> 00:13:29,460
+并返回 0 。
 and it returns 0.
 
 239
 00:13:30,130 --> 00:13:32,680
+所以这是一个原子性的，
 So this is basically an atomic,
 
 240
 00:13:33,980 --> 00:13:36,290
+如果位置是 x ，则设置为 x 加 1 。
 if the location is x, set to x plus one.
 
 241
 00:13:37,380 --> 00:13:38,280
+它必须是原子的，
 It has to be atomic,
 
 242
 00:13:38,280 --> 00:13:39,720
+因为有两件事在发生，
 because there's really two things going on,
 
 243
 00:13:39,780 --> 00:13:43,560
+硬件检查当前值，并将其设置为新值。
 the hardware is checking the current value and setting it to a new value.
 
 244
 00:13:45,720 --> 00:13:47,370
+关于比较和交换，有什么问题吗？
 Any questions about compare and swap?
 
 245
 00:13:49,650 --> 00:13:50,970
+我有个问题，
 I have a question,
 
 246
 00:13:50,970 --> 00:13:57,720
+如果有一个读者和 r_lock 需要继续，
 if there would be a reader and r_lock needs to continue,
 
 247
 00:13:57,840 --> 00:14:03,030
+那么 w_unlock 是否会将值重置回 x 。
 would w_unlock reset the value back to x.
 
 248
 00:14:03,150 --> 00:14:08,900
+w_unlock ，如果有一个写者，
 Um, w_unlock, if there's a writer,
 
 249
 00:14:09,510 --> 00:14:13,500
+w_unlock，它会设置 n 为 0 ，
 w_unlock, which I'm afraid it shows set n to 0,
 
 250
 00:14:14,550 --> 00:14:16,230
+因为只能有一个写者。
 because there can only be one writer.
 
 251
 00:14:17,830 --> 00:14:21,160
+而 r_unlock 所做的是，
 If there's what r_unlock does is
 
 252
 00:14:21,160 --> 00:14:25,690
+使用另一个比较并交还来减少 n 。
 use another compare and swap to decrement n.
 
 253
 00:14:27,330 --> 00:14:30,820
+好的，这会发生什么，
 Okay, because, what happens,
 
 254
 00:14:30,820 --> 00:14:41,340
+如果写者锁处于 x 正在计算。
 if writer locks lock between when x is being computed and.
 
 255
 00:14:41,930 --> 00:14:42,950
+在这里吗？
 So, right here?
 
 256
 00:14:44,560 --> 00:14:50,710
+不，在 if 和 x 之间。
 No, between the if and x somehow.
 
 257
 00:14:51,140 --> 00:14:56,480
+好的，我不太明白你问的是什么时间，
 Okay, okay, it's, I'm not sure I understand exactly what time you're asking,
 
 258
 00:14:56,480 --> 00:14:57,860
+但这绝对是个好问题，
 but it's absolutely good question,
 
 259
 00:14:57,860 --> 00:15:03,230
+如果在这个序列中的某个地方调用了 w_lock ，会发生什么。
 what happens if w_lock is called somewhere during this sequence.
 
 260
 00:15:03,800 --> 00:15:07,790
+对我来说，调用 w_lock 最危险的时间是，
 And for me the most dangerous time for w_lock to be called is
 
 261
 00:15:08,420 --> 00:15:11,690
+在检查之后，但在比较和交换之前。
 after this check, but before the compare and swap.
 
 262
 00:15:12,500 --> 00:15:15,650
+那么，我们假设读锁已经完成，
 So, let's imagine that read lock has done,
 
 263
 00:15:15,650 --> 00:15:20,210
+已经看到 x 或 l->n 是 0 。
 as far as seeing that x, that x or l->n is 0.
 
 264
 00:15:21,030 --> 00:15:23,280
+好的，也许我们在这里，
 Okay, so maybe we're right, we're right here,
 
 265
 00:15:24,820 --> 00:15:26,770
+并且 x 等于 0 。
 and x is equal to 0.
 
 266
 00:15:30,900 --> 00:15:34,050
+我们已经检查过了，检查已经完成了，
 We've already checked, the check is finished,
 
 267
 00:15:34,050 --> 00:15:36,120
+然后就在这个时候，在另一个核心上，
 and then right at this time on another core,
 
 268
 00:15:36,240 --> 00:15:38,340
+一些其他线程调用了 w_lock ，
 some other thread calls w_lock,
 
 269
 00:15:39,020 --> 00:15:42,320
+它首先进行比较和交换。
 and it actually gets its compare and swap in first.
 
 270
 00:15:43,340 --> 00:15:46,280
+所以，另一个核心正在尝试获取写锁，
 So on the other core is trying to grab the write lock,
 
 271
 00:15:47,300 --> 00:15:49,760
+比较和交换将查看 l->n 是否为 0 ，
 compare and swap is going to see if l->n is 0,
 
 272
 00:15:49,760 --> 00:15:53,630
+我们假设 n 是 0 ，那么这个测试是真的，
 let's assume that n is 0, so this test is true,
 
 273
 00:15:53,690 --> 00:15:56,250
+并且在另一个核心上的比较和交换
 and the compare and swap is on that other core
 
 274
 00:15:56,250 --> 00:15:58,290
+将设置 n 为 -1 ，
 is going to set n to -1,
 
 275
 00:15:58,290 --> 00:15:59,370
+现在锁加锁了，
 now the locks locked,
 
 276
 00:16:00,150 --> 00:16:03,930
+但是我们在这个代码中仍然认为 n 是 0 ，
 but we still think that n is 0 in this code,
 
 277
 00:16:04,520 --> 00:16:05,870
+即使锁已经锁定了。
 even the locks locked.
 
 278
 00:16:06,380 --> 00:16:07,640
+现在我们要执行，
 And now we're gonna execute,
 
 279
 00:16:07,640 --> 00:16:09,020
+回到读取核心，
 back on the reading core,
 
 280
 00:16:09,650 --> 00:16:11,420
+我们要执行比较和交换，
 We're going to execute compare and swap,
 
 281
 00:16:11,630 --> 00:16:13,880
+但是我们要在这里传递 0 ，
 but we're going to pass 0 here right,
 
 282
 00:16:13,880 --> 00:16:15,110
+这是我们要传递的值，
 this is the value we actually,
 
 283
 00:16:15,110 --> 00:16:17,510
+我们要传递我们看到的值，
 we're going to pass in the value we actually looked at,
 
 284
 00:16:17,570 --> 00:16:18,980
+而不是 n 的当前值。
 not the current value of n.
 
 285
 00:16:19,590 --> 00:16:21,120
+当我们查看它时，它是 0 ，
 And when we looked at it,it was zero,
 
 286
 00:16:21,120 --> 00:16:22,620
+所以我们要在这里传递 0 ，
 so we're going to pass 0 here,
 
 287
 00:16:22,920 --> 00:16:24,150
+我们会告诉比较和交换，
 and we'll telling compare and swap,
 
 288
 00:16:24,150 --> 00:16:26,190
+对它加一，
 look only add one to,
 
 289
 00:16:26,190 --> 00:16:29,790
+只有在当前值为 0 时，将它设置为 1 。
 only set it to 1, if its current value is 0.
 
 290
 00:16:30,550 --> 00:16:32,650
+但在这一点上，它不是 0 ，而是 -1 ，
 But it's not 0, at this point, it's -1,
 
 291
 00:16:32,800 --> 00:16:34,630
+所以这个比较和交换会失败，
 and so this compare and swap fails,
 
 292
 00:16:34,660 --> 00:16:38,420
+不会修改 n ，并返回 0 ，
 does not modify n, returns 0,
 
 293
 00:16:38,570 --> 00:16:41,270
+这意味着我们将回到这个循环的顶部，然后重试，
 and so that means we'll go back to the top of this loop and try again,
 
 294
 00:16:41,540 --> 00:16:43,370
+当然现在 n 是 -1 。
 of course now n is -1.
 
 295
 00:16:45,370 --> 00:16:48,010
+这可能和前面的问题有点关系，
 This may be related to the previous question a bit,
 
 296
 00:16:48,010 --> 00:16:52,180
+但是，是否会发生中断，
 but, is it possible for an interrupt to occur,
 
 297
 00:16:52,720 --> 00:16:58,960
+当在 CAS 参数中计算 x 加 1 时？
 when that x plus 1 is being computed in the CAS parameter or CAS parameter?
 
 298
 00:16:59,140 --> 00:17:01,480
+你的意思是在我们执行 CAS 之前，
 You mean before we actually execute CAS,
 
 299
 00:17:01,480 --> 00:17:03,250
+但是在我们计算它的参数时？
 but while we're computing its arguments?
 
 300
 00:17:03,310 --> 00:17:05,080
+是的，比如你计算，
 Right, so like you compute,
 
 301
 00:17:05,080 --> 00:17:08,260
+你传入 x 参数，这没问题，
 you pass in the x argument and that's okay,
 
 302
 00:17:08,260 --> 00:17:10,900
+但是在你计算 x+1 之前，
 but you before you compute the x plus 1
 
 303
 00:17:10,900 --> 00:17:12,640
+或者当你在计算 x+1 的时候，
 or while you're computing x plus 1,
 
 304
 00:17:12,670 --> 00:17:13,690
+中断发生了。
 an interrupt occurs.
 
 305
 00:17:14,050 --> 00:17:14,680
+好的。
 Okay.
 
 306
 00:17:14,740 --> 00:17:16,120
+x+1 是错误的。
 And the x plus 1 is wrong.
 
 307
 00:17:16,150 --> 00:17:19,480
+所以，如果在我们计算 x+1 时发生中断，
 So, if an interrupt occurs while we're computing x plus 1,
 
 308
 00:17:19,480 --> 00:17:20,200
+这意味着我们没有，
 that means we haven't,
 
 309
 00:17:20,380 --> 00:17:22,150
+CAS 实际上是一条指令，
 CAS is actually an instruction,
 
 310
 00:17:22,150 --> 00:17:23,590
+它是一条单一的机器指令，
 it's a single machine instruction,
 
 311
 00:17:24,260 --> 00:17:25,640
+所以对于计算 x+1 ，
 so for computing x plus 1,
 
 312
 00:17:25,640 --> 00:17:27,260
+这意味着我们还没有调用 CAS 。
 that means we haven't called CAS yet.
 
 313
 00:17:27,980 --> 00:17:31,820
+如果中断发生，各种事情都可能发生，
 If the interrupt happens and all kinds of things may happen,
 
 314
 00:17:32,920 --> 00:17:33,940
+我们会得到相同的，
 we're going to get the same,
 
 315
 00:17:33,940 --> 00:17:38,480
+如果我们最初在这里读到 0 ，
 if we originally read zero here, right,
 
 316
 00:17:38,480 --> 00:17:40,250
+然后中断或没有中断，
 then interrupt or no interrupt,
 
 317
 00:17:40,800 --> 00:17:43,560
+我们会传递 1 作为第三个参数，
 we're gonna pass 1 as this third argument,
 
 318
 00:17:44,040 --> 00:17:45,840
+因为中断不会改变，
 because interrupts not going to [reach out] and change,
 
 319
 00:17:45,840 --> 00:17:49,550
+这个 x 是这段代码的局部变量，
 this is a local, this x is a local variable for this code,
 
 320
 00:17:49,670 --> 00:17:53,660
+中断上下文，任何事情都不会改变 x 。
 so interrupt context which anything is not gonna change x.
 
 321
 00:17:54,230 --> 00:17:57,420
+所以这意味着我们将传递 0 和 1 ，
 So that means we're going to pass 0 and 1 here,
 
 322
 00:17:57,420 --> 00:18:01,160
+如果 n 仍然是 0 ，
 and you know if n is still 0,
 
 323
 00:18:01,160 --> 00:18:01,910
+那么我们就把它设为 1 ，
 then we'll set it to one,
 
 324
 00:18:01,910 --> 00:18:02,990
+这就是我们想要的，
 and that's that's what we want,
 
 325
 00:18:02,990 --> 00:18:03,920
+如果它不是 0 ，
 if it's not still 0,
 
 326
 00:18:03,920 --> 00:18:05,900
+那么比较并交换不会修改它。
 then compare and swap won't change it.
 
 327
 00:18:06,530 --> 00:18:07,790
+好的，我想你会有问题，
 Right, I guess you would have problems,
 
 328
 00:18:07,790 --> 00:18:09,710
+如果你不设置那个局部变量。
 if you didn't set that local variable.
 
 329
 00:18:11,630 --> 00:18:16,250
+如果你在这里用 l->n ， l->n+1 ，
 If you used l l->n here, l->n plus 1,
 
 330
 00:18:16,250 --> 00:18:18,020
+你肯定会有大麻烦，
 you would almost certainly be in big trouble,
 
 331
 00:18:18,020 --> 00:18:21,200
+因为那样的话， n 随时都可能改变，
 because then n could change underfoot at any time,
 
 332
 00:18:21,500 --> 00:18:23,840
+这就是为什么我们在这里获得一个 n 的拷贝，
 that's why we actually grab a copy n,
 
 333
 00:18:24,170 --> 00:18:28,370
+获取一个拷贝，以固定一个特定值。
 grab a copy here in order to fix a specific value.
 
 334
 00:18:28,920 --> 00:18:29,790
+好的。
 Yes.
 
 335
 00:18:32,090 --> 00:18:32,630
+好的。
 Okay.
 
 336
 00:18:35,930 --> 00:18:37,910
+如果有两个读者，
 If two readers,
 
 337
 00:18:37,910 --> 00:18:38,840
+好的，我说一下这种情况，
 okay, so I covered the case
 
 338
 00:18:38,840 --> 00:18:41,970
+不论写者同时调用，
 of whatever writer calls the same,
 
 339
 00:18:42,210 --> 00:18:44,580
+w_lock 与 r_lock 同时调用，
 w_lock is called the same time as r_lock,
 
 340
 00:18:44,610 --> 00:18:46,920
+同样有趣的是，
 it's also interesting to wonder
 
 341
 00:18:46,920 --> 00:18:48,660
+如果同时调用 r_lock 会怎么样。
 what if r_lock is called at the same time.
 
 342
 00:18:49,500 --> 00:18:52,200
+所以假设 n 从 0 开始，
 So supposing the n starts at 0,
 
 343
 00:18:52,200 --> 00:18:55,560
+如果同时调用两个 r_lock ，
 we know if two r_locks are called at the same time,
 
 344
 00:18:55,590 --> 00:18:58,920
+我们想要的是 n 最终的值是 2 ，
 what we want is for n to end up with value 2,
 
 345
 00:18:59,130 --> 00:19:01,560
+两个 r_lock 都返回，
 and for both r_locks to return,
 
 346
 00:19:01,590 --> 00:19:02,580
+这就是我们想要的，
 that's what we want,
 
 347
 00:19:02,850 --> 00:19:05,670
+因为我们希望两个读者能够并行执行，
 because we want two readers to, be able to execute in parallel,
 
 348
 00:19:05,700 --> 00:19:07,230
+能够并行使用数据。
 to use the data in parallel.
 
 349
 00:19:07,590 --> 00:19:14,680
+好的，那么在这一点上，它们都会看到 0 。
 Okay, so, they're both gonna see 0 at this point.
 
 350
 00:19:14,680 --> 00:19:17,650
+所以，在这一点上，它们的 x 都等于 0 ，
 So, at this point, both of them are going to have x equal to 0,
 
 351
 00:19:17,800 --> 00:19:21,970
+它们都会使用 0 和 1 调用比较并交换。
 they're both gonna call compare and swap with 0 and 1.
 
 352
 00:19:25,680 --> 00:19:28,260
+这两个比较和交换中只有一个，
 Only one of those two compare and swap hopefully,
 
 353
 00:19:28,440 --> 00:19:31,620
+恰好有一个比较和交换会成功，
 exactly one of those to compare and swaps will succeed,
 
 354
 00:19:31,770 --> 00:19:32,790
+无论哪一个，
 whichever one,
 
 355
 00:19:32,970 --> 00:19:35,550
+比较和交换是原子指令，
 you know compare and swap it's an atomic instruction,
 
 356
 00:19:35,790 --> 00:19:40,550
+在同一内存位置，它们中只有一个可以发生，
 the only one of them happens at a time on a given memory location,
 
 357
 00:19:40,760 --> 00:19:44,690
+所以无论哪个比较并交换我们先看到，
 so whichever will compare and swap is first we'll see,
 
 358
 00:19:44,960 --> 00:19:47,840
+n 等于 0 ，并将它设置为 1 ，
 that n is equal to 0, and will set it to 1,
 
 359
 00:19:48,230 --> 00:19:51,320
+其他核心同时调用 r_lock ，
 the other cores simultaneous call to r_lock,
 
 360
 00:19:51,470 --> 00:19:53,540
+它的比较和交换然后执行，
 it's compare and swap will then execute
 
 361
 00:19:53,900 --> 00:19:56,540
+在这里它仍然传递 0 和 1 ，
 and it'll still pass zero and one here,
 
 362
 00:19:57,510 --> 00:20:00,480
+但 n 现在将等于 1 ，
 but n will now be equal to 1,
 
 363
 00:20:00,480 --> 00:20:05,990
+所以第二个核心的比较并交换会失败，并返回 0 ，
 and so the compare and swap will fail for the second core and return 0,
 
 364
 00:20:07,010 --> 00:20:09,410
+第二个核心将回到这个循环的顶部，
 the second core will go back to the top of this loop,
 
 365
 00:20:09,440 --> 00:20:11,060
+在这一点上，它将是 1 ，
 at this point it will be 1,
 
 366
 00:20:11,600 --> 00:20:13,730
+那不小于 0 ，
 that's not less than zero,
 
 367
 00:20:13,730 --> 00:20:16,150
+所以我们将继续比较和交换，
 so we'll go on to compare and swap,
 
 368
 00:20:16,150 --> 00:20:17,710
+现在它将传递 1 和 2 ，
 and now it'll pass 1 and 2,
 
 369
 00:20:17,770 --> 00:20:20,740
+现在第二个读锁将会成功，
 and now the second read lock will succeed,
 
 370
 00:20:20,860 --> 00:20:23,170
+他们两个都会有锁。
 both of them will have the lock.
 
 371
 00:20:23,470 --> 00:20:25,090
+所以第一个在第一次尝试时成功了，
 So the first one succeeded, the first try,
 
 372
 00:20:25,090 --> 00:20:28,030
+第二个返回到循环，然后重试。
 the second one actually go back to the loop and try again.
 
 373
 00:20:31,500 --> 00:20:32,340
+有什么问题吗？
 Any questions?
 
 374
 00:20:36,510 --> 00:20:39,180
+哦，抱歉，所以有没有可能，
 Oh, sorry, so it is somehow possible that,
 
 375
 00:20:39,630 --> 00:20:42,390
+所以来了一大堆读取，
 so a bunch of reads come,
 
 376
 00:20:42,600 --> 00:20:45,390
+它们在读取它们的东西，
 and they they're reading their stuff,
 
 377
 00:20:45,390 --> 00:20:49,850
+然后写入也来了，它也想写，
 and then a write also comes and it also wants to write,
 
 378
 00:20:50,090 --> 00:20:52,880
+但是随后一些其他读取，也在写入之后来了，
 but then some other reads also come after the write,
 
 379
 00:20:53,620 --> 00:20:58,780
+但是因为某种原因读取超过了写入，
 but then somehow the reads outrun the write,
 
 380
 00:20:59,140 --> 00:21:02,810
+然后写入还要继续等待。
 and the write still has to wait somehow.
 
 381
 00:21:03,020 --> 00:21:05,660
+是的，所以如果序列是这样的，
 Yes, so so if the sequence is that,
 
 382
 00:21:05,840 --> 00:21:08,720
+一个读者设法获得了锁，
 a reader managed to acquire the lock,
 
 383
 00:21:08,720 --> 00:21:09,950
+一个或多个读者持有锁，
 one or more readers have the locks,
 
 384
 00:21:09,950 --> 00:21:14,200
+现在 n ，它们中的每一个都调用了比较和交换，
 now n, you know each of them is called a compare and swap,
 
 385
 00:21:14,230 --> 00:21:16,120
+对于每个读者，加 1 到 n ，
 you know adds one to n for each reader,
 
 386
 00:21:16,120 --> 00:21:17,770
+所以现在 n 大于 0 ，
 so now n is greater than 0,
 
 387
 00:21:17,800 --> 00:21:19,900
+因为有多个读者，
 because there's multiple readers,
 
 388
 00:21:20,170 --> 00:21:22,450
+如果在这一点上，写入者想要获取锁，
 if a writer tries to acquire the lock at this point,
 
 389
 00:21:23,040 --> 00:21:28,140
+写入者的比较和交换，比较值是 0 ，
 the writer's compare and swap, the compare value is 0,
 
 390
 00:21:28,170 --> 00:21:31,650
+所以，比较和交换会将 n 更改为 -1 ，
 so compare and swap will only change n to -1,
 
 391
 00:21:31,860 --> 00:21:33,750
+只有它的当前值是 0 。
 if its current value is 0.
 
 392
 00:21:34,350 --> 00:21:35,190
+但是我们知道当前值，
 But we know the current,
 
 393
 00:21:35,190 --> 00:21:37,170
+因为有多个读者，
 because there's multiple readers,
 
 394
 00:21:37,500 --> 00:21:39,240
+所以 n 的当前值不是 0 ，
 the current value of n is not 0,
 
 395
 00:21:39,240 --> 00:21:42,330
+所以比较并交换会失败，并返回 0 ，
 and so the compare and swap will fail and returns zero,
 
 396
 00:21:42,330 --> 00:21:45,840
+然后写者在这个循环中，
 then the writer will sit here in this loop,
 
 397
 00:21:46,360 --> 00:21:48,850
+等待 n 等于 0 ，
 basically waiting until n is equal to 0,
 
 398
 00:21:49,620 --> 00:21:51,960
+在比较和交换成功之前，
 before it's compare and swap will succeed,
 
 399
 00:21:52,170 --> 00:21:54,450
+然后返回并将锁交给写入者。
 and return and give the lock to the writer.
 
 400
 00:21:55,370 --> 00:21:57,500
+所以这当然意味着写者可能会饥饿，
 So this certainly means the writer can be starved,
 
 401
 00:21:58,460 --> 00:22:00,890
+有很多读者，可能永远不会是 0 ，
 there's a lot of readers and may never be 0
 
 402
 00:22:00,890 --> 00:22:02,300
+因此写者可能永远不会成功，
 and so the write may never succeed,
 
 403
 00:22:02,300 --> 00:22:04,010
+所以这是这个锁方案的一个缺陷。
 so that's a defect in this locking scheme.
 
 404
 00:22:06,270 --> 00:22:07,170
+谢谢。
 Thank you.
 
 405
 00:22:07,980 --> 00:22:09,720
+我也有一个问题，
 I also have a question
 
 406
 00:22:09,720 --> 00:22:13,350
+关于我刚才提到的两个读者的场景，
 about the the two readers scenario that I just mentioned,
 
 407
 00:22:14,650 --> 00:22:17,740
+似乎在最坏的情况下，
 it appears that in the worst case,
 
 408
 00:22:17,830 --> 00:22:22,870
+第二个到达的读者必须经历循环的另一次迭代
 the reader that arrives second has to go through another iteration of the loop,
 
 409
 00:22:23,440 --> 00:22:25,750
+听起来有点浪费，
 sounds somewhat wasteful,
 
 410
 00:22:26,020 --> 00:22:29,170
+我想知道这是否适用于 n 个写者。
 I wonder if this generalizes to n writers.
 
 411
 00:22:29,200 --> 00:22:29,860
+当然可以。
 It's certainly does.
 
 412
 00:22:29,860 --> 00:22:32,500
+它们都丢失，并重新开始。
 They all have to get lost and start again.
 
 413
 00:22:32,710 --> 00:22:37,450
+你指出了为什么人们不喜欢这个方案，
 You put your finger on why people don't like this scheme,
 
 414
 00:22:38,050 --> 00:22:41,350
+如果有很多同步的读者，
 if there's a lot of simultaneous reader,
 
 415
 00:22:41,650 --> 00:22:45,280
+所以出于你刚才提到的原因，
 and so for for the reason you just mentioned,
 
 416
 00:22:47,460 --> 00:22:50,250
+r_lock ，即使根本没有写者，
 r_lock, even if there's no writers at all,
 
 417
 00:22:50,280 --> 00:22:53,280
+如果有很多读者，在很多核心的读者，
 if there's lots of readers, readers on many cores,
 
 418
 00:22:53,400 --> 00:22:56,790
+r_lock 可能非常非常昂贵，
 r_lock can be very very expensive,
 
 419
 00:22:57,180 --> 00:23:01,950
+关于 r_lock 方案，有一件事你需要知道，
 and one thing you need to know about r_lock scheme,
 
 420
 00:23:01,950 --> 00:23:07,020
+我想我们已经在课堂上提到过，
 which I think we've already mentioned in class is that,
 
 421
 00:23:07,760 --> 00:23:13,190
+在多核系统上，每个核都有关联的缓存，
 on a multi-core system, every core has an associated cache,
 
 422
 00:23:14,260 --> 00:23:15,550
+我们假设 L1 缓存，
 we'll say L1 cache,
 
 423
 00:23:15,550 --> 00:23:18,490
+因此每个内核都有一些缓存内存，
 so each core has a bit of cache memory,
 
 424
 00:23:18,760 --> 00:23:21,610
+不管读或写什么，
 and whatever reads or writes something,
 
 425
 00:23:22,820 --> 00:23:23,900
+它在缓存中，
 it's in the cache,
 
 426
 00:23:23,900 --> 00:23:25,760
+所以可能有许多核心，
 so there may be lots and lots of cores,
 
 427
 00:23:25,760 --> 00:23:28,820
+这里有一种互连网络，
 and there's some kind of interconnect network,
 
 428
 00:23:28,880 --> 00:23:30,770
+允许核心互相交互，
 that allows the cores to talk to each other,
 
 429
 00:23:31,130 --> 00:23:36,230
+因为如果很多核心缓存了一些数据，
 because of course if lots of cores have some data cached,
 
 430
 00:23:36,290 --> 00:23:38,150
+其中一个核心写入那个数据，
 and one of the cores writes that data,
 
 431
 00:23:38,390 --> 00:23:40,730
+写入核心必须告诉其他核心，
 the writing core has to tell the other cores,
 
 432
 00:23:40,730 --> 00:23:42,800
+它们不允许再缓存那个数据，
 that they're not allowed to cache the data anymore,
 
 433
 00:23:42,920 --> 00:23:44,390
+这叫做无效化。
 it is called invalidation.
 
 434
 00:23:46,710 --> 00:23:52,230
+那么，如果你有 n 个读者，会发生什么，
 So what actually happens if you have n readers,
 
 435
 00:23:52,530 --> 00:23:56,490
+人们几乎同时在 n 个内核上调用 r_lock 。
 and people calling r_lock at about the same time on n cores.
 
 436
 00:23:58,780 --> 00:24:03,340
+它们都将读取 n ，抱歉，这个 l->n 值，
 They're all gonna read n, sorry this l->n value,
 
 437
 00:24:03,700 --> 00:24:07,360
+并将这个内存位置加载到它们的缓存中。
 and load this memory location into their caches.
 
 438
 00:24:10,110 --> 00:24:12,120
+它们都会调用比较并交换，
 They're all gonna call compare and swap,
 
 439
 00:24:13,900 --> 00:24:18,460
+第一个调用比较并交换的将修改数据，
 what the first one to actually call compare and swap is going to modify the data,
 
 440
 00:24:18,490 --> 00:24:20,080
+但为了修改数据，
 but in order to modify the data
 
 441
 00:24:20,080 --> 00:24:22,360
+必须使所有其他副本无效，
 has to invalidate all these other copies,
 
 442
 00:24:22,540 --> 00:24:24,880
+所以，比较并交换指令，
 and so the compare and swap instruction that,
 
 443
 00:24:24,880 --> 00:24:28,510
+第一，必须通过这个小网络发送无效化消息，
 one has to send out an invalidate message over this little network
 
 444
 00:24:28,660 --> 00:24:31,840
+到其他 n 个核心的每一个，
 to each of the other n cores, right,
 
 445
 00:24:31,900 --> 00:24:34,960
+然后它返回所有其他核心， n 减去 1 个核心，
 and then it returns all the other cores, the n minus 1 cores,
 
 446
 00:24:34,960 --> 00:24:38,850
+他们的比较并交换必须重新读取，
 they have, their compare and swaps now actually have re-read
 
 447
 00:24:39,520 --> 00:24:41,410
+再次通过网络获取流量，
 again requiring traffic over the network,
 
 448
 00:24:41,440 --> 00:24:46,150
+重新读取这个内存位置的数据，
 re-read this data, this memory location,
 
 449
 00:24:46,570 --> 00:24:48,610
+与 x 相比，他们失败了，
 compared with x they have failed,
 
 450
 00:24:48,610 --> 00:24:50,080
+因为他们都使用 0 调用 x ，
 because they all call x with 0,
 
 451
 00:24:50,650 --> 00:24:53,950
+然后剩余的 n 减去 1 的读者返回到循环的顶部，
 then the remaining n minus 1 readers go back to the top of loop,
 
 452
 00:24:53,950 --> 00:24:56,380
+所有的 n 减去 1 再次读取数据，
 and all n minus 1 of them again read the data,x
 
 453
 00:24:56,650 --> 00:24:59,820
+再次它们中的一个写入，
 and again one of them writes it, right,
 
 454
 00:24:59,820 --> 00:25:03,570
+所以，这里有 n 次循环，
 so on each, so there's going to be n times through the loop,
 
 455
 00:25:03,570 --> 00:25:06,750
+每个核心试着获取锁，
 once for each core trying to acquire the lock,
 
 456
 00:25:07,260 --> 00:25:09,150
+这个循环中的每一次
 each of those [trips] through the loop
 
 457
 00:25:10,060 --> 00:25:13,240
+都涉及网络上的 n 个消息，
 involves order n messages on the network,
 
 458
 00:25:13,240 --> 00:25:18,070
+因为至少 l->n 缓存的每个副本都必须无效。
 because at least every copy of the cached l->n has to be invalidated.
 
 459
 00:25:20,320 --> 00:25:27,040
+这意味着 n 个核心获取锁的总成本，
 And that means that the total cost for n cores to acquire a particular lock,
 
 460
 00:25:27,880 --> 00:25:30,220
+即使对于读取来说，也是 n 阶的，
 even for reading is order n,
 
 461
 00:25:31,510 --> 00:25:36,070
+这意味着当你增加流行数据的核心数量时，
 that means as you increase the number of cores for a popular piece of data,
 
 462
 00:25:36,340 --> 00:25:43,310
+每个只锁一次的费用上升，
 the cost for everybody lock it just once goes up,
 
 463
 00:25:43,310 --> 00:25:44,660
+抱歉，阶数 n 的平方，
 sorry, order n squared,
 
 464
 00:25:46,560 --> 00:25:52,800
+总成本或时间，或通过这个互连发送的是 n 的平方。
 the total cost and time or messages sent over this interconnect is n squared.
 
 465
 00:25:54,280 --> 00:25:56,680
+这是一笔非常糟糕的决定，
 And this is a very bad deal, right,
 
 466
 00:25:56,710 --> 00:25:57,580
+你希望，
 you would hope that,
 
 467
 00:25:57,580 --> 00:25:59,710
+如果你需要做一件事十次，
 if you needed to do something ten times,
 
 468
 00:25:59,710 --> 00:26:01,600
+十个不同的核心需要做一些事情，
 you know ten different cores needed to do something,
 
 469
 00:26:01,750 --> 00:26:05,140
+特别是它们只是在读取列表，
 especially given that they're just reading the list,
 
 470
 00:26:05,140 --> 00:26:06,160
+它们没有修改，
 they're not modifying it,
 
 471
 00:26:06,280 --> 00:26:08,230
+你希望它们真的能并行运行，
 you'd hope that they could really run in parallel,
 
 472
 00:26:08,260 --> 00:26:13,180
+这是 16 个核心读取数据的总时间，
 that is the total [] clock time for 16 cores to read something,
 
 473
 00:26:13,510 --> 00:26:16,840
+应该与一个核心读取某件东西的总时间相同，
 should be the same as the total [] clock time for one core read something,
 
 474
 00:26:16,840 --> 00:26:19,930
+因为这是并行性的意思，
 because that's getting parallelism means is that,
 
 475
 00:26:20,230 --> 00:26:21,820
+你可以同时做一些事情。
 you can do things at the same time.
 
 476
 00:26:22,260 --> 00:26:25,410
+但在这里，更多的内核读取这个，
 But here the more cores are try to read this,
 
 477
 00:26:25,410 --> 00:26:27,990
+获取锁的成本就越高，
 the more expensive the lock acquisition is,
 
 478
 00:26:28,170 --> 00:26:30,870
+所以现在的情况是，
 and so what's going on is that,
 
 479
 00:26:31,290 --> 00:26:36,090
+这种类型的锁已转换为对数据的只读访问，
 this style of locks has converted read only access to data,
 
 480
 00:26:36,120 --> 00:26:38,850
+这个列表可能已经在缓存里了，
 you know the list is probably sitting in the cache already,
 
 481
 00:26:38,850 --> 00:26:41,130
+因为没有人修改列表。
 because nobody's modifying the list, right.
 
 482
 00:26:41,340 --> 00:26:46,020
+所以对列表的访问可能只需要几十个周期，
 So the actual access to the list might only take a few dozen cycles,
 
 483
 00:26:46,170 --> 00:26:47,880
+但是如果数据很受欢迎，
 but if the data is popular,
 
 484
 00:26:47,910 --> 00:26:51,330
+获取锁可能需要数百或数千个周期，
 getting the lock can take hundreds or thousands of cycles,
 
 485
 00:26:51,330 --> 00:26:53,040
+因为这个 n 平方效应。
 because of this n squared effect.
 
 486
 00:26:53,390 --> 00:26:55,910
+并且它不是缓存 x ，
 And the fact that instead of it being cache x,
 
 487
 00:26:56,090 --> 00:27:00,600
+这些访问必须通过总线，这个互连，
 it's these accesses that have to go over the bus, this interconnect,
 
 488
 00:27:00,600 --> 00:27:05,430
+以便无效化，做缓存一致性操作。
 in order to invalidate and do these cache coherence operations.
 
 489
 00:27:05,970 --> 00:27:11,950
+所以这些锁对数据的只读访问变得非常便宜，
 So this these locks have turned very cheap read only access to data,
 
 490
 00:27:11,950 --> 00:27:17,020
+转换为对这个数据的极其昂贵的读写访问。
 into an extremely expensive read write access to this data.
 
 491
 00:27:18,360 --> 00:27:22,680
+并且可能会完全破坏任何可能的并行性能，
 And will probably completely destroy any possible parallel performance,
 
 492
 00:27:23,400 --> 00:27:24,480
+如果你在做什么，
 if what you were doing,
 
 493
 00:27:24,480 --> 00:27:28,350
+如果实际数据很容易读取，
 if the actual data was fairly simple to read,
 
 494
 00:27:28,470 --> 00:27:31,290
+锁将主导并破坏并行性能。
 lock will dominate and destroy parallel performance.
 
 495
 00:27:33,480 --> 00:27:36,840
+关于这个性能故事，有什么问题吗？
 So any questions about this performance story?
 
 496
 00:27:43,390 --> 00:27:47,590
+从某种意义上说，读写锁的糟糕性能，
 In a sense you know the bad performance of read write locks
 
 497
 00:27:47,860 --> 00:27:51,130
+是 RCU 存在的原因，
 is the reason for the existence of RCU,
 
 498
 00:27:52,060 --> 00:27:54,220
+因为如果这是有效的，
 because if this was efficient,
 
 499
 00:27:54,860 --> 00:28:00,530
+那么就没有必要比那个做得更好了，
 then there would be no need to do better than that right,
 
 500
 00:28:00,530 --> 00:28:01,760
+但是它的效率非常低。
 but it's terribly inefficient.
 
 501
 00:28:02,570 --> 00:28:05,510
+有两件事正在发生，
 And it's there's two things going on,
 
 502
 00:28:05,510 --> 00:28:06,800
+一个是这个的细节，
 one is the details of this,
 
 503
 00:28:06,800 --> 00:28:09,560
+在这个循环中总共需要 n 平方的行程，
 so there needs to be a total of n squared trips through this loop,
 
 504
 00:28:09,560 --> 00:28:11,180
+如果我们有 n 个核心，
 if we have n cores,
 
 505
 00:28:11,210 --> 00:28:12,380
+这是一种看待它的方式。
 sort of one way of looking at it.
 
 506
 00:28:12,590 --> 00:28:13,940
+另一种看待它的方式是，
 The other way of looking at it is that,
 
 507
 00:28:14,000 --> 00:28:15,260
+我们写入，
 we're writing,
 
 508
 00:28:15,780 --> 00:28:18,690
+不管这里发生了什么事的细节，
 you know regardless of the details of what's going on here,
 
 509
 00:28:18,960 --> 00:28:21,690
+这些锁变为只读访问，
 these locks have turned a read only access,
 
 510
 00:28:21,720 --> 00:28:23,640
+这可能会缓存，并且速度极快，
 which could be cached and extremely fast
 
 511
 00:28:24,000 --> 00:28:27,840
+进入这样或那样[涉及]写入，
 into an access that one way or another involves a write,
 
 512
 00:28:27,870 --> 00:28:29,040
+一个或多个写入，
 one or more writes,
 
 513
 00:28:29,190 --> 00:28:32,280
+而写入比读取要昂贵得多，
 and writes are just much more expensive than reads,
 
 514
 00:28:32,340 --> 00:28:36,940
+如果我们写入可能与其他内核共享的数据。
 if we're writing data that might be shared with other cores.
 
 515
 00:28:37,150 --> 00:28:40,390
+因为读取没有修改数据，
 Because a read for data that's not modify,
 
 516
 00:28:40,390 --> 00:28:43,180
+它可以在几个周期内从你的缓存中得到，
 it can be satisfied in a couple cycles out of your own cache,
 
 517
 00:28:43,480 --> 00:28:47,440
+对其他核心缓存的数据的任何写入，
 a write, any write to data that may be cached by other cores,
 
 518
 00:28:47,440 --> 00:28:51,820
+必须涉及内核之间的通信以使其他副本无效。
 has to involve communication between cores to invalidate other copies.
 
 519
 00:28:51,850 --> 00:28:53,590
+所以不管你怎么切分它，
 So no matter how you slice it,
 
 520
 00:28:54,240 --> 00:28:58,080
+任何涉及写入共享数据的行为都会对性能造成灾难，
 anything that involves a write to share data is a disaster for performance,
 
 521
 00:28:58,710 --> 00:29:00,960
+否则，你可能只是只读的。
 if you otherwise could have been read only.
 
 522
 00:29:01,550 --> 00:29:03,470
+所以这个循环的细节，
 So the details of this loop,
 
 523
 00:29:04,270 --> 00:29:09,190
+没有比写入共享数据那么重要。
 are sort of less important than the fact that it did a write to share data.
 
 524
 00:29:10,100 --> 00:29:11,600
+所以我们要找的是一种方法，
 So what we're looking for is a way
 
 525
 00:29:11,780 --> 00:29:17,300
+不需要写入就能读取数据的方法，
 to be able to read data without writes, right,
 
 526
 00:29:17,300 --> 00:29:21,560
+我们希望能够在不执行任何写入的情况下扫描列表，
 we want to be able to scan that list without doing any writes,
 
 527
 00:29:21,560 --> 00:29:23,630
+不包括任何写入，
 what so ever, including any writes,
 
 528
 00:29:23,630 --> 00:29:25,850
+可能需要执行某种锁，
 that might be required to do some kind of locking thing,
 
 529
 00:29:26,270 --> 00:29:29,270
+它们寻找对数据的真正的只读访问。
 they were looking for really really read only access to data.
 
 530
 00:29:32,190 --> 00:29:33,690
+好的。
 Okay.
 
 531
 00:29:35,660 --> 00:29:40,430
+所以有一种可能，
 So one possibility, that's a possibility,
 
 532
 00:29:40,430 --> 00:29:42,020
+但这是一种思维实验，
 but it's sort of a thought experiment is
 
 533
 00:29:42,530 --> 00:29:44,240
+我们只是让读者不用关心加锁，
 we just have the readers not bother locking,
 
 534
 00:29:45,250 --> 00:29:46,840
+偶尔你很幸运，
 you know occasionally you get lucky
 
 535
 00:29:46,840 --> 00:29:48,820
+发现读者可以读到一些东西，
 and it turns out that readers can read stuff,
 
 536
 00:29:49,780 --> 00:29:51,220
+只有写者才需要加锁。
 and that only writers need to lock.
 
 537
 00:29:51,220 --> 00:29:52,900
+所以我们做个快速实验看看，
 So we'll just do a quick experiment to see,
 
 538
 00:29:52,900 --> 00:29:57,150
+我们是否可以有一个锁，
 whether we could have a lock,
 
 539
 00:29:57,180 --> 00:30:01,330
+让读者读取列表而不加锁。
 just have readers just read the list without locking it.
 
 540
 00:30:02,100 --> 00:30:07,230
+我想我们有这个列表，它有一些字符串。
 I suppose we have this list and it has some you know strings.
 
 541
 00:30:11,980 --> 00:30:17,540
+而且，我们要读取它，
 And, we're gonna read it,
 
 542
 00:30:17,600 --> 00:30:20,240
+如果没有正确的写入者，就不会出问题，
 okay, so nothing goes wrong if there's no writer, right,
 
 543
 00:30:20,510 --> 00:30:22,160
+只需要读取列表，不会有问题。
 just read list, it's not a problem.
 
 544
 00:30:22,220 --> 00:30:23,810
+所以我们想象有一个写者，
 So we have to imagine there's a writer,
 
 545
 00:30:24,170 --> 00:30:26,870
+可能有三种情况，
 and there's probably three cases,
 
 546
 00:30:26,900 --> 00:30:32,000
+如果你读取一个列表，在一些其他内核正在修改列表时，
 if you read a list while some other cores modifying it,
 
 547
 00:30:33,390 --> 00:30:35,100
+所以，一种情况是，
 so one case is that,
 
 548
 00:30:35,100 --> 00:30:37,200
+写者只是在改变内容，
 the writer is just changing the content,
 
 549
 00:30:37,800 --> 00:30:41,880
+就是不增加或者删除任何元素，
 that is not adding or deleting anyone is necessarily,
 
 550
 00:30:41,880 --> 00:30:44,700
+写者将字符串更改为其他字符串。
 a writer is changing the string to be some other string.
 
 551
 00:30:45,140 --> 00:30:48,290
+所以，一是，写者改变了内容，
 So, one is the writers changing the content,
 
 552
 00:30:48,620 --> 00:30:51,800
+二是，写者插入新的列表元素，
 two is the writer is inserting a new list element,
 
 553
 00:30:53,470 --> 00:30:57,580
+第三种情况是，写者删除列表元素。
 and the third case is if the writer is deleting a list element.
 
 554
 00:30:58,550 --> 00:30:59,690
+我想检查一下这些，
 And I want to examine these,
 
 555
 00:30:59,690 --> 00:31:04,560
+因为我们需要每个 RCU 有一个[故事]，
 because we need a [story] for each of RCU
 
 556
 00:31:04,590 --> 00:31:06,120
+每个 RCU 都有一个[故事]。
 actually kind of has a [story] for each.
 
 557
 00:31:06,120 --> 00:31:08,650
+所以，危险，
 So, the danger,
 
 558
 00:31:08,830 --> 00:31:10,150
+所以我只是在说会出什么问题，
 so I'm just talking about what goes wrong,
 
 559
 00:31:10,150 --> 00:31:12,460
+如果有人在读取列表，而另一个核心在写入它，
 if somebody's reading a list while another cores writing it,
 
 560
 00:31:12,820 --> 00:31:16,270
+如果写者只想更改这个字符串，
 if the writer wants to just change this string,
 
 561
 00:31:16,660 --> 00:31:20,890
+那么危险在于读者将读取这个字符串的字节，
 then the danger is that the reader will be actually reading the bytes of this string
 
 562
 00:31:20,890 --> 00:31:22,900
+或者列表元素中的任何其他内容，
 or whatever else is in the list element,
 
 563
 00:31:22,930 --> 00:31:26,620
+而写者正在修改相同的字节。
 while the writer is modifying the same bytes.
 
 564
 00:31:26,800 --> 00:31:28,300
+所以如果我们不做些特别的事，
 And so if we don't do anything special,
 
 565
 00:31:28,390 --> 00:31:32,530
+读者将看到旧字节和新字节的某种混合，
 the reader will see some mixture of the old bytes and the new bytes,
 
 566
 00:31:32,920 --> 00:31:35,320
+这可能是一场灾难，
 and that's probably a disaster,
 
 567
 00:31:36,410 --> 00:31:37,790
+这是我们要担心的一种情况。
 that's one case we have to worry about.
 
 568
 00:31:38,270 --> 00:31:41,840
+另一种可能性是写者插入新元素，
 Another possibility is that the writer is inserting a new element,
 
 569
 00:31:42,080 --> 00:31:44,120
+当然，这意味着，
 of course what that means is that,
 
 570
 00:31:44,240 --> 00:31:48,320
+假设写者想要在头部插入新元素，
 you know supposing the writer wants to insert the new element at the head,
 
 571
 00:31:48,320 --> 00:31:50,480
+写者将编造一些新的元素，
 the writers going to cook up some new element
 
 572
 00:31:50,480 --> 00:31:52,250
+并改变头指针指向它，
 going to change the head pointer to point to it,
 
 573
 00:31:52,550 --> 00:31:59,900
+我要将新元素更改为指向旧的第一个元素，
 I'm going to change the new element to point at the old first element, right,
 
 574
 00:32:01,360 --> 00:32:02,680
+所以这里的危险是，
 so the danger here,
 
 575
 00:32:03,300 --> 00:32:07,230
+如果读者读取列表，当写者在插入，
 if a reader reads, reading list while writers inserting,
 
 576
 00:32:07,290 --> 00:32:11,460
+也许如果我们真的搞砸了，
 is that maybe you know if we really blow it,
 
 577
 00:32:11,990 --> 00:32:19,050
+写者可以将头指针设置为指向新元素，
 the the writer may set the head pointer to point to the new element,
 
 578
 00:32:19,230 --> 00:32:21,780
+在新元素初始化之前，
 before the new elements initialized,
 
 579
 00:32:21,960 --> 00:32:24,420
+这就是为什么它可能包含字符串的垃圾，
 that is why it may be contains garbage for the string
 
 580
 00:32:24,450 --> 00:32:28,560
+或一些非法指针作为下一个元素。
 or some illegal pointer as the next element.
 
 581
 00:32:29,440 --> 00:32:32,710
+这就是写者插入时可能出错的地方。
 So that's the thing that could go wrong for writer's inserting.
 
 582
 00:32:33,980 --> 00:32:39,300
+所以让我们，写者删除，
 So let's, and the writer's deleting,
 
 583
 00:32:40,750 --> 00:32:43,900
+那么，删除元素意味着，
 then, you know what it means to delete an element
 
 584
 00:32:43,900 --> 00:32:46,810
+比如说删除第一个元素，
 is first to change let's say deleting the first element,
 
 585
 00:32:46,810 --> 00:32:49,420
+我们将头指针更改为指向第二个元素，
 we change the head pointer to point to the second element,
 
 586
 00:32:49,480 --> 00:32:51,670
+然后在第一个元素上调用释放，
 and then call free on the first element
 
 587
 00:32:51,670 --> 00:32:53,260
+将其返回到空闲列表，
 to return this to the free list,
 
 588
 00:32:53,800 --> 00:32:56,230
+这里的危险是，
 and the danger here,
 
 589
 00:32:56,530 --> 00:32:59,680
+如果读者看到新的头指针，那很好，
 you know if the reader sees the new head pointer, that's fine,
 
 590
 00:32:59,680 --> 00:33:01,960
+他们只会继续第二个元素，
 they're just gonna go on to the second element,
 
 591
 00:33:01,960 --> 00:33:06,070
+所以，如果读者正在查找第一个元素，
 so the first if the reader actually was looking at the first element
 
 592
 00:33:06,130 --> 00:33:07,930
+然后写者释放了它，
 and then the writer freed it,
 
 593
 00:33:08,080 --> 00:33:09,190
+那么我们遇到的问题是，
 then the problem we have is
 
 594
 00:33:09,190 --> 00:33:12,400
+现在读者查看空闲列表中的元素，
 now the readers looking at element that's on the free list,
 
 595
 00:33:12,490 --> 00:33:14,530
+可以被分配用于一些其他用途，
 and could be allocated for some other use
 
 596
 00:33:14,530 --> 00:33:16,840
+并且被重写用于一些完全其他的用途，
 and overwritten for some completely other use,
 
 597
 00:33:16,870 --> 00:33:19,030
+当读者还在查看这个元素的时候。
 while the readers still looking at this element.
 
 598
 00:33:19,360 --> 00:33:20,440
+所以从读者的角度来看，
 So from the reader point of view,
 
 599
 00:33:20,440 --> 00:33:22,450
+现在所有的元素突然充满了垃圾，
 now all of a sudden elements filled with garbage
 
 600
 00:33:22,750 --> 00:33:24,040
+并说它正在期待，
 and said it was [expecting],
 
 601
 00:33:24,690 --> 00:33:26,730
+所以这是第三种情况，我们必须。
 so that's the third case, we have to.
 
 602
 00:33:27,610 --> 00:33:28,840
+如果我们想加锁，
 If we want to have lock,
 
 603
 00:33:28,960 --> 00:33:31,420
+我们想要的是对读者绝对没有锁，
 we want have absolutely no locks for readers,
 
 604
 00:33:31,750 --> 00:33:34,300
+我们要担心这三种情况。
 we have to worry about these three situations.
 
 605
 00:33:34,570 --> 00:33:39,400
+我不是在说写者和写者之间的问题，
 I'm not talking about writer versus writer problems here,
 
 606
 00:33:39,400 --> 00:33:42,310
+我假设在整节课中，
 because I'm just assuming for this entire lecture,
 
 607
 00:33:42,460 --> 00:33:44,290
+写者仍在使用锁，
 that writers still use locks,
 
 608
 00:33:44,320 --> 00:33:48,010
+这里还有一些普通的像 xv6 的自旋锁，
 there's still some ordinary like xv6 style spin lock here,
 
 609
 00:33:48,040 --> 00:33:51,340
+写者在做任何事情之前就获得这个锁，
 and writers acquire this lock before doing anything,
 
 610
 00:33:51,430 --> 00:33:54,130
+但是读者无论如何都不需要任何锁。
 but readers don't require any locks, whatsoever.
 
 611
 00:33:55,950 --> 00:33:57,360
+关于这些危险，有什么问题？
 Questions about these dangers?
 
 612
 00:34:01,940 --> 00:34:02,420
+好的。
 Okay.
 
 613
 00:34:04,960 --> 00:34:08,440
+关键是我们不能简单地让读者不加锁地读取，
 The point is we can't just simply have readers read with no locks,
 
 614
 00:34:09,430 --> 00:34:13,730
+但是我们可以解决这个问题，
 but it turns out we can and fix the specific problems,
 
 615
 00:34:13,730 --> 00:34:17,000
+这把我们带到了 RCU 。
 and that takes us to RCU.
 
 616
 00:34:19,100 --> 00:34:21,110
+RCU 有几个想法，
 RCU has a couple of ideas in it that,
 
 617
 00:34:21,290 --> 00:34:28,760
+顺便说一句， RCU 是一种并发控制的方法，
 RCU is, by the way, it's as much a kind of approach to concurrency, concurrency control
 
 618
 00:34:28,760 --> 00:34:30,680
+因为它是一种特定的算法，
 as it is a particular algorithm,
 
 619
 00:34:31,340 --> 00:34:36,050
+这是一种构建读者和写者的方式。
 it's a way of structuring approach structuring readers and writers.
 
 620
 00:34:36,050 --> 00:34:41,150
+这样它们可以与读者相处，而不用加锁。
 So that they can get along with the readers not having to take locks.
 
 621
 00:34:42,600 --> 00:34:45,690
+读取复制更新的一般游戏是，
 The general game with read copy update is
 
 622
 00:34:45,690 --> 00:34:47,700
+我们将修复这三种情况，
 we're going to fix those three situations,
 
 623
 00:34:47,700 --> 00:34:51,540
+如果同时有写者的话，读者可能会遇到麻烦，
 in which readers might get into trouble if there's a concurrent writers,
 
 624
 00:34:51,540 --> 00:34:55,200
+我们将通过让写者变得更复杂一点来做到这一点。
 and we're going to do it by making the writers a little bit more complicated.
 
 625
 00:34:55,530 --> 00:34:58,410
+所以写者会稍微慢一点，
 So the writers going to end up somewhat slower,
 
 626
 00:34:59,340 --> 00:35:01,800
+它们仍然需要加锁并遵守一些额外的规则，
 they still need to lock plus follow some extra rules,
 
 627
 00:35:01,980 --> 00:35:05,040
+但回报是读者的速度将会大大提高，
 but the reward will be the readers will be dramatically faster,
 
 628
 00:35:05,340 --> 00:35:07,320
+因为它们可以在没有锁的情况下操作，
 because they can operate without locks
 
 629
 00:35:07,320 --> 00:35:08,940
+也不需要写入内存。
 and without ever writing memory.
 
 630
 00:35:11,770 --> 00:35:21,850
+好的， RCU 的第一个想法是，
 Okay, so the first big idea in RCU is that,
 
 631
 00:35:23,520 --> 00:35:26,490
+在我们之前讨论的第一个麻烦的情况下，
 in that first trouble situation, we talked about before,
 
 632
 00:35:26,490 --> 00:35:30,690
+写者更新列表元素，列表元素的内容，
 where the writer is updating a list element, the content of a list element,
 
 633
 00:35:31,140 --> 00:35:34,080
+我们要[取消]它，
 we're going to actually outlaw that,
 
 634
 00:35:34,110 --> 00:35:40,260
+我们说写者不允许修改列表元素的内容，
 we're going to say writers are not allowed to modify the contents of a list elements,
 
 635
 00:35:40,260 --> 00:35:46,630
+相反，如果我们有一个这样的链表，有几个元素。
 instead if we have a linked list like this, with a couple of elements.
 
 636
 00:35:51,900 --> 00:35:55,710
+如果写者想要更新元素 2 的内容，
 If a writer wanted to update the content of element 2,
 
 637
 00:35:57,240 --> 00:35:59,880
+不是原地修改它，我们不这么做，
 instead of changing it in place, which wouldn't do,
 
 638
 00:35:59,970 --> 00:36:05,790
+它会调用分配器来分配一个新的元素，
 it would actually cook up, it would call the allocator to allocate a new element,
 
 639
 00:36:07,350 --> 00:36:10,770
+它将完全初始化元素，
 it would initialize the element completely,
 
 640
 00:36:10,770 --> 00:36:16,410
+所以不管我们想在这里放什么新内容，
 so whatever new content you know we wanted to put here,
 
 641
 00:36:16,440 --> 00:36:17,670
+不是老的内容，
 instead the old content,
 
 642
 00:36:17,910 --> 00:36:23,490
+写者将在新元素上设置下一个指针，
 the writer would set the next pointer on this new element,
 
 643
 00:36:23,490 --> 00:36:26,700
+所以这个新元素现在看起来完全正确了，
 so that this new element is now completely correct looking,
 
 644
 00:36:27,150 --> 00:36:31,260
+然后在对 E1 的下一个指针的单次写入，
 and then in a single write to E1's next pointer,
 
 645
 00:36:31,590 --> 00:36:34,500
+写者将切换 E1 指向，
 the writer would switch E1 from pointing to the,
 
 646
 00:36:34,650 --> 00:36:38,260
+从指向 E2 的旧版本，
 from pointing to the old version of E2,
 
 647
 00:36:38,320 --> 00:36:40,120
+指向 E2 的新版本。
 to pointing to the new version of E2.
 
 648
 00:36:40,830 --> 00:36:42,990
+所以这个游戏是不原地更新内容，
 So the game is instead of updating things in place,
 
 649
 00:36:42,990 --> 00:36:47,640
+我们用相同数据的新版本替换它们。
 we're going to replace them with new versions of the same data.
 
 650
 00:36:47,700 --> 00:36:53,840
+所以现在一个读者得到了 E1 ，
 And so so now a reader, you know readers got as far as E1
 
 651
 00:36:53,840 --> 00:36:55,880
+只是查看 E1 的下一个指针，
 is just looking at E1's next pointer,
 
 652
 00:36:56,150 --> 00:36:59,360
+读者将看到指向 E2 的旧的下一个指针，
 the reader's going to either see the old next pointer which points to E2
 
 653
 00:36:59,360 --> 00:36:59,990
+这很好，
 and that's fine,
 
 654
 00:36:59,990 --> 00:37:01,790
+因为没有人改变 E2 ，
 because nobody was changing E2,
 
 655
 00:37:01,970 --> 00:37:05,570
+或者读者会看到新的下一个指针，
 or the reader's going to see the new next pointer
 
 656
 00:37:05,660 --> 00:37:10,590
+然后看到新的列表元素。
 and look at the new list element.
 
 657
 00:37:11,100 --> 00:37:17,340
+无论哪种方式，因为写者完全初始化了这个列表元素，
 And either way since the writer initial fully initialized this list element,
 
 658
 00:37:17,640 --> 00:37:19,170
+在设置 E1 的下一个指针之前，
 before setting E1's next pointer,
 
 659
 00:37:19,170 --> 00:37:23,310
+无论哪种方式，读者都会看到正确的下一个指针，指向 E3 的指针。
 either way, the readers going to see a correct next pointer, that points to E3.
 
 660
 00:37:27,450 --> 00:37:30,600
+所以重点是读者永远看不到字符串，
 So the point is the reader will never see a string,
 
 661
 00:37:30,600 --> 00:37:34,440
+在内容被修改的过程中（的字符串）。
 that's in the process of being a content that's in the process of being modified.
 
 662
 00:37:36,060 --> 00:37:40,970
+对这个特别的想法，有什么问题吗？
 There's any questions about this particular idea?
 
 663
 00:37:45,760 --> 00:37:47,590
+那这个，抱歉。
 What about the, sorry.
 
 664
 00:37:49,410 --> 00:37:51,180
+好的，我可以先说，
 Okay, I can go ahead,
 
 665
 00:37:51,210 --> 00:37:56,340
+E2 和 E3 之间的连接是否会被删除，
 will the the link between E2 and E3 be deleted,
 
 666
 00:37:56,340 --> 00:37:57,780
+或者它会留在那里，
 or will it be left there
 
 667
 00:37:57,780 --> 00:38:00,990
+以防它们以某种方式到达 E2 。
 in case that are either somehow reached E2.
 
 668
 00:38:01,020 --> 00:38:03,630
+现在，我们就不管它了，
 Now, we're just gonna leave it,
 
 669
 00:38:04,350 --> 00:38:07,350
+好的，我会回到这个很棒的问题，
 well I'll come to this, this excellent question,
 
 670
 00:38:07,740 --> 00:38:13,110
+这实际上是 RCU 最复杂的部分，
 and it's actually the main piece of complexity in RCU,
 
 671
 00:38:13,110 --> 00:38:16,410
+但现在我们想象一下 E2 暂时不会出现。
 but for now we're just going to imagine that E2 is left alone for the moment.
 
 672
 00:38:19,400 --> 00:38:22,970
+从 E2 到 E3 的连接，我们不用担心，对吧，
 The link from E2 to E3 we don't need to worry about it anyway right,
 
 673
 00:38:22,970 --> 00:38:24,230
+因为这是 E2 的一部分，
 because that's a part of E2,
 
 674
 00:38:24,230 --> 00:38:26,660
+就像在正常的实现中，
 and like in normal implementations,
 
 675
 00:38:26,660 --> 00:38:28,040
+我们无论如何都要释放它，
 we just free that anyway,
 
 676
 00:38:28,220 --> 00:38:30,230
+比如不涉及 RCU 时，
 like with no RCU involved,
 
 677
 00:38:30,230 --> 00:38:32,420
+我们永远不需要担心那个连接，对吧。
 we don't ever need to worry about that link, right.
 
 678
 00:38:32,750 --> 00:38:34,280
+但危险在于，
 But the danger is that,
 
 679
 00:38:34,280 --> 00:38:37,790
+在我们改变下一个指针之前，
 that just before we changed this next pointer,
 
 680
 00:38:37,910 --> 00:38:40,640
+一些读者跟随下一个指向 E2 的指针。
 that some reader had followed the next pointer to E2.
 
 681
 00:38:41,890 --> 00:38:43,630
+总体而言，我们在这里担心的是，
 So overall what we're worried about here is that,
 
 682
 00:38:43,630 --> 00:38:46,510
+一些核心上的读者现在正在读取 E2 ，
 some some reader on some cores actually right now reading E2,
 
 683
 00:38:46,990 --> 00:38:48,820
+所以我们最好不要释放它。
 so we'd better not free it.
 
 684
 00:38:49,960 --> 00:38:51,220
+好的，好的。
 Right right.
 
 685
 00:38:51,700 --> 00:38:53,110
+我想这就是我们要说的，
 That's what I think that's all we're saying is
 
 686
 00:38:53,110 --> 00:38:54,700
+你最好不要马上释放 E2 ，
 you better not free E2 right away,
 
 687
 00:38:55,090 --> 00:38:55,870
+只是别管它了。
 just leave it alone.
 
 688
 00:39:00,020 --> 00:39:01,790
+作为一个术语，
 As a piece of jargon,
 
 689
 00:39:02,450 --> 00:39:04,580
+这个写入，
 the write,
 
 690
 00:39:04,580 --> 00:39:11,270
+E1 的下一个指针从旧的 E2 到新的 E2 的交换，
 the swap of e E1's next pointer from the old E2 to the new E2,
 
 691
 00:39:11,330 --> 00:39:14,120
+在我的脑海里把这叫做提交写入，
 I in my head I call this a committing write,
 
 692
 00:39:14,390 --> 00:39:14,930
+这有一个，
 there's a,
 
 693
 00:39:15,580 --> 00:39:18,550
+这个可以工作的部分原因是，
 this is then part of the reason why this works is that,
 
 694
 00:39:18,580 --> 00:39:21,220
+使用单个提交写入，这是原子的，
 with a single committing write, which is atomic,
 
 695
 00:39:21,280 --> 00:39:24,860
+在我们使用的机器上的指针的写入是原子的，
 writes to pointers on the machines we use are atomic,
 
 696
 00:39:24,860 --> 00:39:28,250
+写入指针发生或不发生，
 in the sense that either the write to the pointer happen or didn't happen,
 
 697
 00:39:28,370 --> 00:39:29,690
+从读者的角度看，
 from the perspective of readers,
 
 698
 00:39:29,900 --> 00:39:30,950
+因为它们是原子的，
 because they're atomic,
 
 699
 00:39:31,010 --> 00:39:32,720
+是一个指令，
 basically with one instruction,
 
 700
 00:39:33,260 --> 00:39:35,660
+只有一个原子的保存，
 with the one atomic store we can,
 
 701
 00:39:35,660 --> 00:39:37,250
+这是一个普通的保存，
 it's an ordinary store,
 
 702
 00:39:37,250 --> 00:39:40,160
+但它是不可分割的，
 but it's indivisible,
 
 703
 00:39:40,670 --> 00:39:43,250
+我们把 E1 切换为指向旧的，
 we switch E1 from point to old,
 
 704
 00:39:44,050 --> 00:39:45,820
+下一个指向旧的那个，
 the next point from pointing to the old one,
 
 705
 00:39:45,880 --> 00:39:48,490
+写入的新的版本提交到，
 the new one that write is what sort of commits us to,
 
 706
 00:39:49,420 --> 00:39:52,030
+现在使用第二个版本。
 now using the second version.
 
 707
 00:39:54,770 --> 00:39:57,680
+这是一种非常基本的技术，
 This is a very basic technique,
 
 708
 00:39:57,680 --> 00:40:00,530
+是 RCU 的一项非常重要的技术，
 a very important technique for RCU,
 
 709
 00:40:00,860 --> 00:40:03,380
+这意味着，
 and what it means is that,
 
 710
 00:40:03,440 --> 00:40:07,880
+RCU 主要适用于数据结构，
 RCU is really mostly applicable to data structures,
 
 711
 00:40:07,880 --> 00:40:11,210
+你可以对它进行单次提交写入。
 for which you can have single committing writes.
 
 712
 00:40:11,680 --> 00:40:14,890
+这意味着方案中有一些数据结构相当笨拙，
 So that means there's some data structures which are quite awkward in the scheme,
 
 713
 00:40:14,890 --> 00:40:16,810
+比如双向链表，
 like a doubly linked list,
 
 714
 00:40:17,520 --> 00:40:22,080
+其中每个元素都从两个不同的指针指向，
 where every element is pointed to from two different pointers,
 
 715
 00:40:22,410 --> 00:40:27,000
+现在我们不能通过一次提交写入来删除列表元素，
 now we can't get rid of a list elements with a single committing write,
 
 716
 00:40:27,030 --> 00:40:28,260
+因为这里有两个指向它的指针，
 because there's two pointers to it,
 
 717
 00:40:28,530 --> 00:40:31,140
+在大多数机器上，我们不能原子地
 we can't, on most machines we can't atomically
 
 718
 00:40:31,140 --> 00:40:34,140
+同时修改两个不同的内存位置，
 change two different memory locations at the same time,
 
 719
 00:40:34,640 --> 00:40:37,850
+所以，双链表对 RCU 并不是那么好。
 so doubly lists are not so good for RCU.
 
 720
 00:40:38,420 --> 00:40:40,700
+好的数据结构是像树一样的，
 A data structure that is good as a tree,
 
 721
 00:40:40,790 --> 00:40:45,120
+如果你有一个树，
 and if you have a tree of,
 
 722
 00:40:49,430 --> 00:40:50,840
+像这样的节点树，
 a tree of nodes like this,
 
 723
 00:40:50,870 --> 00:40:51,950
+然后我们可以做，
 then we can do,
 
 724
 00:40:51,950 --> 00:40:53,810
+假设我们想要改变，
 suppose we want to change,
 
 725
 00:40:53,960 --> 00:40:56,360
+想要修改这里的值，
 want to modify this value down here,
 
 726
 00:40:56,880 --> 00:40:58,020
+我们能做的是，
 what we can do,
 
 727
 00:41:00,450 --> 00:41:02,580
+这里有一个指向树的头，
 there's some head to the tree,
 
 728
 00:41:02,610 --> 00:41:03,780
+我们能做的是
 what we can do is
 
 729
 00:41:03,780 --> 00:41:09,910
+在这棵树的这部分做一个新的版本，
 cook up a new a new version of this part of the tree here,
 
 730
 00:41:11,010 --> 00:41:13,860
+并且利用对头指针的单个提交写入，
 and with a single committing write to the head pointer,
 
 731
 00:41:13,980 --> 00:41:16,020
+切换到树的新版本，
 switch to the new version of the tree,
 
 732
 00:41:16,020 --> 00:41:17,790
+所以这棵树的新版本，
 and so the new version of the tree,
 
 733
 00:41:17,940 --> 00:41:23,500
+写者将分配，创建，
 which will you know the writer will allocate, sort of create,
 
 734
 00:41:27,260 --> 00:41:30,980
+可以方便地共享数据结构，
 can actually share for, convenience share structure,
 
 735
 00:41:30,980 --> 00:41:32,660
+老的树的未修改的部分，
 the unmodified part with the old tree,
 
 736
 00:41:32,810 --> 00:41:34,640
+然后利用单个提交写入，
 and then with a single committing write,
 
 737
 00:41:34,640 --> 00:41:36,380
+我们将把头指针更改为
 we're going to change the head pointer to
 
 738
 00:41:36,380 --> 00:41:38,720
+树的头指针指向新版本。
 a tree head pointer to point to the new version.
 
 739
 00:41:42,250 --> 00:41:43,600
+但是对于其他数据结构，
 But for other data structures,
 
 740
 00:41:43,600 --> 00:41:44,860
+它们不像树一样，
 that don't look like the trees,
 
 741
 00:41:44,860 --> 00:41:46,840
+使用 RCU 并不容易。
 it's not so easy to use RCU.
 
 742
 00:41:51,550 --> 00:41:54,900
+好的，这是第一个想法。
 Okay, that's the first idea.
 
 743
 00:41:55,830 --> 00:41:56,970
+还有其他问题吗？
 Any other questions?
 
 744
 00:42:04,020 --> 00:42:05,130
+第二个想法，
 The second idea,
 
 745
 00:42:14,420 --> 00:42:15,950
+这里的一个问题，
 One of the problems with,
 
 746
 00:42:15,950 --> 00:42:26,450
+一个关于我提到的方案的问题，
 one of the potential problems with this scheme I just described,
 
 747
 00:42:28,380 --> 00:42:31,780
+我们要创建一个新的 E2 ，
 and we're gonna cook up a new E2 [],
 
 748
 00:42:31,780 --> 00:42:36,100
+我说的是，我们将初始化 E2 的内容，
 and what I said was oh well we'll initialize the content for E2 [],
 
 749
 00:42:36,100 --> 00:42:39,190
+我们会设置它的下一个指针，
 and we'll you know set its next pointer, correctly,
 
 750
 00:42:39,250 --> 00:42:44,880
+然后，我们将 E1 的下一个指针设置为指向 E2 ，
 and after that we'll set E1's next pointer to point to E2,
 
 751
 00:42:45,500 --> 00:42:50,060
+你可能还记得在讨论 xv6 时，
 as you may recall from discussions of xv6,
 
 752
 00:42:50,300 --> 00:42:53,210
+默认情况下，这些机器上没有这个选项，
 by default, there's no after that on these machines,
 
 753
 00:42:54,260 --> 00:42:56,000
+编译器和硬件，
 the compiler and the hardware,
 
 754
 00:42:56,300 --> 00:43:03,020
+基本上所有编译器和许多微处理器对内存操作重新排序。
 basically all compilers and many microprocessors reorder memory operations.
 
 755
 00:43:03,360 --> 00:43:10,370
+所以，如果你简单地分配一个新元素，
 So, if you simply you know say we allocate a new element,
 
 756
 00:43:11,450 --> 00:43:19,090
+我们写一段 C 代码， e->next 等于 E3 ，
 and we just wrote this C code, you know e->next equals you know E3,
 
 757
 00:43:19,570 --> 00:43:26,240
+然后 E1->next 等于 e ，
 and then E1->next equals e,
 
 758
 00:43:26,480 --> 00:43:28,310
+这不会成功工作，
 this is not going to work well,
 
 759
 00:43:28,460 --> 00:43:29,630
+它不会可靠地工作，
 it's not gonna work reliably,
 
 760
 00:43:29,630 --> 00:43:31,220
+当你测试它的时候，它会工作的很好，
 it's gonna work fine when you test it,
 
 761
 00:43:31,430 --> 00:43:34,490
+但它在现实中并不总是有效的，
 but it won't work in real life all the time,
 
 762
 00:43:34,550 --> 00:43:35,690
+偶尔也会出问题。
 occasionally it will go wrong.
 
 763
 00:43:35,690 --> 00:43:41,740
+原因是编译器可能会重新排序这些写入，
 And the reason is that the compiler may end up reordering these writes
 
 764
 00:43:41,890 --> 00:43:44,050
+或者机器可能会重新排序这些写入，
 or the machine may end up reordering these writes
 
 765
 00:43:44,050 --> 00:43:47,380
+或者读取代码读取这些不同内容，
 or the reading code which reads these various things,
 
 766
 00:43:47,470 --> 00:43:53,200
+编译器或机器，微处理器可能会对读者的读取重新排序，
 the compiler or the machine, the microprocessor may end up reordering the reader's reads,
 
 767
 00:43:53,290 --> 00:43:58,180
+当然，如果我们将 E1->next 设置为指向 E2 ，
 and of course if we set E1->next to point E2
 
 768
 00:43:58,180 --> 00:44:01,590
+在我们在初始化 E2 的内容之前，
 before we initialize the content of E2,
 
 769
 00:44:01,770 --> 00:44:06,920
+它的字符串包含下一个指针，指向[空格]，
 so that it's string holds its next pointer, point off into space,
 
 770
 00:44:06,980 --> 00:44:08,780
+然后一些读者会看到这个指针，
 then some readers going to see this pointer,
 
 771
 00:44:08,780 --> 00:44:10,820
+随后是读取垃圾和崩溃。
 follow with read garbage and crash.
 
 772
 00:44:11,670 --> 00:44:13,710
+所以第二个想法是，
 So the second idea is that,
 
 773
 00:44:13,710 --> 00:44:16,920
+读者和写者都必须使用内存屏障，
 both readers and writers have to use memory barriers,
 
 774
 00:44:17,280 --> 00:44:20,940
+即使我们没有加锁，
 you know even though we're not locking or really because we're not locking,
 
 775
 00:44:22,640 --> 00:44:25,790
+写者和读者都要用屏障，
 read, the writers and the readers have to use a barrier,
 
 776
 00:44:25,880 --> 00:44:30,260
+而对于写者来说，屏障必须是在提交写入之前。
 and for writers the place the barrier has to go is before the committing write.
 
 777
 00:44:30,840 --> 00:44:32,400
+所以我们这里需要一个屏障，
 So we need a barrier here,
 
 778
 00:44:36,500 --> 00:44:42,260
+告诉硬件和编译器，在屏障之前的所有写入，
 tells the hardware and the compiler look all the writes before this barrier,
 
 779
 00:44:42,380 --> 00:44:46,370
+请先完成它们，在做任何屏障之后的写入之前。
 please finish them before doing any writes after the barrier.
 
 780
 00:44:46,610 --> 00:44:48,680
+所以， E2 已完全初始化，
 So that E2 is fully initialized,
 
 781
 00:44:48,680 --> 00:44:50,630
+在我们将 E1 设置为指向它之前。
 before we set E1 to point to it.
 
 782
 00:44:51,080 --> 00:44:52,520
+在读取端，
 And on the read side,
 
 783
 00:44:54,070 --> 00:45:02,260
+读者需要将 E1->next 加载到某个临时位置或寄存器中，
 the reader needs to load E1->next into some temporary location or register,
 
 784
 00:45:02,410 --> 00:45:08,400
+所以我们就说寄存器 1 等于 E1->next ，
 so we'll just say register one equals E1->next,
 
 785
 00:45:11,280 --> 00:45:13,710
+然后读者需要一个屏障，
 then the reader needs a barrier,
 
 786
 00:45:16,480 --> 00:45:21,410
+然后读者会查看 r1->x ，
 and then the reader is going to look at r1->x,
 
 787
 00:45:21,650 --> 00:45:24,140
+r1->next 中的内容。
 it's content in r1->next.
 
 788
 00:45:24,790 --> 00:45:27,190
+有了这个屏障，读者表示的是，
 And with this barrier, the reader says is
 
 789
 00:45:28,320 --> 00:45:34,320
+在我们完成这个加载之前，不要发出任何加载。
 don't issue any of these loads until after we've completed this load.
 
 790
 00:45:34,470 --> 00:45:38,360
+所以读者要查看 E1->next ，
 So the reader's gonna look at E1->next
 
 791
 00:45:38,360 --> 00:45:41,390
+要么得到旧的 E2 ，要么得到新的 E2 ，
 and either get the old E2 or the new E2,
 
 792
 00:45:41,630 --> 00:45:44,390
+然后屏障表示，
 and then the barrier says that,
 
 793
 00:45:44,780 --> 00:45:46,970
+只有到那时，我们才开始看，
 only then are we going to start looking at,
 
 794
 00:45:47,300 --> 00:45:49,640
+只有在那之后，我们拿到这个，
 only after we've grabbed this,
 
 795
 00:45:51,200 --> 00:45:56,270
+所有这些读取都必须在这个读取之后执行。
 all these reads have to execute after this read.
 
 796
 00:45:56,270 --> 00:45:59,540
+并且由于写者保证初始化内容
 And since the writer guaranteed to initialize the content
 
 797
 00:45:59,540 --> 00:46:03,900
+在提交指向新 E2 的指针之前，
 before committing the pointer to the new E2,
 
 798
 00:46:03,900 --> 00:46:05,220
+这意味着这些读取，
 that means these reads,
 
 799
 00:46:05,250 --> 00:46:07,680
+如果这个指针指向新的 E2 ，
 if this pointer points to the new E2,
 
 800
 00:46:07,710 --> 00:46:10,440
+这意味着这些读取保证可以看到初始化的内容。
 that means these reads are guaranteed to see the initialized content.
 
 801
 00:46:14,950 --> 00:46:18,570
+好的，我们看了一点。
 Okay, so we saw a little bit.
 
 802
 00:46:18,570 --> 00:46:21,780
+你怎么能，哦，抱歉，
 How can you, oh sorry,
 
 803
 00:46:21,780 --> 00:46:24,300
+我对读者感到困惑，
 I was just, I was confused about the reader,
 
 804
 00:46:24,330 --> 00:46:27,630
+所以，你么读取 r1 ，
 so how, how can you read r1,
 
 805
 00:46:28,380 --> 00:46:33,090
+比如任何在 r1 之前的东西。
 r1 like anything before you read r1.
 
 806
 00:46:34,100 --> 00:46:37,340
+我猜它们会怎么，
 I guess how how would they,
 
 807
 00:46:37,520 --> 00:46:43,230
+所以，我想即使它能带来回报，
 so yeah, I guess like if even if it rewarded that,
 
 808
 00:46:43,230 --> 00:46:49,740
+如何能够在读取 r1->next 之前读取 r1->x ？
 how, how did be able to read r1->x before it read r1->next?
 
 809
 00:46:54,280 --> 00:46:57,400
+我想你把我难倒了。
 You, I think you've stumped me.
 
 810
 00:46:59,570 --> 00:47:01,340
+我是说你刚才指出的是，
 Yeah, I mean what were you pointing out is that,
 
 811
 00:47:01,340 --> 00:47:03,320
+在你不知道指针是什么之前，
 before you even know what the pointer is
 
 812
 00:47:03,530 --> 00:47:05,780
+你不可能发出读取，
 you can't possibly actually issue the reads,
 
 813
 00:47:05,900 --> 00:47:13,360
+一种可能性是，无论这个指针指向什么，
 the, a possibility is that whatever this pointer points to,
 
 814
 00:47:13,360 --> 00:47:15,820
+也许它已经缓存在这个核心上了，
 maybe it's already cached on this core,
 
 815
 00:47:16,000 --> 00:47:18,610
+因为一些可能这段内存曾经，
 due to some maybe this memory had been
 
 816
 00:47:18,700 --> 00:47:22,160
+一分钟前用来做其他完全不同的事情，
 you know a minute ago used for something else, something totally else,
 
 817
 00:47:22,340 --> 00:47:25,760
+我们有一个旧版本的缓存在核心中，
 and we have an old version of this cache our core,
 
 818
 00:47:26,150 --> 00:47:29,480
+在这个地址上，
 at the address at this address,
 
 819
 00:47:29,480 --> 00:47:31,490
+但是对于内存的某些先前使用，
 but for some previous use of the memory,
 
 820
 00:47:31,550 --> 00:47:36,980
+如果这个读取要使用旧的缓存值，
 if this read was to use the old cache value,
 
 821
 00:47:37,670 --> 00:47:38,780
+我不确定这会不会发生，
 I'm not sure this can happen,
 
 822
 00:47:39,320 --> 00:47:40,460
+只是为你编造的。
 just making this up for you.
 
 823
 00:47:40,520 --> 00:47:42,500
+但是如果这真的可以使用旧的缓存值，
 But if this really could use the old cache value,
 
 824
 00:47:42,500 --> 00:47:43,490
+那么我们就有大麻烦了。
 then we'd be in big trouble.
 
 825
 00:47:45,890 --> 00:47:49,940
+我不知道机器是否真的能做到这一点。
 And I don't know if the machine would actually do that or whether.
 
 826
 00:47:53,920 --> 00:47:57,370
+另一种可能性是编译器，
 Another possibility is that the compiler,
 
 827
 00:47:57,370 --> 00:48:03,820
+真正的答案是我不知道，
 you know, the real answer is I don't know,
 
 828
 00:48:04,480 --> 00:48:07,480
+我应该停下，想一想具体的例子是什么。
 I should go off and think about what a specific example would be.
 
 829
 00:48:08,320 --> 00:48:11,980
+好的，我明白了，缓存版本，理解了，是的。
 Okay, okay, I see, the cache version, makes sense, yeah.
 
 830
 00:48:11,980 --> 00:48:16,030
+我并不完全确定这是否会在现实生活中发生。
 I'm not actually completely sure it could could happen in real life.
 
 831
 00:48:19,030 --> 00:48:19,780
+这是个好问题。
 That's a good question.
 
 832
 00:48:22,880 --> 00:48:26,420
+好的，这是第二个想法。
 Okay, that's the second idea.
 
 833
 00:48:26,540 --> 00:48:29,810
+第三个问题，之前有人提到了，
 The third problem we have which something somebody raised before
 
 834
 00:48:29,810 --> 00:48:36,350
+写者会切换 E1 指针指向新的 E2 ，
 is that the writer is going to swap the E1 pointer to point to the new E2,
 
 835
 00:48:36,350 --> 00:48:41,060
+但可能会有读者，开始查找这个指针，
 but there could be readers, you know who started looking at follow this pointer,
 
 836
 00:48:41,060 --> 00:48:42,680
+就在写者修改之前，
 just before we change the writer changed,
 
 837
 00:48:42,710 --> 00:48:44,330
+它仍在查看 E2 。
 who are still looking at E2.
 
 838
 00:48:44,600 --> 00:48:48,020
+总有一天，我们要释放这个列表元素，
 We need to free this list element someday,
 
 839
 00:48:49,220 --> 00:48:51,770
+但是我们最好不要在一些读者还在使用的时候释放它，
 but we'd better not free it while some readers still using it,
 
 840
 00:48:51,800 --> 00:48:52,880
+所以，我们需要以某种方式等待，
 so we need to somehow wait
 
 841
 00:48:52,880 --> 00:48:55,190
+直到最后一个读者使用完 E2 ，
 until the last reader has finished using E2,
 
 842
 00:48:55,190 --> 00:48:56,840
+然后才能释放它。
 before we can free it.
 
 843
 00:48:58,520 --> 00:49:03,230
+这是 RCU 解决的第三个也是最后一个主要问题，
 And that's the third and final main problem that RCU solves,
 
 844
 00:49:03,260 --> 00:49:06,740
+写者应该等待多长时间才能释放 E2 。
 how long should a writer wait before it frees E2.
 
 845
 00:49:08,780 --> 00:49:11,330
+你可以想象有很多方法可以做到这一点，
 There's you could imagine a number of ways of doing this,
 
 846
 00:49:11,330 --> 00:49:15,260
+比如，我们可以在每个列表元素中添加一些引用计数，
 for example we could put a reference count in every list element
 
 847
 00:49:15,410 --> 00:49:16,760
+并让读者递增它，
 and have readers increment it,
 
 848
 00:49:16,850 --> 00:49:18,470
+并让写者等待，
 and have writers wait,
 
 849
 00:49:18,470 --> 00:49:20,600
+读者在开始使用列表元素时递增，
 reader's increment when they start using list element,
 
 850
 00:49:20,930 --> 00:49:23,510
+在使用列表元素完成后，将其递减，
 decrement it, when they're done using the list element,
 
 851
 00:49:23,510 --> 00:49:27,540
+让写者等待这个元素上的引用计数变为 0 ，
 and have the writer wait for the reference count on this element go to 0,
 
 852
 00:49:27,870 --> 00:49:29,490
+我们很快会后悔，
 we would regret that instantly,
 
 853
 00:49:29,490 --> 00:49:34,980
+因为 RCU 的全部意义在于允许读而不用写。
 because the whole point of RCU is to allow reading without writing.
 
 854
 00:49:35,610 --> 00:49:40,780
+因为如果很多读者改变这个引用计数，
 Because we know that if lots of readers are changing this reference count
 
 855
 00:49:40,780 --> 00:49:45,040
+维护引用计数所涉及的写入会非常昂贵，
 is going to be terribly expensive to do the writes involved in maintaining a reference count,
 
 856
 00:49:45,040 --> 00:49:46,990
+所以我们绝对不想要引用计数。
 so we absolutely don't want reference counts.
 
 857
 00:49:47,200 --> 00:49:50,500
+另一种可能性是使用垃圾收集语言，
 Another possibility would be to use a garbage collected language,
 
 858
 00:49:52,530 --> 00:49:53,940
+对于垃圾收集语言来说，
 and in a garbage collected language,
 
 859
 00:49:54,150 --> 00:49:56,040
+你从来没有明确释放过任何东西，
 you don't ever free anything explicitly,
 
 860
 00:49:56,040 --> 00:49:59,280
+取而代之的是，垃圾收集器负责所需的记账工作，
 instead the garbage collector does the bookkeeping required
 
 861
 00:49:59,370 --> 00:50:01,830
+以确定是否有任何线程
 to decide if any thread
 
 862
 00:50:01,830 --> 00:50:06,480
+或任何数据结构仍具有对这个元素的引用，
 for example any data structure has still has a reference to this element,
 
 863
 00:50:06,540 --> 00:50:11,520
+垃圾收集器一旦证明这个元素不可能再被使用，
 and the garbage collector once it proves this element can't possibly be ever used again,
 
 864
 00:50:11,580 --> 00:50:13,920
+只有到那时垃圾收集器才会将其释放，
 only then will the garbage collector free this,
 
 865
 00:50:14,040 --> 00:50:19,470
+所以，这是另一种合理的方案。
 so that's another quite possibly reasonable scheme
 
 866
 00:50:19,470 --> 00:50:21,270
+决定何时释放这个列表元素。
 for deciding when to free this list element.
 
 867
 00:50:21,810 --> 00:50:24,270
+你知道使用 RCU 的 Linux ，
 You know Linux which uses RCU,
 
 868
 00:50:24,510 --> 00:50:26,730
+它不是用垃圾收集语言编写的。
 it's not written in a garbage collected language, so.
 
 869
 00:50:27,620 --> 00:50:31,910
+我们甚至不确定垃圾收集是否会提高性能，
 And we're not even sure that garbage collection would be would improve performance,
 
 870
 00:50:32,150 --> 00:50:35,660
+所以我们不能在这里使用标准的垃圾收集器，
 so we can't use a standard garbage collector here,
 
 871
 00:50:35,690 --> 00:50:42,830
+取而代之， RCU 使用了另一种技巧，
 instead, RCU uses another sort of a trick,
 
 872
 00:50:43,130 --> 00:50:46,700
+在内核中可以很好地工作，即[延迟冻结]。
 that works well in the kernel for delaying freeze.
 
 873
 00:50:52,990 --> 00:50:57,960
+所以这个想法是，
 And so that idea is that,
 
 874
 00:50:57,960 --> 00:51:01,710
+读者和写者，每个都必须遵守一条规则，
 the readers and writers have to each follow a rule,
 
 875
 00:51:01,770 --> 00:51:04,800
+这将允许写者推迟冻结，
 that will allow writers to delay the freeze,
 
 876
 00:51:05,070 --> 00:51:12,660
+读者不允许在上下文切换期间持有指向 RCU 保护数据的指针。
 readers are not allowed to hold a pointer to RCU protected data across a context switch.
 
 877
 00:51:12,690 --> 00:51:15,330
+因此读者不允许持有指针，
 So a reader is not allowed to hold a pointer,
 
 878
 00:51:17,220 --> 00:51:21,180
+在上下文切换时，那些列表元素中的一个。
 one of those list elements across a context switch.
 
 879
 00:51:21,570 --> 00:51:33,020
+所以，读者不能在 RCU 临界区中让出 CPU 。
 So the readers, they cannot yield the CPU, in a RCU critical section.
 
 880
 00:51:37,730 --> 00:51:39,530
+然后写者要做的是，
 And then what the writers do is,
 
 881
 00:51:39,800 --> 00:51:53,420
+它们将释放延迟到每个核心至少切换一次上下文。
 they delay the free until every core as context switches at least once.
 
 882
 00:52:00,590 --> 00:52:01,880
+所以这很简单，
 So this is easy enough,
 
 883
 00:52:01,940 --> 00:52:04,010
+这实际上也是自旋锁的一条规则，
 this is actually also a rule for spin locks,
 
 884
 00:52:04,010 --> 00:52:06,620
+在自旋锁定临界区，你不能让出 CPU ，
 in a spin lock critical section, you can't yield the CPU,
 
 885
 00:52:07,820 --> 00:52:10,040
+但不管怎样，你还是要小心一点。
 but nevertheless you have to be a bit careful.
 
 886
 00:52:10,840 --> 00:52:12,910
+这有点牵涉其中，
 This is a little more involved,
 
 887
 00:52:13,240 --> 00:52:15,970
+但是，情况相对清楚，
 but it's relatively clear,
 
 888
 00:52:15,970 --> 00:52:18,580
+当每个核心都知道这种上下文切换，
 when each each cores knows this context switching,
 
 889
 00:52:18,790 --> 00:52:23,170
+所以，这是写者必须等待的一个非常明确的点。
 and so this is a pretty well defined point for the writer to have to wait for.
 
 890
 00:52:25,190 --> 00:52:27,020
+只需要一些实现，
 And just requires some implementation,
 
 891
 00:52:27,020 --> 00:52:29,270
+这也要求，这可能是一个很大的延迟，
 this also requires this may be a significant delay
 
 892
 00:52:29,270 --> 00:52:32,480
+可能是一毫秒或一毫秒的重要部分，
 and maybe a millisecond or a significant fraction of a millisecond
 
 893
 00:52:32,480 --> 00:52:35,870
+写者必须等待，在被允许释放这个列表元素之前，
 that the writer has to wait, before it's allowed to free that list element,
 
 894
 00:52:36,420 --> 00:52:38,820
+以确保没有读者可能还在使用它。
 to be sure that no reader could possibly still be using it.
 
 895
 00:52:41,270 --> 00:52:48,070
+人们已经想出了一系列技术来实现这种等待，
 People have come up with a bunch of techniques for actually implementing this wait,
 
 896
 00:52:49,090 --> 00:52:52,120
+这篇论文谈到的最直截了当的一点是，
 though most straightforward one the paper talks about is that,
 
 897
 00:52:52,120 --> 00:52:56,380
+写入线程简单地与调度器一起安排，
 the writing thread simply arranges with the scheduler
 
 898
 00:52:56,440 --> 00:53:01,960
+以使写入线程在系统中的每个核心上短暂地执行。
 to have the writing thread be executed briefly on every one of the cores in the system.
 
 899
 00:53:02,390 --> 00:53:04,610
+这意味着，
 And what that means is that
 
 900
 00:53:05,420 --> 00:53:09,530
+在这个过程中，每个核新都必须进行上下文切换，
 every one of the cores must have done a context switch during this process,
 
 901
 00:53:09,860 --> 00:53:12,830
+而且由于读者不能跨上下文切换持有内容，
 and since readers can't hold stuff across context switches,
 
 902
 00:53:12,830 --> 00:53:14,960
+这意味着写者现在已经等得够久了。
 that means that the writer is now waited long enough.
 
 903
 00:53:20,000 --> 00:53:23,900
+所以，写者代码看起来是这样的，
 And so the way the actual writer code looks like is
 
 904
 00:53:24,350 --> 00:53:27,800
+写入代码对数据进行任何修改，
 the writing code does whatever modifications it's going to do to the data,
 
 905
 00:53:27,980 --> 00:53:32,270
+然后它调用这个 synchronize_rcu 调用，
 and then it calls this synchronize_rcu call,
 
 906
 00:53:35,630 --> 00:53:37,340
+它实现了 2 。
 which actually implements 2.
 
 907
 00:53:41,370 --> 00:53:46,890
+然后写者冻结旧元素。
 And then the writer freeze whatever the old element was.
 
 908
 00:53:47,510 --> 00:53:50,240
+所以这意味着写者做任何它在做的事情，
 And so that means that the writer is doing whatever it's doing,
 
 909
 00:53:50,240 --> 00:53:51,500
+在这一点上，
 you know at this point,
 
 910
 00:53:51,500 --> 00:54:03,530
+假设它正在执行 E1->next 等于新的列表元素。
 let's say it's doing the you know the E1->next is equal to the new list element.
 
 911
 00:54:04,650 --> 00:54:16,640
+这个 synchronize_rcu 会在每个核心上强制执行上下文切换，
 And so you know this synchronize_rcu causes force a context switch on every core,
 
 912
 00:54:16,820 --> 00:54:20,000
+所以任何核心可以读取，
 so any core that could have read,
 
 913
 00:54:20,000 --> 00:54:23,360
+任何核心可以读取旧的值，
 any core that could have read the old value,
 
 914
 00:54:23,480 --> 00:54:25,340
+在这一点上，一定已经读取了它，
 must have read it at this point,
 
 915
 00:54:28,440 --> 00:54:29,970
+一定是在这个时间点上读取过了，
 must have read it at this point in time,
 
 916
 00:54:30,000 --> 00:54:31,320
+如果在这个时间点之后，
 if after that point in time,
 
 917
 00:54:31,320 --> 00:54:33,090
+我们已经在每个核心做了上下文切换，
 we've done a context switch on every core,
 
 918
 00:54:33,090 --> 00:54:35,850
+这意味着，没有读取旧值的核心，
 that means that no core that read the old value
 
 919
 00:54:36,060 --> 00:54:40,230
+在这个时间点上仍然具有指向这个值的指针，
 could still have a pointer to that value at this point in time,
 
 920
 00:54:40,440 --> 00:54:41,610
+基于规则 1 ，
 due to rule one,
 
 921
 00:54:41,700 --> 00:54:43,770
+这意味着它们允许释放旧的值。
 and that means they were allowed to free the old value.
 
 922
 00:54:47,450 --> 00:54:48,320
+有什么问题吗？
 Any questions?
 
 923
 00:54:55,670 --> 00:54:58,250
+你可能会反对这个 synchronize_rcu
 You may object that this synchronize_rcu
 
 924
 00:54:58,250 --> 00:55:02,300
+将花费相当大的可能零点几毫秒时间，
 will take a significant perhaps fraction of a millisecond,
 
 925
 00:55:02,300 --> 00:55:03,200
+这是非常正确的。
 that's quite true.
 
 926
 00:55:04,890 --> 00:55:07,470
+是这样的，所以这太糟糕了，
 Is that, so that's too bad,
 
 927
 00:55:07,560 --> 00:55:12,570
+其中一个理由是写入 RCU 保护的数据，
 one of the justifications is that writing for RCU protected data,
 
 928
 00:55:12,570 --> 00:55:14,460
+写入将会变得相对罕见，
 writing is going to be relatively rare,
 
 929
 00:55:14,460 --> 00:55:16,080
+所以，写入时间较长
 so the fact that the writes take longer
 
 930
 00:55:16,080 --> 00:55:20,670
+可能不会对整体性能产生太大影响，
 may not will probably not affect overall performance very much,
 
 931
 00:55:21,330 --> 00:55:24,060
+对于写者不想等待的情况，
 for the situations in which the writer really doesn't want to wait,
 
 932
 00:55:24,150 --> 00:55:25,440
+还有另一个调用，
 there's another call,
 
 933
 00:55:26,380 --> 00:55:32,020
+它可以延迟等待，叫做 call_rcu 。
 that that defers even a wait call call_rcu.
 
 934
 00:55:35,070 --> 00:55:40,260
+这里的想法是，在通常的情况中，
 And the idea is you pass it the, in the usual use case,
 
 935
 00:55:40,830 --> 00:55:43,320
+你可以向它传递一个指向要释放的对象的指针，
 you pass it a pointer to the object you want to free,
 
 936
 00:55:43,380 --> 00:55:49,310
+然后一个回调函数调用释放这个指针，
 and then a callback function that just calls free on this pointer,
 
 937
 00:55:49,310 --> 00:55:52,370
+而 RCU 系统会藏起来，
 and the rcu system basically stashes away,
 
 938
 00:55:52,400 --> 00:55:57,080
+call_rcu 在列表上把这两个值[藏起来]，
 the call_rcu stashes away these two values on list,
 
 939
 00:55:57,110 --> 00:56:01,160
+然后立即返回，然后做一些记录，
 and then immediately returns and then does some bookkeeping,
 
 940
 00:56:02,010 --> 00:56:04,920
+通常涉及查看每个核心上
 typically involving basically looking at
 
 941
 00:56:04,920 --> 00:56:09,120
+已经发生了多少上下文的计数，
 the counts of how many contexts which have occurred on each core,
 
 942
 00:56:09,450 --> 00:56:14,400
+在调用 call_rcu 返回后，
 the system, sort of in the background after call_rcu returns
 
 943
 00:56:14,490 --> 00:56:18,240
+做一些[记账]等待，直到所有核心上下文切换，
 does some bookkeeping to wait until all cores context switch,
 
 944
 00:56:18,240 --> 00:56:21,330
+然后使用这个参数调用这个回调函数，
 and then calls this callback function with this argument,
 
 945
 00:56:21,510 --> 00:56:23,610
+所以这是避免等待的一种方式，
 and so this is a way of avoiding the wait,
 
 946
 00:56:23,880 --> 00:56:26,970
+因为这个调用马上就会返回。
 because this call returns instantly.
 
 947
 00:56:30,520 --> 00:56:32,470
+另一方面，你会被劝阻不要使用它，
 On the other hand, you're discouraged from using it,
 
 948
 00:56:32,470 --> 00:56:36,100
+因为现在这个列表，
 because now this list that,
 
 949
 00:56:36,250 --> 00:56:40,300
+如果内核大量调用 call_rcu ，
 if if the kernel calls call_rcu a lot,
 
 950
 00:56:40,600 --> 00:56:45,520
+那么保存这些值的列表可能会变得非常长，
 then the list that holds these values can get very long,
 
 951
 00:56:45,610 --> 00:56:50,020
+这意味着可能会有大量的内存不会被释放，
 and it means that there may be a lot of memory that's not being freed,
 
 952
 00:56:50,110 --> 00:56:51,340
+所有数据，
 all the data all the,
 
 953
 00:56:51,890 --> 00:56:54,020
+这个列表变得很长，
 this, this list grows very long,
 
 954
 00:56:54,170 --> 00:56:59,850
+每个列表元素中都有一个应该释放的指针，
 each list element of is has a pointer in it that should be free
 
 955
 00:56:59,850 --> 00:57:01,620
+指向应该释放的对象。
 to point to an object that should be freed.
 
 956
 00:57:02,160 --> 00:57:03,780
+所以在极端情况下，
 So under extreme circumstances,
 
 957
 00:57:03,780 --> 00:57:04,800
+你可以运行一个系统，
 you can run a system,
 
 958
 00:57:04,830 --> 00:57:07,740
+如果你不注意 call_rcu 的大量调用，
 if you're not careful a lot of calls to rcu call_rcu,
 
 959
 00:57:07,740 --> 00:57:09,300
+你运行的系统会内存不足，
 you can run a system out of memory,
 
 960
 00:57:09,300 --> 00:57:12,510
+因为所有的内存最终都会出现在这个延迟冻结的列表上。
 because all the memory ends up on this list of deferred freeze.
 
 961
 00:57:14,220 --> 00:57:16,950
+所以人们不喜欢用这个，他们没必要。
 So people don't like to use this, they don't have to.
 
 962
 00:57:21,560 --> 00:57:26,380
+好的，
 Okay, to,
 
 963
 00:57:28,240 --> 00:57:34,000
+到目前为止，如果你有问题，请提问。
 please ask questions so far, if you have questions.
 
 964
 00:57:34,000 --> 00:57:37,900
+所以，这会阻止我们释放，
 So, this doesn't, this prevents us free,
 
 965
 00:57:38,020 --> 00:57:41,530
+阻止我们释放别人仍在使用的东西，
 that prevents us from freeing something that somebody's still using,
 
 966
 00:57:41,830 --> 00:57:44,980
+这并不阻止我们修改，
 it doesn't prevent us from modified,
 
 967
 00:57:44,980 --> 00:57:49,300
+比如读者看到某个东西的半个的版本，
 like having the readers see a half-baked version of something,
 
 968
 00:57:49,300 --> 00:57:51,160
+因为它被修改了。
 because it's being modified right.
 
 969
 00:57:51,310 --> 00:57:53,170
+想法 1 阻止了那个。
 Idea 1 prevented that, yeah.
 
 970
 00:57:54,920 --> 00:57:55,370
+好的。
 Okay.
 
 971
 00:57:55,490 --> 00:57:58,220
+所以想法 1 的背后是，
 So they they get the idea, behind the idea 1 is that,
 
 972
 00:57:58,460 --> 00:58:00,920
+不是就地更新列表元素，
 instead of updating a list element in place,
 
 973
 00:58:00,920 --> 00:58:03,530
+这绝对会导致你提到的问题，
 which would absolutely cause the problem you mentioned,
 
 974
 00:58:03,590 --> 00:58:08,150
+写者不允许就地更新 RCU 保护的数据，
 when the writers are not allowed to update RCU protected data in place,
 
 975
 00:58:08,270 --> 00:58:11,940
+相反，它们创造了一个新的数据元素，
 instead they cook up a new data element,
 
 976
 00:58:12,420 --> 00:58:16,080
+将其交换到数据结构中，只需一次提交写入。
 and sort of swap it into the data structure with a single committing write.
 
 977
 00:58:17,020 --> 00:58:19,210
+哦，而且交换是原子的，
 Oh, and the swapping will be atomic,
 
 978
 00:58:19,210 --> 00:58:20,260
+所以没问题。
 so there's no problem.
 
 979
 00:58:20,260 --> 00:58:23,800
+是的，因为这是一个单指针，它是原子的，
 Right, because that's a single pointer, right, which is atomic,
 
 980
 00:58:23,800 --> 00:58:27,040
+而重写字符串完全不是原子的。
 whereas overwriting a string is completely not atomic.
 
 981
 00:58:28,300 --> 00:58:28,960
+理解了。
 That makes sense.
 
 982
 00:58:31,030 --> 00:58:31,990
+还有其他问题吗？
 Other questions?
 
 983
 00:58:33,410 --> 00:58:38,620
+想法 3 中的条件 1 是否意味着
 Does condition 1 in idea 3 mean
 
 984
 00:58:38,620 --> 00:58:43,150
+我们在这些受保护部分中投入了多少工作，
 we need to be careful about how much work we put inside those protected sections,
 
 985
 00:58:43,150 --> 00:58:47,080
+因为它占据了整个区域的核心。
 since it kind of hogs the core for that entire section.
 
 986
 00:58:48,130 --> 00:58:51,520
+是的，所以这是，没错，
 Yes, yes, so this is, that's right,
 
 987
 00:58:51,520 --> 00:58:55,030
+所以，在 RCU 关键部分的读者，
 so, readers in the rcu critical section,
 
 988
 00:58:55,030 --> 00:58:56,830
+在查看受保护的数据时，
 while they're looking at the protected data,
 
 989
 00:58:56,890 --> 00:58:58,180
+它们不能上下文切换，
 they can't context switch,
 
 990
 00:58:58,240 --> 00:59:04,510
+所以你想把这些关键部分缩短，
 and so you're, you know you want to keep those critical sections short,
 
 991
 00:59:04,780 --> 00:59:08,150
+这是一个考虑因素。
 now, and that's a consideration.
 
 992
 00:59:09,350 --> 00:59:12,260
+不过，它的结果是，
 The way it plays out though is that,
 
 993
 00:59:12,260 --> 00:59:14,000
+RCU 的部署方式
 the way RCU has been deployed
 
 994
 00:59:14,030 --> 00:59:16,790
+通常是在 Linux 中有一些代码，
 is typically there will be some piece of code in Linux,
 
 995
 00:59:16,910 --> 00:59:20,090
+它们使用普通锁或读写锁进行保护，
 that was protected with ordinary locks or read write locks,
 
 996
 00:59:20,360 --> 00:59:22,850
+还有一些工作量，
 and somebody you know for some workloads,
 
 997
 00:59:22,910 --> 00:59:27,690
+我们看到锁是一个可怕的性能问题，
 we'll see that lock is a terrible performance problem,
 
 998
 00:59:27,690 --> 00:59:33,180
+他们将替换锁临界区为 RCU 临界区，
 and they're going to replace the locking critical section with an RCU critical section,
 
 999
 00:59:33,980 --> 00:59:35,960
+尽管有时它更复杂。
 although sometimes it's more involved than that.
 
 1000
 00:59:36,740 --> 00:59:39,590
+而且由于锁临界区已经，
 And since locking critical sections were already,
 
 1001
 00:59:39,590 --> 00:59:41,570
+把它们缩短是极其重要的，
 it was extremely important to make them short,
 
 1002
 00:59:41,810 --> 00:59:43,070
+因为当你持有锁时，
 because while you hold a lock,
 
 1003
 00:59:43,280 --> 00:59:45,260
+可能会有很多其他核心在等待那个锁，
 there may be lots of other cores waiting for that lock,
 
 1004
 00:59:45,260 --> 00:59:48,890
+所以有很大的压力来保持普通锁临界区短，
 so there's a lot of pressure to keep ordinary lock critical sections short,
 
 1005
 00:59:49,730 --> 00:59:51,890
+因为 RCU 临界区经常，
 because RCU critical sections are often
 
 1006
 00:59:52,070 --> 00:59:54,950
+是修改过的锁临界区，
 sort of revised lock critical sections,
 
 1007
 00:59:54,950 --> 00:59:56,480
+之前曾是临界区，
 that used to be like critical sections,
 
 1008
 00:59:56,600 --> 00:59:57,980
+它们往往也很短。
 they tend to be short also.
 
 1009
 00:59:59,620 --> 01:00:01,180
+这意味着，
 And you know that means that,
 
 1010
 01:00:03,160 --> 01:00:04,120
+并不总是，
 you know not always,
 
 1011
 01:00:04,120 --> 01:00:07,120
+但是通常不会有，
 but usually there there's not a,
 
 1012
 01:00:09,040 --> 01:00:11,890
+不会直接担心保持 RCU 关键部分短。
 not a direct worry about keeping RCU critical sections short.
 
 1013
 01:00:13,520 --> 01:00:14,750
+虽然这是一个限制，
 Although it is a constraint,
 
 1014
 01:00:15,520 --> 01:00:18,250
+真正的约束是你不允许持有指针通过，
 the real constraint actually you're not allowed to hold pointers over,
 
 1015
 01:00:18,820 --> 01:00:21,820
+指向 RCU 数据的指针通过上下文切换。
 pointers to RCU data over context switches.
 
 1016
 01:00:23,640 --> 01:00:25,320
+那是你不能，
 And that's actually you can't,
 
 1017
 01:00:25,320 --> 01:00:28,230
+比如，你不能读取磁盘，然后等待磁盘完成，
 for example read the disks and wait for the disk wait to complete,
 
 1018
 01:00:28,350 --> 01:00:32,910
+在持有指向 RCU 保护数据的指针时。
 while while holding on a pointer, onto a pointer to RCU protected data.
 
 1019
 01:00:33,940 --> 01:00:35,980
+所以不是很多，
 So it's not quite so much,
 
 1020
 01:00:35,980 --> 01:00:39,490
+通常出现的问题不是临界区的长度，
 the the thing that usually comes up is not the length of the critical section,
 
 1021
 01:00:39,490 --> 01:00:43,450
+[]禁止让出 CPU 。
 so much as the prohibition against yielding CPU.
 
 1022
 01:00:48,720 --> 01:00:49,650
+好的。
 Okay.
 
 1023
 01:00:53,500 --> 01:00:56,260
+让我们看看，为了更明确，
 Let's see, so just kind of firm up,
 
 1024
 01:00:56,260 --> 01:00:58,480
+我刚才说的所有的事情，
 but I, all the stuff I just talked about,
 
 1025
 01:00:58,690 --> 01:01:02,600
+这是你将看到的，
 here's the kind of what you would see
 
 1026
 01:01:02,600 --> 01:01:06,040
+一个 RCU 的简单使用。
 in a simple use of RCU.
 
 1027
 01:01:06,040 --> 01:01:07,150
+所以，这是代码，
 So this is code,
 
 1028
 01:01:07,360 --> 01:01:12,840
+你会看到用于读取列表和 RCU 保护列表，
 you might see for reading a list, and rcu protected list,
 
 1029
 01:01:12,840 --> 01:01:13,320
+而这是代码，
 and this is the code,
 
 1030
 01:01:13,320 --> 01:01:15,060
+你可能会在写入端看到，
 you might see on the write side,
 
 1031
 01:01:15,120 --> 01:01:20,520
+对于只替换第一个列表元素的特定情况的代码，
 for code that just wants to a particular case of replacing the first list element,
 
 1032
 01:01:20,790 --> 01:01:23,580
+所以在读取端，有这个，
 so the read side, there is actually this,
 
 1033
 01:01:23,640 --> 01:01:27,060
+read_lock 和 read_unlock 调用，
 these read_lock and read_unlock calls,
 
 1034
 01:01:27,300 --> 01:01:31,290
+它们几乎什么都不做，
 those do almost nothing, almost nothing,
 
 1035
 01:01:32,200 --> 01:01:36,760
+它们唯一做的就是设置一个标志，表示，
 the only, the only little thing they do is set a flag, that says
 
 1036
 01:01:36,760 --> 01:01:38,950
+或者 rcu_read_lock 设置一个标志，表示，
 or rcu_read_lock sets a flag, that says,
 
 1037
 01:01:39,430 --> 01:01:42,790
+如果发生定时器中断，请不要进行上下文切换，
 if a timer interrupt happens, please don't context switch,
 
 1038
 01:01:42,820 --> 01:01:46,040
+因为我在 RCU 临界区中间。
 because I'm in the middle of rcu critical section.
 
 1039
 01:01:46,070 --> 01:01:47,090
+所以这它说做的，
 So that's all really does
 
 1040
 01:01:47,090 --> 01:01:50,870
+设置标志禁止定时器中断上下文切换，
 set a flag that prohibits timer interrupt context switches,
 
 1041
 01:01:50,900 --> 01:01:53,060
+中断可能仍会发生，但不会切换上下文，
 interrupts may still happen, but it wont context switch,
 
 1042
 01:01:53,360 --> 01:01:56,060
+然后 read_unlock 取消标志，
 and then read_unlock unset flag,
 
 1043
 01:01:56,090 --> 01:02:00,340
+它是嵌套的 RCU 临界区的计数器。
 really it's counter of nested RCU critical sections.
 
 1044
 01:02:00,550 --> 01:02:02,920
+所以这两个函数非常快，几乎什么也不做。
 So these two functions are extremely fast and do almost nothing.
 
 1045
 01:02:04,750 --> 01:02:11,160
+然后这个循环会扫描我们的列表，
 And then this loop would sort of scan down the our list,
 
 1046
 01:02:11,190 --> 01:02:15,960
+这就是插入内存屏障的调用，
 this is the call that insert the memory barrier,
 
 1047
 01:02:16,050 --> 01:02:20,930
+所以 RCU 真的可以归结为几条指令，
 so what RCU, this really boils down to just a couple of instructions,
 
 1048
 01:02:21,020 --> 01:02:27,210
+它读取，它从内存中抓取这个指针的副本，
 it just reads, it grabs a copy of this pointer from memory,
 
 1049
 01:02:27,270 --> 01:02:31,020
+发出内存屏障，然后返回那个指针。
 issues a memory barrier and then returns that pointer.
 
 1050
 01:02:37,260 --> 01:02:38,880
+然后我们可以查看内容，
 And then we can look at the content
 
 1051
 01:02:39,030 --> 01:02:40,770
+并继续下一个列表元素。
 and go on to the next list element.
 
 1052
 01:02:41,710 --> 01:02:45,210
+所以读者很简单。
 So the readers quite simple.
 
 1053
 01:02:45,270 --> 01:02:46,950
+写者更多地参与其中，
 The writers a little more involved,
 
 1054
 01:02:47,100 --> 01:02:48,540
+写者仍然，
 writers still,
 
 1055
 01:02:49,020 --> 01:02:52,920
+RCU 并不能帮助写者避免互相干扰，
 you know the RCU doesn't help writers avoid interfering with each other,
 
 1056
 01:02:52,920 --> 01:02:54,360
+所以，写者仍然必须有某种方法
 so writers still have to have some way
 
 1057
 01:02:54,360 --> 01:02:57,390
+来确保一次只有一个写者修改列表。
 of making sure only one writer modifies the list at a time.
 
 1058
 01:02:57,630 --> 01:02:58,290
+在这种情况下，
 In this case,
 
 1059
 01:02:58,470 --> 01:03:02,350
+想象我们将使用普通的自旋锁，
 I'm just imagining we're going to use ordinary spin locks,
 
 1060
 01:03:02,350 --> 01:03:03,820
+所以写者需要锁。
 so the writer requires the lock.
 
 1061
 01:03:04,720 --> 01:03:06,760
+如果我们要替换第一个列表元素，
 If we're replacing the first list element,
 
 1062
 01:03:07,620 --> 01:03:10,050
+我们需要在一开始保存一份副本，
 we need to save a copy at the beginning,
 
 1063
 01:03:10,320 --> 01:03:12,180
+因为我们最终需要释放它，
 because we're going to need to eventually free it,
 
 1064
 01:03:12,360 --> 01:03:14,160
+所以我们保存这个老的元素的副本，
 so we save this copy of the oldest element,
 
 1065
 01:03:14,430 --> 01:03:17,340
+现在这个代码使用我刚才说过的那个技巧，
 now we're this code plays that trick I talked again about,
 
 1066
 01:03:17,400 --> 01:03:19,470
+分配一个完整的新列表元素，
 allocating a complete new list element
 
 1067
 01:03:19,470 --> 01:03:22,740
+来保存这个更新的内容。
 to hold this updated content.
 
 1068
 01:03:23,470 --> 01:03:25,090
+我们将分配一个新的列表元素，
 We're gonna allocate a new list element,
 
 1069
 01:03:25,090 --> 01:03:26,710
+我们将设置它的内容，
 we're gonna set its content,
 
 1070
 01:03:26,710 --> 01:03:28,420
+我们设置下一个指针，
 we're gonna set the next pointer
 
 1071
 01:03:29,020 --> 01:03:33,940
+设置为我们要替换的旧的第一个列表元素中的下一个指针，
 to the next pointer in the old first list element as we're replacing it,
 
 1072
 01:03:34,360 --> 01:03:39,760
+然后 rcu_assign_pointer 发出内存屏障，
 and then this rcu_assign_pointer issues a memory barrier,
 
 1073
 01:03:39,940 --> 01:03:42,580
+所以所有这些写入都发生了，
 so that all these these writes happened,
 
 1074
 01:03:43,500 --> 01:03:48,990
+然后将第一个参数所指向的指针设置为等于，
 and then sets a pointer pointed to by this first argument to be equal to that,
 
 1075
 01:03:48,990 --> 01:03:51,600
+所以，这只是发出一个内存屏障，
 so basically this just issues a memory barrier
 
 1076
 01:03:51,660 --> 01:03:53,580
+然后将 head 设置为 e 。
 and then sets head equal to e.
 
 1077
 01:03:54,690 --> 01:03:55,920
+现在我们可以释放锁了，
 Now we can release the lock,
 
 1078
 01:03:56,250 --> 01:03:59,160
+我们仍然有一个指向旧的第一个列表元素的指针，
 we still have a pointer to the old first list element,
 
 1079
 01:03:59,870 --> 01:04:04,690
+调用 synchronize_rcu 以确保每个 CPU
 call synchronize_rcu to make sure every CPU
 
 1080
 01:04:04,690 --> 01:04:08,770
+可以抓取指向旧元素的指针，
 that could have grabbed a pointer to the oldest element,
 
 1081
 01:04:08,770 --> 01:04:12,430
+在我们执行提交写入之前，让出 CPU ，
 before we did the committing write has yielded the CPU
 
 1082
 01:04:12,910 --> 01:04:16,030
+因此放弃它的指针 RCU 保护数据，
 and therefore given up its pointer RCU protected data,
 
 1083
 01:04:16,270 --> 01:04:19,500
+现在我们可以释放旧的列表元素了。
 and now we could free the old list element.
 
 1084
 01:04:23,440 --> 01:04:24,400
+有什么问题吗？
 Any questions?
 
 1085
 01:04:35,680 --> 01:04:37,540
+好的。
 Alright.
 
 1086
 01:04:45,270 --> 01:04:47,820
+关于 RCU ，需要注意的一件事是，
 There RCU, one thing to note about this is that,
 
 1087
 01:04:48,000 --> 01:04:49,680
+在读者中，
 while in the reader,
 
 1088
 01:04:49,680 --> 01:04:53,160
+虽然我们可以在这里查看循环内的列表元素，
 while we're allowed to look at this list element inside the loop here,
 
 1089
 01:04:53,190 --> 01:04:57,210
+我们不允许做的一件事是返回列表元素，
 one thing we're not allowed to do is return the list element,
 
 1090
 01:04:57,450 --> 01:04:59,730
+例如，我们使用 RCU ，
 so for example we using RCU,
 
 1091
 01:04:59,730 --> 01:05:03,330
+我们不能编写列表查找函数，
 we couldn't write a lookup a list lookup function,
 
 1092
 01:05:03,880 --> 01:05:07,090
+它返回列表元素
 that returned either the list element
 
 1093
 01:05:07,360 --> 01:05:12,400
+或指向保存在列表元素中的数据的指针，
 or a pointer into data held in the list element,
 
 1094
 01:05:12,400 --> 01:05:14,560
+比如嵌入在列表元素中的字符串。
 like a string that was embedded in the list element.
 
 1095
 01:05:18,490 --> 01:05:21,430
+因为那样我们就不再控制了，
 Because then we'd be in, then we would no longer be in control,
 
 1096
 01:05:21,430 --> 01:05:23,080
+必须是这种情况，
 you know it has to be the case,
 
 1097
 01:05:23,080 --> 01:05:26,170
+我们不会把受 RCU 保护的数据放在外面，
 that we don't look at RCU protected data outside,
 
 1098
 01:05:26,890 --> 01:05:30,250
+这个 RCU 临界区或者我们不进行上下文切换，
 this RCU critical section or we don't do a context switch,
 
 1099
 01:05:30,250 --> 01:05:33,010
+如果我们只编写一个返回列表元素的普通函数，
 if we just write a generic function that returns a list element,
 
 1100
 01:05:33,250 --> 01:05:34,870
+那么就我们所了解的调用者来说，
 then for all we know the caller,
 
 1101
 01:05:36,110 --> 01:05:38,030
+也许我们也可以让调用者遵守一些规则，
 maybe we can persuade the caller to follow some rules too,
 
 1102
 01:05:38,030 --> 01:05:43,940
+但据我们所知，调用者会进行上下文切换，
 but for all we know, the caller make context switch
 
 1103
 01:05:43,970 --> 01:05:47,500
+或者我们会遇到麻烦，
 or we run into trouble
 
 1104
 01:05:47,500 --> 01:05:51,010
+或者在返回列表元素之前调用 rcu_read_unlock ，
 either we call rcu_read_unlock before returning the list element,
 
 1105
 01:05:51,600 --> 01:05:52,200
+这是非法的，
 which is illegal,
 
 1106
 01:05:52,200 --> 01:05:54,480
+因为现在定时器中断可能会强制切换，
 because now a timer interrupt could force a switch,
 
 1107
 01:05:54,780 --> 01:05:56,610
+或者我们不调用 rcu_read_unlock 。
 or we don't call rcu_read_unlock.
 
 1108
 01:05:56,610 --> 01:06:03,000
+所以，使用 RCU 给读者带来了一些额外的约束，
 So use of RCU sort of does put some additional constraints on readers,
 
 1109
 01:06:03,740 --> 01:06:05,120
+这在以前是不存在的。
 that wouldn't have existed before.
 
 1110
 01:06:06,400 --> 01:06:07,540
+关于这一点的一个问题。
 A question about that.
 
 1111
 01:06:07,900 --> 01:06:08,320
+好的。
 Yes.
 
 1112
 01:06:08,350 --> 01:06:09,910
+所以，你是说，
 So, are you saying in particular,
 
 1113
 01:06:09,910 --> 01:06:17,860
+如果我们有某种比如读取索引 i 元素的方法，
 that if we had some form of like read element at index i method,
 
 1114
 01:06:18,490 --> 01:06:20,770
+没有办法来[组织]这件事，
 that there's no way to structure this,
 
 1115
 01:06:20,770 --> 01:06:25,180
+这样它不能返回[]元素 i 持有的值。
 so that it couldn't return the value held by the [] element i.
 
 1116
 01:06:25,300 --> 01:06:26,410
+它可以返回一个副本。
 It could return a copy.
 
 1117
 01:06:27,970 --> 01:06:30,550
+那么，如果 e->x 是一个字符串，
 So what would work, you know if e->x is a string,
 
 1118
 01:06:30,550 --> 01:06:32,080
+我们可以返回一个这个字符串的副本，
 we could return a copy of this string,
 
 1119
 01:06:32,080 --> 01:06:33,040
+这很好，
 and that's fine,
 
 1120
 01:06:33,940 --> 01:06:36,640
+会违反 RCU 的规定的是，
 what would be a violation of RCU rules,
 
 1121
 01:06:36,640 --> 01:06:40,990
+如果我们返回一个指针，指向位于内部的这个字符串，
 if we return a pointer to this very string sitting inside,
 
 1122
 01:06:42,960 --> 01:06:48,890
+将指向 e 的指针返回，是错误的。
 a pointer it would be a mistake to return a pointer into somewhat into e.
 
 1123
 01:06:50,920 --> 01:06:53,170
+如果字符串存储在列表元素内，
 If the string is stored inside the list element,
 
 1124
 01:06:53,170 --> 01:06:55,030
+我们最好不要把这个指针返回那个字符串，
 we better not return this pointer that string,
 
 1125
 01:06:55,900 --> 01:07:00,680
+因为这样，
 because then, that will be,
 
 1126
 01:07:03,210 --> 01:07:04,380
+你不能切换上下文，
 you have to not context switch,
 
 1127
 01:07:04,380 --> 01:07:07,440
+我们将指针指向 RCU 保护的数据，
 we're holding a pointer into RCU protected data,
 
 1128
 01:07:07,830 --> 01:07:10,740
+而惯例是，
 and the you know the convention is
 
 1129
 01:07:10,890 --> 01:07:13,260
+你只需要在这个关键部分使用这些数据。
 you know you just use that data within this critical section.
 
 1130
 01:07:14,410 --> 01:07:16,360
+所以，几乎可以肯定的是，这将打破惯例，
 And so it would almost certainly be breaking the convention
 
 1131
 01:07:16,360 --> 01:07:18,580
+否则这个设置会复杂得多，
 or this setup would have to be much more complicated,
 
 1132
 01:07:18,760 --> 01:07:22,240
+如果我们最终返回指向受保护数据的指针。
 if we ended up returning pointers into the protected data.
 
 1133
 01:07:24,050 --> 01:07:25,040
+谢谢。
 Thank you.
 
 1134
 01:07:29,180 --> 01:07:33,740
+我想回到性能的故事上来，
 The I just want to return briefly to the performance story,
 
 1135
 01:07:35,850 --> 01:07:41,680
+很难描述性能是什么样的，
 it's, it's hard to characterize sort of what the performance is,
 
 1136
 01:07:41,680 --> 01:07:43,630
+我的意思是，在某种意义上，
 I mean in a sense,
 
 1137
 01:07:45,280 --> 01:07:48,010
+整体性能的故事是，
 the, let's see the the overall performance story is that
 
 1138
 01:07:48,100 --> 01:07:50,650
+如果你使用 RCU ，读取会非常快，
 if you use RCU, reads are extremely fast,
 
 1139
 01:07:50,650 --> 01:07:52,870
+它们只是在执行
 they just proceed at whatever,
 
 1140
 01:07:52,960 --> 01:07:57,940
+它们没有超出普通的查看数据的开销，
 they've served no overhead above the ordinary overhead of looking at that data,
 
 1141
 01:07:58,000 --> 01:08:00,820
+所以如果你的列表有十亿个元素长，
 so if your list is a billion elements long,
 
 1142
 01:08:00,820 --> 01:08:02,860
+读取列表需要很长时间，
 yeah, reading list will take a long time,
 
 1143
 01:08:02,860 --> 01:08:05,080
+但并不是因为同步，
 but it's not because synchronization,
 
 1144
 01:08:05,080 --> 01:08:08,770
+只是因为你为读者做了很多工作。
 is just because you're doing a lot of work for readers.
 
 1145
 01:08:09,350 --> 01:08:14,850
+因此你几乎可以认为 RCU 对读者的开销为零，
 So you can almost view RCU is having zero overhead for readers
 
 1146
 01:08:14,850 --> 01:08:19,090
+例外情况很小，
 and exceptions are minor,
 
 1147
 01:08:19,210 --> 01:08:22,600
+rcu_read_lock 只需要很少的工作
 rcu_read_lock, you know just a tiny amount of work
 
 1148
 01:08:22,600 --> 01:08:25,030
+设置这个标志表示没有上下文切换，
 to set this flag saying no context switches,
 
 1149
 01:08:25,300 --> 01:08:28,030
+而 rcu_dereference 发出一个内存屏障，
 and rcu_dereference issues a memory barrier,
 
 1150
 01:08:28,030 --> 01:08:34,210
+可能会使你减慢几十个周期，
 which actually might slow you down by dozens, few dozen cycles,
 
 1151
 01:08:35,930 --> 01:08:39,880
+但是它比加锁便宜多了。
 but it's much cheaper than a lock.
 
 1152
 01:08:41,030 --> 01:08:43,760
+关于写者的性能要差得多，
 The performance story for writers is much sadder,
 
 1153
 01:08:43,910 --> 01:08:44,960
+你必须做所有的事情，
 you have to do all the stuff,
 
 1154
 01:08:44,960 --> 01:08:46,610
+你总是要用锁，
 you always had to do using locks,
 
 1155
 01:08:46,610 --> 01:08:49,880
+实际上，你必须获取并释放写者中的锁，
 in fact you have to acquire and release locks in the writer,
 
 1156
 01:08:50,630 --> 01:08:53,840
+你有一个可能非常昂贵的调用，
 and you have this potentially extremely expensive call
 
 1157
 01:08:53,900 --> 01:08:56,450
+或耗时的调用，叫做 synchronize_rcu 。
 or time-consuming called synchronize_rcu.
 
 1158
 01:08:56,660 --> 01:08:57,620
+其实你可以放弃，
 In fact you can give up,
 
 1159
 01:08:57,650 --> 01:09:01,010
+内部的 synchronize_rcu 让出 CPU ，
 you know internally synchronize_rcu gives up the CPU,
 
 1160
 01:09:01,010 --> 01:09:04,430
+所以你不一定要花时间。
 so you don't doesn't spend necessarily.
 
 1161
 01:09:05,410 --> 01:09:08,050
+但是它可能需要很多运行时间
 But it may require a lot of elapsed time
 
 1162
 01:09:08,050 --> 01:09:10,630
+等待每个其他核心进行上下文切换。
 waiting for every other core to context switch.
 
 1163
 01:09:12,550 --> 01:09:15,130
+所以根据写入的原因
 So depending on the mix of reason writes
 
 1164
 01:09:15,520 --> 01:09:20,590
+以及在读取临界区做多少工作，
 and how much work was being done inside the read critical section,
 
 1165
 01:09:20,890 --> 01:09:24,490
+性能提升大不相同，
 the performance increase varies tremendously,
 
 1166
 01:09:24,490 --> 01:09:27,700
+从速度快得多的，
 from a much much faster,
 
 1167
 01:09:27,850 --> 01:09:31,480
+如果这些关键部分很短，写入也很少，
 if these critical sections were short and there's few writes too,
 
 1168
 01:09:31,540 --> 01:09:35,470
+也可能会更慢，如果写入非常普遍。
 perhaps even slower, if writes are very common.
 
 1169
 01:09:37,590 --> 01:09:40,680
+所以，当人们将 RCU 应用于内核时，
 And so when people apply RCU to kernel stuff,
 
 1170
 01:09:40,680 --> 01:09:46,200
+你需要针对大量工作负载进行性能测试，
 actually you absolutely have to do performance tests against a bunch of workloads
 
 1171
 01:09:46,200 --> 01:09:49,470
+为了弄清楚使用 RCU 对你来说是不是优势，
 in order to figure out whether using RCU is a win for you,
 
 1172
 01:09:49,590 --> 01:09:52,060
+因为，取决于工作量。
 because, so depending on the workload.
 
 1173
 01:09:55,420 --> 01:09:58,270
+我有一个也许是离题的问题，
 I have a maybe a tangential question,
 
 1174
 01:09:58,360 --> 01:10:01,680
+但我们已经看到了，
 but we've seen that,
 
 1175
 01:10:01,680 --> 01:10:04,230
+我想当使用多个核心时，
 I guess when there's multiple cores being used,
 
 1176
 01:10:04,230 --> 01:10:09,060
+在我们通常的实现中增加了一些复杂性，
 there's some added complexity to our usual implementations,
 
 1177
 01:10:09,300 --> 01:10:14,760
+这些原子指令在某种程度上起到了拯救作用，
 and it's often the these atomic instructions kind of come to the rescue
 
 1178
 01:10:15,150 --> 01:10:18,060
+假设有一个共享的内存系统，
 and that's assuming there's one shared memory system,
 
 1179
 01:10:18,210 --> 01:10:20,100
+但我想知道，
 but I wonder like
 
 1180
 01:10:20,520 --> 01:10:26,280
+如果一台机器试图维护多个 RAM 系统，会发生什么情况，
 what happens if a machine is trying to maintain like multiple RAM systems,
 
 1181
 01:10:26,280 --> 01:10:28,410
+它是如何将这些统一起来的。
 how does it unify those.
 
 1182
 01:10:30,920 --> 01:10:33,770
+通常情况下，
 The ordinary,
 
 1183
 01:10:36,610 --> 01:10:43,760
+好的，在我们所说的水平上，
 well, at a, at a at the level we're talking about,
 
 1184
 01:10:43,790 --> 01:10:45,410
+机器有一个 RAM 系统。
 the machine has one RAM system.
 
 1185
 01:10:47,160 --> 01:10:49,230
+好的，你知道，
 Okay, that's you know,
 
 1186
 01:10:51,190 --> 01:10:54,850
+是的，对于所有那些普通的电脑来说，
 yeah, it's, for all those sort of ordinary computers,
 
 1187
 01:10:54,850 --> 01:10:57,040
+你会买多个核心，
 you would buy that multiple cores,
 
 1188
 01:10:57,280 --> 01:10:59,500
+你可以编写程序，
 you can pretty much program
 
 1189
 01:10:59,500 --> 01:11:02,590
+就像所有核心之间共享一个 RAM 系统，
 as if there were just one RAM system shared among all the cores,
 
 1190
 01:11:02,590 --> 01:11:05,350
+这就是硬件提供给你的逻辑模型，
 that's the logical model the hardware provides you,
 
 1191
 01:11:05,650 --> 01:11:08,680
+在物理层面上，并不经常是这样的。
 at physical levels not like that often.
 
 1192
 01:11:09,250 --> 01:11:13,810
+有很多机器都有这种物理布局，
 There's plenty of machines out there that have this physical arrangement,
 
 1193
 01:11:13,870 --> 01:11:16,090
+我们有一个 CPU 芯片，
 we have a CPU chip,
 
 1194
 01:11:16,640 --> 01:11:18,080
+这是一个 CPU 芯片，
 so here's one CPU chip,
 
 1195
 01:11:18,080 --> 01:11:21,860
+可能上面有很多核心。
 maybe with lots of cores on it, right.
 
 1196
 01:11:22,440 --> 01:11:24,750
+你得到的 CPU 芯片，
 And you get CPU chips with,
 
 1197
 01:11:24,750 --> 01:11:26,790
+我不知道现在有多少核，比如说 32 个核，
 I don't know how many cores these days, say 32 cores,
 
 1198
 01:11:26,790 --> 01:11:28,770
+假设你想构建一台 64 核计算机，
 let's say you want to build a 64 core machine,
 
 1199
 01:11:28,770 --> 01:11:30,930
+你可以只买 32 核芯片，
 you can only buy 32 core chips,
 
 1200
 01:11:31,080 --> 01:11:35,370
+你可以做一块有两个芯片插槽的电路板，
 well you can make a board that has two sockets for chips on it,
 
 1201
 01:11:35,370 --> 01:11:36,690
+所以现在我们有两个芯片，
 so now we have two chips,
 
 1202
 01:11:37,830 --> 01:11:40,560
+获得内存的最快方式是
 the fastest way to get at memory is
 
 1203
 01:11:40,560 --> 01:11:44,940
+使内存或多或少尽可能直接连接到 CPU 芯片，
 to have the memory more or less as directly attached to the CPU chip as possible,
 
 1204
 01:11:45,120 --> 01:11:49,920
+所以你要做的就是在这里放一组非常粗的电线，
 so what you would do is you'd have like a very fat set of wires here,
 
 1205
 01:11:50,420 --> 01:11:53,880
+在芯片旁边是一大堆 RAM 。
 to right next to the chip a bunch of RAM.
 
 1206
 01:11:55,320 --> 01:11:56,610
+所以它可以直接访问，
 So it has direct access
 
 1207
 01:11:56,610 --> 01:12:00,030
+当然这个芯片也需要自己的 RAM 。
 and of course this chips going to want its own RAM also, right.
 
 1208
 01:12:00,120 --> 01:12:01,440
+所以这是，
 So so this is,
 
 1209
 01:12:01,440 --> 01:12:02,790
+我画了一幅你会看到的图片，
 I'm just drawing a picture of what you would see,
 
 1210
 01:12:02,790 --> 01:12:07,310
+如果你打开一台有两个处理器芯片和 RAM 的个人计算机。
 if you opened up a PC with two processor chips and RAM.
 
 1211
 01:12:10,570 --> 01:12:11,830
+但是现在我们面临一个问题，
 But now we're faced with a problem,
 
 1212
 01:12:11,830 --> 01:12:14,410
+如果这个芯片上的一个软件，
 what happens if a software over on this chip,
 
 1213
 01:12:14,440 --> 01:12:17,170
+使用实际存储在这个 RAM 中的内存位置。
 uses a memory location it's actually stored in this RAM.
 
 1214
 01:12:17,890 --> 01:12:23,750
+所以，实际上这两个芯片之间也存在互连，
 So in fact there's also a interconnect between these two chips,
 
 1215
 01:12:23,780 --> 01:12:25,940
+通常是极快的互连，
 generally an extremely fast interconnect,
 
 1216
 01:12:25,940 --> 01:12:29,030
+例如每秒千兆字节，
 like gigabytes per second,
 
 1217
 01:12:29,180 --> 01:12:30,380
+而且芯片足够智能，
 and the chips are smart enough
 
 1218
 01:12:30,380 --> 01:12:33,530
+可以知道某些物理内存位置在这组 RAM 中，
 to know that certain physical memory locations are in this bank of RAM,
 
 1219
 01:12:33,620 --> 01:12:37,160
+而其他物理位置，物理内存地址在这一组 RAM 中，
 and other physical locations, physical memory addresses are in this bank of RAM,
 
 1220
 01:12:37,160 --> 01:12:41,660
+这里的软件使用物理地址通过这个，
 of software here uses a physical address is over this one,
 
 1221
 01:12:41,660 --> 01:12:44,060
+芯片足够聪明来发送消息，
 the chip is clever enough to send a message,
 
 1222
 01:12:44,060 --> 01:12:45,230
+基本上通过小网络，
 basically little network,
 
 1223
 01:12:45,350 --> 01:12:47,180
+通过这个芯片发送消息，
 send a message over this chip,
 
 1224
 01:12:47,180 --> 01:12:49,160
+我需要读取一些 RAM ，请这样做，
 look I need to read some RAM, please do it,
 
 1225
 01:12:49,490 --> 01:12:51,380
+去读取它的 RAM 并返回结果。
 go read its RAM and send the result back.
 
 1226
 01:12:52,010 --> 01:12:53,930
+你可以买四个芯片阵列，
 You can buy four chip arrangements
 
 1227
 01:12:53,930 --> 01:12:57,230
+使用这样复杂的互连，
 with the same thing with a complex interconnect like this,
 
 1228
 01:12:57,530 --> 01:13:00,470
+这需要进行大量的工程，
 there's a huge amount of engineering going on
 
 1229
 01:13:00,470 --> 01:13:04,490
+为了映射简单的共享 RAM 模型，
 in order to map the straightforward shared RAM model
 
 1230
 01:13:04,670 --> 01:13:09,020
+在现实生活中建立什么样的高性能是可行的，
 onto what sort of feasible to build with high performance in real life,
 
 1231
 01:13:09,020 --> 01:13:11,550
+并适用于二维或三维空间。
 and fit in two or three dimensions.
 
 1232
 01:13:15,010 --> 01:13:15,760
+这回答了你的问题吗？
 Is that answer your question?
 
 1233
 01:13:15,760 --> 01:13:19,150
+是的，这提供了很多背景信息，谢谢。
 Yeah, yeah, that provides a lot of context, thank you.
 
 1234
 01:13:21,860 --> 01:13:22,430
+好的。
 Okay.
 
 1235
 01:13:32,210 --> 01:13:35,480
+好的，对实际技术，有什么问题吗？
 Yeah, any questions on the actual technique?
 
 1236
 01:13:40,010 --> 01:13:40,670
+好的，那么，
 Alright so,
 
 1237
 01:13:41,940 --> 01:13:47,340
+我相信你已经意识到 RCU 并不是普遍适用的，
 as, I'm sure you've got the sense of RCU is not universally applicable,
 
 1238
 01:13:47,550 --> 01:13:48,030
+这里没有，
 there's not,
 
 1239
 01:13:48,030 --> 01:13:51,150
+你不能把每一种使用自旋锁，
 you can't just take every situation in which using spin locks
 
 1240
 01:13:51,150 --> 01:13:53,160
+获得糟糕并行性能的情况，
 and getting bad parallel performance
 
 1241
 01:13:53,160 --> 01:13:55,800
+并将其转换为 RCU 以获得更好的性能，
 and convert it to RCU and get better performance,
 
 1242
 01:13:55,860 --> 01:14:00,290
+主要原因是，它完全无助于写入，速度更慢了。
 because, the main reason it completely doesn't help writes makes them slower.
 
 1243
 01:14:00,590 --> 01:14:02,930
+只是获得性能，
 You know really only helps performance,
 
 1244
 01:14:02,930 --> 01:14:06,020
+只有在读取数量大大超过写入的情况下。
 if if the reads outnumber the writes considerably.
 
 1245
 01:14:07,920 --> 01:14:09,570
+它有这样的限制，
 It has this restriction that
 
 1246
 01:14:09,570 --> 01:14:13,110
+你不能在睡眠期间持有指针来保护数据，
 you can't hold pointers to protect the data across sleep,
 
 1247
 01:14:13,110 --> 01:14:15,600
+这会让某种代码变得相当笨拙，
 which just makes some kind of code quite awkward,
 
 1248
 01:14:15,840 --> 01:14:17,160
+如果你真的需要睡觉，
 if you actually need to sleep,
 
 1249
 01:14:17,370 --> 01:14:20,460
+那么你可能需要重新查找它是什么。
 you may then need to re-lookup whatever it is.
 
 1250
 01:14:20,920 --> 01:14:24,520
+所以在睡眠结束后再做一次 RCU 临界区，
 So you know to do another RCU critical section after the sleep completes,
 
 1251
 01:14:24,640 --> 01:14:26,140
+为了再次查找，
 in order to look again
 
 1252
 01:14:26,140 --> 01:14:30,270
+对你原来查看的这个数据，
 for, for the data that you originally were looking at,
 
 1253
 01:14:30,300 --> 01:14:31,830
+假设它还存在，
 assuming it's still even exists,
 
 1254
 01:14:32,040 --> 01:14:33,930
+所以这会让代码变得更复杂。
 so it just makes code a bit more complicated.
 
 1255
 01:14:36,090 --> 01:14:39,780
+数据结构，应用它的最直接方式是，
 The data structures, the most straightforward way to apply it is,
 
 1256
 01:14:39,780 --> 01:14:42,810
+那个数据结构具有一个结构，
 the data structures that have a structure,
 
 1257
 01:14:42,810 --> 01:14:46,260
+服从于用于更新的单次提交写入，
 that's amenable to single committing writes for updates,
 
 1258
 01:14:46,320 --> 01:14:49,890
+你不能在原地修改东西，你必须替换东西，
 you can't modify things in place, so you have to replace stuff,
 
 1259
 01:14:50,130 --> 01:14:53,640
+比如列表和树，
 so you know list and trees,
 
 1260
 01:14:53,640 --> 01:14:56,160
+但不是更复杂的数据结构，
 but not more complex data structures,
 
 1261
 01:14:56,160 --> 01:15:01,210
+论文提到了一些更复杂的方式，比如顺序锁，
 the paper mentioned some more complicated ways like sequence locks,
 
 1262
 01:15:01,450 --> 01:15:04,870
+能够在适当的位置更新东西，
 to be able to update stuff in place,
 
 1263
 01:15:04,960 --> 01:15:07,810
+尽管读者没有使用锁，
 despite readers that aren't using locks,
 
 1264
 01:15:07,810 --> 01:15:09,280
+但它们变得越来越复杂，
 but they are getting more complicated
 
 1265
 01:15:09,280 --> 01:15:14,710
+它们实际提高性能的情况受到更多限制。
 and the situations under which they actually improve performance are more restricted.
 
 1266
 01:15:15,430 --> 01:15:20,080
+另一个微妙的问题是，
 Another subtle problem is that,
 
 1267
 01:15:20,080 --> 01:15:21,790
+读者可以看到旧的数据，
 readers can see stale data,
 
 1268
 01:15:22,930 --> 01:15:28,030
+对于它们可以看到旧的数据的时间没有任何明显的限制，
 without any obvious bound on how long they can see stale data for,
 
 1269
 01:15:28,030 --> 01:15:32,920
+因为如果某个读者获得指向 RCU 保护对象的指针，
 because if some reader gets a pointer to a RCU protected object,
 
 1270
 01:15:33,430 --> 01:15:36,630
+正好在写者替换它之前，
 just before a writer replaces it,
 
 1271
 01:15:37,570 --> 01:15:41,740
+读者可能会在相当长的一段时间内仍然持有该数据，
 the reader may still hold on to that data for quite a long time,
 
 1272
 01:15:41,740 --> 01:15:45,430
+至少在现代计算机指令的规模上，
 at least on the scale of modern computer instructions,
 
 1273
 01:15:45,850 --> 01:15:50,230
+很多时候，这是无关紧要的，
 and a lot of the time, this turns out not to matter much,
 
 1274
 01:15:51,000 --> 01:15:54,810
+但是论文提到了一些其实我不太理解的情况，
 but the paper mentioned some situations which I actually don't really understand,
 
 1275
 01:15:55,080 --> 01:16:03,000
+人们期望写入在写入完成后立即生效，
 in which people expect writes to actually take effect after the write completes,
 
 1276
 01:16:03,120 --> 01:16:07,470
+因此，读者看到旧的数据有点令人惊讶。
 and therefore, which readers see stale data is a bit of a surprise.
 
 1277
 01:16:15,820 --> 01:16:16,690
+你也可能，
 You may also,
 
 1278
 01:16:16,690 --> 01:16:18,160
+作为一个单独的主题，
 as a separate topic,
 
 1279
 01:16:18,160 --> 01:16:21,250
+你可能还想知道如果写入大量数据会发生什么情况，
 wonder what happens if you have write heavy data,
 
 1280
 01:16:21,310 --> 01:16:22,900
+就像 RCU 完全是关于读取大量数据，
 like RCU is all about read heavy data,
 
 1281
 01:16:22,900 --> 01:16:26,410
+但这只是你可能关心的许多情况之一，
 but that's just one of many situations you might care about,
 
 1282
 01:16:26,620 --> 01:16:28,600
+对于获得并行性能，
 for getting parallel performance,
 
 1283
 01:16:28,840 --> 01:16:31,330
+他们还关心写入大量数据。
 they also care about write heavy data.
 
 1284
 01:16:31,870 --> 01:16:36,430
+实际上，在一些写入大量数据的极端情况下，
 Actually, in the extremes, in some extreme cases of write heavy data,
 
 1285
 01:16:36,430 --> 01:16:37,540
+你可以做得很好，
 you can do quite well,
 
 1286
 01:16:37,540 --> 01:16:40,750
+据我所知，没有一种技术可以写入大量数据，
 there's no technique I know of for write heavy data,
 
 1287
 01:16:40,750 --> 01:16:44,110
+像 RCU 一样普遍适用，
 that's quite as universally applicable as RCU,
 
 1288
 01:16:44,620 --> 01:16:49,600
+但仍然有一些想法可以处理大部分是写入的数据。
 but there are still ideas for coping with data that's mostly written.
 
 1289
 01:16:49,840 --> 01:16:52,630
+最强大的想法是重组你的数据，
 The most powerful idea is to restructure your data,
 
 1290
 01:16:53,210 --> 01:16:56,000
+重组数据结构，使其不共享，
 restructure the data structure, so it's not shared,
 
 1291
 01:16:56,330 --> 01:16:57,170
+有时候你可以做到，
 and sometimes you can do,
 
 1292
 01:16:57,170 --> 01:16:59,990
+有时候分享是完全[无端的]，
 that sometimes the sharing is just completely gratuitous,
 
 1293
 01:17:00,500 --> 01:17:03,020
+一旦你意识到这是个问题，你就可以把它处理掉。
 and you can get rid of it once you realize it's a problem.
 
 1294
 01:17:03,930 --> 01:17:05,640
+但通常情况也是这样，
 But it's also often the case,
 
 1295
 01:17:05,640 --> 01:17:09,360
+当你有时确实需要共享数据，
 that the that while you do sometimes need to have shared data,
 
 1296
 01:17:09,570 --> 01:17:14,880
+通常情况下不需要不同的核心写入相同的数据，
 that the common case doesn't require different cores to write the same data,
 
 1297
 01:17:14,910 --> 01:17:18,090
+即使他们需要大量写入一些数据。
 even though they need to write some of the data a lot.
 
 1298
 01:17:18,090 --> 01:17:20,100
+你实际上已经在实验里看到了这一点，
 And you've actually seen that in the labs,
 
 1299
 01:17:20,220 --> 01:17:21,750
+在锁实验里，
 in the locking lab,
 
 1300
 01:17:21,780 --> 01:17:26,100
+在实验的 kalloc 部分，
 in the kalloc part of the lab,
 
 1301
 01:17:26,130 --> 01:17:27,810
+您重构了空闲列表，
 you restructured the free list,
 
 1302
 01:17:27,810 --> 01:17:30,000
+以便每个核心都有一个专用的空闲列表，
 so that each core has a dedicated free list,
 
 1303
 01:17:30,150 --> 01:17:33,330
+从而将写入繁重的数据结构空闲列表
 thus converting a write heavy data structure the free list
 
 1304
 01:17:33,870 --> 01:17:38,010
+转换为每个核心的半私有的数据结构，
 into one that was a semi-private per core,
 
 1305
 01:17:38,010 --> 01:17:40,230
+所以大多数时候，核心只需要，
 so most of the times cores just have to,
 
 1306
 01:17:40,910 --> 01:17:42,590
+它们不会与其他核心冲突，
 they don't conflict with other cores,
 
 1307
 01:17:42,590 --> 01:17:44,600
+因为它们有自己的私有空闲列表，
 because they have their own private free list
 
 1308
 01:17:44,600 --> 01:17:46,880
+你唯一需要查看其他空闲列表的时间是，
 and the only time you have to look at other free lists is,
 
 1309
 01:17:47,090 --> 01:17:48,350
+如果你的空闲列表用完了。
 if your free list runs out.
 
 1310
 01:17:48,680 --> 01:17:50,180
+这里有很多例子，
 There are actually many examples
 
 1311
 01:17:50,180 --> 01:17:55,090
+使用这种方法处理在内核中的大量写入数据，
 of this way of dealing with write heavy data in the kernel,
 
 1312
 01:17:55,850 --> 01:17:58,040
+比如分配器 Linux 是这样的，
 thinking the allocator Linux is like this,
 
 1313
 01:17:58,100 --> 01:18:01,580
+Linux 的调度列表。
 Linux's scheduling lists.
 
 1314
 01:18:02,230 --> 01:18:05,530
+每个核心都有一组单独的线程，
 There's a separate set of threads for each core,
 
 1315
 01:18:05,530 --> 01:18:07,480
+调度程序大部分时间都在查看，
 that the scheduler looks at most of the time,
 
 1316
 01:18:07,600 --> 01:18:12,580
+并且内核只需查看彼此的调度列表，
 and cores only have to look at each others scheduling list,
 
 1317
 01:18:12,580 --> 01:18:13,780
+它们没有工作可做了。
 they run out of work to do.
 
 1318
 01:18:14,370 --> 01:18:16,560
+另一个例子是统计计数器，
 Another example is statistics counters,
 
 1319
 01:18:16,560 --> 01:18:17,820
+如果你在计算什么，
 if you're counting something
 
 1320
 01:18:18,330 --> 01:18:22,230
+计数变化很大，但很少读取，
 and the counts go change a lot, but they're rarely read,
 
 1321
 01:18:22,590 --> 01:18:26,100
+计数是由写而不是读主导，
 that is the counts are truly dominated by writes not reads,
 
 1322
 01:18:26,850 --> 01:18:28,470
+你可以重组计数，
 you can restructure your counter,
 
 1323
 01:18:28,470 --> 01:18:33,110
+使每个核心都有单独的计数，
 so that each core has a separate counter,
 
 1324
 01:18:33,530 --> 01:18:36,560
+所以，每个核心只需要修改自己的计数，
 and so each core just modifies its own counter,
 
 1325
 01:18:36,560 --> 01:18:38,720
+当它需要修改计数时
 when it needs to change the count,
 
 1326
 01:18:38,960 --> 01:18:40,580
+如果你想读点什么东西，
 and if you want to read something,
 
 1327
 01:18:40,580 --> 01:18:42,230
+然后你必须出去，
 then you have to go out
 
 1328
 01:18:42,230 --> 01:18:45,230
+加锁并读取每个核心的所有计数，
 and lock and read all the per core counters,
 
 1329
 01:18:45,560 --> 01:18:48,050
+所以这是一种写入非常快的技术。
 so that's a technique to make writes very fast.
 
 1330
 01:18:48,440 --> 01:18:51,980
+因为写者只修改本地每个核心的计数，
 Because the writers just modify the local per core counter,
 
 1331
 01:18:52,010 --> 01:18:53,480
+但现在的读取非常慢，
 but the reads are now very slow,
 
 1332
 01:18:53,930 --> 01:18:57,050
+但是如果你的计数写入为主，
 and you know, but if your counters are write heavy
 
 1333
 01:18:57,050 --> 01:18:59,000
+通常计数都是那样的。
 as just the counters often are.
 
 1334
 01:18:59,500 --> 01:19:01,150
+这可能是一个巨大的胜利，
 That could be a big win
 
 1335
 01:19:01,210 --> 01:19:02,830
+将工作转移到读者上。
 shifting the work now to the reads.
 
 1336
 01:19:04,760 --> 01:19:06,230
+所以关键是有一些技巧，
 So the point is there are techniques,
 
 1337
 01:19:06,230 --> 01:19:07,400
+尽管我们没有谈论太多，
 even though we didn't talk about that much,
 
 1338
 01:19:07,400 --> 01:19:12,610
+有时也有一些技术可以帮助写入密集型工作负载。
 there are also sometimes techniques that help for write intensive workloads.
 
 1339
 01:19:15,200 --> 01:19:18,380
+为了完成 RCU ，
 To wrap up the RCU,
 
 1340
 01:19:18,380 --> 01:19:20,120
+我们在论文中读到的东西
 the stuff we read about in the paper
 
 1341
 01:19:20,270 --> 01:19:22,880
+实际上是 Linux 的一个巨大的成功故事，
 is actually a giant success story for Linux,
 
 1342
 01:19:23,420 --> 01:19:27,230
+在 Linux 上到处都用来获取各种不同的数据，
 is used all over Linux to get at all kinds of different data,
 
 1343
 01:19:27,230 --> 01:19:29,300
+因为事实证明，
 because it just turns out that
 
 1344
 01:19:29,530 --> 01:19:33,520
+读取为主的，读取密集型数据，是非常常见的，
 read and read mostly data read intensive data, it's extremely common,
 
 1345
 01:19:33,520 --> 01:19:37,330
+比如，高速缓存的文件块，大多是读取的，
 like cached file blocks, for example are mostly read,
 
 1346
 01:19:38,530 --> 01:19:43,960
+所以，一种只加快读取速度的技术是一种非常广泛的应用。
 so a technique that speeds up only reads is a really very widely applicable.
 
 1347
 01:19:45,920 --> 01:19:47,780
+而且 RCU 特别有魔力，
 And RCU is particularly magic,
 
 1348
 01:19:47,900 --> 01:19:53,810
+还有很多其他有趣的并发技术，同步技术，
 there's lots of other interesting concurrency techniques, synchronization techniques,
 
 1349
 01:19:53,810 --> 01:19:54,920
+RCU 是神奇的，
 RCU is magic,
 
 1350
 01:19:55,100 --> 01:19:59,510
+因为它完全消除了对读者的加锁和写入，
 because it completely eliminates locking and writing for the readers,
 
 1351
 01:19:59,750 --> 01:20:02,340
+所以这是一个很大的突破，
 so it's just a big breakthrough
 
 1352
 01:20:02,340 --> 01:20:04,140
+与读写锁相比，
 compared to things like read write locks,
 
 1353
 01:20:04,140 --> 01:20:07,830
+这些是以前最先进的。
 which were the previous state of the art.
 
 1354
 01:20:08,280 --> 01:20:12,300
+而真正让它发挥作用的关键思想是，
 And the key idea that really makes it work is the,
 
 1355
 01:20:13,220 --> 01:20:14,510
+垃圾收集，
 sort of garbage collection,
 
 1356
 01:20:14,510 --> 01:20:19,010
+比如推迟冻结，他们称为宽限期，
 like deferring a freeze for what they call the grace period,
 
 1357
 01:20:19,340 --> 01:20:22,580
+保证所有读者都完成使用数据之前，
 until all the readers are guaranteed to be finished using the data,
 
 1358
 01:20:23,210 --> 01:20:25,970
+所以可以像同步技术一样，
 so you can all as well as the synchronization technique,
 
 1359
 01:20:26,000 --> 01:20:28,970
+把它看作是一个非常，
 it's actually fair to view it as a very much,
 
 1360
 01:20:28,970 --> 01:20:32,300
+作为一种特殊的垃圾收集技术。
 so as a kind of a specialized garbage collection technique.
 
 1361
 01:20:35,390 --> 01:20:36,860
+这些是我要说的，
 And that is all I have to say,
 
 1362
 01:20:36,890 --> 01:20:39,440
+所以我很乐意回答大家的问题。
 so I'm happy to take questions.
 
 1363
 01:20:43,530 --> 01:20:49,150
+哦，抱歉，你能给解释一下读者的旧数据吗，
 Oh, sorry, can you explain the stale data for readers,
 
 1364
 01:20:49,450 --> 01:20:53,110
+所以我不明白为什么会发生这种事，
 so I don't understand why how that can happen,
 
 1365
 01:20:53,110 --> 01:20:57,730
+因为你在读你的关键区域，
 because you you're reading your critical section,
 
 1366
 01:20:58,300 --> 01:21:03,330
+而且，你只是得到当时的任何数据，
 and, you just get whatever data is there at that point,
 
 1367
 01:21:04,130 --> 01:21:05,000
+然后你只是。
 and then you just.
 
 1368
 01:21:06,000 --> 01:21:10,530
+这通常不是问题，
 It actually usually is not a problem,
 
 1369
 01:21:11,280 --> 01:21:15,120
+但是为什么会出现这样的情况，
 but the reason why ever might come up,
 
 1370
 01:21:15,780 --> 01:21:22,310
+通常情况下，如果你有代码比如 x 等于 1 ，
 well ordinarily, you know if you have code that says x equals 1,
 
 1371
 01:21:22,980 --> 01:21:27,540
+然后你打印 done ，
 and then you know print done,
 
 1372
 01:21:29,130 --> 01:21:31,050
+天哪，这是相当令人惊讶的，
 gosh, it's pretty surprising,
 
 1373
 01:21:31,080 --> 01:21:33,090
+如果在这一点之后，
 if after this point,
 
 1374
 01:21:33,560 --> 01:21:37,850
+有人读取数据，看到在你将其设置为 1 的值。
 someone reading the data, sees that value before you set it to 1.
 
 1375
 01:21:39,520 --> 01:21:42,460
+这可能有点意外，对吧。
 Right, that's a maybe a bit of a surprise, right.
 
 1376
 01:21:43,100 --> 01:21:46,820
+有一种感觉是 RCU 允许这样的事情发生，
 Well, there's a sense in which RCU allows that to happen, right,
 
 1377
 01:21:46,820 --> 01:21:50,930
+我们要讨论的问题是，
 if this is really what we're really talking about is,
 
 1378
 01:21:51,140 --> 01:21:59,430
+list_replace 查找包含 1 的元素，
 you know list_replace whatever you know find the element that has 1
 
 1379
 01:21:59,430 --> 01:22:01,140
+然后把它改成 2 ，
 and change it to 2,
 
 1380
 01:22:01,200 --> 01:22:04,180
+通过使用 RCU ，
 with using RCU, right,
 
 1381
 01:22:04,780 --> 01:22:07,030
+在那之后，我们打印，我们完成了，
 after that finishes, we print, oh yeah we're done,
 
 1382
 01:22:07,960 --> 01:22:12,500
+如果有读者正在查看列表，
 if there's some reader that was looking at the list, right,
 
 1383
 01:22:12,530 --> 01:22:15,920
+他们刚好访问了那个列表元素，
 they may have you know just gotten to the list element,
 
 1384
 01:22:15,920 --> 01:22:18,080
+包含 1 的，我们替换为 2 的，
 that held one, that we replaced with 2,
 
 1385
 01:22:18,080 --> 01:22:19,370
+然后很长一段时间，
 and then a good deal longer,
 
 1386
 01:22:19,370 --> 01:22:24,460
+然后它们读取列表元素，
 you know, and then they do the actual read of the list element,
 
 1387
 01:22:24,520 --> 01:22:25,300
+它们查看，
 you know they look at
 
 1388
 01:22:27,240 --> 01:22:30,060
+在我们完成后，列表元素中的内容，
 whatever the content is in the list element after we've done this,
 
 1389
 01:22:30,330 --> 01:22:32,670
+他们读取列表元素，
 you know they're reading the list element,
 
 1390
 01:22:32,700 --> 01:22:34,440
+只是在稍后的这一点上，
 only at this point later in time,
 
 1391
 01:22:34,440 --> 01:22:36,030
+他们看到了旧的值，
 and they see the old value,
 
 1392
 01:22:39,660 --> 01:22:41,250
+所以如果你没有做好准备，
 so if you're not prepared for this,
 
 1393
 01:22:41,250 --> 01:22:42,900
+现在这有点奇怪了。
 this is a little bit odd now.
 
 1394
 01:22:45,970 --> 01:22:49,270
+我的意思是他们甚至可能做了内存屏障，
 I mean they, they may even do a memory barrier right,
 
 1395
 01:22:49,270 --> 01:22:51,460
+我是说这不是内存屏障问题，只是。
 I mean it's not a memory barrier issue, is just like.
 
 1396
 01:22:53,980 --> 01:22:56,380
+事实上，在大多数情况下，这都无关紧要。
 And indeed, most of the time, it doesn't matter.
 
 1397
 01:22:58,240 --> 01:23:04,170
+我明白了，所以这是当替换非常接近的时候，
 I see, so this is when this replace is very close,
 
 1398
 01:23:04,630 --> 01:23:08,950
+所以他们读取在替换前就开始了，
 so like they read somehow like starts before the replace,
 
 1399
 01:23:08,950 --> 01:23:12,520
+但需要一段时间，而且。
 but it is takes a while, and.
 
 1400
 01:23:12,520 --> 01:23:16,840
+是的，如果读者比写者慢。
 Yes, yeah, the reader if the reader is slower than the writer or something.
 
 1401
 01:23:17,050 --> 01:23:22,200
+现在，我觉得这基本上不重要，
 Now, you know, I think this mostly doesn't matter,
 
 1402
 01:23:22,860 --> 01:23:27,000
+因为最终读者和写者是同时行动的，
 because after all, the reader and the writer were acting concurrently
 
 1403
 01:23:27,000 --> 01:23:29,580
+两件事同时发生，
 and you know two things happen concurrently,
 
 1404
 01:23:29,580 --> 01:23:33,810
+通常，你怎么也想不到，
 usually you, you would never have imagined
 
 1405
 01:23:33,810 --> 01:23:37,760
+你会得到很多关于确认顺序的保证，
 that you could have been guaranteed much about the exact order,
 
 1406
 01:23:38,090 --> 01:23:40,250
+如果同时调用这两个操作。
 if the two operations were invoked concurrently.
 
 1407
 01:23:42,000 --> 01:23:43,950
+这篇论文声称，
 The paper claims,
 
 1408
 01:23:44,960 --> 01:23:47,510
+我是说，作为这篇论文中的一个例子，
 I mean, the paper as an example in which they said it matters,
 
 1409
 01:23:47,690 --> 01:23:49,670
+它造成了一个真正的问题，
 it turned out to cause a real problem,
 
 1410
 01:23:49,760 --> 01:23:54,630
+虽然我不明白为什么会这样。
 although I don't really understand why that was.
 
 1411
 01:23:55,690 --> 01:23:57,010
+我明白了，有道理，
 I see, this makes sense,
 
 1412
 01:23:57,070 --> 01:23:58,720
+我的另一个问题是，
 and my other question was,
 
 1413
 01:23:59,050 --> 01:24:02,830
+它之所以被称为 RCU ，是因为想法一，是吗？
 it's called a RCU because of idea one, is that right.
 
 1414
 01:24:02,890 --> 01:24:05,770
+读取复制更新，是的，
 Read copy update, yes,
 
 1415
 01:24:06,010 --> 01:24:07,780
+我相信是因为想法一，
 I believe it's because of idea one,
 
 1416
 01:24:07,780 --> 01:24:11,690
+也就是说，不是原地修改东西，
 that is that instead of modifying things in place,
 
 1417
 01:24:11,780 --> 01:24:17,510
+你复制了一份，
 you make a copy and you sort of copy
 
 1418
 01:24:17,540 --> 01:24:19,790
+而不是真的东西。
 not the that's the real thing.
 
 1419
 01:24:20,670 --> 01:24:22,800
+好的，很有道理，非常感谢。
 Right, this makes sense, thank you so much.
 
 1420
 01:24:24,520 --> 01:24:25,030
+好的。
 Yes.
 
 1421
 01:24:26,310 --> 01:24:27,690
+所以在课程开始的时候，
 So at the beginning of lecture
 
 1422
 01:24:27,690 --> 01:24:31,080
+或者接近开始时我们讨论了 n 平方[运行时]，
 or towards the beginning we talked about the of n squared [runtime]
 
 1423
 01:24:31,080 --> 01:24:33,480
+对于缓存一致性协议，
 for the cache coherence protocols,
 
 1424
 01:24:34,620 --> 01:24:37,380
+为了更新读写锁，
 for updating the read write locks,
 
 1425
 01:24:37,560 --> 01:24:40,980
+这不也是自旋锁的问题吗。
 isn't this also a problem with spin locks, where.
 
 1426
 01:24:42,600 --> 01:24:43,350
+是的，好的，
 Yeah, okay,
 
 1427
 01:24:43,380 --> 01:24:46,320
+那么原因是什么，
 so so what is the reason,
 
 1428
 01:24:46,320 --> 01:24:48,570
+为什么我们没有讨论这一方面。
 why we didn't discuss that aspect.
 
 1429
 01:24:49,320 --> 01:24:50,370
+为什么我们没有。
 Why we didn't.
 
 1430
 01:24:50,820 --> 01:24:52,110
+是啊，或者，
 Yeah or like,
 
 1431
 01:24:52,140 --> 01:24:54,450
+有没有理由说它仍然存在，
 is there a reason that that still exists
 
 1432
 01:24:54,450 --> 01:24:56,790
+或者自旋锁是怎么解决这个问题的。
 or are like what do spin locks do to address that.
 
 1433
 01:24:58,050 --> 01:24:58,830
+好的。
 Okay.
 
 1434
 01:24:58,860 --> 01:25:00,600
+锁非常昂贵，
 Locks are hideously expensive,
 
 1435
 01:25:00,630 --> 01:25:03,990
+如果有标准的自旋锁，像 xv6 那样，
 if there are standard spin locks, like xv6 has,
 
 1436
 01:25:03,990 --> 01:25:08,640
+如果锁不是特别争用，是非常快的，
 are extremely fast, if the lock is not particularly contended,
 
 1437
 01:25:09,310 --> 01:25:13,930
+是非常慢的，如果多个核心试图同时获得相同的锁。
 and terribly slow, if lots of cores try to get the same lock at the same time.
 
 1438
 01:25:14,720 --> 01:25:17,420
+好的，这是让生活变得有趣的一件事，
 Okay, yeah, this is one of the things that makes life interesting,
 
 1439
 01:25:17,420 --> 01:25:18,320
+你知道，有一些，
 and you know there's,
 
 1440
 01:25:19,520 --> 01:25:26,440
+是的，我的意思是，有一些锁，它的伸缩性更好，
 yeah, I mean there's there's locks that are a better scaling,
 
 1441
 01:25:26,680 --> 01:25:27,910
+但更糟糕的是，
 but worse,
 
 1442
 01:25:28,870 --> 01:25:31,180
+它们具有较好的高负载性能，
 they have better high load performance,
 
 1443
 01:25:31,180 --> 01:25:32,950
+但较差的低负载性能。
 but worse low load performance.
 
 1444
 01:25:33,460 --> 01:25:34,270
+好的，谢谢。
 Okay,thanks.
 
 1445
 01:25:35,280 --> 01:25:37,140
+但我不关心有没有锁，
 But I'm not aware of a lock that is,
 
 1446
 01:25:37,710 --> 01:25:40,050
+不管怎么说，这件事很难做对，
 anyway, it's hard it's hard to get this stuff, right,
 
 1447
 01:25:40,110 --> 01:25:43,890
+在这些机器上很难获得好的性能。
 it's hard to get good performance on these machines.
 
 1448
 01:25:51,070 --> 01:25:52,090
+还有其他问题吗？
 Other questions?
 
 1449
 01:25:55,440 --> 01:25:56,520
+这可能是无关的，
 This might be unrelated,
 
 1450
 01:25:56,520 --> 01:26:01,890
+但在多个不同的系统之间会有锁相关的游戏吗，
 but can there ever be a lock of games between multiple different systems,
 
 1451
 01:26:02,040 --> 01:26:07,420
+比如不仅局限于一个系统，
 like like not just contained to one system,
 
 1452
 01:26:07,420 --> 01:26:09,940
+比如可能是多台服务器。
 maybe like multiple servers perhaps.
 
 1453
 01:26:10,890 --> 01:26:13,140
+这里绝对有分布式系统，
 There are absolutely distributed systems,
 
 1454
 01:26:13,140 --> 01:26:16,110
+其中有一种锁，
 in which there's a sort of locking,
 
 1455
 01:26:18,910 --> 01:26:22,690
+其中的统一锁跨越多台机器，
 in which that sort of universal locks spans multiple machines,
 
 1456
 01:26:23,410 --> 01:26:25,810
+当分布式数据库中出现时，
 when places comes up in distributed databases
 
 1457
 01:26:25,810 --> 01:26:30,430
+你会在多个服务器上显示你的数据，
 where the data you've met you display your data over multiple servers,
 
 1458
 01:26:30,430 --> 01:26:31,840
+但是如果你有一个事务，
 but if you have a transaction,
 
 1459
 01:26:32,110 --> 01:26:36,040
+使用不同服务器上的不同数据，
 that uses data this you know different pieces of data on different servers,
 
 1460
 01:26:36,070 --> 01:26:38,140
+你需要[收集]锁。
 you need gonna need to [collect] locks.
 
 1461
 01:26:38,510 --> 01:26:39,560
+它们在，
 They were in,
 
 1462
 01:26:40,560 --> 01:26:44,310
+你需要从多个服务器上收集锁。
 you need to basically collect locks from multiple servers.
 
 1463
 01:26:44,490 --> 01:26:45,960
+另一个出现的地方，
 Another place that comes up,
 
 1464
 01:26:46,840 --> 01:26:51,280
+虽然已经有很多系统
 although there's been a number of systems
 
 1465
 01:26:51,280 --> 01:26:56,980
+试图在独立的机器上模拟共享内存，
 that are essentially tried to mimic shared memory across independent machines,
 
 1466
 01:26:57,570 --> 01:26:58,890
+对于这些机器，
 with the machines,
 
 1467
 01:26:58,890 --> 01:27:01,080
+如果我使用机器中的一些内存，
 if I use some memory that's in your machine,
 
 1468
 01:27:01,080 --> 01:27:03,180
+然后有一些基础设施
 then there's some infrastructure stuff
 
 1469
 01:27:03,180 --> 01:27:05,040
+会导致我的计算机与你的计算机交互，
 that causes my machine to talk to your machine
 
 1470
 01:27:05,040 --> 01:27:06,000
+并申请内存，
 and ask for the memory,
 
 1471
 01:27:06,450 --> 01:27:11,560
+然后游戏通常是
 and you know then the game is usually
 
 1472
 01:27:11,560 --> 01:27:15,490
+在一群工作站上运行现有的并行程序，
 to run existing parallel programs on a cluster of workstations
 
 1473
 01:27:15,490 --> 01:27:18,490
+而不是在一台大型的多核机器上，
 instead of on a big multi-core machine,
 
 1474
 01:27:19,020 --> 01:27:20,280
+希望这会便宜一点。
 hoping this is going to be cheaper.
 
 1475
 01:27:20,460 --> 01:27:22,920
+在那里，自旋锁有一些事情要做，
 And you know something needs to be done about spin locks there
 
 1476
 01:27:22,920 --> 01:27:24,360
+或者你要用的任何锁。
 or whatever locking you're going to use.
 
 1477
 01:27:24,360 --> 01:27:26,040
+人们发明了各种方法
 And so people have invented various ways
 
 1478
 01:27:26,040 --> 01:27:28,800
+来使锁在这种情况下工作得很好。
 to make the locking work out well in that case too.
 
 1479
 01:27:30,780 --> 01:27:34,830
+你使用的技术通常和这个不太一样，
 You using techniques that are not often not quite the same as this,
 
 1480
 01:27:35,640 --> 01:27:37,830
+虽然避免压力，
 although the pressure to avoid,
 
 1481
 01:27:39,070 --> 01:27:42,460
+避免成本的压力在那块更高。
 the pressure to avoid costs is even higher in that piece.
 
 1482
 01:27:54,980 --> 01:27:55,940
+还要别的吗？
 Anything else?
 
 1483
 01:28:01,220 --> 01:28:01,850
+谢谢。
 Thank you.
 
 1484
 01:28:03,020 --> 01:28:03,590
+不用谢。
 You're welcome.
 
