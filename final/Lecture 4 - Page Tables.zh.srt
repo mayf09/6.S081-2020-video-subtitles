@@ -179,4616 +179,4656 @@ Wiseley Wu.
 Wiseley Wu.
 
 37
-00:03:39,580 --> 00:03:51,150
-是的，我印象最深的是虚拟地址允许我们保护每个进程的物理地址，
-Yeah, yeah I guess what I remember most is that virtual address allows us to yeah protect physical addresses from each process
+00:03:39,580 --> 00:03:43,390
+是的，我印象最深的是
+Yeah, yeah I guess what I remember most is
 
 38
-00:03:51,630 --> 00:04:00,780
-而且我们可以使用一些巧妙的操作，让物理地址上对应的位也可以在虚拟地址上使用。
-and we can use some clever manipulation, so that the bits that correspond to the physical address can be used somehow in the virtual addresses as well.
+00:03:43,390 --> 00:03:51,150
+虚拟地址允许我们保护每个进程的物理地址，
+that virtual address allows us to yeah protect physical addresses from each process,
 
 39
+00:03:51,630 --> 00:03:54,870
+而且我们可以使用一些巧妙的操作，
+and we can use some clever manipulation,
+
+40
+00:03:54,870 --> 00:04:00,780
+让物理地址上对应的位也可以在虚拟地址上使用。
+so that the bits that correspond to the physical address can be used somehow in the virtual addresses as well.
+
+41
 00:04:02,600 --> 00:04:05,150
 Wilson Spearmen, Spearmen.
 Wilson Spearmen, Spearmen.
 
-40
+42
 00:04:09,040 --> 00:04:11,950
 是的，我的印象是它是隔离的基础，
 Yeah, I remember it's really fundamental to isolation,
 
-41
+43
 00:04:11,950 --> 00:04:18,520
 因为每个进程可以假装有自己的内存可以使用。
 because every process can basically pretend that it has its own set of memory to use.
 
-42
+44
 00:04:20,470 --> 00:04:27,220
 好的，显然这是很好的，这里有两个主题，
 Good, good, well, so clearly that's awesome, so clear two themes here, correct,
 
-43
+45
 00:04:27,220 --> 00:04:32,950
 一个是这里有某种形式的映射，这种映射可以帮助实现隔离，
 one is you know there's some form of mapping and the mapping is helpful in sort of achieving isolation,
 
-44
+46
 00:04:33,670 --> 00:04:38,320
 这就是我们讨论虚拟内存的原因，因为隔离。
 this is exactly the reason we're talking about virtual memory you know isolation.
 
-45
+47
 00:04:38,850 --> 00:04:43,560
 所以我们在接下来的课程中会看到，
 And so what we'll see is that, in the next, you know the next couple of lectures,
 
-46
+48
 00:04:43,560 --> 00:04:45,690
 特别是当你使用虚拟内存编程时，
 in particular when we start programming use virtual memory,
 
-47
+49
 00:04:45,930 --> 00:04:50,250
 会真正深刻理解它的能力。
 really get an in-depth understanding of what its power is.
 
-48
+50
 00:04:50,780 --> 00:04:52,790
 所以，为了让理解它，
 And so to get a sense of that,
 
-49
+51
 00:04:52,790 --> 00:04:59,330
 这是第一节课，主要讨论虚拟内存的机制，
 you know this is the first lecture and mostly focusing on the mechanisms for virtual memory,
 
-50
+52
 00:04:59,390 --> 00:05:03,680
 然后，我们可以看到，使用这些机制来获得很酷的技巧。
 and then later we can see how we can use these mechanisms to achieve you know cool tricks.
 
-51
+53
 00:05:04,670 --> 00:05:10,160
 所以今天的主题是，计划分为三部分。
 So the topic for today or agenda for today, the plan is sort of three part.
 
-52
+54
 00:05:10,810 --> 00:05:13,150
 首先，我要讲的是地址空间，
 First I'm going to talk about the address spaces,
 
-53
+55
 00:05:13,180 --> 00:05:22,090
 就是你们中一些人刚才在回答问题中提到的。
 as some of you mentioned in your just what we, just mentioned, just briefly mentioned in response to this question.
 
-54
+56
 00:05:22,420 --> 00:05:25,900
 我还要讲的是页式硬件，
 I'm going to talk about the paging hardware paging hardware,
 
-55
+57
 00:05:27,020 --> 00:05:30,470
 当然，主要是 RISC-V 的页式硬件，
 and I'm gonna focus of course on the paging hardware of the RISC-V,
 
-56
+58
 00:05:31,390 --> 00:05:38,740
 但是基本上所有现代处理器都有某种形式的页式硬件，
 but basically every processor, modern processor has some form of paging hardware
 
-57
+59
 00:05:38,770 --> 00:05:45,550
 它是支持虚拟内存的默认机制。
 and sort of de-, if you will the default mechanism for actually supporting virtual memory.
 
-58
+60
 00:05:46,270 --> 00:05:53,950
 然后，本节课的最后一个部分，是查看一些 xv6 虚拟内存代码，
 And then, the last part of the lecture is going to walk through some xv6 virtual memory code
 
-59
+61
 00:05:54,280 --> 00:06:01,850
 以及内核地址空间和用户地址空间的布局。
 and layout of the kernel address space and user address spaces.
 
-60
+62
 00:06:02,700 --> 00:06:04,350
 所以这是主要计划。
 So that's the main plan.
 
-61
+63
 00:06:08,260 --> 00:06:14,230
 好的，我们回答了，记得你们回答这个问题提到的，
 Okay, so if we answers, you know remeber of you mentioned, in response to this question,
 
-62
+64
 00:06:14,380 --> 00:06:21,820
 使用虚拟内存的一个原因是可以获得隔离，
 you know one driving reason to have virtual memory is because you can use it to achieve isolation,
 
-63
+65
 00:06:22,000 --> 00:06:25,420
 如果你正确设置页表，正确使用它们编程，
 if you set up the page tables correctly and program them correctly,
 
-64
+66
 00:06:25,570 --> 00:06:28,270
 理论上你就可以获得强隔离。
 then you can in principle achieve strong isolation.
 
-65
+67
 00:06:29,020 --> 00:06:33,100
 这再次提醒我们，我们想从隔离获得什么，
 And so this is to remind us again, you know what we want with from isolation,
 
-66
+68
 00:06:33,100 --> 00:06:35,380
 我们来看我们的标准图片，
 let's say you know our standard picture,
 
-67
+69
 00:06:35,380 --> 00:06:42,640
 我们有一些用户程序，比如 shell cat 和所有你在实验一中构建的实用程序，
 we have some user applications, like shell, cat, all the util things that you've built in lab one
 
-68
+70
 00:06:42,940 --> 00:06:50,700
 在下面，我们有内核，操作系统在内核空间中。
 and we have kernel or kernel sitting below, the operating system sitting in kernel space.
 
-69
+71
 00:06:51,300 --> 00:07:00,010
 我们要做的是把这些应用程序圈起来，
 And you know what we like to do is sort of have you know boxes around these applications,
 
-70
+72
 00:07:00,010 --> 00:07:02,170
 让它们不会互相影响，
 so that they can't really affect each other
 
-71
+73
 00:07:02,260 --> 00:07:08,680
 同样的，我们希望内核或操作系统完全独立，
 and similar we wanted to be completely independent of the kernel, the operating system,
 
-72
+74
 00:07:08,680 --> 00:07:13,330
 如果一个应用程序因为意外或故意做了一些坏事情，
 so that if an application does something either accidentally bad or maliciously bad,
 
-73
+75
 00:07:13,600 --> 00:07:15,670
 它不会影响到操作系统，
 that it doesn't really affect the operating system,
 
-74
+76
 00:07:16,580 --> 00:07:17,570
 这是我们的目标。
 so that's our goal.
 
-75
+77
 00:07:17,900 --> 00:07:25,130
 我们今天关注的这个问题的[特定方面]，是内存相关的东西，
 And the particular aspect of the problem that we want to focus on today is the memory side of things,
 
-76
+78
 00:07:25,190 --> 00:07:27,890
 我们关注的是内存隔离。
 so we really want to focus on memory isolation.
 
-77
+79
 00:07:29,930 --> 00:07:35,690
 默认情况下，如果我们不做任何事情，我们不会有内存隔离，
 And by default, if we don't do anything, we don't really have memory isolation right,
 
-78
+80
 00:07:35,690 --> 00:07:41,120
 因为你想一下，只有一个 RISC-V 电路板，上周我展示的那个，
 because if you think about it there's going to be one RISC-V boards that I showed you last week,
 
-79
+81
 00:07:41,120 --> 00:07:44,060
 它包含内存，很多 DRAM 芯片，
 it has memory, a bunch of DRAM chips,
 
-80
+82
 00:07:44,650 --> 00:07:50,980
 在 DRAM 芯片中，保存着应用程序的代码，
 in the DRAM chips you know the code for these applications is stored,
 
-81
+83
 00:07:51,610 --> 00:07:56,230
 比如内存中某处是内核，文本，数据，栈，任何东西，
 for example somewhere in the memory is the kernel text data stack everything,
 
-82
+84
 00:07:56,560 --> 00:07:59,500
 如果 shell 在运行，内存中某处是 shell ，
 somewhere in memory used to shell if the shell is running,
 
-83
+85
 00:07:59,970 --> 00:08:02,490
 还有，内存中某处是 cat 程序。
 somewhere in memory is the cat program.
 
-84
+86
 00:08:04,640 --> 00:08:11,000
 这里有一个物理内存，从 0 到一个很大的地址，
 And so there's one sort of physical memory, you know sort of starting from zero to you know big big address,
 
-85
+87
 00:08:11,240 --> 00:08:14,030
 取决于我们的机器上有多少内存，
 you know depending how much memory we have, really have in our machine
 
-86
+88
 00:08:14,090 --> 00:08:17,000
 在物理内存中，所有程序都必须存在，
 and in that physical memory all these programs must be present,
 
-87
+89
 00:08:17,420 --> 00:08:21,230
 否则处理器甚至不能执行它们的指令。
 otherwise you know the processor can't even execute their instructions.
 
-88
+90
 00:08:22,360 --> 00:08:24,670
 这里很明显有个风险是，
 This is what the risk you know clearly here is
 
-89
+91
 00:08:24,820 --> 00:08:28,270
 比如说，让我们简化一下，
 that let's say you know let's make a little bit you know simplistic,
 
-90
+92
 00:08:28,270 --> 00:08:36,710
 比如 shell 位于地址 0 到 200 （不是）， 2000 ， 1000 到 2000 ，
 let's say the shell, you know sit for in address 0 to address 200, 2000, 1000 to 2000,
 
-91
+93
 00:08:37,720 --> 00:08:42,550
 比如 cat 有一个程序错误，
 and let's say you know the you know whatever cat has a programming error,
 
-92
+94
 00:08:42,550 --> 00:08:53,120
 它加载 1000 到寄存器 a0 ，而 1000 是 shell 开始的地址，
 it loads, you know in register a0, let's say loads the 1000, you know address basically corresponding to the start of the shell
 
-93
+95
 00:08:53,420 --> 00:09:01,460
 然后，意外的，它执行了 sd 指令 $7 a0 ，
 and then you know by accident, it executes sd instruction $7, a0,
 
-94
+96
 00:09:02,980 --> 00:09:08,110
 这条指令的效果是把 7 写到地址 1000 ，
 which has the effect of that, basically it writes the value 7 to the address 1000,
 
-95
+97
 00:09:08,110 --> 00:09:14,050
 它会修改属于 shell 的内存镜像，
 and so it would be scribbling over you know the, basically the memory image that belongs to the shell,
 
-96
+98
 00:09:14,830 --> 00:09:21,550
 所以，现在我们打破了隔离，这是我们不想要的。
 and so, now we're certainly not, certain would break isolation and be quite undesirable.
 
-97
+99
 00:09:22,360 --> 00:09:27,880
 所以我们希望在不同程序之间真正隔离这些内存，
 And so we want something that basically really separates these memories from the different programs from each other,
 
-98
+100
 00:09:27,880 --> 00:09:29,770
 让这种事情不会发生。
 so that things like that just cannot happen.
 
-99
+101
 00:09:31,590 --> 00:09:37,950
 解决这个问题的一种方法是，地址空间。
 So one way you know to do that is an idea that's you know typically called address spaces.
 
-100
+102
 00:09:44,500 --> 00:09:53,890
 它的基本思想很简单，我们给每个程序包括内核分配自己的地址空间。
 And the basic idea is straightforward, what we wanna do is basically give every application including the kernel its own address space.
 
-101
+103
 00:09:55,090 --> 00:09:57,040
 我们可以考虑这个例子，
 And so we can think about this example,
 
-102
+104
 00:09:57,040 --> 00:10:03,690
 我们运行 cat ，它有地址空间从 0 到某个最大值，
 we use cat running, you know it has an address space starting at zero you know to whatever some maximum value,
 
-103
+105
 00:10:04,350 --> 00:10:11,370
 shell 有自己的地址空间，也是从 0 到某个值，
 say shell run has an address space, its own address space, also starting at address zero, going to some value,
 
-104
+106
 00:10:11,520 --> 00:10:16,520
 内核有自己的地址空间，操作系统有自己的地址空间。
 you know the kernel has its own address space, OS has its own address space.
 
-105
+107
 00:10:17,640 --> 00:10:25,980
 所以，当 cat ，我们回到上一张讲稿中的例子，
 And so, for example when cat, you know refers to, really go back to the example of the previous slide where we did,
 
-106
+108
 00:10:25,980 --> 00:10:30,360
 保存 7 到 a0 。
 whatever store 7 to you know a0.
 
-107
+109
 00:10:30,950 --> 00:10:34,970
 比如 a0 的值是 1000 ，
 And let's say in a0, there's a value 1000,
 
-108
+110
 00:10:34,970 --> 00:10:40,700
 如果 cat 执行这条指令，会写入地址 1000 ，
 you know if cat execute an instruction, will write to the address 1000,
 
-109
+111
 00:10:40,700 --> 00:10:46,100
 但是这是它自己的地址 1000 ，而不是 shell 的地址 1000 。
 but it's its own address 1000 it's not, you know the address of the 1000 of the shell,
 
-110
+112
 00:10:46,400 --> 00:10:49,880
 所以，每个程序在自己的地址空间运行，
 so basically every program runs with its own address space,
 
-111
+113
 00:10:50,060 --> 00:10:53,960
 有它自己的值，并且这些地址都是完全独立的。
 has its own value and those addresses are completely independent.
 
-112
+114
 00:10:54,360 --> 00:10:57,540
 在这种不同地址空间的概念下，
 You know this notion of different address spaces,
 
-113
+115
 00:10:57,570 --> 00:11:03,480
 cat 甚至不能访问属于 shell 的地址。
 cat doesn't really have an ability to even refer to an address that actually belongs to the shell.
 
-114
+116
 00:11:04,900 --> 00:11:10,270
 所以这是我们要达成的目标，
 And so that's sort of the game, that were the end goal that we'd like to achieve,
 
-115
+117
 00:11:10,300 --> 00:11:12,370
 因为它会给我们提供强隔离，
 because it's going to provide us with strong isolation,
 
-116
+118
 00:11:12,370 --> 00:11:17,860
 因为 cat 想访问其他不是它的内存是不能的。
 because you know it's just not possible for cat to refer to any other memory that is not its own.
 
-117
+119
 00:11:19,080 --> 00:11:29,190
 所以，我们现在的目标是复用所有不同的地址空间在一个物理内存上，
 And so, our goal now [] basically sort of figure out how to multiplex as you will, all these different address bases on a single physical memory,
 
-118
+120
 00:11:29,190 --> 00:11:31,920
 因为根本上，我们只有一些 DRAM 芯片，
 because in the end, we only have a bunch of DRAM chips,
 
-119
+121
 00:11:32,220 --> 00:11:35,430
 你知道，内存位于 RAM 芯片上。
 were you know RAM chips where the memories locate.
 
-120
+122
 00:11:36,930 --> 00:11:41,830
 所以，我的计划是。
 And so, and so I sort of plan.
 
-121
+123
 00:11:41,830 --> 00:11:43,990
 好的， Amiar ，你有一个问题，请继续。
 Okay, yeah, Amiar, you have a question, go ahead.
 
-122
+124
 00:11:46,260 --> 00:11:53,760
 是的，我想知道，在物理硬件配置中，只有这么多空间，
 Yeah, so I'm wondering in the configuration of the physical hardware, there's only so much space
 
-123
+125
 00:11:54,180 --> 00:11:58,800
 而在虚拟内存布局中，也有一个最大虚拟地址，
 and in the virtual memory layout, there's also a max virtual address,
 
-124
+126
 00:11:59,250 --> 00:12:03,990
 从设计上来说，虚拟地址是否要足够小。
 by design is the virtual address made to be small enough.
 
-125
+127
 00:12:04,510 --> 00:12:06,910
 不，不需要，
 No, no, not necessarily,
 
-126
+128
 00:12:06,910 --> 00:12:10,000
 虚拟地址空间可以比物理内存大，
 you know the virtual address space could be bigger than the physical memory,
 
-127
+129
 00:12:10,000 --> 00:12:13,180
 物理内存也可以比虚拟地址空间大，
 the physical memory could be bigger than the virtual address space
 
-128
+130
 00:12:13,180 --> 00:12:14,980
 我们等一下会看到这是如何发生的，
 and we'll see in a second how it all can happen,
 
-129
+131
 00:12:15,130 --> 00:12:21,100
 我们会看到，这是页表很酷的部分之一，它非常灵活。
 it's actually one of the cool parts about as we'll see with page tables, that's extremely flexible.
 
-130
+132
 00:12:22,110 --> 00:12:27,630
 那么，物理内存可能耗尽吗，
 So, is it, is it possible that like the physical memory gets exhausted,
 
-131
+133
 00:12:28,280 --> 00:12:31,910
 因为很多进程使用它们的虚拟（地址）空间。
 because so many processes use all their virtual space.
 
-132
+134
 00:12:31,940 --> 00:12:35,750
 是的，完全可能，我们等一会会看到，
 Yeah, that's certainly possible and we'll see in a second how,
 
-133
+135
 00:12:35,750 --> 00:12:38,570
 比如你有许多大的应用程序，
 for example you know you have a bunch of big applications
 
-134
+136
 00:12:38,570 --> 00:12:41,570
 每个程序都有一个大页表，它们分配了很多内存，
 that each have big page tables and they allocate a lot of memory,
 
-135
+137
 00:12:41,570 --> 00:12:42,890
 在某个时刻，内存就会用完。
 at some point you run out of memory.
 
-136
+138
 00:12:43,920 --> 00:12:44,760
 我明白了，谢谢。
 I see, thanks.
 
-137
+139
 00:12:44,760 --> 00:12:48,840
 那么，这个在 xv6 中哪里出现了，有人知道吗？
 And so where does this show up in xv6, anybody?
 
-138
+140
 00:12:52,530 --> 00:12:58,370
 你肯定在现在做的 syscall 实验中碰到了。
 You, you sure touched on a little bit in the syscall lab, that you're currently doing.
 
-139
+141
 00:13:01,310 --> 00:13:02,630
 分配页面在哪里。
 Where are pages allocated.
 
-140
-00:13:08,660 --> 00:13:15,230
-或者，如果你完成了 syscall 实验的第一部分，打印空闲内存地址数量。
-Or if you do syscall lab, you finished in one part of the syscall lab, [] printing how much free memory address is.
+142
+00:13:08,660 --> 00:13:13,010
+或者，如果你完成了 syscall 实验的第一部分，
+Or if you do syscall lab, you finished in one part of the syscall lab,
 
-141
+143
+00:13:13,010 --> 00:13:15,230
+打印空闲内存地址数量。
+[] printing how much free memory address is.
+
+144
 00:13:17,720 --> 00:13:18,140
 kalloc?
-Kalloc?
+kalloc?
 
-142
+145
 00:13:18,140 --> 00:13:22,130
 是的， kalloc ， kalloc 有一个空闲页面列表，
 Yeah, kalloc right, kalloc have a list of free pages,
 
-143
+146
 00:13:22,400 --> 00:13:25,910
 如果空闲页面列表在某个时刻是空的，
 if that list of free pages, there's an empty or runs out at some point,
 
-144
+147
 00:13:26,120 --> 00:13:28,940
 那么 kalloc 会返回一个空指针，
 then you know kalloc is going to return a null pointer
 
-145
+148
 00:13:29,240 --> 00:13:31,880
 希望操作系统做一些明智的事情，
 and hopefully the operation system does something [sensible],
 
-146
+149
 00:13:31,880 --> 00:13:34,250
 把消息传回给用户应用程序，
 that basically propagated back to the user application,
 
-147
+150
 00:13:34,250 --> 00:13:38,690
 表示没有更多内存给你或者完全没有内存给任何程序。
 saying like well you know no more memory for you or no more memory in total for nobody.
 
-148
+151
 00:13:40,970 --> 00:13:41,600
 好的？
 Okay?
 
-149
+152
 00:13:43,110 --> 00:13:45,900
 操作系统需要优雅地处理这种情况，
 And there's a job for OS to handle those cases gracefully,
 
-150
+153
 00:13:46,410 --> 00:13:50,040
 一般是把错误信息传回给用户程序。
 gracefully generally means propagating an error message to user application.
 
-151
+154
 00:13:57,280 --> 00:13:58,720
 好的。
 Okay, good.
 
-152
+155
 00:13:59,400 --> 00:14:06,060
 那么如何实现这些地址空间，如何复用所有的地址空间在单个物理内存上。
 So how do you implement these address spaces, you know how basically multiplex all these address spaces across a single physical memory.
 
-153
+156
 00:14:06,580 --> 00:14:12,760
 最常见的，也是非常灵活的方法是使用页表。
 And the most common approach and a very flexible approach is to use page tables.
 
-154
+157
 00:14:17,330 --> 00:14:20,960
 想法是，这是硬件支持的，
 The idea is, this is a hardware support,
 
-155
+158
 00:14:21,080 --> 00:14:27,710
 所以这是由处理器或叫做内存管理单元的硬件实现的，
 so this is implemented in hardware by the processor or by unit called the memory management unit,
 
-156
+159
 00:14:28,040 --> 00:14:30,440
 所以，你脑海中要有的画面是，
 so the picture that you should have your head is,
 
-157
+160
 00:14:30,650 --> 00:14:35,370
 CPU 执行任何指令，
 you know yeah, the CPU, that executes instructions you know whatever are,
 
-158
+161
 00:14:35,980 --> 00:14:46,990
 比如存储指令，把 $7 放入 a0 间接引用，
 you know, are store instruction that was you know putting $7 into a0 indirect,
 
-159
+162
 00:14:47,580 --> 00:14:49,620
 执行这些指令，
 so that executes those kind of instructions
 
-160
+163
 00:14:49,980 --> 00:14:55,560
 当它执行存储指令，加载指令，任何含有地址的指令，
 and you know when it executes one of those store instruction, load instruction, whatever anything that actually has an address,
 
-161
+164
 00:14:55,800 --> 00:14:59,190
 那个地址我们都应该认为是虚拟地址，
 you know that address we're going to think about as a virtual address,
 
-162
+165
 00:14:59,220 --> 00:15:01,410
 它不是物理地址，而是虚拟地址。
 so it's not a physical address, it's a virtual address.
 
-163
+166
 00:15:02,100 --> 00:15:05,190
 比如，我们在这使用的 a0 中的值，
 And so, for example the value in a0 that we're using here,
 
-164
+167
 00:15:05,250 --> 00:15:12,120
 比如说是 1000 ， 0x1000 就是一个虚拟地址，
 yeah say that's 1000, 0x1000 data is a virtual address
 
-165
+168
 00:15:12,120 --> 00:15:17,580
 虚拟地址通过内存管理单元路由，
 and virtual addresses basically routed through something what's called the memory management unit,
 
-166
+169
 00:15:21,160 --> 00:15:26,230
 内存管理单元把它转换成物理地址。
 and the memory manager unit translates it into a physical address.
 
-167
+170
 00:15:27,690 --> 00:15:32,670
 然后那个物理地址在内存中进行索引，
 And that physical address then was actually used to index into memory
 
-168
+171
 00:15:33,120 --> 00:15:37,740
 加载值或保存需要写入的值。
 and load whatever value or store whatever value needs to be written there.
 
-169
+172
 00:15:38,700 --> 00:15:41,610
 所以从 CPU 的角度来看，
 And so the CPU, from the CPU point of view,
 
-170
+173
 00:15:41,640 --> 00:15:48,150
 它总是，一旦 MMU 启动，每条指令[发出的]都是虚拟地址。
 it always issues, every instruction that [issues], once the MMU is enabled are virtual addresses.
 
-171
+174
 00:15:49,100 --> 00:15:53,990
 为了把虚拟地址转换成物理地址，一般 MMU 有一张表。
 And to translate these virtual addresses to physical addresses, basically the MMU has a table,
 
-172
+175
 00:15:55,060 --> 00:15:59,080
 虚拟地址在一边，物理地址在一边，
 and virtual address on one side, physical address on one side,
 
-173
+176
 00:15:59,350 --> 00:16:04,480
 另一边的这里可能是我们的条目 1000 ，
 the other side potential here is our entry for 1000,
 
-174
+177
 00:16:04,480 --> 00:16:14,190
 可能映射到无论什么， 0x （开头的）某个值，在内存中的某个地方，
 and maybe that maps to whatever you know, 0x whatever you're [making something up], we'd like something value, somewhere in physical memory,
 
-175
+178
 00:16:14,490 --> 00:16:19,050
 所以这个在虚拟地址和物理地址之间的映射是很灵活的。
 so this mapping between virtual and physical is quite flexible.
 
-176
+179
 00:16:19,890 --> 00:16:23,430
 所以，一边是虚拟地址，另一边是物理地址。
 So on one side, we have the virtual address, on the other side of the physical addresses.
 
-177
+180
 00:16:26,030 --> 00:16:29,690
 通常，这个映射也保存在内存中。
 Typically, you know this mapping itself is also stored in memory.
 
-178
+181
 00:16:30,220 --> 00:16:40,300
 所以 CPU 有一些寄存器用来指出，包含物理地址的页表保存在哪里。
 And so the CPU has some register that basically points to, that contains the physical address of where the page table is stored.
 
-179
+182
 00:16:40,720 --> 00:16:46,060
 所以某个地方存放物理地址的页表或映射，
 So somewhere in basically the page table or just map somewhere stored physical memory,
 
-180
+183
 00:16:46,060 --> 00:16:49,410
 比如，地址 10 ，
 let's say, yeah you know whatever address 10
 
-181
+184
 00:16:49,860 --> 00:16:57,690
 在 RISC-V 中的这个寄存器叫做 satp ，保存着地址 10 ，
 and basically this register which is called on the RISC-V satp, you know stores the address 10
 
-182
+185
 00:16:57,780 --> 00:17:08,550
 CPU 告诉内存管理单元，到哪里寻找把虚拟地址转换为物理地址的映射。
 and so that the CPU can tell the memory manager unit where to find basically the map to actually translate virtual to physical addresses.
 
-183
+186
 00:17:10,020 --> 00:17:13,710
 然后，基本想法是给每个应用程序自己的映射。
 And then the basic idea is to give every application it's own map.
 
-184
+187
 00:17:14,310 --> 00:17:17,610
 所以 cat 有自己的映射。糟糕。
 So you know cat is gonna have it's map. Oops.
 
-185
+188
 00:17:19,120 --> 00:17:24,850
 每个应用程序，它自己的。糟糕。
 So every app, it's own. Oops.
 
-186
+189
 00:17:25,180 --> 00:17:27,160
 是的， Bibic 继续。
 Yeah, Bibic go ahead.
 
-187
+190
 00:17:29,410 --> 00:17:40,210
 所以， MMU 你说它不用保存映射，那么它是只做转换吗，
 So the MMU, you said it doesn't necessarily store the mapping, so does it just just just do the translation,
 
-188
+191
 00:17:40,240 --> 00:17:46,870
 就像，它读取内存并转换，但是不用保存映射。
 like it will read the memory and do the translation, but not necessarily store the mappings.
 
-189
+192
 00:17:46,870 --> 00:17:49,600
 这就是你脑海中应该有的画面。
 That's exactly the right picture that you should have in your head.
 
-190
+193
 00:17:52,780 --> 00:17:57,040
 每个映射，好的，所以映射保存在内存中，
 And every map, okay so the map itself stored in memory,
 
-191
+194
 00:17:57,040 --> 00:18:00,130
 MMU 只是访问查看映射，
 MMU just basically walks or looks into the map
 
-192
+195
 00:18:00,130 --> 00:18:03,910
 我们过一会会看到，这个映射比我画在这里的要更复杂。
 and we'll see in a second you know this map is slightly more complicated than I was just draw here.
 
-193
+196
 00:18:05,300 --> 00:18:10,540
 所以，每个应用程序有它自己的映射，
 So every app has its own its own map,
 
-194
+197
 00:18:12,340 --> 00:18:15,520
 那个映射定义了它的地址空间。
 and that map basically defines its address space.
 
-195
+198
 00:18:16,380 --> 00:18:23,430
 所以当 CPU ，当操作系统从一个应用程序切换到另一个应用程序，
 And so when the CPU or when the operating system switches the CPU from one process from one application to another application,
 
-196
+199
 00:18:23,610 --> 00:18:27,360
 它也会切换 satp 寄存器的内容，
 it also switches the content of this satp register,
 
-197
+200
 00:18:27,360 --> 00:18:32,580
 用来保存对应进程映射的根地址。
 to store the root of the map of the appropriate process.
 
-198
+201
 00:18:33,410 --> 00:18:37,910
 所以在这种方式下，多个应用程序运行在 CPU 上，
 And so in that way, basically you know multiple applications to run on the CPU,
 
-199
+202
 00:18:37,910 --> 00:18:41,000
 每次从一个应用程序切换到另一个应用程序，
 every time we switch between from one application to the next application,
 
-200
+203
 00:18:41,060 --> 00:18:46,910
 也会切换 satp 寄存器，指向那个应用程序对应的映射。
 we also switch the satp register to point to the appropriate map for that application.
 
-201
+204
 00:18:47,430 --> 00:18:57,330
 在这种方式下， cat 的虚拟地址与 shell 的虚拟地址转换不同，
 And in that way, basically virtual addresses for cat are translated differently than the virtual addresses for the shell,
 
-202
+205
 00:18:57,330 --> 00:18:59,640
 因为它们都有自己的映射。
 because you know each one of them has their own map.
 
-203
+206
 00:19:02,380 --> 00:19:03,010
 能理解吗？
 That makes sense?
 
-204
+207
 00:19:06,470 --> 00:19:11,110
 好的，所以，这是基本计划，
 Okay, so we, this is the basic plan
 
-205
+208
 00:19:11,140 --> 00:19:17,740
 目前为止我画的或者解释的方法是很初级的，也是不合理的。
 and the way I've drawn or gonna explain it so far it's pretty naive, and unreasonable.
 
-206
+209
 00:19:18,240 --> 00:19:19,650
 是的， Bibic ，继续。
 Yeah, Bibic, go head.
 
-207
+210
 00:19:20,830 --> 00:19:28,910
 抱歉，你说 satp 寄存器为进程做修改，
 I'm sorry, so the you said the satp register gets modified for the process,
 
-208
+211
 00:19:28,940 --> 00:19:36,250
 我想每个进程的 satp 寄存器的值是由内核保存的。
 I am guessing the value of for satp register for each process is stored by the kernel.
 
-209
+212
 00:19:36,490 --> 00:19:39,250
 是的，内核写入 satp 寄存器，
 Yes yes, the kernel is writing satp register,
 
-210
+213
 00:19:39,250 --> 00:19:45,040
 事实上，写入或读取，特别是写入 satp 寄存器是一个特权指令。
 in fact writing or reading, particular writing the satp register is a privilege instruction.
 
-211
+214
 00:19:45,830 --> 00:19:49,880
 所以用户程序不能更新页面映射寄存器，
 So user application cannot just update the page map register
 
-212
+215
 00:19:49,880 --> 00:19:52,070
 说现在自己希望运行在这个页面映射，
 and say like I want to run with this page map now,
 
-213
+216
 00:19:52,460 --> 00:19:56,130
-因为这回违反隔离性，
+因为这会违反隔离性，
 because that would violate isolation right,
 
-214
+217
 00:19:56,130 --> 00:19:59,460
 所以只有内核，内核模式的代码可以更新它。
 so it's only the kernel, only the code in kernel mode can actually update it.
 
-215
+218
 00:20:03,730 --> 00:20:06,130
 好的，像我说的，这张图片是很初级的，
 Okay, so as I said this picture is pretty naive,
 
-216
+219
 00:20:06,190 --> 00:20:10,300
 我还没有说过这个映射是如何工作的。
 you know one thing I haven't really said anything about how this actually map works.
 
-217
+220
 00:20:10,760 --> 00:20:18,560
 我画的这种方式，看起来表示每个虚拟地址都在映射中有一个条目。
 And, you know the way I've drawn out seems to indicate basically for every virtual address, you have an entry in the map.
 
-218
+221
 00:20:19,370 --> 00:20:26,360
 如果你这么做了，在 RISC-V 中它（映射）会有多大。
 And if you do that, how big would that be on RISC-V.
 
-219
+222
 00:20:32,380 --> 00:20:33,100
 有人知道吗？
 Anybody?
 
-220
+223
 00:20:36,150 --> 00:20:38,700
 理论上， RISC-V 上有多少地址，
 How many addresses are there on the RISC-V in principle
 
-221
+224
 00:20:38,700 --> 00:20:41,610
 或者寄存器能存储多少地址，
 or how big, how many addresses could registers store,
 
-222
+225
 00:20:46,090 --> 00:20:49,640
 寄存器是 64 位的，那么是多少地址。
 registers are 64 bit wide, so, how many addresses.
 
-223
+226
 00:20:52,490 --> 00:20:53,180
 有人知道吗？
 Anybody?
 
-224
+227
 00:20:53,850 --> 00:20:57,060
 我知道问这些问题是对你们智力的侮辱，但是（这很重要）。
 I know I'm so insulting your intelligence by asking these questions, but.
 
-225
+228
 00:21:00,110 --> 00:21:02,600
 我们在聊天窗口中有一些答案，比如 2 的 64 次方。
 We have some answers in the chat, like 2 to the 64.
 
-226
+229
 00:21:02,600 --> 00:21:05,660
 我没有看聊天窗口，抱歉，是的， 2 的 64 次方。
 I I didn't see the chat, sorry, yeah, 2 to 64.
 
-227
+230
 00:21:05,690 --> 00:21:08,720
 让我看下能不能把聊天窗口显示出来，让我看到它。
 Let me see if I can actually pop up the chat, so I could see it.
 
-228
+231
 00:21:13,460 --> 00:21:14,930
 是的， 2 的 64 次方，谢谢。
 Yeah, 2 to 64, thank you.
 
-229
+232
 00:21:17,000 --> 00:21:20,030
 好的，这张表是巨大的，
 Alright, so this table would be gigantic,
 
-230
+233
 00:21:20,420 --> 00:21:24,590
 实际上，我们知道仅包含这张表就会使用所有内存，
 in fact, we know all memory would be consumed by just having the table,
 
-231
+234
 00:21:24,590 --> 00:21:25,670
 所以这是不合理的。
 so that seems unreasonable.
 
-232
+235
 00:21:26,350 --> 00:21:28,930
 事实上，事情不是这样工作的。
 And so in fact you know that's not how things work.
 
-233
+236
 00:21:29,520 --> 00:21:33,600
 我会分两步来解释它在 RISC-V 中是如何工作的。
 In fact I'm going to go in two steps to actually how it actually works in the RISC-V.
 
-234
+237
 00:21:33,930 --> 00:21:41,490
 第一步是，不要对每个地址[]，而是对每个页面。
 So step one is you know don't [play the game] per address, but do per page.
 
-235
+238
 00:21:44,580 --> 00:21:46,560
 每次转换一个页面，
 So you translate a page at a time
 
-236
+239
 00:21:46,650 --> 00:21:54,590
 在 RISC-V 中，一个页是 4 KB ，也就是 4096 字节。
 and a page on the RISC-V is 4 kilobytes, which is a 4 and 4096 bytes.
 
-237
+240
 00:21:55,140 --> 00:22:02,580
 这很常见，几乎所有处理器页面大小使用 4 KB ，或者支持 4 KB 。
 This is pretty common, almost all processors you know use roughly page size 4 kilobyte, or support page size 4 kilobytes.
 
-238
+241
 00:22:03,420 --> 00:22:05,970
 所以现在转换工作有些不同，
 And so now getting translation works slightly differently,
 
-239
+242
 00:22:06,000 --> 00:22:14,280
 这里，我们有虚拟地址，分为两部分，一个是索引，一个是偏移量，
 so here we have our virtual address, basically, we split in two pieces, an index and an offset,
 
-240
+243
 00:22:15,300 --> 00:22:18,120
 偏移量就是页面内部的字节。
 and so the offset is basically the byte within the page.
 
-241
+244
 00:22:18,880 --> 00:22:26,530
 所以当 MMU 做转换的时候，它使用索引在映射中，
 And so when we do, when the MMU does the translation, it takes the index, indexes into the map,
 
-242
+245
 00:22:26,980 --> 00:22:31,030
 给你一些内存中的物理页面编号，
 that gives you some physical page number in memory,
 
-243
+246
 00:22:31,480 --> 00:22:37,330
 那个物理页面编号指向 4096 字节中的一些物理页。
 and that physical page number that points to some physical page of 4096 bytes.
 
-244
+247
 00:22:38,040 --> 00:22:42,750
 然后偏移量部分，索引那个物理页，
 And then the offset part, basically indexes into that physical page,
 
-245
+248
 00:22:42,810 --> 00:22:53,520
 比如，偏移量是 12 那么你知道那个页中的第 12 个条目被使用。
 for example, the offset is you know 12, then you know the, the 12th entry of that page is actually used.
 
-246
+249
 00:22:54,110 --> 00:22:57,920
 很多人问到了这个，
 A lot of people, a lot of you, mentioned in the, mentioned in the,
 
-247
+250
 00:22:59,100 --> 00:23:03,120
 回答这个问题，有一种方法获得偏移量，
 in response to the question, there's [always] some scheme of taking an offset
 
-248
+251
 00:23:03,120 --> 00:23:11,190
 把偏移量加到基础页面上，得到真正的物理地址位置，
 and adding that to the base of the page to obtain the actual memory physical memory location,
 
-249
+252
 00:23:11,190 --> 00:23:15,150
 保存，加载值的那个位置。
 where value store, where value will be loaded too.
 
-250
+253
 00:23:16,410 --> 00:23:18,630
 关于 RISC-V 的一个有趣的事情是，
 And one of the interesting things about the RISC-V is
 
-251
+254
 00:23:18,630 --> 00:23:26,570
 这也是对一些问题的回答，有人问物理地址或虚拟地址都是 64 位的，
 and this is a response to some questions again, somebody asks like the physical or virtual addresses are 64 bits,
 
-252
+255
 00:23:28,250 --> 00:23:32,330
 这完全正确，因为 RISC-V 是 64 位寄存器。
 which makes totally sense correct, because the RISC-V is 64 bit register.
 
-253
+256
 00:23:33,220 --> 00:23:40,660
 但是实际上我们在 RISC-V 处理器上，并没有使用所有 64 位，
 But in fact on the RISC-V processor that we're using, not all of the 64 bits actually used,
 
-254
+257
 00:23:41,190 --> 00:23:45,030
 也就是，最高的 25 位没有使用。
 namely, the top 25 are actually not used at all.
 
-255
+258
 00:23:45,800 --> 00:23:49,160
 所以，这限制了虚拟地址，
 And so that limits the size of virtual address,
 
-256
+259
 00:23:49,370 --> 00:23:59,950
 限制了虚拟地址空间在 2 的 39 次方，大概是 512 GB 。
 that limits the size of virtual address space 2 to the power of 39, which is roughly 512 gigabyte.
 
-257
+260
 00:24:04,220 --> 00:24:13,250
 当然未来版本的处理器可能需要支持更大的地址空间，[也可以完成]，
 And so of course you know later version of the processor might support bigger address spaces that is necessary and [could then] be done,
 
-258
+261
 00:24:13,280 --> 00:24:21,500
 比如使用这 25 位中的一些，来构建更大的虚拟地址空间。
 and so for example some of those 25 bits that are basically used, could be used to build bigger virtual address spaces.
 
-259
+262
 00:24:22,310 --> 00:24:26,420
 所以，索引中还剩下 39 位，
 And so, and so in the index and you know where 39 bits left,
 
-260
+263
 00:24:26,450 --> 00:24:34,820
 虚拟地址中的 27 位是索引，我们等一会会看到为什么是 27 ，
 you know as the virtual address 27, 27 bits are index and we'll see you in a second why there are 27 are index
 
-261
+264
 00:24:34,820 --> 00:24:43,800
 然后 12 位是偏移量，必须是 12 ，因为 2 的 12 次方是 4096 。
 and then the 12 are offset, and you know there has to be 12, because 2 to the power 12 is 4096.
 
-262
+265
 00:24:45,420 --> 00:24:45,960
 好的？
 Alright?
 
-263
+266
 00:24:46,590 --> 00:24:53,010
 而在 RISC-V 物理地址，实际上是 56 位。
 So that's virtual addresses on the RISC-V physical addresses, as you can see here are actually 56 bits wide.
 
-264
+267
 00:24:57,940 --> 00:25:03,070
 所以物理内存可以比单个虚拟地址空间大。
 So the physical memory, you know can be bigger than the single virtual address space.
 
-265
+268
 00:25:03,900 --> 00:25:05,880
 但是它限制在 2 的 56 次方，
 But it's limited to 2 power up to 56,
 
-266
+269
 00:25:05,970 --> 00:25:13,770
 大多数板可能不支持 2 的 56 次方物理内存，因为这是一个很大的物理内存，
 you know most boards probably you know don't support 2 to the power of 56 physical memory, because a gigantic amount of physical memory,
 
-267
+270
 00:25:14,010 --> 00:25:20,970
 但是理论上，如果你能制造出，一块板也能支持 2 的 56 次方物理内存。
 but in principle a board could, you know, if you could manufacture it, support 2 to the power 56 physical memory.
 
-268
+271
 00:25:22,020 --> 00:25:26,430
 所以在这种方案中，物理地址是 56 位，
 And so in this scheme, then if 56 bits for the physical address,
 
-269
+272
 00:25:26,460 --> 00:25:29,580
 44 位是物理地址编号， PPN ，
 44 are basically the physical page number, the PPN,
 
-270
+273
 00:25:29,850 --> 00:25:34,530
 12 位是偏移量，从虚拟地址继承而来。
 12 again are the offset that are inherited directly from the virtual address.
 
-271
+274
 00:25:36,810 --> 00:25:37,710
 能理解吗？
 Does that make sense?
 
-272
+275
 00:25:40,560 --> 00:25:44,250
 所以，在这里停顿一下，你可以整理自己的想法，
 So, you know stop for a second here, you collect your thoughts,
 
-273
+276
 00:25:44,310 --> 00:25:49,410
 我想指出的是，这个材料很重要，
 the only point I wanted to make here is that this material is important,
 
-274
+277
 00:25:49,410 --> 00:25:55,410
 所以可以问问题，细节很重要，这会是很大一部分，
 so just ask questions, the details matter, and it will be a large part of,
 
-275
+278
 00:25:55,410 --> 00:26:01,560
 你需要完全理解这个东西，来做后面的实验，页表实验。
 you, you really need to understand all this stuff to be able to basically do lab, the next lab, page table lab.
 
-276
+279
 00:26:02,580 --> 00:26:04,230
 是的， Amiar ，请继续。
 Yeah, Amiar, go ahead, please.
 
-277
+280
 00:26:05,210 --> 00:26:08,690
 你能退一张幻灯片吗，我希望屏幕显示，让我更清楚。
 If you can go back one slide, I hope the [screen], so I'm clear.
 
-278
+281
 00:26:10,770 --> 00:26:14,720
 哪一张，页表幻灯片？是的。
 Which one there, page tables slide? Yeah.
 
-279
+282
 00:26:20,250 --> 00:26:21,990
 这张吗？不是。
 This one? No.
 
-280
+283
 00:26:22,670 --> 00:26:25,250
 最近的那一张，但也不是很重要，
 The most recent one, but it also doesn't really matter,
 
-281
+284
 00:26:25,310 --> 00:26:27,170
 是的，就是这张，谢谢。
 yeah, this is perfect, thank you.
 
-282
+285
 00:26:27,620 --> 00:26:37,790
 所以，我想知道 4096 字节的页面，它在内存中分配是不是连续的。
 So I'm wondering this 4096 byte range which we've called a page, is that assigned as a continuous chunk in memory.
 
-283
+286
 00:26:37,940 --> 00:26:45,080
 是的，有连续的 4096 字节在物理内存中。
 Yes, there's a continuous physical, continuous range of 4096 bytes in physical memory.
 
-284
+287
 00:26:46,520 --> 00:26:49,520
 我明白了，然后。
 I see and then the.
 
-285
+288
 00:26:49,520 --> 00:26:52,550
 映射是以 4096 字节为粒度的。
 You know the map at [granularity] of 4096 bytes.
 
-286
+289
 00:26:53,490 --> 00:27:01,560
 然后偏移量 12 ，因为 2 的 12 次方是 4096 ，所以可以包含每个块。
 Okay, and then 12 the offset like 2 to the 12 is 4096, so that's sufficient to cover each of the chunks.
 
-287
+290
 00:27:02,460 --> 00:27:03,600
 是的，页面中的每个字节。
 Yeah each byte in the page.
 
-288
+291
 00:27:04,760 --> 00:27:13,220
 还有图片中的 56 是怎么来的，之前的我都能跟上，但是我不知道它是怎么来的。
 And where does the 56 come from in the diagram, I could follow up until then, but I didn't get where that came from.
 
-289
+292
 00:27:13,220 --> 00:27:18,470
 这是设计师们决定的，硬件设计师决定物理内存是多大，
 Designers cooked up, so the hardware designers decide how big you know physical addresses,
 
-290
+293
 00:27:18,590 --> 00:27:28,520
 取决于他们设计哪块板， RISC-V 设计师决定 56 位物理地址是个好主意。
 basically for whatever board they want to design and so the RISC-V designers who decided at 56 that physical addresses were a good idea.
 
-291
+294
 00:27:30,540 --> 00:27:35,040
 通常他们得出这个数字的方法是根据技术趋势。
 And usually the way they come up with these numbers is they look at technology trends.
 
-292
+295
 00:27:35,500 --> 00:27:38,980
 比如我们想在后面的 5 年内可用，
 And say like well we want to be able for the next sort of 5 years,
 
-293
+296
 00:27:38,980 --> 00:27:43,690
 我们预测物理内存不会大于 2 的 56 次方。
 you know we don't predict the physical memory will be ever bigger than 2 to the power 56.
 
-294
+297
 00:27:44,740 --> 00:27:50,350
 可能他们想的是不会大于某个更小的值，留出一些余量，
 Probably they think it won't be bigger than something much smaller, but then you know give them some leeway,
 
-295
+298
 00:27:50,350 --> 00:27:55,000
 防止他们的预测出错，他们选择一个更大的数。
 you know, in case you know their predictions wrong, they pick a slightly bigger number.
 
-296
+299
 00:27:56,700 --> 00:27:57,330
 理解了吗？
 Does that make sense?
 
-297
+300
 00:27:57,330 --> 00:27:59,540
 理解了，是的，谢谢。
 I see, yeah, thanks.
 
-298
+301
 00:27:59,810 --> 00:28:01,190
 是的，很多人问到这个。
 Yeah a lot of people ask about this.
 
-299
+302
 00:28:03,880 --> 00:28:07,360
 还有人举手吗，我想有很多人要提问，
 Anybody else, who raised hand, I think there's a bunch of people asking questions
 
-300
+303
 00:28:07,360 --> 00:28:13,030
 但是我的 zomm 不能显示超过两个人举手，只是显示很多人举手。
 and unfortunately my zoom doesn't show if more than two people raised hands, just multiple people are raising their hands.
 
-301
+304
 00:28:13,710 --> 00:28:15,780
 所以如果有问题，可以直接提问。
 So you please jump in if you have a question.
 
-302
+305
 00:28:20,160 --> 00:28:20,820
 好的。
 Okay.
 
-303
+306
 00:28:21,570 --> 00:28:24,450
 我有一个问题。是的，请继续。
 I have a question. Yeah go ahead.
 
-304
+307
 00:28:24,660 --> 00:28:34,440
 所以，虚拟内存可以达到 2 的 27 次方，物理内存可以达到 2 的 56 次方，
 So if the virtual memory is up to 2 to the power of 27 and the physical memory is up to 2 to the power to the 56 right,
 
-305
+308
 00:28:34,710 --> 00:28:46,130
 所以我们有多个进程，会耗尽虚拟内存，而没有用完物理内存。
 so we could have, we have multiple processes that could exhaust all their virtual memories without using up all the physical memory.
 
-306
+309
 00:28:48,320 --> 00:28:53,040
 是的，完全正确。
 Yeah, that's absolutely correct.
 
-307
+310
 00:28:53,980 --> 00:28:54,610
 好的。
 Okay.
 
-308
+311
 00:28:54,730 --> 00:28:57,280
 我也有个问题，
 I have a question too,
 
-309
+312
 00:28:57,280 --> 00:29:06,120
 这个物理地址的 56 ，它是不是可能内存位置的数目，
 oh so this 56 for the physical address is that the, the number of possible memory locations,
 
-310
+313
 00:29:06,510 --> 00:29:10,890
 我不认为它是位的数目，因为这是 64 位机器，
 I I don't think it's the number of bits because the 64 bit machine,
 
-311
+314
 00:29:11,160 --> 00:29:17,820
 56 可能扩展到 64 ，但是他们选择了只使用 56 。
 that 56 could go up to 64, but they just chose it to have just 56.
 
-312
+315
 00:29:17,850 --> 00:29:24,300
 正确，你可以这样想，只需要使用 56 位而不是 64 位。
 That's correct, that's correct, one way to think about it, then they only have to run 56 wide on the board as opposed to 64.
 
-313
+316
 00:29:25,530 --> 00:29:26,760
 我明白了，谢谢。
 I see, thanks.
 
-314
+317
 00:29:30,240 --> 00:29:30,780
 好的？
 Okay?
 
-315
+318
 00:29:30,960 --> 00:29:32,490
 我也有个问题，
 I also have a question,
 
-316
+319
 00:29:32,520 --> 00:29:37,140
 你能回退一张幻灯片吗。
 so kind of could you go back one slide, maybe.
 
-317
+320
 00:29:38,800 --> 00:29:45,790
 从 CPU ，我们通过 MMU 到内存，
 So from the CPU, we go through the MMU and then to the memory,
 
-318
+321
 00:29:46,210 --> 00:29:52,450
 但是对于不同进程有什么不同，
 but where where here is the distinction for different processes,
 
-319
-00:29:52,570 --> 00:30:05,740
-因为每个进程，比如 shell 进程有地址 0x1000 ，ls 进程也有地址 0x1000 ，
-because like each process, like process like the shell process has something at address like 0x1000 and then the ls process also has something at address 0x1000,
+322
+00:29:52,570 --> 00:29:54,130
+因为每个进程，
+because like each process,
 
-320
+323
+00:29:54,160 --> 00:30:01,060
+比如 shell 进程有地址 0x1000 ，
+like process like the shell process has something at address like 0x1000
+
+324
+00:30:01,120 --> 00:30:05,740
+ls 进程也有地址 0x1000 ，
+and then the ls process also has something at address 0x1000,
+
+325
 00:30:05,860 --> 00:30:11,260
 所以我们需要转换它们到不同的物理地址，所以。
 so we need to translate those to different physical so yeah.
 
-321
+326
 00:30:11,260 --> 00:30:17,410
 satp 寄存器包含使用哪个映射的地址，
 The satp register, contains the register, contains the address of which map to use,
 
-322
+327
 00:30:18,460 --> 00:30:22,690
 所以 ls 使用自己的映射运行， cat 也使用自己的映射运行。
 so ls runs with its own map, you know cat run with its own map.
 
-323
+328
 00:30:22,720 --> 00:30:26,800
 好的，所以每个进程有完全是它自己的的映射。
 Okay, so each process will have its completely own map.
 
-324
+329
 00:30:28,140 --> 00:30:29,220
 理解了，谢谢。
 Makes sense, thank you.
 
-325
+330
 00:30:29,740 --> 00:30:33,880
 实际上，这是引出下一个知识点的[方法]，
 And in fact there's a great [way] to the next point,
 
-326
-00:30:34,180 --> 00:30:40,170
-所以每个进程有自己的映射，这个映射有多大，比如我画的这个。
-so if every process has its own map, you know how big is this map like that I'd drawn here.
+331
+00:30:34,180 --> 00:30:36,130
+所以每个进程有自己的映射，
+so if every process has its own map,
 
-327
+332
+00:30:36,870 --> 00:30:40,170
+这个映射有多大，比如我画的这个。
+you know how big is this map like that I'd drawn here.
+
+333
 00:30:40,870 --> 00:30:47,960
 这个映射有 2 的 27 次方个条目，这是很大的。
 Well, that map is 2 to the power 27 entries correct, and that's pretty big.
 
-328
+334
 00:30:49,030 --> 00:30:56,140
 所以如果每个进程有完整的页表，那会很快填满物理内存，
 And that would fill physical memory reasonable quickly if every process exactly have complete you know [populated] map,
 
-329
+335
 00:30:56,620 --> 00:30:59,770
 这是巨大的，意味着每个进程都很大，
 and then there's gigantic, means that every process is very big,
 
-330
+336
 00:31:00,160 --> 00:31:04,900
 所以，实际上，这不是硬件存储页表的方式，
 and so in fact this is not the way the hardware actually stores page tables,
 
-331
+337
 00:31:04,900 --> 00:31:09,940
 你可以把它想成一个数组，从 0 到 2 的 27 次方，
 you can think about it conceptually as an array, you know going from 0 to 2 to power 27,
 
-332
+338
 00:31:09,940 --> 00:31:11,770
 但是实际上不是这样的。
 but actually is not what happens in practice.
 
-333
+339
 00:31:12,160 --> 00:31:15,520
 实际上，它是一个多级结构，
 In practice, it's a multi-level structure,
 
-334
+340
 00:31:15,580 --> 00:31:25,600
 这是由硬件实现的真正的 RISC-V 页表结构。
 that here actually the real RISC-V page table structure and what the hardware implements.
 
-335
+341
 00:31:26,820 --> 00:31:31,650
 所以我们之前看到的 27 位索引发生了什么，
 And so what happens with the 27 bits that we saw earlier, the index,
 
-336
+342
 00:31:32,260 --> 00:31:37,660
 它分位三个 9 位数字。
 it's actually split in three 9 bit numbers.
 
-337
+343
 00:31:38,220 --> 00:31:46,500
 最开始的顶部 9 位作为顶层页表目录的索引，
 And the first the top 9 bits are used to index into the top level page table directory as they are called,
 
-338
+344
 00:31:47,130 --> 00:31:55,600
 所以在一个目录中，是 4096 字节，跟页面大小一样。
 and so in one directory, you know one of these guys, you know is 4096 bytes, 4096 bytes, just like the page size.
 
-339
+345
 00:31:56,160 --> 00:32:08,500
 一个 PTE 条目是 64 字节，抱歉，我的意思是 64 位，跟寄存器一样， 8 字节。
 A PTE entry one of the entries in the thing is 64 bytes, 64 bit I mean, sorry, like the register with, so 8 bytes.
 
-340
+346
 00:32:09,000 --> 00:32:18,150
 所以是 4096 除以 8 ，有 512 个条目在每个目录页面中。
 And so there's gonna mean that you do 4096 divided by 8, means there are 512 entries in one of those directory pages.
 
-341
+347
 00:32:19,370 --> 00:32:24,620
 所以，发生的是 satp 指向顶层目录，
 So basically what happens is like the satp points to the top root directory,
 
-342
+348
 00:32:24,650 --> 00:32:31,130
 我们使用顶层 9 位索引页面目录，得到一个新的物理页面编号。
 we take the top level 9 bits index into the page directory, and now gives us a new physical page number.
 
-343
+349
 00:32:32,040 --> 00:32:35,820
 这个物理页面编号是下一级页面目录，
 And that physical page number is the page directory for the next level,
 
-344
+350
 00:32:36,030 --> 00:32:41,910
 完后我们使用下一级索引索引页面目录，
 so then we use the next level index to index into that page directory
 
-345
+351
 00:32:42,060 --> 00:32:47,340
 同样的，我们会找到一个底层页面目录。
 and then you know and so forth, you know we like to find one you know we get the bottom level page directory.
 
-346
+352
 00:32:47,800 --> 00:32:52,570
 这就是虚拟内存映射到物理内存的条目。
 And that basically gives us the entry, that maps the virtual address to physical address.
 
-347
+353
 00:32:55,680 --> 00:32:59,160
 所以某种意义上，它和上一张幻灯片展示的很像，
 So in some sense, it's very similar to where showed in the previous slide,
 
-348
+354
 00:32:59,160 --> 00:33:02,520
 除了索引发生三步而不是一步，
 except you know basically index happens in three steps instead of one step,
 
-349
+355
 00:33:02,850 --> 00:33:06,120
 这种方案的优点是，
 and this is advantage, the main advantage of this scheme is that,
 
-350
+356
 00:33:06,360 --> 00:33:11,610
 如果地址空间的大部分空间没有使用，你不需要为它们分配页表条目。
 if large parts of the address space are not being used, you don't have to have any page table entries for that.
 
-351
+357
 00:33:12,930 --> 00:33:15,510
 比如，有一个地址空间，
 For example, let's say you have a address space,
 
-352
+358
 00:33:16,120 --> 00:33:25,260
 它只有一个页面，最底部的页面 4096 ，在地址空间中没有其他页面，
 that has only one page like the bottom page 4096, and no other pages are in the address space,
 
-353
+359
 00:33:25,560 --> 00:33:29,130
 只有地址 0 到 4095 ， 4096 真正映射，
 so only addresses 0 to 4095, 4096 are actually mapped,
 
-354
+360
 00:33:29,490 --> 00:33:34,920
 那么需要多少页表条目或页表目录来映射这个页面。
 how many page table entry or page table directories do you need to map that particular page.
 
-355
+361
 00:33:39,280 --> 00:33:45,240
 好的，你需要一个顶级条目，你需要这个条目里的值是 0 ，
 Well, you need one of top, correct, and you need basically value in that entry for 0,
 
-356
+362
 00:33:46,500 --> 00:33:51,300
 最顶级的 9 位， 0 0 ，你需要一个条目是 0 。
 the top level 9 bits, you know 0 0, so you need an entry for 0.
 
-357
+363
 00:33:51,880 --> 00:33:58,870
 你还需要一个中间条目，它对应接下来的九个 [0 位]，
 So that means you need one middle level entry, you know that basically corresponds to the next, you know nine 0 bits
 
-358
+364
 00:33:58,900 --> 00:34:01,360
 然后还需要一个条目对应接下来的九个 0 位。
 and then one entry for the next nine 0 bits.
 
-359
+365
 00:34:02,140 --> 00:34:07,000
 所以，我们需要三个页面目录。
 So basically we get away with three page directories.
 
-360
+366
 00:34:11,420 --> 00:34:16,370
 在之前幻灯片的前一个方案中，我们需要 2 的 27 次方个条目，
 In our previous scheme on the previous slide correct, we have 2 to the power 27 entries,
 
-361
+367
 00:34:16,400 --> 00:34:20,360
 现在我们只需要 3 乘以 512 个条目就可以了。
 now we basically have to have 3 times whatever 512 entries that were done.
 
-362
+368
 00:34:21,920 --> 00:34:30,830
 这就是硬件使用这种多级树方案的原因。
 That's the main reason why you know actual hardware has a sort of hierarchical, multilevel tree scheme.
 
-363
+369
 00:34:32,570 --> 00:34:34,670
 关于这个有什么问题吗，因为这很重要。
 Any questions about this, because it's pretty important.
 
-364
+370
 00:34:36,270 --> 00:34:37,290
 Samir ，继续。
 Samir, go ahead.
 
-365
+371
 00:34:39,000 --> 00:34:47,920
 我的问题是，每个页表的 PPN 数字是 44 位，
 So my question is, as since the PPN number from each page table is 44 bits,
 
-366
+372
 00:34:48,440 --> 00:34:56,210
 虚拟内存边上的表，我们从哪里得到其他 12 位。
 and the second, say the middle table [resides] on the virtual memory, where do we get the missing 12 bits from.
 
-367
+373
 00:34:57,300 --> 00:35:02,310
 好的，最后的 12 位，好的，你说这个 44 ，是吧。
 Well, the final 12 bits, okay so good good good, so you're saying these 44 right.
 
-368
+374
 00:35:02,980 --> 00:35:03,430
 是的。
 Yes.
 
-369
+375
 00:35:03,430 --> 00:35:04,390
 这里是如何发生的，
 What is going on with that,
 
-370
+376
 00:35:04,390 --> 00:35:15,680
 好的，所有页面目录或页面[行]，它们的物理页面编号是 44 加上 12 个零位。
 well all page all page directories or page line, and so they basically they're physical page number is 44 plus 12 12 zero bits.
 
-371
+377
 00:35:18,940 --> 00:35:23,860
 所以，如果我们看这些 PTE 条目，它们都有相同的形式，
 And so what actually happens if we look at these PTE entries, they all have the same sort of form right,
 
-372
+378
 00:35:23,860 --> 00:35:29,320
 看其中一个，有 44 位，还有 12 个零位，
 if you look at one of these guys, there are 44 bits, there are 12 bits zeros,
 
-373
+379
 00:35:29,320 --> 00:35:35,200
 所以 44 加上 12 是 56 ，给我们一个物理地址，
 so that gives us 44 plus 12 is 56, so that gives us a physical address, right.
 
-374
+380
 00:35:36,610 --> 00:35:42,370
 所以，这里有 64 位，有一些位是保留的，没有使用，
 And so that means there's 64 bits, there's actually some bits left there not being used,
 
-375
+381
 00:35:42,400 --> 00:35:48,190
 实际上，末尾的 10 位完全没有使用，
 in fact the bottom 12 bits will basically or the bottom 10 definitely bottom bits are not used at all
 
-376
+382
 00:35:48,190 --> 00:35:55,600
 实际上，页表硬件保存了很多标志来控制转换，
 and in fact the paging hardware stores or stores a bunch of flags that control the translation,
 
-377
+383
 00:35:55,600 --> 00:35:57,070
 我们过一会会讨论这些标志。
 we'll talk about those flags in the second.
 
-378
+384
 00:35:57,740 --> 00:36:04,250
 但是它们控制转换，它们保存在末尾 10 位。
 And but they're there to control the translation and they're stored basically in the bottom 10 bits.
 
-379
+385
 00:36:05,100 --> 00:36:11,250
 这也意味着，如果你把它们加起来，是 54 位，还有 10 位保留。
 It also means that you know if you add these two up, that's 54 bits, basically there's ten bits left.
 
-380
+386
 00:36:11,920 --> 00:36:16,420
 它们没有被使用，这些 10 位也是为未来的增长（保留的），
 There are unused, those 10 bits are again, you know for future growth,
 
-381
+387
 00:36:16,810 --> 00:36:19,720
 某个时刻，我们可能有一种新的 RISC-V 处理器，
 so at some point we might have a new type of RISC-V processor
 
-382
+388
 00:36:19,960 --> 00:36:22,720
 它有稍微不同的页表结构，
 that will have a slightly different structure page tables,
 
-383
+389
 00:36:22,840 --> 00:36:26,740
 它就可能物理页面编号多于 44 位。
 and it might actually have bigger than 44 bits for the physical page number.
 
-384
+390
 00:36:29,440 --> 00:36:30,040
 好的？谢谢。
 Okay? Thank you.
 
-385
+391
 00:36:31,380 --> 00:36:36,540
 你可以看这里，如果你看画在这里的一个条目，
 In fact, you can see] it here, like if you look at a single entry, correct, that's drawn here,
 
-386
+392
 00:36:36,540 --> 00:36:40,990
 这里有 10 个位保留，没有被使用。
 you know they're basically 10 bits left, that are not being used.
 
-387
+393
 00:36:42,000 --> 00:36:46,350
 好的，我们来看标志位，因为它很重要。
 Okay, so let's look at the flags for a second, because it's sort of important.
 
-388
+394
 00:36:47,610 --> 00:36:51,690
 每个转换的最后 10 位，保存着许多标志位，
 So every translation in the bottom ten bits, there are a bunch of flag stored
 
-389
+395
 00:36:51,990 --> 00:36:54,780
 第一个标志是 valid ，
 and the first flag is valid,
 
-390
+396
 00:36:55,510 --> 00:37:01,990
 如果设置了 valid 位，意味着这是一个可用的 PTE ，可以使用它来转换。
 if valid bit set, that means this is a valid PTE, and you can use it for translation.
 
-391
+397
 00:37:03,150 --> 00:37:07,620
 所以，我们来看看这个例子，
 And so we're we're going to run my little example that I used here,
 
-392
+398
 00:37:07,620 --> 00:37:13,350
 三个页面目录只使用了条目 0 ，只有条目 0 设置了 valid 位，
 three page directories were only entry zero is used, then only entry zero will have valid bits set
 
-393
+399
 00:37:13,440 --> 00:37:17,070
 其他 511 个条目都没有设置 valid 位。
 and none of the other 511 entries, will not have valid bit set.
 
-394
+400
 00:37:18,610 --> 00:37:26,440
 告诉 MMU ，不需要继续查询这个 PTE ，这个 PTE 不包含有效信息。
 And that basically tells the MMU well, you know you don't have to chase down this PTE, this PTE just contains no valid information.
 
-395
+401
 00:37:27,820 --> 00:37:32,170
 然后 R 表示允许从页面读，
 Then R means you're allowed to read from that page,
 
-396
+402
 00:37:32,230 --> 00:37:34,990
 write 表示允许向页面写，
 write means you're allowed to write to the page,
 
-397
+403
 00:37:35,230 --> 00:37:38,800
 execute 表示可以执行它的指令，
 execute means you're allowed to execute instruction from it,
 
-398
+404
 00:37:39,330 --> 00:37:46,320
 user 表示运行在用户空间的程序也可以访问这个页面，
 user means you know this page is also accessible by a process running in user space,
 
-399
+405
 00:37:47,340 --> 00:37:50,310
 其他位不是那么重要，会在（用到的）某个时刻展示，
 and then the other bits you not that important, it will show up at some point,
 
-400
+406
 00:37:50,670 --> 00:37:52,770
 这些就是五个比较重要的位。
 those are sort of five important bits.
 
-401
+407
 00:37:55,970 --> 00:37:56,840
 能理解吗？
 Does that make sense?
 
-402
+408
 00:37:59,300 --> 00:38:05,820
 是的， Nithya ，我可能读错你的名字，我向你道歉。
 Yeah, Nithya, I'd probably mispronouncing your name, I apologize to you.
 
-403
+409
 00:38:06,860 --> 00:38:08,900
 就是那么读的，谢谢，
 That's that's the representation, thank you,
 
-404
+410
 00:38:09,350 --> 00:38:13,220
 我有一个关于三个页表的问题，
 I had a quick question about the three page tables,
 
-405
+411
 00:38:13,820 --> 00:38:21,800
 这些地址或 PPN 值是如何组成最后的物理地址的，我可能错过了。
 so how are the addresses or like the PPN values combined to form the final physical address I might miss that.
 
-406
+412
 00:38:22,370 --> 00:38:25,310
 是的，可能说的不是非常明确，
 Yeah, well I may not say that [] very explicitly,
 
-407
+413
 00:38:25,400 --> 00:38:28,790
 第一个 PPN 在顶级页表，
 so the first PPN correct in top the page table,
 
-408
+414
 00:38:29,330 --> 00:38:37,040
 在顶级页面目录的第一个 PPN 包含了下一级的物理地址。
 the first PPN in the top level of page directory contains the physical address of the next level down, right.
 
-409
+415
 00:38:37,780 --> 00:38:40,480
 这个又包含下一级，
 And one contains the one next level down
 
-410
+416
 00:38:40,480 --> 00:38:44,290
 然后在最后一个，我们有 44 位，
 and then in the final one we still have are [] 44 bits,
 
-411
+417
 00:38:44,380 --> 00:38:49,270
 包含我们想要转换的真正的页面物理地址。
 that contains then the actual physical address of the page that we're actually trying to translate to.
 
-412
+418
 00:38:50,150 --> 00:38:51,770
 好的，理解了。
 Okay, that makes sense.
 
-413
+419
 00:38:51,860 --> 00:38:54,830
 好的，有一个有趣的问题，
 Okay, and one interesting question, just let us [],
 
-414
+420
 00:38:54,860 --> 00:38:59,540
 让我在回答其他两个举手的问题之前，先回答自己的问题，
 before let me answer my own question before answering the two raised hands here,
 
-415
+421
 00:38:59,690 --> 00:39:09,780
 再看这张图片，为什么页面目录保存的是物理页面编号，而不是虚拟地址。
 look back at this picture, why, why are the physical page numbers stored in these page directories, why not a virtual address.
 
-416
+422
 00:39:11,520 --> 00:39:15,960
 因为我们要查找内存，比如在内存中查找下一个目录。
 Because we need to look it up in memory like look up the next directory in memory.
 
-417
+423
 00:39:16,110 --> 00:39:20,940
 是的，正确，我们不能使用一种转换方案依赖另一种转换方案，
 Yeah right, we could not have a translation scheme depends on yet another translation scheme,
 
-418
+424
 00:39:20,940 --> 00:39:24,240
 我们可能会递归查找，所以那是没意义的。
 we could sort of recursive [] look, so that just doesn't make sense.
 
-419
+425
 00:39:24,680 --> 00:39:27,570
 这就是正确答案，它必须是物理编号，
 That is exactly the right answer, it has to be a physical number,
 
-420
+426
 00:39:27,600 --> 00:39:32,700
 那么 satp 呢，它保存的是物理地址还是虚拟地址。
 how about the satp, what do you satp, what does it store, it store a physical address or virtual address.
 
-421
+427
 00:39:39,190 --> 00:39:43,510
 也是物理地址，因为第一个页面目录也在内存中。
 Also physical, assuming that the first page directory is also in memory right.
 
-422
+428
 00:39:44,710 --> 00:39:49,060
 是的，没错，它必须是一个物理编号，因为我们使用它来转换。
 Yeah exactly, so it has to be a physical number, because we're actually trying to use it for translation.
 
-423
+429
 00:39:50,120 --> 00:39:57,140
 所以， satp 需要知道页面目录[路由]的物理页面编号。
 And, so you know the satp you need to know what the physical page number is [on] the [route] of the page directory.
 
-424
+430
 00:39:59,180 --> 00:40:01,940
 好的，这里有两个问题，两个人举手了，
 Okay, there were two other questions or to people who raise their hands,
 
-425
+431
 00:40:02,240 --> 00:40:10,040
 你可以重复你的问题，如果还没有解决。
 you do, repeat your question if if it hasn't been answered yet.
 
-426
+432
 00:40:10,760 --> 00:40:14,030
 所以有一个三个表组成的层次结构，
 So there's a hierarchy of three tables
 
-427
+433
 00:40:14,360 --> 00:40:19,760
 每个表由虚拟地址的一部分 9 个位索引，
 and each of them is indexed by a part of the virtual address, each nine bits long,
 
-428
+434
 00:40:22,740 --> 00:40:28,200
 我不太明白它们之间的连接是如何发生的，
 so I'm not sure I understand how [chaining] between them happens
 
-429
+435
 00:40:28,200 --> 00:40:35,220
 只使用三个 9 位来索引每个表不是已经足够了吗？
 and what it's [meant] to accomplish like shouldn't it be sufficient to just use those three nine bit addresses to index into each of them.
 
-430
+436
 00:40:36,780 --> 00:40:42,330
 正确，第一个顶级 9 位用来索引第一个顶级页表目录，
 That's correct, so the first top level nine bits are used to index that in the first top page level directory,
 
-431
+437
 00:40:42,330 --> 00:40:44,880
 第二个索引第二个，但三个索引第三个。
 the second in the next one and the third in the third one.
 
-432
+438
 00:40:48,240 --> 00:40:57,090
 所以，可能我没有明白，当一个进程访问一个虚拟地址，
 So, maybe I'm just not understanding this correctly, so when a process requests a certain virtual address to be looked up,
 
-433
+439
 00:40:57,330 --> 00:41:06,360
 虚拟地址加载到 satp 寄存器，得到对应的顶级页表，
 it loads into the satp register or the CPU does and that gets to the corresponding correct highest level page table,
 
-434
+440
 00:41:07,640 --> 00:41:11,550
 然后那个页表会。
 and then that page table will.
 
-435
+441
 00:41:12,130 --> 00:41:16,990
 我们使用 27 位中的顶级 9 位来索引页面目录。
 And we use them to top level nine bits from the 27 to index into that page directory.
 
-436
+442
 00:41:18,660 --> 00:41:20,850
 那么它的结果是什么，
 And then what is what is the result of that,
 
-437
+443
 00:41:20,850 --> 00:41:26,580
 比如结果是 MMU 创建一个新页表吗。
 like if the result is there's nothing there, does the MMU create a page table.
 
-438
+444
 00:41:26,610 --> 00:41:32,400
 不，不是， MMU 告诉操作系统或处理器，抱歉，我不能转换这个地址，
 No no, the MMU basically tells the operating system or tells the processor, sorry I couldn't translate that address
 
-439
+445
 00:41:32,580 --> 00:41:36,990
 然后生成一个页面错误，这个我们后面会讨论。
 and basically turns into a page fault which we'll talk about a little bit later.
 
-440
+446
 00:41:38,970 --> 00:41:42,120
 但是不能转换地址，它不转换地址，
 But just cannot translate the address, it doesn't translate,
 
-441
+447
 00:41:42,120 --> 00:41:47,130
 就像你不能除零，如果你这样做，处理器会拒绝。
 it's like you know you can't divide by zero, you know if you try to do that the processor refuses to do it.
 
-442
+448
 00:41:50,110 --> 00:41:51,250
 我明白了，好的。
 I see, okay.
 
-443
+449
 00:41:54,030 --> 00:41:55,650
 Brandon ，你有什么问题？
 Brandon, what about you Brandon?
 
-444
+450
 00:41:56,320 --> 00:42:01,300
 是的，我想确认我理解了，可能已经说过了
 Yeah, so I just wanted to make sure I understand how, I think maybe we come up with it,
 
-445
+451
 00:42:01,660 --> 00:42:09,160
 但是我想知道中间页表，我们如何计算它们的物理地址，
 but I want to understand how the kind of intermediate page tables, well how we calculate the physical address of those,
 
-446
+452
 00:42:09,540 --> 00:42:15,420
 所以，这是否正确，如果我们想找到第二级页表物理地址，
 so, is it correct that say if we were trying to find a second level page tables physical address,
 
-447
+453
 00:42:15,420 --> 00:42:20,040
 我们就使用第一级页表的 PPN ，它的 44 位，
 we would take the PPN from the first level page table, that's 44 bits
 
-448
+454
 00:42:20,070 --> 00:42:25,710
 然后加上最初的虚拟地址的 12 位，得到完整的 56 位，就是这个问题。
 and then we add the twelve bit offset from the original virtual address to get the full 56 bits, this question is.
 
-449
+455
 00:42:26,010 --> 00:42:29,970
 我们不用加上偏移量，我们只是使用十二个 0 位，
 We don't add the offset from the virtual address, we just take twelve zero bits,
 
-450
+456
 00:42:30,980 --> 00:42:32,960
 我们使用 PPN ，它是 44 位。
 so we take the PPN, that's 44 bits.
 
-451
+457
 00:42:33,110 --> 00:42:33,980
 好的。
 Okay.
 
-452
+458
 00:42:34,010 --> 00:42:40,280
 后面跟上 12 个 0 位，就得到了 56 位物理地址，就是下一个页面目录，
 Twelve zero bits at the bottom and that gives us 56 bit physical address and that's where the next page directories,
 
-453
+459
 00:42:40,280 --> 00:42:43,100
 这需要每个页面目录是对齐的。
 and this requires that basically every page directories page aligned.
 
-454
+460
 00:42:45,500 --> 00:42:47,300
 我明白了，好的，有道理。
 I see, OK, that makes sense.
 
-455
+461
 00:42:49,880 --> 00:42:53,300
 这些都是好问题，这些东西是你们在页表实验中会遇到的，
 So these are all great questions and these are all things you're gonna be struggling within the page table lab,
 
-456
+462
 00:42:53,300 --> 00:42:55,790
 所以，现在问出来很好。
 so it's very good to ask them right now.
 
-457
+463
 00:43:00,000 --> 00:43:01,950
 好的，让我看一下。
 Okay, let me see.
 
-458
+464
 00:43:04,410 --> 00:43:14,020
 好的，让我稍等一下，[整理]一下思绪，看看我在哪里。
 Yes, okay, let me hold on for a second, I [] my thoughts, see where I am.
 
-459
+465
 00:43:16,300 --> 00:43:25,150
 好的，还有一件事情我想讲一下，因为你们会看到，
 Good good, good, okay, one, sort of, you know one other thing that I want to mention, because you will see that,
 
-460
+466
 00:43:25,300 --> 00:43:29,470
 就是，我们考虑刚才我展示的这种方案，
 is that if we think about this, you know the scheme that I just showed right,
 
-461
+467
 00:43:29,470 --> 00:43:36,760
 看上去是我们或者处理器从内存加载值，保存值到内存，
 what really seems to be going on is that we load or store value to memory or the processor loads or stores of value to memory,
 
-462
+468
 00:43:36,790 --> 00:43:39,280
 我们必须三次访问内存，
 we basically have to do three memory lookups right,
 
-463
+469
 00:43:39,310 --> 00:43:45,040
 一次是顶级页面目录，一次是中级页面目录，还有一次是底部页面目录。
 one in the top of the page directory, one intermediate page directory and then one in the bottom level page directory.
 
-464
+470
 00:43:45,500 --> 00:43:53,780
 看起来对虚拟地址的内存引用都需要三次内存访问，这是很昂贵的。
 It looks like that you know any memory reference to virtual address basically requires three memory reach, and so that seems expensive.
 
-465
+471
 00:43:54,540 --> 00:43:59,640
 所以，实际中做的，几乎所有处理器所做的，
 And so, what happens in practice where almost all every processor does is,
 
-466
+472
 00:43:59,700 --> 00:44:04,290
 它在旁边有一个缓存，包含着最近使用的转换，
 it has a cache sitting on the side, that contains recently used translations,
 
-467
-00:44:05,300 --> 00:44:17,330
-这称为转换后备缓冲器，你会经常看到这个术语 TLB 。
-and this is called translation look-aside buffer, and you'll see that term quite often, the TLB.
+473
+00:44:05,300 --> 00:44:11,040
+这称为转换后备缓冲器，
+and this is called translation look-aside buffer,
 
-468
+474
+00:44:11,790 --> 00:44:17,330
+你会经常看到这个术语 TLB 。
+and you'll see that term quite often, the TLB.
+
+475
 00:44:18,370 --> 00:44:25,050
 它只是保存了页表条目或 PTE 条目的缓存。
 Basically it's nothing else than the cache of page table entries, PTE entries.
 
-469
+476
 00:44:28,180 --> 00:44:32,110
 所以当处理器第一次访问查找虚拟地址，
 So when the processor has you know the first time the processor routes and look up virtual address,
 
-470
+477
 00:44:32,110 --> 00:44:38,230
 硬件遍历这个页面，这三级页表，
 you know walks this hardware, walks this page the three level page tables,
 
-471
+478
 00:44:38,410 --> 00:44:44,320
 最后找到那个虚拟地址的最终物理地址，
 that will come out with you know the final physical page finally of PPN for that particular virtual address,
 
-472
+479
 00:44:44,500 --> 00:44:53,610
 然后， TLB 保存 [VA, PA] 映射，
 and then basically the the TLB stores that VA PA PN, PA mapping on the side
 
-473
+480
 00:44:53,940 --> 00:45:00,090
 让你下次访问这个虚拟地址，可以直接查询 TLB ,
 and so then the next time you refer to that particular virtual address, can just look up straight up in the TLB
 
-474
+481
 00:45:00,090 --> 00:45:03,420
 TLB 会直接返回而不用遍历页表。
 and the TLB will respond instead of having to the page table walk.
 
-475
+482
 00:45:05,240 --> 00:45:07,130
 是的， Amiar 。
 Yep, Amiar.
 
-476
+483
 00:45:09,710 --> 00:45:16,970
 所以 TLB 把虚拟地址映射到页面的物理地址，
 So the TLB map virtual addresses to the physical address of the page,
 
-477
+484
 00:45:17,150 --> 00:45:21,440
 除了虚拟地址的偏移量，
 that the virtual address along with the offset, absolutely right,
 
-478
+485
 00:45:22,490 --> 00:45:26,720
 那么缓存页表级别是不是更有效呢。
 wouldn't it be more efficient to like cache at the page table level.
 
-479
+486
 00:45:27,780 --> 00:45:31,260
 好的，让我来退一步，
 Okay, so I let me take a step back here,
 
-480
+487
 00:45:31,410 --> 00:45:34,050
 实现 TLB 有很多方式，
 there are many ways of implementing the TLB,
 
-481
+488
 00:45:34,560 --> 00:45:37,500
 最重要的事情是你知道有 TLB ，
 the most important thing that you need to know is that there is a TLB,
 
-482
+489
 00:45:38,230 --> 00:45:41,920
 而 TLB 实现的准确细节，
 and the exact details of actually how the TLB has implemented,
 
-483
+490
 00:45:41,920 --> 00:45:47,650
 我们不会在这个话题上讨论很多细节。
 this sort of you know not the topic, we're gonna talk about in great amount of detail, that's not at all.
 
-484
+491
 00:45:47,920 --> 00:45:51,340
 所以这是处理器旁边的一个东西，
 And so this is really something that sits in side of the processor
 
-485
+492
 00:45:51,340 --> 00:45:55,690
 大多数对操作系统是隐藏的，操作系统并不知道 TLB 如何操作，
 and is mostly hidden from the operating system, the operating system doesn't really know how the TLB operates,
 
-486
+493
 00:45:56,270 --> 00:45:59,840
 你只需要知道 TLB 存在的原因是，
 the only thing, the reason you need to know that the TLB exist,
 
-487
+494
 00:46:00,050 --> 00:46:09,940
 如果你切换页表，那么操作系统要告诉处理器它在切换页表，
 is that if you switch page tables, then, typically the operating system needs to tell the processor that it's switching page tables,
 
-488
+495
 00:46:10,740 --> 00:46:14,450
 然后 TLB 需要刷新。
 and the TLB needs to be flushed.
 
-489
+496
 00:46:16,790 --> 00:46:18,830
 因为你会发送旧的条目，
 Because basically you send stale entries,
 
-490
+497
 00:46:18,830 --> 00:46:23,570
 如果你切换到新的页表， TLB 中的条目就可能不是有效的，
 if you switch to a new page table, the entries in the TLB may not be valid anymore
 
-491
+498
 00:46:23,780 --> 00:46:28,100
 所以要删除它们，否则转换可能会出现错误。
 and so they need to be removed, because otherwise you know the translation would be incorrect.
 
-492
+499
 00:46:28,830 --> 00:46:35,340
 所以操作系统知道这里有一个 TLB ，
 And so the operating system is typically aware is aware that there's a, that there is a TLB,
 
-493
+500
 00:46:35,370 --> 00:46:41,670
 只是偶尔告诉硬件，我不再使用它们了，因为我要切换页表。
 only basically tell the hardware, once in a while, saying okay we'll don't use them anymore, because I'm gonna switch page tables.
 
-494
+501
 00:46:44,150 --> 00:46:55,000
 实际上，在 RISC-V 中，刷新 TLB 的指令是 sfence_vma ，
 And in fact on, you know, the the RISC-V the instruction to flush the TLB is called sfence_vma,
 
-495
+502
 00:46:57,230 --> 00:47:01,040
 我不是很确定，刷新 TLB 。
 I'm not actually, flush the TLB.
 
-496
+503
 00:47:01,370 --> 00:47:01,880
 Bibic.
 Bibic.
 
-497
+504
 00:47:04,900 --> 00:47:11,410
 我有一个问题，不是关于 TLB ，但是它带来了这个问题，
 So I have a question, like not regarding TLB, but that brought kind of this question,
 
-498
+505
 00:47:11,470 --> 00:47:21,370
 我们使用的三级页面，是由操作系统还是硬件实现的。
 the three level support, that the three level paging, that we have, is it implemented by the operating system or the hardware itself.
 
-499
+506
 00:47:21,640 --> 00:47:25,400
 是由硬件实现的，所有这些都在硬件发生的，
 Is implemented in hardware, so you know there's all happens in hardware,
 
-500
+507
 00:47:25,670 --> 00:47:30,120
 MMU 是硬件的一部分，而不是在操作系统中。
 the MMU is a block of hardware, not in the operating system,
 
-501
+508
 00:47:30,180 --> 00:47:33,150
 我们过一会会看到，当我们查看 xv6 时，
 we'll see in a second when we look at xv6,
 
-502
+509
 00:47:33,390 --> 00:47:37,140
 xv6 有一个函数模拟页表遍历，
 xv6 has some function that models the page table walk,
 
-503
+510
 00:47:37,140 --> 00:47:41,220
 因为有时， xv6 必须做一些硬件做的事情，
 because once in a while you know xv6 basically has to do what the hareware does,
 
-504
+511
 00:47:42,040 --> 00:47:48,670
 它有一个名叫 walk 的函数，做的事情相同，不过是在软件中。
 and so it also it does have a function called walk, that basically does exactly the same thing, but in software.
 
-505
+512
 00:47:51,370 --> 00:47:53,380
 我能问个问题吗，
 So, can I ask a question,
 
-506
+513
 00:47:54,520 --> 00:48:00,170
 所以，在这个方案中，处理器内存在哪里，
 so where in this scheme does the processor cache [fit],
 
-507
+514
 00:48:00,170 --> 00:48:04,070
 是在地址转换之前还是之后。
 does it happen before the address translation or after.
 
-508
+515
 00:48:04,520 --> 00:48:10,580
 是的，让我往回切换一下，让我看看。
 Yeah, yeah okay, let me, so let's switch back a little bit a couple, let me see.
 
-509
+516
 00:48:13,120 --> 00:48:17,410
 好的， MMU ，你可以这样认为，
 Okay, usually MMU will really the way to think about is,
 
-510
+517
 00:48:17,410 --> 00:48:22,650
 所有这些东西，这一块都在处理器中。
 that all this stuff you know the whole block is inside the processor silicon.
 
-511
+518
 00:48:24,350 --> 00:48:27,920
 所以，这是 RISC-V 芯片，在它里面是 CPU ，
 So there's a RISC-V chip and inside of it is the CPU,
 
-512
+519
 00:48:27,920 --> 00:48:32,030
 实际上，这里有多个核心，四核，这是 MMU ，
 in fact there are multiple CPU, correct, four cores and there's a MMU
 
-513
+520
 00:48:32,240 --> 00:48:37,580
 你可以这样考虑，在 CPU 这一侧，有一个 TLB 。
 and you know you can think about that, either on this on the CPU side, you know there's a TLB.
 
-514
+521
 00:48:41,330 --> 00:48:41,960
 好的？
 Okay?
 
-515
+522
 00:48:44,450 --> 00:48:48,290
 有道理，但是我想我的问题是，
 That makes sense, but I guess my question was about the like,
 
-516
+523
 00:48:48,680 --> 00:48:53,960
 缓存，不是说 TLB ，只是说普通的缓存，
 cache in terms of not the TLB, but just a normal cache,
 
-517
+524
 00:48:53,960 --> 00:48:57,740
 比如有时候，我们不是都访问内存。
 like, because sometimes we don't actually go all the way to access the memory.
 
-518
+525
 00:48:58,010 --> 00:49:02,060
 是的，好想法，我想我在上周一展示了这种方案，
 Yeah good point, I think I showed like the scheme last [week] correct on Monday
 
-519
+526
 00:49:02,060 --> 00:49:05,540
 RISC-V 处理器有 l1 缓存， l2 缓存，
 of the RISC-V processor and has l1 cache, it has l2 cache,
 
-520
+527
 00:49:05,910 --> 00:49:11,420
 其中一些缓存由物理地址索引，一些缓存由虚拟地址索引，
 some caches are indexed by physical address, some caches are indexed by virtual address,
 
-521
+528
 00:49:11,900 --> 00:49:15,950
 所以由虚拟地址索引的缓存在 MMU 之前，
 so the caches that are indexed by virtual address sit before the MMU,
 
-522
+529
 00:49:16,560 --> 00:49:19,620
 而由物理地址索引的缓存在 MMU 之后。
 and cache their index by physical addresses after the MMU.
 
-523
+530
 00:49:25,020 --> 00:49:25,590
 这个能理解吗？
 Does that make sence?
 
-524
+531
 00:49:25,800 --> 00:49:28,830
 我也有一个问题，我的问题是，
 Can I also ask a question, my question is,
 
-525
+532
 00:49:28,860 --> 00:49:32,880
 你说了， TLB 遍历，
 you said that the TLB, it walks,
 
-526
+533
 00:49:32,880 --> 00:49:38,490
 所以把东西放入 TLB ，硬件可以遍历页表，
 so like to put stuff into TLB, the hardware walks through the page tables,
 
-527
+534
 00:49:39,850 --> 00:49:43,720
 那么，我们为什么要写 walk 函数，如果硬件可以完成。
 why do we write walk function, if hardware can do that.
 
-528
+535
 00:49:44,580 --> 00:49:51,360
 好问题，有几个原因，为什么我们需要这么做或者为什么 xv6 需要它，
 Very good question, one reason, a couple reasons why we do it or why xv6 needs it,
 
-529
+536
 00:49:51,360 --> 00:49:54,060
 一个是当它设置初始化页面时，
 one is when it actually sets up the initial page tables,
 
-530
+537
 00:49:54,980 --> 00:50:01,310
 它需要对三级页表编程，所以它需要模拟三级页表。
 you know it needs to program the the three levels and so it needs to basically emulate the three levels.
 
-531
+538
 00:50:02,120 --> 00:50:09,620
 另一个例子，你在 syscall 实验中遇到或正在遇到的，
 And other example, that you actually sort of run into or are running into in the syscall lab,
 
-532
+539
 00:50:09,800 --> 00:50:11,270
 是当你复制，
 is that when you copy,
 
-533
+540
 00:50:11,420 --> 00:50:17,480
 在 xv6 中，内核有自己的页表，每个用户地址空间有自己的页表，
 the in xv6 the kernel has its own page table and every user address space has its own page table,
 
-534
+541
 00:50:18,140 --> 00:50:25,250
 有时，比如 sysinfo ， sysinfo 结构体存在于用户空间中，
 and with once in a while, for example sysinfo you know like, the point of sysinfo struct that lives in user space,
 
-535
+542
 00:50:25,460 --> 00:50:29,570
 内核需要转换地址让它自己可以读写那个地址。
 the kernel needs to be translated to an address that it can use to read and write it.
 
-536
+543
 00:50:30,340 --> 00:50:34,420
 所以，比如，如果你查看 copyin 或 copyout ，
 And so, for example if you're looking copyin or copyout,
 
-537
+544
 00:50:34,750 --> 00:50:45,790
 内核转换用户虚拟地址，使用用户页表获取物理地址，
 basically the kernel translates the user virtual address using the user virtual, using the user page table to get out of physical address,
 
-538
+545
 00:50:45,790 --> 00:50:52,030
 然后内核获得一个可以用来读写内存地址。
 that kernel then get an address out actually then the kernel can use to read and write that memory.
 
-539
+546
 00:50:54,570 --> 00:50:59,730
 所以，有很多地方可以展示，希望我可以在 10 到 15 分钟内讲到。
 So there's a bunch of places where to show up and I'll talk about hopefully in whatever ten minutes fifteen minutes.
 
-540
+547
 00:51:00,610 --> 00:51:06,430
 我有一个问题，为什么硬件不开放那个 walk 函数，
 I have a question, why doesn't the hardware like expose that walk function,
 
-541
+548
 00:51:06,430 --> 00:51:09,130
 让我们不需要自己实现，可能还有 bug ，
 so we don't have to write our own and potentially have bugs in it,
 
-542
+549
 00:51:09,430 --> 00:51:15,970
 为什么没有比如一个特权指令，你可以传入虚拟地址，返回物理地址。
 why isn't there like you know maybe a privileged instruction that you can pass a virtual address and will give back the physical address.
 
-543
+550
 00:51:16,380 --> 00:51:21,300
 好的，这就像存入虚拟地址，然后返回，它会为你做好，
 Well, this is just like just store to the virtual address, and you get the back and will do it right for you,
 
-544
+551
 00:51:21,780 --> 00:51:27,720
 所以，我们会在后面的页表实验中看到，
 so we'll see later on, in the next lab, the page table lab,
 
-545
+552
 00:51:27,900 --> 00:51:32,250
 实际上，这是你们要做的，你么要以稍微不同的方式设置页表，
 in fact that's exactly what you'll be doing, you'll actually set up the page table slightly differently,
 
-546
+553
 00:51:32,250 --> 00:51:36,750
 让你们可以在 copyin 和 copyinstr 中避免 walk 。
 so that you can avoid the walk in copy in and copyinstr.
 
-547
+554
 00:51:42,500 --> 00:51:46,730
 我想这个在我们过一会讨论 xv6 时，会变的更清楚。好吗？
 I think this will become clear in a second that we when we talk about we look at the xv6. Okay?
 
-548
+555
 00:51:49,700 --> 00:51:51,170
 好的。
 Okay, good.
 
-549
+556
 00:51:51,800 --> 00:51:58,100
 在进入 xv6 之前，我想再说一点，
 One more extra, basically before jumping into xv6, I wanted to make one point,
 
-550
+557
 00:51:58,610 --> 00:52:04,000
 考虑页表的一种方式，
 one way to think about you know, page tables,
 
-551
+558
 00:52:05,980 --> 00:52:14,520
 一种流行的说法，页表提供了某种间接性，
 a popular way to phrase this, page tables provide a level of indirection,
 
-552
+559
 00:52:19,670 --> 00:52:31,070
 这种间接性是我说过的从虚拟地址到物理地址的映射，
 and, and that, and so basically this indirection, what I'm talking about, you know this mapping from virtual address to physical address,
 
-553
+560
 00:52:31,520 --> 00:52:36,230
 这个映射完全在操作系统的控制中，
 and this mapping is completely under control of the operating system,
 
-554
+561
 00:52:38,350 --> 00:52:41,980
 像我们看到的，之前几张幻灯片所说的，
 as we've seen, you know in the last couple slides, we talk,
 
-555
+562
 00:52:42,280 --> 00:52:49,270
 这意味着操作系统，因为它完全控制（页表）转换，
 and that means that the operating system, because it has so much control over it, has control, complete control that translation,
 
-556
+563
 00:52:49,480 --> 00:52:51,940
 它可以做各种有意思的技巧。
 it can do all kinds of interesting tricks.
 
-557
+564
 00:52:52,630 --> 00:52:56,860
 比如，一种技巧是，我会在后面讲到，
 And so for example like one trick, you know we'll talk a little bit about this,
 
-558
+565
 00:52:56,860 --> 00:53:04,270
 如果一个页面条目是无效的，硬件会返回页面错误。
 like if a page entry is invalid and will really return a page, you know the hardware will a raise page fault.
 
-559
+566
 00:53:04,820 --> 00:53:10,910
 作为回应页面错误，操作系统可以更新页表，然后重新执行该指令。
 In response, the page fault, the operating system could update the page tables and then maybe restart the instruction.
 
-560
+567
 00:53:11,610 --> 00:53:18,630
 所以通过操纵页表，可以在运行时做很多事情。
 And so there are all kinds of things they can do at run time by manipulating the page tables.
 
-561
+568
 00:53:19,160 --> 00:53:26,480
 我们不会在今天讨论，但是两周后，我们有一节课专门讨论这个主题，
 And we're not going to talk about it today, but in two weeks, we'll have a lecture exactly about this topic,
 
-562
+569
 00:53:26,480 --> 00:53:30,290
 关于有了页表和页面错误，你可以做什么很酷的事情。
 about what cool things can you do once you have page tables and page faults.
 
-563
+570
 00:53:31,140 --> 00:53:38,250
 但是要记得，这是一种令人难以置信的强大机制，
 But it's important to keep in mind that this is an incredibly powerful mechanism,
 
-564
+571
 00:53:38,520 --> 00:53:42,510
 可以给操作系统带来极大的灵活性。
 that will provide the operating system with tremendous amount of flexibility.
 
-565
+572
 00:53:43,410 --> 00:53:46,320
 这也是页表如此流行的一个原因。
 And this is one reason why page tables are so popular.
 
-566
+573
 00:53:49,490 --> 00:53:53,750
 好的，下面我要讲的是 xv6 ，
 Okay, so what I wanna do next, is actually talk about xv6,
 
-567
+574
 00:53:54,580 --> 00:53:59,080
 看看这些在 xv6 中是如何发生的。
 and sort of see how it all plays out in xv6.
 
-568
+575
 00:53:59,610 --> 00:54:05,700
 我要做的第一件事是查看内核页表布局，
 So the first thing, I'm gonna do, is going to look at the kernel page layout, if you will,
 
-569
+576
 00:54:05,730 --> 00:54:09,870
 它的映射在这张幻灯片上，
 and the mapping is on this slide,
 
-570
+577
 00:54:10,410 --> 00:54:21,610
 这边是内核的虚拟地址空间，
 so here's the virtual address space of the kernel,
 
-571
+578
 00:54:23,440 --> 00:54:28,330
 这边是物理内存，你可以把它认为是 DRAM ，
 and here is actually the physical memory, so this is basically whatever you can think about this is DRAM,
 
-572
+579
 00:54:31,760 --> 00:54:35,690
 而实际上并不是，让我来退回一点，
 and in fact it is not, let me take that back immediately,
 
-573
+580
 00:54:35,870 --> 00:54:41,200
 一部分是 DRAM ，还有一部分是 IO 设备。
 one part is DRAM, and one part is actually IO devices.
 
-574
+581
 00:54:46,060 --> 00:54:52,030
 我先讲一下幻灯片的右边的物理内存部分，
 And so, to sort of maybe I'm going to talk about the physical, the right side of the slide a little bit first
 
-575
+582
 00:54:52,030 --> 00:54:53,740
 过一会讲左边的部分。
 and then we'll talk about the left side in the second.
 
-576
+583
 00:54:54,360 --> 00:54:58,290
 幻灯片的右边部分完全是由硬件决定的，
 So the right side of the slide is completely determined by the hardware,
 
-577
+584
 00:54:58,940 --> 00:55:02,900
 硬件设计师决定它的布局，
 and so the hardware designers, basically determine the layout of that is
 
-578
+585
 00:55:02,960 --> 00:55:10,850
 像你上周看到的，当内核启动后，它从 0x8000 开始，
 and you know as you saw before last week, when the kernel starts, it starts at this address 0x8000,
 
-579
+586
 00:55:11,720 --> 00:55:14,840
 这是由硬件设计师决定的，
 and that's determined by the hardware designers,
 
-580
+587
 00:55:15,140 --> 00:55:20,420
 所以你应该很清楚，如果你查看这块电路板，
 and so you should be more explicit, if you look at the board,
 
-581
+588
 00:55:20,510 --> 00:55:26,240
 这跟我在周一展示的图片很类似，但是更好一点，更容易观察，
 this is the same picture of the board that I showed on Monday, but is hopefully a little better picture, it's easier to see,
 
-582
+589
 00:55:26,300 --> 00:55:31,570
 这里是 RISC-V 处理器，我们知道在处理器中有四个核心，
 here's our RISC-V processor, and we now know correct in the RISC-V processor, there four cores,
 
-583
+590
 00:55:31,600 --> 00:55:35,470
 还有一个 MMU ，还有一个 TLB ，
 but there's also a MMU and there's also a TLB
 
-584
+591
 00:55:35,470 --> 00:55:40,150
 或者多个 TLB ，每个 MMU 和每个核心有它自己的 TLB 。
 or multiple TLB every core has its own, and MMU and every core has its own TLB.
 
-585
+592
 00:55:40,800 --> 00:55:47,680
 这里是 DRAM 芯片，电路板的设计者决定，
 And here are DRAM chips, and so basically the designers of the board have decided that,
 
-586
+593
 00:55:47,890 --> 00:55:53,110
 当虚拟地址转换位物理地址之后，
 when you know after you know the translation from virtual to physical address,
 
-587
+594
 00:55:53,200 --> 00:55:59,440
 物理地址从 0x8000 开始，指向 DRAM 芯片。
 basic physical addresses that's starting you know at o eight you know a lot of zeros, actually go to the DRAM chips.
 
-588
+595
 00:56:00,660 --> 00:56:04,740
 在 0x8000 以下的地址，可能指向不同的 IO 设备。
 Addresses below 0x8000, may go to different IO devices.
 
-589
+596
 00:56:05,260 --> 00:56:12,130
 所以，平台，电路板设计者决定了物理布局。
 And so the platform decides basically the designers this board have decided exactly what the physical layout.
 
-590
+597
 00:56:12,770 --> 00:56:17,210
 我想你可以查看物理布局，让我来展示给你，
 I think you can look that up the physical layout, if you want to, just let me show you,
 
-591
+598
 00:56:17,210 --> 00:56:25,670
 所以这是我周一展示给你们的手册，
 so here's the same manual that I showed you on on the Monday
 
-592
+599
 00:56:25,730 --> 00:56:32,140
 我记得，如果你跳到 31 页。
 and if you go to actually go to page 31, I believe.
 
-593
+600
 00:56:32,810 --> 00:56:36,140
 是的，是这一页，如果你向下滚动，
 Yeah, it's the page and if you go down,
 
-594
+601
 00:56:36,140 --> 00:56:41,900
 这里展示了电路板的内存映射，
 this is what's the memory, it will [spell] out the memory map is of the board
 
-595
+602
 00:56:42,170 --> 00:56:45,470
 我们可以看到零地址是保留的，没有任何东西，
 and we'll see at address zero zero is reserved nothing is there,
 
-596
+603
 00:56:46,000 --> 00:56:54,100
 如果你继续向下滚动，会看到映射的很多不同东西的信息，
 if you go scroll down in this memory map, you'll see some information about all the different things that are mapped,
 
-597
+604
 00:56:54,100 --> 00:56:59,200
 比如，以太网映射在 0x 某个地址，
 for example Ethernet board is mapped at 0 x one you know 0x something,
 
-598
+605
 00:57:00,010 --> 00:57:04,720
 如果你继续向下，糟糕，太过了，
 if you go further down, oops, too much down,
 
-599
+606
 00:57:05,020 --> 00:57:14,800
 这里你可以看到 0x8000 ，它是 DDR 内存，片外易失性内存，
 here you see the entry for 0x8000 correct and that actually is DDR memory, the Off-Chip Volatile Memory,
 
-600
+607
 00:57:15,010 --> 00:57:18,010
 它是 DRAM 芯片，我在上一张幻灯片中展示的。
 so those are the DRAM chips, I just showed you on the previous slide.
 
-601
+608
 00:57:19,520 --> 00:57:24,200
 所以你要知道，即使我们讲的是 QEMU ，使用软件（模拟的），
 And so it's just good to keep your head correct, even though we're talking to QEMU, you know using software,
 
-602
+609
 00:57:24,230 --> 00:57:28,100
 最终任何东西都是由实际的电路板决定的。
 in the end everything is determined by you know the actual board.
 
-603
+610
 00:57:30,640 --> 00:57:38,150
 好的，回到我的幻灯片，我们来看看这个布局。
 Okay, so go back to my slides, so let's look at the layout.
 
-604
+611
 00:57:38,180 --> 00:57:39,890
 是的， Noah ，继续。
 Yeah, Noah, go ahead.
 
-605
+612
 00:57:41,360 --> 00:57:44,330
 是的，当你说这个布局是由硬件决定的，
 Yeah, when you say that this this layout is determined by the hardware,
 
-606
+613
 00:57:44,330 --> 00:57:50,720
 你说的是 CPU 自己还是 CPU 所在的电路板。
 do you specifically mean like the CPU itself or the the board on which the CPU resides.
 
-607
+614
 00:57:50,780 --> 00:57:52,700
 是 CPU 所在的电路板，
 The board in which the CPU resides, correct,
 
-608
+615
 00:57:52,700 --> 00:57:59,210
 因为 CPU 是这个方块中的那个灰色的东西，比如 RISC-V ，
 because you know the board, you know the CPU is that grey thing in the middle that square thing, saying whatever RISC-V,
 
-609
+616
 00:57:59,450 --> 00:58:04,430
 DRAM 芯片在处理器旁边，
 the DRAM chips are sitting off off the processor, correct,
 
-610
+617
 00:58:04,430 --> 00:58:09,950
 是电路板设计者把芯片， DRAM ，很多 IO 设备放在一起。
 it's the board designers who put the chip the DRAM, you know the many IO devices altogether.
 
-611
+618
 00:58:11,580 --> 00:58:12,030
 了解了，谢谢。
 Got it, thank you.
 
-612
+619
 00:58:12,030 --> 00:58:14,550
 操作系统是有很多部分组成的，
 A large part of an operating system is actually
 
-613
+620
 00:58:14,550 --> 00:58:18,390
 CPU 是其中之一，但是 IO 设备也同样重要，
 you know CPU is one part, but the IO devices are at least as important, right
 
-614
+621
 00:58:18,390 --> 00:58:23,670
 所以当你编写操作系统时，既要处理 CPU ，也要处理 IO 设备，
 and so when you're writing an operating system, you both have to deal with the CPU as well as you know with the IO devices,
 
-615
+622
 00:58:23,670 --> 00:58:25,680
 如果你想通过互联网发送一个包，
 you know [if] you want to send a packet over the Internet,
 
-616
+623
 00:58:25,920 --> 00:58:31,980
 必须有人接手，网络驱动， NIC 卡会去做这个，
 well, somebody has to, take, you know the network driver, the NIC card to actually do that,
 
-617
+624
 00:58:31,980 --> 00:58:32,970
 这才是操作系统。
 and that's the operating system.
 
-618
+625
 00:58:35,430 --> 00:58:40,350
 所以，回到这张图片的右侧，就是物理地址布局，
 So going back to the right side of this picture correct, which is the physical address layout,
 
-619
+626
 00:58:40,530 --> 00:58:45,390
 我们看到底部没有使用，像我在文档中展示的那样，
 you know we see basically the bottom was unused as I showed you on that document,
 
-620
+627
 00:58:45,720 --> 00:58:50,040
 它的 0x1000 物理地址是 boot ROM ，
 it turns out that 0x1000 that physical address, that's where the boot ROM is,
 
-621
+628
 00:58:50,040 --> 00:58:55,470
 所以，当你启动电路板，第一件事就是运行 boot ROM 里面的代码。
 so when you turn on you know that board, the first thing that happens is actually code in the boot ROM runs.
 
-622
+629
 00:58:55,930 --> 00:59:00,310
 当 boot ROM 完成后，它会跳转到 [0x8000] ，
 And when the boot ROM is done, it actually will jump to this [0x8000]
 
-623
+630
 00:59:00,490 --> 00:59:04,690
 操作系统的工作是需要确保那里有一些数据。
 and it's job of the operating system make sure that there's some, you know some data there.
 
-624
+631
 00:59:05,430 --> 00:59:08,280
 然后，我们还要讨论一些其他设备，
 And then there's a bunch of other devices that we'll talk about,
 
-625
+632
 00:59:08,280 --> 00:59:13,020
 这是中断控制器，我们会在下周讨论，
 there is the interrupt controller, we'll talk about it next week,
 
-626
+633
 00:59:13,500 --> 00:59:19,290
 这是 CLINT ，我们在下周讨论的关于中断的另一个[故事]，
 there's a CLINT, another part of the interrupt [story], that we'll talk about next week,
 
-627
+634
 00:59:19,470 --> 00:59:21,960
 基本上是，多种设备可以产生中断，
 so basically multiple devices can generate interrupts,
 
-628
+635
 00:59:21,960 --> 00:59:26,760
 所以需要一种方案来路由这些中断到合适的[请求]级别，
 there needs to be planned to route those interrupts to to the appropriate request level,
 
-629
+636
 00:59:26,760 --> 00:59:30,000
 这些都是由中断控制器实现的。
 and that's all implemented by those interrupt controllers.
 
-630
+637
 00:59:30,530 --> 00:59:35,690
 稍等一下，让我先讲完这个幻灯片，再回答问题。
 And let me finish, for a second, you know this, this slide before answer your question.
 
-631
+638
 00:59:36,980 --> 00:59:46,850
 这里有一个 UART ，它是与 console 和显示器交互的设备，
 Then there's a UART, that was the device, that was actually, the thing that actually, the device actually UART device, that actually interacts with the console and the display
 
-632
+639
 00:59:47,090 --> 00:59:54,680
 这里是 VIRTIO_disk ，属于，它与磁盘交互，
 and then there's the VIRTIO_disk and that's the device, there's a device belong, it's that actually interacts with the disk
 
-633
+640
 00:59:54,860 --> 01:00:03,720
 所以当你写入到地址，比如 0x2000 ，这个地址对应 CLINT ，
 and so when you write to location to address, let's say 0x2000, then, that physical address corresponds to the CLINT
 
-634
+641
 01:00:03,810 --> 01:00:12,330
 所以，当你运行保存指令，加载指令，你就是在读写实现 CLINT 的芯片，
 and so when you want to do store instruction, load instruction, you're reading and writing to the chip, that implements the CLINT,
 
-635
+642
 01:00:13,190 --> 01:00:16,130
 我们后面会看这是什么意思，现在你可以认为是，
 we'll see later what that exactly means, but basically you can think about
 
-636
+643
 01:00:16,130 --> 01:00:19,820
 这是直接与设备交互，而不是读写物理内存。
 this as interacting directly with the device and not reading or writing physical memory.
 
-637
+644
 01:00:21,780 --> 01:00:22,650
 是的，有什么问题。
 Yeah, there's a question.
 
-638
+645
 01:00:24,240 --> 01:00:32,370
 所以，我想确认一下 0x8000 以下的地址不存在与 DRAM 中，
 So just trying to make sure the addresses below 0x8000, they don't really exist in DRAM,
 
-639
+646
 01:00:33,660 --> 01:00:37,170
 如果我们使用这些地址，它们直接指向其他硬件。
 if when we mention those addresses, we directly go to the other hardwares.
 
-640
+647
 01:00:37,200 --> 01:00:39,900
 是的，回到这张图片，
 Yeah, yeah, so if you go back to this picture,
 
-641
+648
 01:00:40,350 --> 01:00:46,660
 任何 0x8000 以上的（地址），是 DRAM 芯片。
 anything above 0x8000, correct, that's these DRAM chips.
 
-642
+649
 01:00:48,020 --> 01:00:54,710
 我不能画出，指出 CLINT ，但是这里是以太网（控制器），
 And you know I can't draw, I can't point you to the CLINT, but like generally here is Ethernet,
 
-643
+650
 01:00:55,980 --> 01:01:01,590
 所以这个可写的特殊物理地址，可以（执行）加载保存指令，称为内存映射 IO ，
 and so that's particular physical address and we can write you know load store instructions is called memory mapped IO,
 
-644
+651
 01:01:01,800 --> 01:01:05,340
 我们可以（执行）加载保存指令，对以太网卡编程。
 we can load and store instructions, we can program Ethernet controller.
 
-645
+652
 01:01:09,340 --> 01:01:16,780
 我也有一个问题，为什么顶部的很大一块是没有使用，为什么不使用。
 I also have a question, why was this big chunk at the top says unused, why is it not used.
 
-646
+653
 01:01:17,110 --> 01:01:27,320
 好的，你记得不是所有机器，这里是 2 的 56 次方物理地址空间，
 Oh Okay, so remember not every machine, not every, so there's 2 to the power 56 bytes physical address space,
 
-647
+654
 01:01:27,770 --> 01:01:32,300
 但是如果你不需要，你不会在板上插入那么多内存，
 but you don't have those you know plugin that much memory into the board, if you don't want to,
 
-648
+655
 01:01:32,940 --> 01:01:38,270
 所以一些部分没有使用，取决于板上实际有多少 DRAM 芯片。
 and so some parts of it may be unused, depending on how much you know DRAM chips actually sitting on the board.
 
-649
+656
 01:01:42,300 --> 01:01:51,190
 实际上，在 xv6 中，我想我们只有 128 MB （内存）。
 In fact, like in xv6, we I think limit ourselves to 128 megabyte and no more.
 
-650
+657
 01:01:55,360 --> 01:02:03,070
 当加载保存指令从 CPU 发出时，
 So when a, when a load or store instruction goes out of the CPU,
 
-651
+658
 01:02:03,100 --> 01:02:09,960
 它如何知道路由到对应的 IO ，是已经在 CPU 中了吗，
 does that go like where does it get routed to the correct IO, like already from the CPU,
 
-652
+659
 01:02:10,140 --> 01:02:13,590
 比如，在 CPU 发出之前，
 so kind of like if the CPU before it sends it out,
 
-653
+660
 01:02:13,590 --> 01:02:20,310
 它知道如果小于 0x8000 ，然后就发送到对应的 IO 设备，
 it says OK, if it's lower than zero x eight and all the zeros, then I'm going to send it to the correct IO device,
 
-654
+661
 01:02:20,310 --> 01:02:26,580
 否则就发送到内存，比如 DRAM 芯片。
 and then otherwise I'm gonna send it to the to the memory like the DRAM chip.
 
-655
+662
 01:02:27,050 --> 01:02:32,900
 是的，你可以认为有一个分解器在 RISC-V 块中。
 Yeah you know, you can think about as a demultiplexer sitting on the inside of the RISC-V block.
 
-656
+663
 01:02:33,230 --> 01:02:36,180
 噢，它也在那个块中。好的。
 Oh, it's also inside of that block, Okay.
 
-657
+664
 01:02:38,140 --> 01:02:41,170
 然后，内存管理器进行路由。
 And the memory controller and does a routing.
 
-658
+665
 01:02:44,750 --> 01:02:47,420
 好的，弄清楚这些很重要。
 Good, very important to have that sort of all clear in your head.
 
-659
+666
 01:02:51,430 --> 01:02:55,150
 好的，现在我想切换到这张图片的左边，
 Are we, okay, so now I want to switch to the left side of this picture,
 
-660
+667
 01:02:55,630 --> 01:03:02,560
 这是 xv6 设置的虚拟地址空间，
 and this is basically what xv6 sets up to the virtual address space that xv6 sets up,
 
-661
+668
 01:03:02,560 --> 01:03:06,640
 当机器启动时，还没有页面，
 so when the machine boots, there's no page enable yet,
 
-662
+669
 01:03:06,760 --> 01:03:12,310
 xv6 设置第一个页表，第一个虚拟地址空间，
 xv6 sets up the first page tables the first virtual address space
 
-663
+670
 01:03:12,310 --> 01:03:16,770
 是内核使用的虚拟地址空间，我们过一会会在代码中看到，
 and that's actually the virtual address space, the kernel uses and we'll look at it in the second at the code,
 
-664
+671
 01:03:17,100 --> 01:03:19,410
 这是它的布局，
 but, and this is the layout
 
-665
+672
 01:03:19,440 --> 01:03:25,650
 因为我们想让 xv6 保持简单，容易理解，
 and it turns out you know, because we want to keep xv6 as simple as possible, it's easy for you to understand,
 
-666
+673
 01:03:25,980 --> 01:03:32,430
 所以虚拟到物理的映射主要是恒等映射。
 the mapping from virtual to physical is mostly in identity mapping.
 
-667
+674
 01:03:38,120 --> 01:03:46,190
 基本上它的意思是，虚拟地址 0x2000 映射到物理地址 0x2000 ，
 So basically what that means is that the virtual address 0x2000 mapped to physical address 0x2000,
 
-668
+675
 01:03:46,280 --> 01:03:49,610
 内核使用这种方法设置页表，
 so the kernel will set up the page tables exactly in that way,
 
-669
+676
 01:03:49,880 --> 01:03:54,830
 这意味着，所有在 PHYSTOP 之下的虚拟地址，
 and so that means basically that you know all virtual addresses below PHYSTOP,
 
-670
+677
 01:03:55,810 --> 01:04:02,620
 PHYSTOP 是对应于右边的物理地址的最高物理内存。
 which is the top of physical memory are identical to the physical addresses that are actually being used on the right side.
 
-671
+678
 01:04:03,170 --> 01:04:07,220
 这也是为什么这些箭头都是直的，因为是恒等映射。
 And so this is why all the arrows are straight, because it's identity mapping.
 
-672
+679
 01:04:09,290 --> 01:04:09,860
 好的？
 Okay?
 
-673
+680
 01:04:10,830 --> 01:04:16,680
 这里有一些小的改变，有两个东西要说。
 There are small changes to this, there two important things to mention.
 
-674
+681
 01:04:17,620 --> 01:04:19,930
 Amiar ，稍等一会。
 Amiar hold on a second.
 
-675
+682
 01:04:19,930 --> 01:04:23,020
 我想先说一下两件重要的东西。
 Well I try to first mention the two important things to mention,
 
-676
+683
 01:04:23,500 --> 01:04:35,040
 首先，有一些页面，一些映射在内存中位置非常高，
 first of all, there's some pages, some maps very high up in memory, some pages very high in memory,
 
-677
+684
 01:04:35,070 --> 01:04:42,030
 比如，内核栈位于内存的比较高的位置。
 for example the stack, kernel stack actually sets up, is also map high up in memory.
 
-678
+685
 01:04:42,500 --> 01:04:47,330
 它在内存中很高的原因是，我们有一个没有映射的守护页在它下面。
 And the reason is high up in memory, is because we have a guard page below it, that is not mapped.
 
-679
+686
 01:04:47,840 --> 01:04:55,190
 所以，内核栈下面的 PTE 条目没有设置有效位。
 So the PTE entry below the kernel stack, of one of the kernel stack [] does have not have it's valid bit set.
 
-680
+687
 01:04:55,700 --> 01:05:01,550
 所以，如果内核栈溢出，会导致页面错误，
 And, so if you know the kernel runs off its stack and will result in a page fault,
 
-681
+688
 01:05:01,820 --> 01:05:05,900
 这比乱改内核的其他内存要好，
 which is better than basically scribbling over some other memory that the kernel has,
 
-682
+689
 01:05:06,080 --> 01:05:08,870
 你得到一个 panic ，你就知道栈出问题了。
 you get an immediate panic, you know that something's bad to stack.
 
-683
+690
 01:05:10,820 --> 01:05:16,700
 当然，我们不想浪费物理内存，所以我们把栈放地很高，
 Of course, we don't want to waste physical memory and so when we do that by basically putting the stack high,
 
-684
+691
 01:05:16,940 --> 01:05:22,100
 再放一个空的 PTE 守护页在它下面，
 and a guard page, an empty guard PTE entry below it,
 
-685
+692
 01:05:22,600 --> 01:05:26,770
 守护页不会真正消耗物理内存，
 and the guard page doesn't really consume any physical memory right,
 
-686
+693
 01:05:26,770 --> 01:05:30,490
 位于虚拟地址空间的高位，所以没有东西消耗。
 sitting high up in the virtual address space, so nothing is being consumed.
 
-687
+694
 01:05:31,190 --> 01:05:34,970
 但是，这也意味着栈页面映射了两次，
 But that means, that they're showing this case, stack page, for example is mapped twice,
 
-688
+695
 01:05:35,360 --> 01:05:41,180
 一次映射在高地址，一次直接映射在 PHYSTOP 下面的一个地址。
 it's mapped at a high address and it's map directly by one of the addresses that below PHYSTOP.
 
-689
+696
 01:05:42,590 --> 01:05:48,230
 这是页表可以做的所有很酷的事情之一，
 And so you can do, this is one example of all the sort of cool things you can do with page tables,
 
-690
+697
 01:05:48,230 --> 01:05:52,490
 你可以映射两次物理地址，也可以不映射物理地址，
 you can map a physical address twice, you cannot map a physical address,
 
-691
+698
 01:05:52,610 --> 01:05:58,340
 它可以是一对一映射，一对多映射，多对多映射，所有这些都可以。
 you know it can be one to one mapping, one to many mapping, many to one mapping, all that kind of stuff is possible,
 
-692
+699
 01:05:58,930 --> 01:06:03,640
 xv6 在很多地方都用到了这些技巧，
 xv6 does really, use many of them, but there's a couple places we use those tricks
 
-693
+700
 01:06:03,850 --> 01:06:10,900
 守护页是 xv6 使用的很酷的技巧之一，主要用来追踪 bug 。
 and stacking the guard page is one example of one of the cool trick that xv6 uses, mostly to track down bugs.
 
-694
+701
 01:06:12,880 --> 01:06:15,730
 我想说的第二个东西是权限。
 The second thing I wanted to mention is that the permissions.
 
-695
+702
 01:06:16,590 --> 01:06:23,550
 比如，内核文本页面映射位 R-X ，意思是可以读取和执行，
 So, for example the kernel text, the pages for the kernel text are mapped R-X, meaning you can read it and execute it,
 
-696
+703
 01:06:23,760 --> 01:06:29,280
 但是你不能写入内核文本，这也是为了避免 bug ，让我们可以尽早捕获它们，
 but you cannot write to kernel text and again this is basically avoid bugs, so that we catch them early,
 
-697
+704
 01:06:29,430 --> 01:06:34,020
 内核数据当然需要写入，所以它映射为 RW- ，
 kernel data of course needs to be able to be written to and so it has mapped read write,
 
-698
+705
 01:06:34,230 --> 01:06:42,480
 但是你不能执行内核数据页指令，所以执行位没有设置。
 but you cannot execute out of kernel data pages instructions, so the execute bit is not set.
 
-699
+706
 01:06:45,950 --> 01:06:46,790
 这些能理解吗？
 Does that make sense?
 
-700
+707
 01:06:48,000 --> 01:06:52,890
 我跳过了一两个问题，如果还没有解决，现在可以问。
 I skip one or two questions, so if these questions are still not answered, you know please ask them.
 
-701
+708
 01:06:55,790 --> 01:06:58,010
 我们在聊天窗口中有一个问题，
 We have a question in the chat,
 
-702
+709
 01:06:58,620 --> 01:07:04,350
 我们是否有多个内核栈对于不同的进程，比如 n 个 kstack 对 n 个进程。
 do we have multiple kernel stacks for different processes like we have n kstacks for n processes.
 
-703
+710
 01:07:06,790 --> 01:07:14,720
 是的，每个用户进程有一个对应的内核栈，我们过一会会看到。
 The answer is yes so every process every user process has a corresponding kernel stack, we'll see that in a little bit later.
 
-704
+711
 01:07:17,350 --> 01:07:17,980
 好的？
 Okay?
 
-705
+712
 01:07:19,160 --> 01:07:21,290
 好的，让我。
 Okay, so let me.
 
-706
+713
 01:07:21,320 --> 01:07:22,250
 Amair ，继续。
 Amair, go ahead.
 
-707
+714
 01:07:24,010 --> 01:07:32,130
 所以，其他应用程序的虚拟内存映射在没有使用的物理内存上，还是。
 So what's the virtual memory of another application map to somewhere in the physical memory in the unused space or.
 
-708
+715
 01:07:32,430 --> 01:07:37,470
 是的，很好的观点，这里有很多虚拟内存，
 Yes, very good points, so there's a bunch of physical memory, correct,
 
-709
+716
 01:07:37,470 --> 01:07:42,190
 这里是空闲内存，这里也是空闲内存，
 here's free memory, that's free memory here too, right,
 
-710
+717
 01:07:42,610 --> 01:07:50,050
 xv6 使用这些空闲内存保存页表和用户进程的页面，
 and we use that, xv6 use that free memory to basically store pages of page tables, user processes
 
-711
+718
 01:07:50,200 --> 01:07:54,550
 还有用户进程的文本和数据。
 as well as you know the text and data of user level processes.
 
-712
+719
 01:07:55,780 --> 01:07:58,480
 如果某个时刻我们有很多用户程序，
 And if we are on many many, many user processes at some point,
 
-713
+720
 01:07:58,480 --> 01:08:03,040
 会出现内存溢出，然后 fork 或 exec 会返回错误。
 we'll run out of free memory, and then basically fork or exec will return an error.
 
-714
+721
 01:08:04,900 --> 01:08:11,890
 但是，这意味着（用户）进程的的虚拟空间比内核的虚拟空间小得多，是吗？
 But that means that the virtual space for process are much smaller than the virtual space for the kernel, right?
 
-715
+722
 01:08:12,540 --> 01:08:18,660
 理论上，虚拟空间大小是一样的，但是它会[占用]更少。
 Well, the virtual spaces as the same as the same size in principle, but it will be less [populated].
 
-716
+723
 01:08:22,520 --> 01:08:26,480
 让我们看看代码，我想所有这些东西会变得更清楚。
 Then let me, let's look at some code and I think that all this stuff becomes a bit more clear.
 
-717
+724
 01:08:27,690 --> 01:08:31,020
 我有一个小问题，
 I just want small thing is,
 
-718
+725
 01:08:31,020 --> 01:08:38,040
 有很多进程，让每个进程一大部分内存映射到相同位置，
 so given that a lot of the like, each process has a big part of the memory map to the same location,
 
-719
+726
 01:08:38,130 --> 01:08:44,550
 是否把这些映射合并在一起是一种优化。
 is that optimized by like consolidating that into one place that mapping or no.
 
-720
+727
 01:08:44,580 --> 01:08:47,280
 好的， xv6 没有做这个，
 Good, xv6 does not do that,
 
-721
+728
 01:08:47,370 --> 01:08:52,380
 在页表实验练习中的一个挑战就是实现这个。
 like one of the challenge exercises in the page table lab is to actually implement that.
 
-722
+729
 01:08:54,540 --> 01:08:55,020
 我知道了。
 I see.
 
-723
+730
 01:08:55,170 --> 01:09:01,020
 真正的操作系统会做这个，是的，好问题。
 The real operating system would do that, yeah, very good question.
 
-724
+731
 01:09:02,320 --> 01:09:05,950
 我想你知道了，有了页表，任何事情都是可能的。
 I think you get a sense of, well all kinds of things are possible, once you have page tables.
 
-725
+732
 01:09:08,800 --> 01:09:14,850
 好的，我们开始平常的事情，再次启动 xv6 ，
 Okay, so let's do the usual thing, boot xv6 again,
 
-726
+733
 01:09:14,850 --> 01:09:20,980
 你知道 QEMU 用来模拟那个电路板，让我们。
 and again you know QEMU uses basically implementing the board, and you know let's.
 
-727
+734
 01:09:21,670 --> 01:09:27,800
 糟糕， -gdb 。
 Oops, -gdb.
 
-728
+735
 01:09:29,930 --> 01:09:33,710
 上次，我们看了启动是什么样的，
 Last time, we looked at how the booting happens correct
 
-729
+736
 01:09:33,710 --> 01:09:44,600
 然后到了 main ，然后是内核的一个函数 kvminit ，它设置了内核地址空间。
 and then we got to main and then basically one of the things that the kernel, where one of the function is called kvminit and that actually sets up the address space for the kernel.
 
-730
+737
 01:09:45,100 --> 01:09:49,330
 我们在上一张幻灯片的图片中看到它的样子，
 And so we saw in the picture where in the previous slide, what that you know looks like
 
-731
+738
 01:09:49,330 --> 01:09:52,390
 这里我们看 C 代码，它实际是如何设置的。
 and here we go, see C code how it actually is being set up.
 
-732
+739
 01:09:58,380 --> 01:10:03,750
 为什么，稍等一下，有些东西不像我想那样。
 And, why, hold on, something's not going as I wanted to.
 
-733
+740
 01:10:04,350 --> 01:10:06,720
 我在对的目录吗。
 Am I in the right directories.
 
-734
+741
 01:10:11,120 --> 01:10:14,210
 稍等一会，我来解决一下这个问题。
 Hold on a second here while I'm trying to sort out my problems.
 
-735
+742
 01:10:16,590 --> 01:10:23,390
 这是好的，我是说在对的目录。
 That is good, I mean the right directories.
 
-736
+743
 01:10:23,420 --> 01:10:26,450
 是的， -gnu-gdb 。
 Yeah, -gnu -gdb.
 
-737
+744
 01:10:28,080 --> 01:10:35,640
 我在 main 设置一个断点来验证，好的，然后我在 kvminit 设置一个断点。
 I want set a breakpoint for the main just to make sure, good and then I set a breakpoint at kvminit.
 
-738
+745
 01:10:36,340 --> 01:10:37,840
 我现在可以单步运行到那里，
 Actually I can just step to it now,
 
-739
+746
 01:10:38,430 --> 01:10:42,480
 下一个 consoleinit printfinit ，我们之前看到过。
 next consoleinit, printfinit, we saw it before,
 
-740
+747
 01:10:43,250 --> 01:10:45,080
 物理内存分配器，
 physical memory allocator,
 
-741
+748
 01:10:47,040 --> 01:10:59,120
 发生了我不希望发生的事，怎么回事。
 and, you know something happens that I am not expecting, what is going on.
 
-742
+749
 01:11:02,660 --> 01:11:04,610
 在上课之前是好的。
 We're run is right before lecture.
 
-743
+750
 01:11:04,610 --> 01:11:11,140
 这里，应该这样，输出（这些东西），好的，有意思。
 Ah here, that's what's going on, actually printing, okay, interesting.
 
-744
+751
 01:11:11,620 --> 01:11:15,580
 好的，再一次看看我是不是更幸运，糟糕。
 Okay, one more time, see if I can get lucky more, oops.
 
-745
+752
 01:11:19,280 --> 01:11:20,360
 [].
 [].
 
-746
+753
 01:11:28,890 --> 01:11:33,670
 继续，希望能运行到那里，稍等一下。
 Continue, hopefully it will get there, wait a little bit.
 
-747
+754
 01:11:33,670 --> 01:11:35,530
 好的，我们到了 kvminit ，
 Okay, great, we're at the kvminit,
 
-748
+755
 01:11:35,860 --> 01:11:40,660
 我们现在在这个函数里，你可以在右边的 emacs 缓存中看到。
 so basically we're now this function here, on the right side in the emacs buffer, you can see it.
 
-749
+756
 01:11:41,260 --> 01:11:48,540
 我想我已经稍微修改了这个函数，希望我改过了。
 And, I think I've modified the function slightly, I hope I did.
 
-750
+757
 01:11:53,140 --> 01:11:55,450
 我想我改过了，好的，一会会看到，
 I think I did, well we'll see,
 
-751
+758
 01:11:55,900 --> 01:11:59,350
 我们要做的是单步执行这个函数，
 and what we knew is going to walk step into the function,
 
-752
+759
 01:12:00,070 --> 01:12:03,070
 使用分隔布局，更容易观察。
 use the layout split, just eaiser to see.
 
-753
+760
 01:12:03,650 --> 01:12:09,200
 首先，内核为顶级页面目录分配了一个物理页面，
 And this is the first thing that you can see is actually the kernel actually allocates a physical page for the top level page directory,
 
-754
+761
 01:12:10,090 --> 01:12:14,560
 然后将其置零，所以所有 PTE 条目都是零。
 and then it zeroes it out, so that all the PTE entries are zero.
 
-755
+762
 01:12:15,360 --> 01:12:21,000
 然后映射每个 IO 设备，一个接一个。
 And then basically starts mapping in every device, IO device one by one.
 
-756
+763
 01:12:21,630 --> 01:12:27,960
 比如， UART0 映射到内核地址空间，
 And so, for example the UART0 basically starts mapping maps that into the kernel address space
 
-757
+764
 01:12:27,960 --> 01:12:30,930
 我们可以看一下 memlayout.h 文件，
 and so we can look at a file called memlayout,
 
-758
+765
 01:12:31,320 --> 01:12:37,350
 它将那个文档中的第 31 页转换成很多我们要用的常量。
 is basically translate the page 31 that I showed you from the documents into a bunch of constants that we're using.
 
-759
+766
 01:12:38,020 --> 01:12:46,650
 比如，这里有地址 0x1000 是 URAT0 的地址。
 And so, for example here it says what the address of 0x1000 is, what the UART0 address.
 
-760
+767
 01:12:47,140 --> 01:12:55,300
 我们可以把它映射到地址空间，通过调用 kvmmap 函数，稍后会看到。
 And so, you know we can basically map it into the address space by calling this function kvmmap which I will look in a second.
 
-761
+768
 01:12:56,040 --> 01:13:03,810
 在页表实验的第一个练习中，要求你们实现一个 vmprint 函数，
 And then, in the first exercise of the page table lab, you are asked to implement a function called vmprint,
 
-762
+769
 01:13:04,320 --> 01:13:08,010
 我也实现了它，我会单步跳过它，
 and I implemented it too and I'm going to step over it
 
-763
+770
 01:13:08,010 --> 01:13:16,700
 我们会看到内核页表在调用 kvmmap 之后是如何设置的，
 and we'll see basically a page tables, kernel page table as it is set up after that one call to kvmmap,
 
-764
+771
 01:13:16,730 --> 01:13:19,520
 我会单步执行，将会打印一些东西。
 so I'm gonna do that, and going to print out something.
 
-765
+772
 01:13:20,240 --> 01:13:22,160
 我们来看看这些输出，
 And so we're going to look a little bit of the output here,
 
-766
+773
 01:13:22,160 --> 01:13:30,200
 这是页表，这个是顶级页面目录的物理地址，
 so here's the page table that is the physical address of the top level page directory,
 
-767
+774
 01:13:30,200 --> 01:13:33,770
 就是位于 satp 的东西。
 so the thing that actually sits in satp, or will sit in satp.
 
-768
+775
 01:13:34,600 --> 01:13:38,890
 我们有一个顶级页面目录的条目 0 ，
 And then we have a entry zero of the top level page directory,
 
-769
+776
 01:13:38,890 --> 01:13:48,000
 它里面也有一个 PTE 条目，包含着中级页表目录的物理地址，
 has one PTE entry in it, and that is the, contains the physical address for the middle level page table directory,
 
-770
+777
 01:13:48,580 --> 01:13:55,180
 中级页面目录包含一个条目 128 ，指向底部页表目录，
 the middle page level directory has one entry namely 128 and that points to the bottom of the page table directory
 
-771
+778
 01:13:55,180 --> 01:13:58,900
 而底部页表目录包含指向物理地址的条目。
 and the bottom page table directory has the entry then for the physical page.
 
-772
+779
 01:13:59,420 --> 01:14:07,430
 可以看到，实际上这个物理地址是 0x1000 对应着 UART0 。
 And you can see, indeed that the physical address, you know for that bottom level is 0x1000 corresponding to UART0.
 
-773
+780
 01:14:08,900 --> 01:14:15,620
 所以，虚拟地址 1000 转换位物理地址 1000 。
 So basically virtual address 1000 translates to physical address [1000].
 
-774
+781
 01:14:16,560 --> 01:14:21,270
 我们可以确认一下所有都是正确的，
 And we can check double check that this is indeed all legit, right,
 
-775
+782
 01:14:21,270 --> 01:14:30,720
 我们用这个地址 0x10000000L ，对它右移 12 位，
 by, let's take that address, that 0x10000000L and we're going to shift 12,
 
-776
+783
 01:14:31,700 --> 01:14:38,420
 得到高位的 27 位，
 and that should be, you know that gives the top level 27 bits,
 
-777
+784
 01:14:39,070 --> 01:14:50,690
 再右移 9 位，我用 0x10000 ，右移 9 位，并打印，
 we shift 9, so I'm gonna take 0x10000 one zero zero zero, one zero, one more and we're gonna shift 9, print that,
 
-778
+785
 01:14:53,010 --> 01:14:59,700
 结果是 0x80 ，按十进制打印 0x80 ，就是 128 。
 and that is 0x80 and actually print 0x80 as a decimal decimal number, it's going to be 128.
 
-779
+786
 01:15:01,110 --> 01:15:01,710
 好的？
 Okay?
 
-780
+787
 01:15:02,310 --> 01:15:05,370
 所以，我们看到这些都是有道理的。
 So we see actually sort of you know it all sort of makes sense.
 
-781
+788
 01:15:05,900 --> 01:15:09,440
 在这我们也打印出了标志位，
 We also see I printed out the flags here,
 
-782
+789
 01:15:09,440 --> 01:15:19,520
 底部（条目）包含读，写，有效，因为有效位是 1 。关于这个有什么问题吗？
 and you know the bottom level has read, write and valid, because valid is one. Any questions about this?
 
-783
+790
 01:15:24,760 --> 01:15:32,970
 好的，所以内核继续用这个方式设置整个地址空间。
 Okay, so the kernel basically proceeds you know doing setting up the whole address space in this way.
 
-784
+791
 01:15:33,820 --> 01:15:38,860
 所以，我们对 VIRTIO CLINT PLIC 调用 kvmmap ，
 And so we've called kvmmap for VIRTIO, for the CLINT, for the PLIC,
 
-785
+792
 01:15:39,440 --> 01:15:44,300
 映射内核文本，映射内核数据，
 maps the kernel text, maps the kernel memory or kernel data,
 
-786
+793
 01:15:44,480 --> 01:15:46,880
 然后是 TRAMPOLINE 页面，我们会在下周讨论它。
 and then the TRAMPOLINE page, that we'll talk about next week.
 
-787
+794
 01:15:47,460 --> 01:15:53,550
 我们可以单步执行这个，看看最后的页面目录是什么样的。
 And so in fact we can single step through this and then see what the final page directory looks like.
 
-788
+795
 01:15:55,610 --> 01:15:58,520
 所以，下一步，下一步，下一步，下一步。
 So, next next next next.
 
-789
+796
 01:15:59,330 --> 01:16:03,650
 我们设置了 trampoline ，所以现在可以打印整个页表目录。
 Basically, you know set the trampoline, so now we're going to print the complete page table directory.
 
-790
+797
 01:16:04,220 --> 01:16:11,420
 我们看到很多 PTE 被设置了，
 And you know we see basically a lot of PTE is actually being set up,
 
-791
+798
 01:16:11,810 --> 01:16:14,690
 我不会讲太多细节，
 and I'm not going to talk about in any detail,
 
-792
+799
 01:16:14,870 --> 01:16:23,260
 基本上就是填充页面目录，创建一个我们在上一张幻灯片看到的虚拟（地址）映射。
 you know basically fills out the page directory to actually create a virtual mapping mapping that we basically saw in the previous slide.
 
-793
+800
 01:16:24,810 --> 01:16:29,070
 下一步我想做的（事情）更有趣。
 I expect, what I wanna do next is actually much more interesting.
 
-794
+801
 01:16:29,690 --> 01:16:30,860
 是的，我要做的是。
 Yeah, I'm gonna.
 
-795
+802
 01:16:32,270 --> 01:16:35,330
 是的，我想到这里，或者我已经到了，
 Yeah, I wanna go here actually, maybe already did this,
 
-796
+803
 01:16:35,360 --> 01:16:39,170
 这是 21 行，不，我在 21 行，好的，单步执行。
 there 21, no, I'm 21, okay so single step that.
 
-797
+804
 01:16:40,550 --> 01:16:47,620
 好的，它已经过去了，但是，让我来重启一下。
 Okay, that's too bad I got past it, but basically, let me, let me restart this.
 
-798
+805
 01:16:51,080 --> 01:17:01,660
 我想在 kvminithart 设置一个断点，然后继续。
 And I wanna breakpoint at kvminithart, and continue.
 
-799
+806
 01:17:03,680 --> 01:17:10,280
 现在我在 kvminithart 了，在这里可以看到，它写入 satp 寄存器，
 Now I'm here at kvminithart and you see here basically that will writing the satp register,
 
-800
+807
 01:17:10,310 --> 01:17:18,560
 所以，内核在启用页表，让 MMU 可以使用我们刚才设置的页表。
 so basically the kernel is going to enable the page table or the MMU, to basically start using the page table that we just set up.
 
-801
+808
 01:17:19,470 --> 01:17:25,470
 一个有趣的问题，好的，我再次切换到分隔模式，
 And one interesting question, okay, so let me go out layout split again,
 
-802
+809
 01:17:26,020 --> 01:17:33,730
 这里的某个地方，是这条指令，
 so, somewhere here correct is going to be, here's the instruction
 
-803
+810
 01:17:33,940 --> 01:17:41,240
 执行这条指令之后，会发生一件非常激动人心的事情。
 and so, once, something really dramatic happens after executing this instruction.
 
-804
+811
 01:17:42,280 --> 01:17:46,360
 比如说，完全相同的指令，
 Let's say yeah you know can say the same instruction exactly,
 
-805
+812
 01:17:46,360 --> 01:17:53,200
 但是一旦执行这条指令，转换下一条地址会发生什么。
 but there's this this once this instruction is executed what will happen with the next address that's being translated.
 
-806
+813
 01:17:58,310 --> 01:18:06,050
 好的，在执行这条指令之前，还没有启动页表，所以也没有转换，
 Well, at the point that we execute this instruction, before executing this instruction, there's no page tables enabled yet, so no translation happens,
 
-807
+814
 01:18:06,410 --> 01:18:12,080
 然后程序计数器加 4 ，然后下一条指令执行，
 with the next and then the program counter is updated by four, and then the next instruction is executed
 
-808
+815
 01:18:12,110 --> 01:18:16,220
 这时，程序计数器就会使用虚拟页表内存来转换。
 and the program counter will be translated using the virtual page page table memory.
 
-809
+816
 01:18:17,140 --> 01:18:21,280
 所以，你可以认为，这是一个激动人心的时刻，
 And so this is a way to think about this, this is a dramatic moment,
 
-810
+817
 01:18:21,610 --> 01:18:25,360
 因为整个地址转换被启用，
 because basically the whole address translation they started to enable
 
-811
+818
 01:18:25,360 --> 01:18:29,870
 每个地址都可能不一样了，
 and every address needs you know maybe potentially something different, right,
 
-812
+819
 01:18:29,870 --> 01:18:34,760
 因为在运行（这条指令）之前，使用物理地址，还没有页表和映射，
 because before we're running, use physical addresses, then the page table haven't install and whatever is in the mapping,
 
-813
+820
 01:18:34,760 --> 01:18:37,340
 现在有了虚拟地址的新含义。
 now there's the new meaning of a virtual address.
 
-814
+821
 01:18:38,680 --> 01:18:42,820
 实际上这个成果是非常显著的，
 And here's how this works out, you know the fact that this actually works out is remarkable,
 
-815
+822
 01:18:42,820 --> 01:18:47,650
 因为下一条指令，下一个值是虚拟地址，而不是物理地址，
 because like the next instruction, the next value is a virtual address and not a physical address,
 
-816
+823
 01:18:48,700 --> 01:18:52,090
 下一条指令将是 0x80001110 。
 next instruction is going to be this, whatever 0x80001110.
 
-817
+824
 01:18:52,760 --> 01:18:54,050
 为什么这个能成功。
 And why does this work out.
 
-818
+825
 01:18:55,960 --> 01:18:59,650
 好的，成功的原因是内核设置的页面恒等映射，
 Well, the reason works out is, because the kernel is set up with identity page mapping,
 
-819
+826
 01:18:59,710 --> 01:19:03,510
 在启用虚拟页面硬件之后，
 so after we enable the virtual paging hardware,
 
-820
+827
 01:19:03,750 --> 01:19:08,100
 这个转换器会转换成相同的物理地址，
 we actually you know this translator will translate again to the same physical address,
 
-821
+828
 01:19:08,250 --> 01:19:12,870
 所以，最终我们会执行正确的指令，
 so indeed we'll actually end up executing the right instruction,
 
-822
+829
 01:19:12,960 --> 01:19:17,520
 因为那条指令通过虚拟硬件[编程]后的内存位置。
 because that's actually exactly the instruction, that the memory location that the virtual hardware is programmed.
 
-823
+830
 01:19:19,120 --> 01:19:20,170
 这个能理解吗？
 So does this make sense?
 
-824
+831
 01:19:22,920 --> 01:19:27,060
 再一次，使用虚拟内存编程困难的一个原因是，
 Again, one reason why programming virtual memory is difficult is,
 
-825
+832
 01:19:27,060 --> 01:19:34,230
 因为一旦你执行 satp 指令，加载页表到 satp 寄存器中，
 because once you execute one of these satp instructions, you know load a page table in the satp register,
 
-826
+833
 01:19:34,260 --> 01:19:36,180
 你的世界就完全改变了。
 your world completely changes.
 
-827
+834
 01:19:36,690 --> 01:19:40,350
 现在每个地址都会使用你设置的页表进行转换。
 And every address is now translated with the page able that you set up.
 
-828
+835
 01:19:41,560 --> 01:19:46,990
 所以，如果页表设置错误，会发生什么。
 And so what happens if the page table set up incorrectly, what would you, what might happen.
 
-829
+836
 01:19:53,660 --> 01:19:57,880
 有人想回答，或在聊天窗口中回答。
 Anybody who wants to say that answer or answered in the chat, either way.
 
-830
+837
 01:20:00,510 --> 01:20:02,250
 你可能覆盖内核数据。
 You could override kernel data.
 
-831
+838
 01:20:02,980 --> 01:20:05,020
 是的，你可能覆盖内核数据，还会发生什么呢，
 Yeah, you could overwrite kernel data, what else could happen,
 
-832
+839
 01:20:05,020 --> 01:20:12,010
 是的，页面错误，映射可能错误，地址不能转换，
 yeah, page fault, basically the mapping may be incorrect and basically the address can't be translated at all,
 
-833
+840
 01:20:12,010 --> 01:20:16,480
 所以，内核，硬件不会这样做，造成内核停止或死机。
 and so the kernel can, you know the hardware won't do it and usally the kernel just stops and panics.
 
-834
+841
 01:20:18,770 --> 01:20:19,610
 这个能理解吗？
 Does that make sense?
 
-835
+842
 01:20:21,000 --> 01:20:27,830
 如果你在页表中有 bug ，你会看到这些错误或崩溃。
 If you get a bug in your page tables, you know you're going to see these are errors or crashes.
 
-836
+843
 01:20:28,720 --> 01:20:29,920
 所以，一个原因，
 And so, one reason that,
 
-837
+844
 01:20:29,920 --> 01:20:35,980
 下一个实验，今晚放出的页表实验比较难，
 for example the next lab, the page table lab that will hand out or release tonight is gonna be hard,
 
-838
+845
 01:20:35,980 --> 01:20:37,630
 因为这些 bug 会出现。
 because those kind of bugs will show up,
 
-839
+846
 01:20:38,200 --> 01:20:42,130
 如果你不够细心，或者你没有完全理解某些方面，
 if you're not carefully enough or you haven't fully internalized some aspect yet
 
-840
+847
 01:20:42,520 --> 01:20:46,690
 你可能会遇到内核崩溃，陷入困境之中，
 and you're basically going to get a kernel crash and you're gonna have a hard time
 
-841
+848
 01:20:46,690 --> 01:20:52,000
 需要花一些时间和精力来调试追踪发生（这种情况）的原因。
 when you will take a little bit of time and energy on detective work to basically track down why that happened.
 
-842
+849
 01:20:53,370 --> 01:20:57,640
 这就是虚拟内存编程的难点。
 And that's just the, that's just hard of like programming virtual memory,
 
-843
+850
 01:20:58,320 --> 01:21:04,680
 因为它是强大的，[原始的]，如果你错了，会产生严重的后果。
 because it's such a powerful [primitive], you know you get wrong, you're going to have powerful consequences.
 
-844
+851
 01:21:08,090 --> 01:21:13,160
 不过，另一方面，它是非常有趣的，我不想以负面结束，
 Yet, the other hand is great amount of fun, so I don't want to end on a negative [note],
 
-845
+852
 01:21:13,310 --> 01:21:18,590
 但是，所有这些都让你真正理解虚拟内存，以及它能做什么。
 but all that will give you sort of real understanding of actually what really virtual memory is and what it can do.
 
-846
+853
 01:21:20,180 --> 01:21:22,760
 好的，我想我已经超时了，所以，我准备在这里结束，
 Okay, I think I'm running out of time, so I'm gonna stop here,
 
-847
+854
 01:21:22,820 --> 01:21:25,820
 让大家可以去下一节课或下一个活动，
 so people have time to go to the next class or next activity,
 
-848
+855
 01:21:26,060 --> 01:21:30,470
 但是如果你还有任何问题，请稍等，并提问。
 but if you have any questions left you know please hang on and ask them.
 
-849
+856
 01:21:31,440 --> 01:21:38,130
 周一见，祝你们顺利完成 syscall 实验。
 And, we'll see you on Monday, and good luck with finishing the syscall lab.
 
-850
+857
 01:21:40,920 --> 01:21:43,860
 我有一个关于 walk 的问题，
 Um, hi I have a question about walk,
 
-851
+858
 01:21:44,190 --> 01:21:53,720
 在代码中，返回 PTE 的第一张表，
 so it says and in the code, it returns the, like the first tables of PTE, right,
 
-852
+859
 01:21:53,960 --> 01:22:03,460
 但是，它是如何工作的，比如其他函数希望真正的 PTE 而不是物理地址。
 but how does it work, then like the other functions when they expect the actual PTE than like the physical address.
 
-853
+860
 01:22:05,680 --> 01:22:11,620
 是的，这个返回页表的 PTE 条目。
 Yeah, basically this returns the PTE entry in the page table, right.
 
-854
+861
 01:22:12,140 --> 01:22:19,000
 内核可以读写页表条目，你现在可以把值放入 PTE 中。
 And the kernel could read or write page table entries, and so now you can stick values into the PTE.
 
-855
+862
 01:22:21,180 --> 01:22:25,680
 我可以画一张图，来帮助理解。
 And so maybe I can draw a picture, that is helpful.
 
-856
+863
 01:22:26,330 --> 01:22:26,900
 让我们来看一下。
 Let's see.
 
-857
+864
 01:22:35,770 --> 01:22:37,690
 所以，我们有一个页面目录，
 So, basically we have a page directory,
 
-858
+865
 01:22:45,000 --> 01:22:48,130
 这个 walk 代码，
 and you know this walk code,
 
-859
+866
 01:22:48,130 --> 01:22:58,910
 页面目录有 512 个 PTE ，这是 0 ，这是 511 ，
 so the page directory has 512 PTEs in it, here's 0, here's 511,
 
-860
+867
 01:22:59,570 --> 01:23:05,120
 这个函数的作用是，返回一个指针指向这些 PTE 中的一个，
 and basically what the function does, it returns the pointer to one of these PTEs,
 
-861
+868
 01:23:06,040 --> 01:23:09,520
 这只是一个虚拟地址，指向那个特定的 PTE 。
 and so that's just a virtual address, and it points to that particular PTE.
 
-862
+869
 01:23:10,210 --> 01:23:15,490
 现在内核可以通过写入值来操纵这个 PTE ，
 And now the kernel can you know manipulate that PTE by whatever writing values to it,
 
-863
+870
 01:23:16,020 --> 01:23:22,130
 比如（写入）一些物理地址，包括后面的十位权限位。
 like some physical address, maybe with some permissions or into it for the bottom ten bits.
 
-864
+871
 01:23:23,730 --> 01:23:29,340
 然后更新页表目录，然后当你把它加载到 satp 中，
 And then basically updates the page table directory and later on when you load that into satp,
 
-865
+872
 01:23:29,880 --> 01:23:32,490
 这一修改会生效。
 now that affect that change will go into affect.
 
-866
+873
 01:23:35,350 --> 01:23:36,250
 这个能理解吗？
 Does that make sense?
 
-867
+874
 01:23:37,180 --> 01:23:38,110
 是的，能理解。
 Yeah, that makes sense.
 
-868
+875
 01:23:38,110 --> 01:23:47,620
 我想我的问题是为什么它遍历了三个页表，然后只返回第一个 PTE 。
 I guess I just confused like why does it do the work of going all the way to the third page table and then only return the first PTE.
 
-869
+876
 01:23:47,890 --> 01:23:53,430
 不，返回的是最后一个，让我来仔细一点，
 No, return actually is the bottom one, actually, let me be careful,
 
-870
+877
 01:23:55,350 --> 01:24:00,930
 它通过 n 级，从 2 级开始，然后 1 级，再到 0 级，
 if you know it goes through the n levels, started level two and then go to level one, again to level zero,
 
-871
+878
 01:24:01,730 --> 01:24:09,740
 如果设置了 alloc 位，并且那一级不存在，它会创建一个中间页表目录，
 if the alloc bit set, and level doesn't exist, it will create the intermediate page table directory,
 
-872
+879
 01:24:10,580 --> 01:24:13,040
 把它置零，然后继续查找。
 and zero it out and then keep going to look.
 
-873
+880
 01:24:13,770 --> 01:24:17,580
 所以，你总是找到底部 PTE ，
 So, you always end up on the bottom PTE,
 
-874
+881
 01:24:18,580 --> 01:24:23,440
 如果 alloc 没有设置，你在第一个 PTE 停止，它没有值。
 if alloc is not set, you stop at the first PTE, that doesn't have value.
 
-875
+882
 01:24:25,560 --> 01:24:30,270
 好的，有道理，这是最后一个，实际上，好的。
 Okay, that makes sense, this is the last one, the actual on, gonna have, okay.
 
-876
+883
 01:24:31,410 --> 01:24:32,610
 好的，谢谢。
 Okay, thank you.
 
-877
+884
 01:24:36,820 --> 01:24:37,840
 还有别的问题吗？
 Any other questions?
 
-878
+885
 01:24:40,820 --> 01:24:45,110
 我有一个问题，所有东西都能理解，
 So I have a question, basically everything made sense
 
-879
+886
 01:24:45,140 --> 01:24:50,420
 直到我们将内核虚拟地址映射到物理地址。
 until we mapped the virtual addresses to of the kernel to the physical addresses.
 
-880
+887
 01:24:53,800 --> 01:24:57,880
 我的理解是，每个进程有它自己的页表，
 So my understanding is that each process will have its own page table,
 
-881
+888
 01:24:57,880 --> 01:25:03,520
 也是一个三级树，映射它的虚拟地址到物理地址，
 which is also a three level tree, which maps its virtual addresses to physical addresses,
 
-882
+889
 01:25:03,730 --> 01:25:08,050
 但是，当我们把内核虚拟地址映射到物理地址，
 but when we map the kernel virtual addresses to physical addresses,
 
-883
+890
 01:25:08,140 --> 01:25:14,140
 我想我们没有考虑到内核虚拟地址[实际的树]，
 I don't think we accounted for the [actual tree] of them virtual addresses of the kernel
 
-884
+891
 01:25:14,170 --> 01:25:19,150
 其他进程的虚拟地址在哪里，
 or where other processes will have their virtual addresses
 
-885
+892
 01:25:19,390 --> 01:25:29,950
 抱歉，是页表树，页表树在物理内存中指向哪里。
 and, I'm sorry, virtual addresses like the page table trees and whatever the page table tree points at in the physical memory.
 
-886
+893
 01:25:30,430 --> 01:25:38,140
 是的，所以，回到这张关于内核虚拟地址空间的幻灯片，
 Yeah, so yeah so so you're back this slide with the kernel address space, virtual kernel address space
 
-887
+894
 01:25:38,470 --> 01:25:44,720
 当内核分配一个 proc 和为它准备的页表，
 and so when the kernel allocates a proc, and page tables for that particular process,
 
-888
+895
 01:25:44,720 --> 01:25:49,760
 它们会分配在内存的这里，没有使用的内存。
 they're going to be allocated at of memory here, memory is not being used yet.
 
-889
+896
 01:25:50,870 --> 01:26:00,170
 内核可能会为用户程序页表分配一些页面，并填充 PTE 。
 And the kernel is going to program, will probably allocate a couple pages for the page table of the user process and will fill in the PTEs.
 
-890
+897
 01:26:01,460 --> 01:26:04,640
 到了内核运行进程的时候，
 And at some point when the kernel runs that process,
 
-891
+898
 01:26:04,880 --> 01:26:15,640
 它会加载分配给页表的这些页面的根物理地址到 satp 寄存器。
 it will load the root physical address for those pages that is allocated for that page table or basically page table that built, into the satp register.
 
-892
+899
 01:26:16,660 --> 01:26:24,520
 那时，处理器使用内核构建给这个进程的虚拟地址空间运行。
 And at that point the processor will run with the virtual address space that the kernel constructed for that particular process.
 
-893
+900
 01:26:27,140 --> 01:26:32,270
 所以，内核给了进程一些内存，
 So the kernel give up some of its memory for processes,
 
-894
+901
 01:26:32,270 --> 01:26:41,770
 但是，理论上进程的虚拟空间和内核的一样大，但是实际上不是。
 and then but then the virtual space in theory is as big for the process as the kernel, but in reality it is surely not.
 
-895
+902
 01:26:42,450 --> 01:26:47,520
 是的，这里有一张图片，是用户进程的虚拟地址空间布局，
 Yeah, here's a picture with the layout of virtual address space of a user level process
 
-896
+903
 01:26:47,580 --> 01:26:55,350
 它也从 0 到 MAXVA ，和内核空间一样的做法，
 and again it goes from zero to MAXVA, in the same way as the kernel address space does
 
-897
+904
 01:26:55,770 --> 01:27:01,540
 它有自己的页表，映射那些内核设置的转换。
 and it's basically has his own set of page tables to map those translation that the kernel set up.
 
-898
+905
 01:27:03,190 --> 01:27:06,670
 但是，我们不能使用所有 MAXVA 虚拟地址。
 But we can't actually use all of the MAXVA virtual address.
 
-899
+906
 01:27:06,670 --> 01:27:08,950
 是的，我们不能，我们会内存溢出。
 No we cannot, we run out of memory.
 
-900
+907
 01:27:11,620 --> 01:27:16,660
 所以，很多进程都比所有虚拟地址空间小得多。
 So many of the processes are much much smaller, correct, than all of the virtual address space.
 
-901
+908
 01:27:19,940 --> 01:27:20,690
 我明白了，谢谢。
 I see, thank you.
 
-902
+909
 01:27:23,260 --> 01:27:25,000
 我有一个问题。是的。
 I've got a quick question. Yeah.
 
-903
+910
 01:27:26,020 --> 01:27:28,120
 你能回到 walk 代码吗？
 Could you go back to the walk code?
 
-904
+911
 01:27:28,450 --> 01:27:33,540
 是的，当然，它是我最喜欢的函数之一。
 Yeah yeah absolutely, it's one of my favorite functions.
 
-905
+912
 01:27:35,280 --> 01:27:42,570
 我想，我不理解的是，在你写 satp 寄存器之后，
 Um, so I guess one thing I'm confused about is after you write to the satp register,
 
-906
+913
 01:27:42,960 --> 01:27:46,770
 内核能直接访问物理地址吗，
 can the kernel even access physical addresses directly,
 
-907
+914
 01:27:46,770 --> 01:27:51,240
 从代码中看起来，它转换页面到一个物理地址，
 so it looks like in the code that it's converting you know like page was being sent to a physical address,
 
-908
+915
 01:27:51,240 --> 01:27:56,990
 但是，如果设置了 satp ，它不会解释为虚拟地址吗。
 but if satp is set, won't that be interpreted as a virtual address.
 
-909
+916
 01:27:57,870 --> 01:28:04,830
 是的，好的，让我们来看一下 hartinint ，
 Yeah, so, okay, so let's look at hartinit,
 
-910
+917
 01:28:09,740 --> 01:28:14,500
 kvminit ，构建内核地址空间，
 so, kvminit, so built the kernel address space,
 
-911
+918
 01:28:16,340 --> 01:28:29,060
 内核页表初始化物理-，地址转换为物理地址，并写入 satp 寄存器，
 the kernel page table initially a physical, address is translated to a physical address and that's actually written into the satp register.
 
-912
+919
 01:28:30,380 --> 01:28:38,090
 这时，我们使用我们构建的地址空间运行，比如 kvminit 。
 And at that point you know we're running with the address space that we've constructed, like before here this kvminit.
 
-913
+920
 01:28:39,920 --> 01:28:49,270
 kvmmap 只是对每个地址或每个页面调用 walk 。
 And kvmmap is basically nothing else than calling walk for every address or every page and [at the range].
 
-914
+921
 01:28:50,340 --> 01:28:52,260
 所以，你的问题是什么？
 And so what was your question?
 
-915
+922
 01:28:53,660 --> 01:29:00,260
 我想，在设置 satp 之后，它仍然使用相同方式运行。
 Um I guess, it's does walks still work the same way if you call it after satp is set.
 
-916
+923
 01:29:00,590 --> 01:29:01,850
 是的，为什么。
 Yeah, why.
 
-917
+924
 01:29:04,590 --> 01:29:09,450
 为什么能够成功，能成功的原因是内核（页表）设置是恒等映射。
 Why we work out, the reason it work out, is because the kernel set up an identity mapping.
 
-918
+925
 01:29:11,380 --> 01:29:14,820
 好的，是的，是的。
 Um, okay, right, right.
 
-919
+926
 01:29:15,120 --> 01:29:22,320
 很重要，很好的问题，很多事情可以成功，因为这是设置的恒等映射。
 Very important, very good question, a lot of things just happened to work out, because actually the identity mapping is set up.
 
-920
+927
 01:29:24,650 --> 01:29:28,330
 我明白了，好的，我想我理解了，是的。
 I see, okay I think that makes sense, yeah.
 
-921
+928
 01:29:31,360 --> 01:29:37,840
 我有一个问题， satp 在哪里存放所有进程的（页表地址）。
 I have a quick question, where the satp registers stored for all of the processes.
 
-922
+929
 01:29:38,460 --> 01:29:44,040
 每个核心只有一个 satp ，但是在每个 proc 结构体中。
 There only one satp per core, but in every proc structure.
 
-923
+930
 01:29:44,780 --> 01:29:45,440
 好的。
 Okay.
 
-924
+931
 01:29:46,330 --> 01:29:56,100
 如果你查看 proc.h ，这里有一个指向页表的指针。
 If you look at proc.h, there is a pointer to the page table, you're.
 
-925
+932
 01:29:56,160 --> 01:29:57,480
 好的，理解了。
 Okay, makes sense.
 
-926
+933
 01:29:58,440 --> 01:30:03,420
 也是关于三级页表，
 And also, with regards to the three page tables,
 
-927
+934
 01:30:03,420 --> 01:30:10,620
 三级页表可以组成完整的地址，
 are like the three tables that can complete the full address and help you get a full address for [] something,
 
-928
+935
 01:30:11,040 --> 01:30:17,880
 它比使用一个大页表好的地方是什么，我没有完全理解。
 how does how is that better, I guess than than having one giant page table, I didn't really fully understand.
 
-929
+936
 01:30:17,880 --> 01:30:19,950
 好的，一个好问题，
 Good, a good question,
 
-930
+937
 01:30:20,040 --> 01:30:24,210
 因为在三级页表中，你可以把很多条目留空，
 the reason is because in the three level page table, you can leave a lot of entries empty,
 
-931
+938
 01:30:25,060 --> 01:30:30,370
 比如，如果你把顶级页表目录中的条目留空，
 so, for example if you leave the entry in the top level page table directory empty,
 
-932
+939
 01:30:30,520 --> 01:30:36,070
 你就不需要为这些条目创建中级页表或底部页表。
 you don't have to create middle level page tables or bottom level page tables at all, for those entries.
 
-933
+940
 01:30:37,070 --> 01:30:43,220
 这意味着整个虚拟地址空间的[]根本不需要任何映射。
 And so like this means like a big [] of the whole virtual address space doesn't have to have any mapping at all.
 
-934
+941
 01:30:44,860 --> 01:30:45,700
 好的，好的。
 Okay, okay.
 
-935
+942
 01:30:45,700 --> 01:30:48,010
 你不需要表，它不存在。
 You don't have the table there, it just doesn't exist.
 
-936
+943
 01:30:48,840 --> 01:30:55,140
 我明白了，按需分配这些块，[]，好的，理解了。
 I see, basically allocating these chunks on demand, [], Okay that makes sense.
 
-937
-01:30:55,170 --> 01:31:02,550
-是的，你从三个页面开始，一个顶级，一个中级，一个底部，
-Yeah, you're starting basically with three page, three pages namely, one for the top level, one for one intermediate, one, one bottom level
+944
+01:30:55,170 --> 01:30:58,110
+是的，你从三个页面开始，
+Yeah, you're starting basically with three page, three pages,
 
-938
+945
+01:30:58,110 --> 01:31:02,550
+一个顶级，一个中级，一个底部，
+namely, one for the top level, one for one intermediate, one, one bottom level
+
+946
 01:31:03,180 --> 01:31:06,360
 然后根据需要，可以创建更多的页表目录。
 and then as you go you create more page table directories.
 
-939
+947
 01:31:06,740 --> 01:31:08,000
 好的，好的，酷。
 Okay, okay, cool.
 
-940
+948
 01:31:09,140 --> 01:31:10,970
 太好了，非常感谢。不用谢。
 Cool, thank you so much. You're welcome.
 
-941
+949
 01:31:12,930 --> 01:31:14,010
 还有别的问题吗？
 Any more questions?
 
-942
+950
 01:31:14,690 --> 01:31:17,900
 抱歉，我有另一个问题，一个很小的问题，
 Um, sorry I have another one, it's really really small,
 
-943
+951
 01:31:17,900 --> 01:31:26,150
 但是在 vm.c 的第 43 行，第 41 行，
 but in the vm.c on line 43 41
 
-944
+952
 01:31:27,140 --> 01:31:30,650
 它说，不，应该是 43 行，我的错，
 it says that, no, it might 43, my bad,
 
-945
+953
 01:31:30,680 --> 01:31:36,530
 它说 PHYSTOP-(uint64)etext ，
 it says PHYSTOP minus uint64 etext,
 
-946
+954
 01:31:36,590 --> 01:31:45,570
 但是它不会访问我们不应该访问的内存吗，
 but wouldn't that, would that go over the, I guess the memory that we shouldn't touch,
 
-947
+955
 01:31:45,600 --> 01:31:50,040
 我不知道有没有道理，但是会这样吗，
 I don't know if that makes sense, but wouldn't that go,
 
-948
+956
 01:31:51,220 --> 01:31:54,730
 我想我不理解它会不会访问到空闲内存。
 I guess I don't understand would they go over free memory.
 
-949
+957
 01:31:55,790 --> 01:32:08,400
 不，我不这么认为， KERNBASE 0x8000 ，是内核在内存的起始位置，
 No, I don't think so, so KERNBAE 0x8000 right, so that's the beginning of memory in kernel sits there
 
-950
+958
 01:32:08,430 --> 01:32:15,320
 基本上，这个东西是一个大小，
 and basically this thing is a size, right,
 
-951
+959
 01:32:15,320 --> 01:32:25,830
 etext 是内核的最后一个地址，减去 KERNBASE ，得到内核的大小，
 so etext is the last address of the kernel, subtract KERNBASE that this will give you the size of the kernel in in byte.
 
-952
+960
 01:32:26,520 --> 01:32:33,060
 我不知道是多少，但是可能是 60 或 90 个页。
 And you know, I don't know how much it is, but yeah yeah it's like you know sixty or ninety pages or something like that.
 
-953
+961
 01:32:34,300 --> 01:32:37,570
 所以这个映射是内核文本。
 And so this map is basically the text part of the kernel.
 
-954
+962
 01:32:38,350 --> 01:32:48,310
 这里有足够的空间，有足够的 DRAM 来映射内核文本。
 And there's enough space, there's enough DRAM there to map that, the kernel text.
 
-955
+963
 01:32:48,860 --> 01:32:50,540
 我不确定我回答了你的问题，但是。
 I'm not sure I'm answering your question, but.
 
-956
+964
 01:32:51,140 --> 01:32:57,380
 我想，我理解了，我以为 etext 是从某个地方开始的，
 Oh, I think, I think I understand, I thought that etext starts somewhere else,
 
-957
+965
 01:32:57,380 --> 01:32:59,150
 好的，我想我理解了，谢谢。
 okay I think I understand now, thank you.
 
-958
+966
 01:32:59,150 --> 01:33:02,870
 好的， etext 是内核最后一条指令的地址。
 Okay so etext, basically the last instruction, the address of the last instruction of the kernel.
 
-959
+967
 01:33:03,670 --> 01:33:04,690
 好的，好的。
 Okay, okay.
