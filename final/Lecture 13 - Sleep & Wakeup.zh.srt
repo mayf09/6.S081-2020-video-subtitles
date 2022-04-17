@@ -1,7165 +1,5732 @@
 1
 00:00:05,470 --> 00:00:08,080
 好的，我要开始了，
-Alright, I'd like to get started,
 
 2
 00:00:08,140 --> 00:00:09,640
 有人能听到我说话吗？
-can anyone hear me?
 
 3
 00:00:10,750 --> 00:00:11,290
 是的，声音很大，而且清楚。
-Yep loud and clear.
 
 4
 00:00:12,270 --> 00:00:14,550
 好的，那么今天我的计划是，
-Alright, so today my plan is
 
 5
 00:00:14,550 --> 00:00:16,320
 首先，我想花几分钟
-for first I want to spend a few minutes
 
 6
 00:00:16,320 --> 00:00:21,600
 重新强调上周课程中关于线程切换的一些观点，
-re-emphasizing some points from the lecture last week on thread switching,
 
 7
 00:00:21,600 --> 00:00:23,760
 因为它们是重要的观点，
-because they turned out to be important points,
 
 8
 00:00:23,760 --> 00:00:28,500
 我会用这节课的大部分时间讨论一个称为协作的东西，
-and I would spend most of the lecture talking about something called coordination
 
 9
 00:00:29,130 --> 00:00:32,850
 它是 xv6 休眠唤醒机制的大的术语，
-which is the larger term for xv6 sleeping wakeup mechanism
 
 10
 00:00:33,000 --> 00:00:36,030
 我要特别谈一下唤醒丢失的问题。
-and particularly I'm going to talk about the lost wakeup problem.
 
 11
 00:00:36,900 --> 00:00:42,810
 好的，有一点我想再提一下，
-Alright, so, one, one point I want to just mention again is that,
 
 12
 00:00:46,620 --> 00:00:51,570
 是 xv6 当有东西调用 swtch ，
-is the fact that xv6 whenever anything calls switch
 
 13
 00:00:51,570 --> 00:00:54,570
 要从一个线程切换到另一个线程，
-to switch from one thread to another,
 
 14
 00:00:54,720 --> 00:00:57,420
 通常从内核线程到调度器线程，
-usually from a kernel thread to the scheduler thread,
 
 15
 00:00:57,630 --> 00:01:05,070
 它总是在预先获取这个进程的锁。
-it's always preceded by an acquire of this process's lock.
 
 16
 00:01:06,050 --> 00:01:09,410
 所以进程获取这个锁调用 swtch ，
-So process requires this lock call swtch,
 
 17
 00:01:09,710 --> 00:01:11,780
 它总是切换到调度器，
-which always switches into the scheduler
 
 18
 00:01:11,780 --> 00:01:13,700
 而调度器释放那个锁。
-and it's the scheduler that releases the lock.
 
 19
 00:01:14,730 --> 00:01:19,620
 事实上，顺序是这样的，
-In fact almost always the sequence looks more like this
 
 20
 00:01:19,680 --> 00:01:22,680
 或者一个进程因为某种原因想要休眠，
-or a process who wants to go to sleep for some reason,
 
 21
 00:01:22,680 --> 00:01:24,660
 它让出 CPU 等待某些东西，
-it's yielding the CPU for waiting for something
 
 22
 00:01:24,840 --> 00:01:26,670
 它会获取自己的锁，
-and it acquires a lock on itself,
 
 23
 00:01:26,700 --> 00:01:28,530
 设置自己的状态，
-it sets its state,
 
 24
 00:01:30,660 --> 00:01:32,250
 这里有很多状态，
-and there's a number of different states,
 
 25
 00:01:32,250 --> 00:01:34,230
 我们上周看到的，
-what we see we saw last week was,
 
 26
 00:01:34,260 --> 00:01:39,360
 将状态从运行中设置为可运行，
-set state to runnable instead of running,
 
 27
 00:01:39,660 --> 00:01:41,490
 然后调用 swtch ，
-and then call swtch
 
 28
 00:01:41,850 --> 00:01:44,820
 或者调用 sched 来调用 swtch 。
-or sched which itself calls swtch.
 
 29
 00:01:45,910 --> 00:01:53,320
 这个 swtch 是将线程切换到调度器线程，
-And that you know this switch basically switches threads over into the scheduler thread,
 
 30
 00:01:53,900 --> 00:01:56,750
 与之前调用 swtch 一样，
-which so as previous call to swtch,
 
 31
 00:01:56,750 --> 00:01:59,390
 这个调度器线程返回。
-this scheduler thread returns.
 
 32
 00:02:00,390 --> 00:02:10,960
 然后调度器线程释放这个进程的锁，
-And then this was scheduler thread calls release on the lock of the process,
 
 33
 00:02:10,960 --> 00:02:12,910
 让出CPU 。
-that's just yielded the CPU.
 
 34
 00:02:16,370 --> 00:02:20,510
 这样做的原因，只是重复一下，是因为，
-The reason for this, just to repeat, is that,
 
 35
 00:02:22,130 --> 00:02:25,010
 获取进程上的锁
-the acquisition of this lock on the process
 
 36
 00:02:25,010 --> 00:02:27,890
 会阻止不同核心的调度器，
-prevents the scheduler on a different core
 
 37
 00:02:27,980 --> 00:02:33,080
 在这个时间点上查看，
-from from looking right at this point in time,
 
 38
 00:02:33,080 --> 00:02:37,880
 然后说，这个线程是可运行的，并试图运行它，
-and saying that, oh this thread is runnable and trying to run it,
 
 39
 00:02:38,120 --> 00:02:40,880
 因为每个其他核心也许运行一个调度器循环，
-because every other core maybe running a scheduler loop,
 
 40
 00:02:41,330 --> 00:02:45,150
 它不断地在进程表上循环，
-which is continually looping over the process table,
 
 41
 00:02:45,180 --> 00:02:46,650
 寻找可运行的线程，
-looking for runnable threads,
 
 42
 00:02:46,740 --> 00:02:49,740
 所以它们中的任何一个都可能看到这个线程是可运行的，
-so any one of them may see that this thread is runnable,
 
 43
 00:02:50,010 --> 00:02:52,260
 如果我们没有获取进程锁，
-if we hadn't acquired the process lock,
 
 44
 00:02:52,530 --> 00:02:54,450
 所以我们获得进程锁意味着，
-so the fact that we acquired the process lock means
 
 45
 00:02:54,450 --> 00:02:57,930
 其他调度器，在查看进程状态之前，
-that the other schedulers, before they even look at a process of state,
 
 46
 00:02:58,080 --> 00:02:59,520
 必须取得它的锁。
-must acquire its lock.
 
 47
 00:02:59,520 --> 00:03:01,290
 所以我们知道这次获得之后，
-So we know after this acquisition,
 
 48
 00:03:01,350 --> 00:03:03,120
 没有其他线程会查看该锁。
-no other threads going to look at the lock.
 
 49
 00:03:03,240 --> 00:03:05,460
 我们不能在这里放弃锁，
-We can't give up the lock here though,
 
 50
 00:03:05,460 --> 00:03:08,010
 我们不能在调用 swtch 之前放弃锁，
-we can't give up the lock before calling swtch,
 
 51
 00:03:08,010 --> 00:03:09,870
 也就是说，这个线程获取锁，
-that is this thread acquires the lock,
 
 52
 00:03:09,870 --> 00:03:10,920
 但它不能放弃它，
-but it can't give it up,
 
 53
 00:03:11,130 --> 00:03:12,300
 因为如果我们这么做了，
-because if we did,
 
 54
 00:03:12,300 --> 00:03:14,250
 那么在我们放弃之后，
-then right after we gave it up,
 
 55
 00:03:14,340 --> 00:03:18,750
 某个其他核心的调度器可能会开始运行这个进程，
-some other core scheduler would probably start running this process,
 
 56
 00:03:18,780 --> 00:03:22,530
 即使那个线程当前正在这个核心上运行。
-even though the thread is currently running on this core.
 
 57
 00:03:22,960 --> 00:03:26,860
 让两个核心运行相同的线程，使用相同的堆栈，
-And having two cores run the same thread, using the same stack,
 
 58
 00:03:26,860 --> 00:03:30,680
 会造成瞬间的崩溃。
-is would cause a pretty instant crash.
 
 59
 00:03:31,980 --> 00:03:34,860
 所以，进程获取锁，
-And therefore the process acquires lock
 
 60
 00:03:34,890 --> 00:03:36,450
 在调用 swtch 时释放它，
-and does release it at called swtch
 
 61
 00:03:36,450 --> 00:03:40,890
 不同的线程，即调度器线程释放锁，
-and different thread, namely the scheduler thread actually releases the lock,
 
 62
 00:03:40,920 --> 00:03:45,030
 在这个线程完全停止使用其自己的堆栈之后，
-at a point after this thread has completely stopped using its own stack,
 
 63
 00:03:45,060 --> 00:03:51,310
 这时另一个内核的调度器运行这个线程是可以的，
-so at this point, it's okay for another core scheduler running this thread,
 
 64
 00:03:51,310 --> 00:03:53,770
 因为线程现在不再运行，
-because the thread is now no longer running
 
 65
 00:03:54,070 --> 00:03:56,950
 并且已经放弃了处理器。
-and has given up given up the processor.
 
 66
 00:03:58,920 --> 00:04:00,720
 好的，这是很重要的一点，
-Okay, so that's an important point
 
 67
 00:04:01,050 --> 00:04:02,820
 它几分钟后会出来，
-and it'll come up in a few minutes,
 
 68
 00:04:02,820 --> 00:04:04,200
 这是诸多限制之一，
-it's one of the many constraints
 
 69
 00:04:04,200 --> 00:04:07,650
 在 sleep wakeup 协同机制的设计上。
-on the design of the sleep wakeup coordination scheme.
 
 70
 00:04:09,040 --> 00:04:14,720
 关于 swtch 持有 p->lock ，有什么问题吗？
-Any questions about this holding of the p->lock across switch?
 
 71
 00:04:19,200 --> 00:04:20,310
 是的，如果。
-Yeah, if.
 
 72
 00:04:20,920 --> 00:04:21,490
 是的。
-Yes.
 
 73
 00:04:21,580 --> 00:04:23,710
 当我们有多个核心时，
-When we have multiple cores,
 
 74
 00:04:23,770 --> 00:04:27,820
 它们能看到相同的锁的唯一原因是，
-the only reason they're able to have the same view of the lock is,
 
 75
 00:04:27,820 --> 00:04:31,600
 因为只有一个共享的物理内存系统，是吗？
-because there's a single shared physical memory system right?
 
 76
 00:04:31,840 --> 00:04:32,800
 这是正确的。
-That is correct.
 
 77
 00:04:33,610 --> 00:04:36,250
 那么，有没有这样的实现，
-So, is there like implementations
 
 78
 00:04:36,250 --> 00:04:38,380
 其中有奇怪的文件系统，
-where there's weird file systems,
 
 79
 00:04:38,380 --> 00:04:40,510
 可以保证这一逆境，
-that can guarantee this [adversity]
 
 80
 00:04:40,510 --> 00:04:41,320
 这样我们就可以使用锁。
-so we can [lock].
 
 81
 00:04:43,510 --> 00:04:49,130
 如果你买两台计算机，那么它们不会共享内存，对吧，
-If you buy two computers, then they don't share memory, right,
 
 82
 00:04:49,190 --> 00:04:51,980
 所以，一种方式是如果你购买两台计算机，
-so that's one way to do if you buy two separate computers,
 
 83
 00:04:51,980 --> 00:04:53,390
 这样它们就不会共享内存，
-then they won't share memory
 
 84
 00:04:53,390 --> 00:04:55,580
 我们就不会有任何这些问题了。
-and we won't have any of these problems.
 
 85
 00:04:57,020 --> 00:05:00,610
 只是从处理器芯片的角度来看，
-It's just that the way processor chips look,
 
 86
 00:05:00,610 --> 00:05:04,780
 如今，单个处理器芯片上总是有多个核心，
-these days, there's always multiple cores on a single processor chip
 
 87
 00:05:04,780 --> 00:05:10,720
 所以，硬件被构建为让多个核心共享相同的内存系统。
-and so the hardware just is built to have multiple cores sharing the same memory system.
 
 88
 00:05:12,340 --> 00:05:13,960
 我明白了，谢谢。
-Oh I see, thanks.
 
 89
 00:05:17,750 --> 00:05:20,940
 好的，这是一点。
-Okay, so that's one point.
 
 90
 00:05:22,540 --> 00:05:23,440
 还有一点，
-Another point,
 
 91
 00:05:23,470 --> 00:05:25,480
 我还没有提到，
-I don't think I've mentioned yet,
 
 92
 00:05:25,480 --> 00:05:28,780
 与一个事实有关，
-has to do with the fact that
 
 93
 00:05:29,080 --> 00:05:36,490
 在 xv6 中，进程在调用 swtch 时不允许持有任何其他锁。
-in xv6, a process is not allowed to hold any other lock when it calls swtch.
 
 94
 00:05:36,950 --> 00:05:41,180
 进程调用 swtch 时需要持有 p->lock ，
-A process is required to hold p->lock when it called swtch,
 
 95
 00:05:41,720 --> 00:05:45,320
 但当它调用 swtch 时，禁止持有任何其他锁，
-but it is forbidden to hold any other lock when it calls swtch,
 
 96
 00:05:45,350 --> 00:05:47,090
 所以这是另一个重要的限制，
-so this is another important constraint
 
 97
 00:05:47,090 --> 00:05:49,100
 关于很多东西的设计，
-on the design of many things,
 
 98
 00:05:49,100 --> 00:05:51,700
 包括休眠是如何工作的。
-including how sleep is going to work.
 
 99
 00:05:51,730 --> 00:05:54,280
 让我来描述一下这件事的理由，
-So now let me lay out the reasoning for this,
 
 100
 00:05:54,280 --> 00:06:04,220
 这是当你调用 swtch 时，没有其他的锁。
-so it's no other locks, when you call swtch.
 
 101
 00:06:07,980 --> 00:06:12,120
 这个方案说明了为什么这条规则必须强制执行，
-A scenario, sort of illustrating why this is this rule has to be enforced,
 
 102
 00:06:12,120 --> 00:06:13,440
 这是一条规则，
-and this is a rule that,
 
 103
 00:06:14,020 --> 00:06:17,340
 如果你扩展，
-you know, if you're, extending,
 
 104
 00:06:17,340 --> 00:06:19,800
 你是开发 xv6 内核的程序员，
-you know you're a programmer developing the xv6 kernel
 
 105
 00:06:19,800 --> 00:06:22,950
 必须遵守这条规则以及其他一些规则。
-have to follow this rule along with many other rules.
 
 106
 00:06:24,340 --> 00:06:26,050
 那么这条规则的正确性，
-So the justification for this rule
 
 107
 00:06:26,080 --> 00:06:30,460
 假设我们有进程一，有进程一的内核线程，
-supposing we have process one or the kernel thread for process one
 
 108
 00:06:30,610 --> 00:06:32,830
 它会获取一些锁，
-and it acquires some lock,
 
 109
 00:06:33,560 --> 00:06:35,750
 这并不稀奇，只是一些锁，
-you know not impressive, but just some lock,
 
 110
 00:06:35,750 --> 00:06:39,320
 可能它正在使用磁盘或使用 uart 控制台，
-maybe it's using the disk or using the uart to console
 
 111
 00:06:39,320 --> 00:06:41,090
 并且获取一些锁。
-and acquire some lock.
 
 112
 00:06:41,680 --> 00:06:43,960
 假设它发生了，
-And supposing it did then,
 
 113
 00:06:44,470 --> 00:06:48,190
 通过调用 swtch 或 yield 或 sched 或其他方法放弃了 CPU ，
-give up the CPU by calling swtch or yield or sched or something,
 
 114
 00:06:48,190 --> 00:06:49,840
 但是仍然持有这把锁。
-while still holding this lock.
 
 115
 00:06:50,570 --> 00:06:53,270
 所以现在 p1 持有锁，
-So now p1 holds lock,
 
 116
 00:06:53,270 --> 00:06:55,010
 持有锁，但是并没有运行。
-this lock held, but it's not running.
 
 117
 00:06:56,310 --> 00:06:58,050
 想象一下，
-And imagine also for a moment
 
 118
 00:06:58,050 --> 00:07:00,450
 我们在一台只有一个核心的机器上。
-that we're on a machine with just a single core.
 
 119
 00:07:01,600 --> 00:07:02,950
 所以只有一个核心，
-So there's only one core,
 
 120
 00:07:03,130 --> 00:07:06,220
 进程一调用 swtch ，转移调度器，
-the process one called swtch which transfers the scheduler,
 
 121
 00:07:06,220 --> 00:07:09,850
 调度器看到进程二的内核线程在等待运行，
-the scheduler sees aha process two's kernel thread is waiting to run
 
 122
 00:07:10,090 --> 00:07:11,980
 所以调度器切换进程，
-and so the scheduler switches the process,
 
 123
 00:07:12,010 --> 00:07:14,800
 开始运行进程二，切换到进程二，
-starts running process to two, switches to process two
 
 124
 00:07:15,100 --> 00:07:16,870
 假设进程二，不管出于什么原因，
-and supposing process two for whatever reason,
 
 125
 00:07:16,870 --> 00:07:20,770
 或许它还想使用磁盘或 uart 之类的东西，
-maybe it also wants to use the disk or use that uart or something
 
 126
 00:07:20,890 --> 00:07:23,980
 它对同一个锁调用 acquire ，
-and it calls acquire on the same lock,
 
 127
 00:07:27,700 --> 00:07:30,490
 所以我们第二次获取这把锁，
-so we have a second acquire of this lock,
 
 128
 00:07:30,640 --> 00:07:32,830
 这是同一把锁。
-it's the same the same lock.
 
 129
 00:07:33,360 --> 00:07:34,980
 当然，锁已经持有了，
-Of course, the lock already held,
 
 130
 00:07:34,980 --> 00:07:36,240
 所以这个 acquire 拿不到它，
-so this acquire can't get it,
 
 131
 00:07:36,360 --> 00:07:37,860
 这些是自旋锁，
-these are spin locks,
 
 132
 00:07:37,890 --> 00:07:40,320
 所以，这会导致，
-so what this actually causes to happen is that
 
 133
 00:07:40,350 --> 00:07:44,400
 进程二内部的 acquire 会在一个循环中，
-process two inside acquire will just sit in a loop
 
 134
 00:07:44,400 --> 00:07:46,740
 旋转等待锁被释放。
-spinning waiting for the lock to be released.
 
 135
 00:07:47,280 --> 00:07:48,720
 而且 acquire 不会返回，
-And acquire won't return
 
 136
 00:07:48,750 --> 00:07:50,370
 既然 acquire 不会返回，
-and since acquire doesn't return,
 
 137
 00:07:50,430 --> 00:07:52,530
 进程二不能，没有机会，
-process two can't, doesn't have a chance,
 
 138
 00:07:52,530 --> 00:07:56,130
 即使它愿意在完成的时候让出 CPU ，
-even though it may be willing to yield the CPU when it's done later on,
 
 139
 00:07:56,250 --> 00:07:57,420
 它没有机会这样做，
-it doesn't get a chance to,
 
 140
 00:07:57,420 --> 00:08:00,600
 因为 acquire 在锁释放之前不会返回。
-because the acquire doesn't return until the lock is released.
 
 141
 00:08:00,810 --> 00:08:03,270
 但是唯一能释放锁的方法是，
-You know, but the only way the lock could be released is
 
 142
 00:08:03,270 --> 00:08:06,870
 如果进程一恢复执行，
-if process one resumes execution,
 
 143
 00:08:06,870 --> 00:08:12,670
 并且可能稍后，它是正确的，没有严重的 bug ，
-and presumably later, it's correctly, it doesn't have terrible bugs in it,
 
 144
 00:08:12,820 --> 00:08:17,170
 它会打算释放这个锁，
-it was going to call it was intending to release this lock right,
 
 145
 00:08:17,170 --> 00:08:18,370
 但这还没有发生，
-but it hasn't happened yet,
 
 146
 00:08:18,910 --> 00:08:20,200
 因为它调用了 swtch ，
-because it's called swtch
 
 147
 00:08:20,230 --> 00:08:22,630
 而进程二正在旋转，等待这个锁，
-and process two is spinning waiting for the lock,
 
 148
 00:08:22,630 --> 00:08:24,820
 所以这是一个死锁，
-so this is a deadlock, right,
 
 149
 00:08:25,700 --> 00:08:30,980
 这会导致系统冻结。
-and it will just cause the system to freeze.
 
 150
 00:08:34,570 --> 00:08:36,580
 我描述这个的上下文是，
-And while I described this in the context
 
 151
 00:08:36,580 --> 00:08:39,280
 一台只有一个 CPU ，一个核心，
-of a machine with a single CPU, a single core,
 
 152
 00:08:39,880 --> 00:08:41,620
 你可以想象，
-you can construct scenarios
 
 153
 00:08:41,620 --> 00:08:46,980
 使用多个锁将导致相同类型的死锁，
-that using multiple locks would cause this same kind of deadlock
 
 154
 00:08:47,010 --> 00:08:48,750
 在一台有多个核心的机器上。
-on a machine with multiple cores.
 
 155
 00:08:49,980 --> 00:08:54,180
 所以，在 xv6 中有一个普遍的限制，
-And so as a result, we have a general prohibition in xv6,
 
 156
 00:08:54,180 --> 00:08:59,120
 不能在 swtch 时持有锁。
-that you're not allowed to hold spin locks across the swtch.
 
 157
 00:09:01,060 --> 00:09:02,320
 对于这条规则，有什么问题吗？
-Any questions about this rule?
 
 158
 00:09:06,720 --> 00:09:07,230
 聊天中有个问题，罗伯特。
-There's a question in the chat Robert.
 
 159
 00:09:07,950 --> 00:09:12,540
 能否有一个定时器中断，切换到 p1 来解决死锁？
-Oh, would you have a timer interrupt, switch to p1 which resolves the deadlock.
 
 160
 00:09:12,840 --> 00:09:15,360
 好吧，那么，确实是这样，
-Okay so, yet, it does turn out,
 
 161
 00:09:15,360 --> 00:09:18,810
 所以所有这些东西都运行在内核中，
-so we're running, both all the stuffs running in the kernel right,
 
 162
 00:09:18,810 --> 00:09:22,650
 acquire release 都是内核代码，
-you know acquire release which you know only so kernel code,
 
 163
 00:09:22,650 --> 00:09:23,820
 不是运行在用户空间中，
-so not running in user space,
 
 164
 00:09:23,820 --> 00:09:27,060
 但确实定时器中断可能会发生，
-but indeed a timer interrupt could occur
 
 165
 00:09:27,090 --> 00:09:33,690
 而且 xv6 允许定时器中断发生，
-and xv6 is actually allows timer interrupts to happen
 
 166
 00:09:33,690 --> 00:09:37,440
 在运行内核代码，系统调用代码时，
-in while running kernel code, system call code
 
 167
 00:09:37,500 --> 00:09:41,160
 事实上，如果你查看内核陷阱代码，
-and in fact if you look at the kernel trap code
 
 168
 00:09:41,160 --> 00:09:42,780
 或者不管在 trap.c 里的什么，
-or whatever it is in trap.c,
 
 169
 00:09:42,870 --> 00:09:45,450
 你会看到，如果发生定时器中断，
-you'll see that if a timer interrupt happens,
 
 170
 00:09:45,450 --> 00:09:47,970
 当 xv6 执行内核时，
-while xv6 is executing the kernel,
 
 171
 00:09:47,970 --> 00:09:49,200
 它会调用 yield 。
-it will call yield.
 
 172
 00:09:49,480 --> 00:09:52,120
 所以如果定时器中断发生，
-So if a timer interrupt could happen,
 
 173
 00:09:52,240 --> 00:09:54,070
 当我们在这里运行 acquire 时，
-while we're running acquire here,
 
 174
 00:09:54,490 --> 00:09:58,280
 那么我们就会得救，
-then actually we would be saved,
 
 175
 00:09:58,280 --> 00:10:00,650
 因为我们调用 yield ，返回到这里，
-because we call yield switch back here
 
 176
 00:10:00,650 --> 00:10:03,470
 希望 p1 恢复并最终释放锁，
-and hopefully p1 would then resume and eventually release the lock,
 
 177
 00:10:03,500 --> 00:10:08,630
 然而，由于上一节课已经解释过的原因，
-however, for reasons that were explained in a previous lecture,
 
 178
 00:10:08,690 --> 00:10:13,820
 acquire 在开始等待锁之前关闭中断，
-acquire turns off interrupts before it starts to wait for the lock,
 
 179
 00:10:13,820 --> 00:10:16,070
 出于其他原因，
-because we absolutely for other reasons,
 
 180
 00:10:16,070 --> 00:10:20,600
 不能承受在我们持有锁的同时发生中断，
-cannot afford to have an interrupt happen while we're holding a lock,
 
 181
 00:10:20,630 --> 00:10:22,940
 因为那会导致另一种死锁。
-because that would cause a different kind of deadlock.
 
 182
 00:10:23,340 --> 00:10:29,150
 它是中断处理程序，需要获取锁，
-It's the interrupt handler, needed to use, needed to acquire the lock,
 
 183
 00:10:29,510 --> 00:10:34,270
 这个 acquire 可能是刚刚获得的，
-that this acquire had possibly just acquired,
 
 184
 00:10:34,450 --> 00:10:36,640
 所以，如果你查看 xv6 中的 acquire 代码，
-so if you look at the code for acquire xv6,
 
 185
 00:10:36,790 --> 00:10:40,240
 你会看到它做的第一件事就是关闭中断，然后旋转
-you'll see the first thing it does is turn off interrupts and then spins
 
 186
 00:10:40,390 --> 00:10:44,140
 你可能会想，为什么它不是旋转，然后关闭中断，
-and you may wonder those, why doesn't it spin and then turn off interrupts
 
 187
 00:10:44,140 --> 00:10:47,380
 原因是这将允许短时间内发生，
-and the reason is that would allow a short period of time to occur
 
 188
 00:10:47,380 --> 00:10:50,710
 锁被持有，但是中断没有被禁用，
-in which the lock is held, but interrupts weren't disabled
 
 189
 00:10:50,950 --> 00:10:54,730
 再一次，如果这个时间段发生设备中断，可能会导致死锁。
-and again device interrupted that time might cause a deadlock.
 
 190
 00:10:55,260 --> 00:10:56,130
 所以，不幸的是，
-So, unfortunately,
 
 191
 00:10:56,130 --> 00:10:59,220
 这是另一个要求我们关闭中断，
-this other requirement that we leave interrupts off
 
 192
 00:10:59,220 --> 00:11:00,750
 当我们旋转等待锁时，
-while we're spinning waiting for lock
 
 193
 00:11:00,810 --> 00:11:03,420
 防止定时器中断关闭，
-prevents the timer interrupt from going off
 
 194
 00:11:03,420 --> 00:11:06,870
 并且防止了进程二回到进程一。
-and therefore prevents process two from yielding back to process one.
 
 195
 00:11:07,970 --> 00:11:08,720
 这是个好问题。
-That's a good question.
 
 196
 00:11:11,060 --> 00:11:11,870
 好的，另一个问题，
-Okay so another question,
 
 197
 00:11:11,870 --> 00:11:14,780
 我可以重复一下如何避免死锁吗？
-can I repeat how deadlocks are avoided?
 
 198
 00:11:19,440 --> 00:11:22,800
 在 xv6 中通过禁止这个来避免死锁，
-Oh, deadlocks are avoided in xv6 by prohibiting this,
 
 199
 00:11:24,150 --> 00:11:29,720
 xv6 代码不允许获取 p->lock 以外的任何锁，
-xv6 code is not allowed to acquire any lock other than p->lock,
 
 200
 00:11:29,750 --> 00:11:31,040
 然后调用 swtch ，
-and then call swtch
 
 201
 00:11:31,250 --> 00:11:32,570
 如果你看一下 swtch 的代码，
-and if you look at the code for swtch,
 
 202
 00:11:32,570 --> 00:11:35,010
 在 swtch 里有一些检查，
-there's actually some checks in swtch,
 
 203
 00:11:35,010 --> 00:11:39,240
 检查除了 p->lock 之外没有锁被持有。
-that are equivalent to checking that no locks are held other than p->lock.
 
 204
 00:11:40,020 --> 00:11:42,150
 所以问题是这个代码，
-So the problem with this is this code,
 
 205
 00:11:43,000 --> 00:11:45,370
 如果它发生在 xv6 内核中，将是非法的。
-if it occurred in the xv6 kernel would be illegal
 
 206
 00:11:45,370 --> 00:11:47,470
 很容易造成死锁，
-and would could easily cause a deadlock,
 
 207
 00:11:47,710 --> 00:11:48,520
 所以这是被禁止的。
-so it's forbidden.
 
 208
 00:11:50,190 --> 00:11:51,240
 这回答了这个问题吗？好的。
-As that answered the question?，Okay.
 
 209
 00:11:54,920 --> 00:11:55,850
 还有其他问题吗？
-Other questions?
 
 210
 00:12:01,580 --> 00:12:03,740
 好的，记住这条规则，
-Okay, okay, so keep this rule
 
 211
 00:12:03,740 --> 00:12:07,970
 以及预先在 swtch 中持有 p->lock ，
-and previous need to hold p->lock across switch in mind,
 
 212
 00:12:08,000 --> 00:12:09,500
 因为它们会再次出现，
-because they'll come up again
 
 213
 00:12:09,590 --> 00:12:12,410
 在我们讨论睡眠和唤醒是如何工作的时候。
-in our discussion of how sleep and wakeup work.
 
 214
 00:12:15,160 --> 00:12:23,650
 好的，新主题，协调，
-Alright new topic, coordination,
 
 215
 00:12:29,370 --> 00:12:36,220
 就是 sleep/wakeup 。
-which really means sleep/-, the.
 
 216
 00:12:40,450 --> 00:12:41,830
 我们听说过很多关于锁的事，
-We've heard a lot about locks
 
 217
 00:12:41,830 --> 00:12:44,020
 锁在某些情况下是很棒的，
-and locks are fantastic for situations
 
 218
 00:12:44,020 --> 00:12:47,290
 不同的线程不必担心，
-where different threads really want to not be aware
 
 219
 00:12:47,290 --> 00:12:49,960
 而不必担心或考虑其他线程在做什么，
-and not have to worry about or think about what other threads are up to,
 
 220
 00:12:50,260 --> 00:12:51,550
 我们持有锁并共享数据，
-we hold locks and share data,
 
 221
 00:12:51,640 --> 00:12:54,220
 这意味着我们不必担心这种可能性，
-that means we just never have to worry about the possibility
 
 222
 00:12:54,220 --> 00:12:58,060
 其他的锁是或不是使用这些数据，
-that some other lock is is or maybe not, who knows, using that data,
 
 223
 00:12:58,060 --> 00:13:01,240
 因为锁导致一次只发生一件事，
-because the lock, so it causes things to happen one at a time,
 
 224
 00:13:01,630 --> 00:13:04,270
 但是当你编写线程化代码时，
-but when you're writing threaded code,
 
 225
 00:13:04,300 --> 00:13:09,940
 也有某些情况，你需要等待特定的事件，
-there are also situations where you explicitly want to wait for some specific event
 
 226
 00:13:09,940 --> 00:13:12,430
 你希望不同的线程进行交互。
-where you want different threads to interact.
 
 227
 00:13:14,530 --> 00:13:18,180
 比如，假设我们有管道，
-So, for example, supposing, we have pipes
 
 228
 00:13:18,180 --> 00:13:20,040
 我们有读取者和写入者，
-and we got a reader and a writer right,
 
 229
 00:13:20,040 --> 00:13:21,840
 如果我正在读取管道，
-if I'm reading a pipe,
 
 230
 00:13:22,360 --> 00:13:24,370
 而当前在管道中没有要读取的内容，
-and there's nothing currently to read in the pipe,
 
 231
 00:13:24,550 --> 00:13:28,780
 我希望能够等待任何其他进程将数据写入管道，
-I want to be able to wait for any other process to write data to the pipe,
 
 232
 00:13:28,780 --> 00:13:32,200
 我想等待管道不是空的事件。
-I want to wait for this sort of pipe is not empty event.
 
 233
 00:13:32,620 --> 00:13:37,560
 同样的，如果我正在读取磁盘，或正在写入磁盘，
-Similarly if I'm reading the disk, or writing the disk.
 
 234
 00:13:41,650 --> 00:13:42,640
 如果我在读取磁盘，
-If I'm reading the disk,
 
 235
 00:13:42,640 --> 00:13:45,190
 然后我希望告诉磁盘控制器，
-then I want to be able to tell the disk controller,
 
 236
 00:13:45,190 --> 00:13:47,620
 请读取磁盘上的某个块，
-look, please read a particular block on the disk,
 
 237
 00:13:47,740 --> 00:13:49,720
 可能需要很多毫秒，
-it may take a long time milliseconds,
 
 238
 00:13:49,840 --> 00:13:53,290
 在磁盘完成读取完成之前需要很长时间，
-long long time before the disk finally finishes the read,
 
 239
 00:13:53,290 --> 00:13:55,120
 特别是如果它必须寻找和旋转，
-especially if it has to seek and rotate
 
 240
 00:13:56,200 --> 00:14:00,280
 正在读取的进程需要等待这个特定事件，
-and the process is doing the read needs to be able to wait for that specific event,
 
 241
 00:14:00,430 --> 00:14:02,590
 我们希望等待磁盘读取完成。
-we want to wait for the disk read to complete.
 
 242
 00:14:05,330 --> 00:14:07,610
 同样地，你可能已经注意到，
-Similarly you may have noticed,
 
 243
 00:14:07,610 --> 00:14:12,410
 当你编程的时候， unix 程序可以进行 wait 系统调用。
-when you're programming, that a unix program can make the wait system call.
 
 244
 00:14:12,950 --> 00:14:14,570
 而 wait 所做的是，
-And what wait does is
 
 245
 00:14:14,570 --> 00:14:18,500
 它使调用进程等待，直到它的任意子进程退出，
-it causes the calling process to wait, until any of its children exit,
 
 246
 00:14:18,530 --> 00:14:22,070
 所以，这里我们故意让父进程等待，
-so here we have the parent process intentionally waiting
 
 247
 00:14:22,100 --> 00:14:24,830
 等待某种由另一个进程引起的事件。
-for some event sort of caused by another process.
 
 248
 00:14:25,490 --> 00:14:30,020
 所以，这些都是进程需要等待事件的情况，
-So these are all situations where a process needs to wait for a specific event
 
 249
 00:14:30,020 --> 00:14:33,260
 通常是 IO 或另一进程，
-either typically IO or another process,
 
 250
 00:14:33,290 --> 00:14:37,610
 表示发生一些特殊的事情。
-sort of declaring that something specific has happened.
 
 251
 00:14:39,190 --> 00:14:41,950
 协调是一种工具，
-And coordination is the sort of tool
 
 252
 00:14:41,950 --> 00:14:44,830
 帮助我们解决这类问题，
-that helps us solve these kind of problems
 
 253
 00:14:44,980 --> 00:14:47,440
 或者实现这些要求，
-or implement these kind of requirements
 
 254
 00:14:47,830 --> 00:14:50,200
 而且协调是很基础的，
-and coordination is totally fundamental,
 
 255
 00:14:50,200 --> 00:14:54,520
 就像锁一样，协调是另一个基本工具，
-just just like with locks, coordination is another fundamental tool
 
 256
 00:14:54,520 --> 00:14:56,470
 用于编写线程化程序，
-for writing threaded programs
 
 257
 00:14:56,470 --> 00:14:58,190
 并且它总是出现。
-and it comes up all the time.
 
 258
 00:14:59,520 --> 00:15:06,930
 好的，那么，我们怎么让一个进程或一个线程等待这种事件，
-Alright, so, how could we have a process or a thread wait for this kind of event,
 
 259
 00:15:07,140 --> 00:15:12,210
 一种可能的非常简单的方法是，
-so one possibility is extremely straightforward one is
 
 260
 00:15:12,210 --> 00:15:14,800
 就是忙等待循环，
-just a busy wait to loop,
 
 261
 00:15:15,770 --> 00:15:17,030
 你可以想象。
-so you could imagine.
 
 262
 00:15:18,570 --> 00:15:20,430
 我们马上就会把它当作一个坏想法扔掉，
-And we'll discard this as a bad idea in a moment,
 
 263
 00:15:20,430 --> 00:15:23,520
 但是假设我们想要从管道中读取，
-but let's say we want to read from a pipe,
 
 264
 00:15:23,580 --> 00:15:26,130
 我们在管道读取函数中编写了一个循环，
-we just write a loop in the pipe read function
 
 265
 00:15:26,130 --> 00:15:31,510
 也就是 while 管道缓冲器是空的，
-that says you know while you know the pipe buffer is empty,
 
 266
 00:15:33,050 --> 00:15:39,070
 我们什么都不会做，
-we're gonna do absolutely nothing, right,
 
 267
 00:15:39,130 --> 00:15:42,220
 现在我们在这个循环中的旋转，
-now we're gonna let sit in this loop going around around in this loop,
 
 268
 00:15:42,340 --> 00:15:45,070
 直到另一个线程或另一个核心
-until maybe some other thread on another core
 
 269
 00:15:45,130 --> 00:15:47,320
 写入缓冲区，使其不为空，
-writes into the buffer and makes it not empty
 
 270
 00:15:47,320 --> 00:15:48,340
 然后这个循环就会结束，
-and then this loop will finish
 
 271
 00:15:48,340 --> 00:15:49,990
 然后我们会返回数据，
-and then we'll return the data
 
 272
 00:15:50,020 --> 00:15:52,120
 或者无论我们如何处理这些数据。
-or whatever it is we're supposed to do with the data.
 
 273
 00:15:56,700 --> 00:15:57,990
 所以，你可以想象这样编写代码，
-So you imagine writing code like this
 
 274
 00:15:57,990 --> 00:15:59,670
 实际上有一点，
-and actually there is a little bit of,
 
 275
 00:15:59,790 --> 00:16:02,460
 可能像这样有很少的代码，
-there may be you know small amount of code like this,
 
 276
 00:16:02,460 --> 00:16:07,920
 如果你知道你等待的事情极有可能发生，
-like if you know that the thing you're waiting for is extremely likely to happen
 
 277
 00:16:07,920 --> 00:16:09,750
 十分之一微秒，
-and a tenth of a microsecond,
 
 278
 00:16:09,750 --> 00:16:12,810
 这种等待可能是最好的方式，
-let's say this may be the best way to wait for it,
 
 279
 00:16:13,110 --> 00:16:17,610
 所以，对于一些设备硬件通常是这样完成的。
-so typically this is done with some kind of device hardware.
 
 280
 00:16:18,520 --> 00:16:20,530
 当你要求设备硬件执行某些操作时，
-When you ask the device hardware to do something,
 
 281
 00:16:20,530 --> 00:16:24,490
 你知道它总是会在很短的时间内完成这项任务，
-you know it will always complete that task in a tiny amount of time,
 
 282
 00:16:25,870 --> 00:16:29,170
 只是在一个短的循环里，可能是正确的选择。
-just sitting in a short loop can be the right answer.
 
 283
 00:16:29,200 --> 00:16:32,200
 但是，如果这可能需要很多毫秒长的时间，
-But if this might take a long time milliseconds,
 
 284
 00:16:32,200 --> 00:16:33,730
 或者你不知道时间有多长，
-or you just don't know how long right,
 
 285
 00:16:33,940 --> 00:16:35,920
 可能需要 10 分钟，
-maybe it's going to be ten minutes
 
 286
 00:16:35,920 --> 00:16:40,270
 在任何进程写入管道之前，
-before whatever process is writing the pipe actually writes anything,
 
 287
 00:16:40,330 --> 00:16:43,030
 那么我们就不想在那里旋转，浪费 CPU 时间，
-then we don't want to spin there and waste CPU time,
 
 288
 00:16:43,060 --> 00:16:47,890
 它可以用来找到更多的 π 的数字或其他有用的东西，
-which could be used to find more digits of pi or something else useful,
 
 289
 00:16:48,190 --> 00:16:51,010
 相反，我们想放弃 CPU 。
-we want to give up the CPU instead.
 
 290
 00:16:52,060 --> 00:16:56,320
 我们想要像 swtch 一样放弃 CPU ，
-And only we want some way to give up the CPU like swtch,
 
 291
 00:16:56,350 --> 00:17:00,730
 但在我们关心的事件发生时重新获得 CPU ，
-but actually regain the CPU when the event we care about has actually occurred
 
 292
 00:17:00,790 --> 00:17:04,060
 这种协调是一种技术，
-and it's that that coordination is all about techniques
 
 293
 00:17:04,060 --> 00:17:10,030
 放弃 CPU ，直到条件出现，我们等待的事件发生。
-to give up the CPU until the condition, the event that we're waiting for has actually occurred.
 
 294
 00:17:10,620 --> 00:17:14,280
 再一次， sleep/wakeup ，
-And again sleep and wakeup,
 
 295
 00:17:14,280 --> 00:17:16,800
 有多种不同的协调原语，
-there's a number of different coordination primitives
 
 296
 00:17:16,800 --> 00:17:18,630
 在很多年中，人们发明的。
-that people have invented over the years.
 
 297
 00:17:20,200 --> 00:17:24,070
 xv6 与许多 Unix 的风格相同，
-And xv6 in common with many flavors of Unix,
 
 298
 00:17:24,640 --> 00:17:26,260
 使用一种 sleep/wakeup 的东西。
-uses something called sleep and wakeup.
 
 299
 00:17:27,290 --> 00:17:30,580
 好的，在这样的背景下，
-Okay, alright, with this background,
 
 300
 00:17:30,580 --> 00:17:36,940
 我想切换到查看 xv6 的代码。
-I'd like to switch to a looking at code in xv6.
 
 301
 00:17:41,940 --> 00:17:45,810
 好的，我刚分享了我的屏幕，
-Alright, so I just shared my screen,
 
 302
 00:17:45,930 --> 00:17:49,800
 如果屏幕共享起作用了，请让我知道。
-let me know if the screen share did on work.
 
 303
 00:17:50,460 --> 00:17:53,250
 好的，我已经为这次课程做了准备，
-Okay, I have in preparation for this lecture,
 
 304
 00:17:53,580 --> 00:17:58,620
 重写了 UART 驱动程序中的一些代码，
-rewritten some of the code in the uart driver,
 
 305
 00:17:58,650 --> 00:18:04,770
 这是 xv6 用来从控制台读写字符的串行驱动程序，
-that's the serial driver that xv6 uses to read and write characters from the console,
 
 306
 00:18:05,580 --> 00:18:07,290
 所以我写了这个 uartwrite 函数，
-so I have this function uartwrite,
 
 307
 00:18:07,290 --> 00:18:12,210
 当像 shell 这样的程序打印提示符或产生任何其他输出时，
-which when a program like the shell prints its prompt or produces any other output,
 
 308
 00:18:12,990 --> 00:18:14,790
 会使用一个 write 系统调用，
-that makes a write system call
 
 309
 00:18:14,790 --> 00:18:17,580
 在我稍微修改的 xv6 版本中，
-and in my slightly modified version of xv6
 
 310
 00:18:17,610 --> 00:18:21,270
 write 系统调用以 uartwrite 的调用结束，
-that write system call ends up with a call to uartwrite,
 
 311
 00:18:21,360 --> 00:18:22,560
 在 uart 驱动中，
-in the uart driver
 
 312
 00:18:22,560 --> 00:18:29,040
 将这个循环中的字符逐个写入 uart 硬件。
-which actually writes the characters in this loop one by one to the uart hardware.
 
 313
 00:18:31,740 --> 00:18:35,970
 这是以一种经典的设备驱动程序风格编写的。
-And this is written in a sort of classic device driver style.
 
 314
 00:18:37,480 --> 00:18:40,570
 你会在许多设备驱动程序中看到这样的代码。
-You'll see code like this in many device drivers.
 
 315
 00:18:41,920 --> 00:18:44,620
 好的，这里发生的一件事是，
-Okay, so one of the things that's going on here is
 
 316
 00:18:44,620 --> 00:18:50,260
 uart 硬件一次只能接受一个字符进行传输，
-that the uart hardware can only accept one character for transmission at a time,
 
 317
 00:18:50,530 --> 00:18:52,210
 所以这段代码需要查看的，
-and so the way this code has to look,
 
 318
 00:18:52,330 --> 00:18:54,700
 通常你有很多想要写入的字符，
-typically have lots of characters you want to write,
 
 319
 00:18:55,420 --> 00:18:57,400
 它可以向 uart 硬件写入字符，
-it can write a character to the uart hardware,
 
 320
 00:18:57,790 --> 00:18:59,530
 它需要等待 uart 硬件
-and it needs to wait for the uart hardware
 
 321
 00:18:59,530 --> 00:19:01,780
 是的，我已经把那个字符发送完了，
-to say yes I finished sending that character,
 
 322
 00:19:01,780 --> 00:19:02,740
 我准备好接受一个新的字符了，
-I'm ready for a new one
 
 323
 00:19:02,740 --> 00:19:04,990
 然后驱动可以写入一个新的，
-and then the driver can write a new one,
 
 324
 00:19:05,640 --> 00:19:07,830
 下一个要输出的的新的字符，
-a new character the next character to output,
 
 325
 00:19:08,160 --> 00:19:11,970
 因为这个硬件运行起来非常慢，
-because this hardware can operate very slowly,
 
 326
 00:19:12,000 --> 00:19:14,670
 可能每秒只有一千个字符，
-like maybe only a thousand characters per second,
 
 327
 00:19:14,850 --> 00:19:18,720
 我们在字符之间等待的时间可能非常长，
-the amount of time we have to wait between characters can be very long,
 
 328
 00:19:18,780 --> 00:19:21,750
 以毫秒为单位，在现代计算机上是很长的时间，
-in milliseconds in a long, long time, on modern computer,
 
 329
 00:19:21,750 --> 00:19:25,650
 可能是十亿个，百万个机器周期，
-it's you know a billion cycles a million cycles maybe,
 
 330
 00:19:26,250 --> 00:19:27,870
 这可以做大量的工作，
-which a huge amount of work could be done,
 
 331
 00:19:27,870 --> 00:19:30,690
 所以，我们不希望只是旋转，
-so we'd really prefer not to just spin
 
 332
 00:19:30,720 --> 00:19:33,330
 等待 uart 完成每个字符的发送。
-waiting for the uart to finish sending each character.
 
 333
 00:19:33,710 --> 00:19:35,480
 我们想要有更好的方式，
-We like to have a better way,
 
 334
 00:19:35,630 --> 00:19:41,400
 事实上，像大多数操作系统一样， xv6 有更好的方式，
-and so in fact, xv6 has a better way like most operating systems,
 
 335
 00:19:41,460 --> 00:19:47,910
 uart 硬件在完成发送每个字符后引发中断，
-the uart hardware will raise an interrupt after it's finished sending each character,
 
 336
 00:19:48,120 --> 00:19:50,910
 所以我们不仅仅有这个写入例程，
-and so we have not just this write routine,
 
 337
 00:19:51,510 --> 00:19:53,730
 我们将看到 uart 驱动程序有一个中断例程，
-we'll see uart driver has an interrupt routine
 
 338
 00:19:53,880 --> 00:19:56,040
 我认为会调用 trap.c ，
-which I think trap.c calls
 
 339
 00:19:56,040 --> 00:20:00,420
 当 uart 硬件发出中断通知已完成时，
-when the uart hardware raises an interrupt to say that it's finished
 
 340
 00:20:00,420 --> 00:20:03,520
 中断例程检查 uart ，
-and the interrupt routine checks that uart
 
 341
 00:20:03,520 --> 00:20:07,090
 读取 uart 硬件中的一个内存映射寄存器，
-to read one of the memory mapped registers in the uart hardware
 
 342
 00:20:07,480 --> 00:20:10,450
 查找表示已经完成发送的标志，
-to look for the flag that says I'm done transmitting,
 
 343
 00:20:10,510 --> 00:20:13,030
 应该是 LSR_TX_IDLE 标志，
-which is this LSR_TX_IDLE flag,
 
 344
 00:20:13,180 --> 00:20:14,740
 如果设置了这个标志，
-and if that flag set,
 
 345
 00:20:14,800 --> 00:20:20,230
 那么中断例程在内存中设置该标志，
-then the interrupt routine actually sets this flag in memory,
 
 346
 00:20:21,020 --> 00:20:22,850
 然后调用这个 wakeup 调用，
-and makes this wakeup call
 
 347
 00:20:23,000 --> 00:20:26,210
 这将调用 uartwrite ，
-which will calls the uartwrite,
 
 348
 00:20:26,270 --> 00:20:27,830
 不管 uartwrite 是哪个线程，
-whatever thread is in uartwrtie,
 
 349
 00:20:27,830 --> 00:20:30,830
 从这里的睡眠中恢复过来，
-to return from its sleep here
 
 350
 00:20:30,980 --> 00:20:34,040
 并尝试发送新字符。
-and attempt to send a new character.
 
 351
 00:20:34,930 --> 00:20:36,070
 所以流程是这样的，
-So the game is that,
 
 352
 00:20:37,020 --> 00:20:39,030
 如果线程需要等待某些东西，
-if a thread needs to wait for something
 
 353
 00:20:39,030 --> 00:20:42,300
 在这里，我们需要等待 uart 硬件
-and here we are, we need to wait for the uart hardware
 
 354
 00:20:42,300 --> 00:20:43,980
 能够接受新字符，
-to be willing to accept a new character
 
 355
 00:20:44,010 --> 00:20:48,120
 通常调用 sleep ，并等待特定条件，
-to call sleep waiting for a specific condition, usually,
 
 356
 00:20:48,270 --> 00:20:51,690
 当条件满足时，
-and when the condition is fulfilled,
 
 357
 00:20:51,960 --> 00:20:55,620
 实现该条件的代码调用 wakeup 。
-code that realizes the condition is fulfilled what called wakeup.
 
 358
 00:20:56,210 --> 00:20:57,980
 所以这些 sleep 和 wakeup 是成对的。
-So these sleeps and wakeups are paired.
 
 359
 00:20:58,890 --> 00:21:01,620
 sleep 会查看实现情况，
-And sleep will look at the implementation by and by,
 
 360
 00:21:01,620 --> 00:21:03,240
 sleep 会做很多事情，
-but sleep does a number of things
 
 361
 00:21:03,240 --> 00:21:06,840
 然后调用 swtch 来放弃 CPU 。
-and then calls swtch in order to give up the CPU.
 
 362
 00:21:08,800 --> 00:21:10,690
 需要注意的一件事是，
-One thing to notice is
 
 363
 00:21:10,690 --> 00:21:14,170
 wakeup 和 sleep 必须以某种方式联系在一起，
-that the wakeup and sleep have to be linked together somehow,
 
 364
 00:21:14,200 --> 00:21:16,180
 就是我们调用 wakeup ，
-that is we call wakeup,
 
 365
 00:21:16,210 --> 00:21:20,380
 我们只想唤醒等待特定事件的线程，
-we really only want to wakeup threads that are waiting for the specific event,
 
 366
 00:21:20,380 --> 00:21:21,760
 我们[意识到]已经发生，
-that we realize has happened
 
 367
 00:21:21,940 --> 00:21:24,490
 所以 sleep 和 wakeup 都有这个参数，
-and so sleep and wakeup take this argument
 
 368
 00:21:25,010 --> 00:21:27,590
 它被称为睡眠通道，
-which is called the sleep channel,
 
 369
 00:21:27,830 --> 00:21:34,250
 这里 wakeup 支持同样的值，我们传给 sleep 的值，
-it's wakeup supplies the very same value here, that we're passing to sleep,
 
 370
 00:21:34,280 --> 00:21:36,920
 sleep 和 wakeup 不会真的查看，
-sleep and wakeup actually don't really look,
 
 371
 00:21:37,010 --> 00:21:38,660
 不在乎这些是什么，
-don't care what these these,
 
 372
 00:21:38,660 --> 00:21:41,030
 它们在这里只取 64 位的值，
-they just take 64 bit values here,
 
 373
 00:21:41,030 --> 00:21:42,200
 它们不在乎它们是什么，
-they don't care what they are really,
 
 374
 00:21:43,010 --> 00:21:44,870
 唯一发生的事情是，
-the only thing that's going on is that,
 
 375
 00:21:46,170 --> 00:21:54,600
 当我们在特定的睡眠通道，等待通道上睡眠时，
-when if we sleep on that particular sleep channels, particular wait channel,
 
 376
 00:21:55,500 --> 00:21:59,010
 我们希望 wakeup 传递与此相同的值，
-we want to wakeup to pass the very same value here,
 
 377
 00:21:59,010 --> 00:22:02,940
 表示它想要唤醒哪些睡眠者。
-in order to show that indicate which sleepers it wants to wakeup.
 
 378
 00:22:06,020 --> 00:22:07,760
 关于这个接口，有什么问题吗？
-Any questions about this interface?
 
 379
 00:22:08,000 --> 00:22:09,050
 好的。
-Okay.
 
 380
 00:22:10,570 --> 00:22:12,490
 所以有一个问题需要确认，
-So there's a question just to clarify
 
 381
 00:22:12,490 --> 00:22:16,530
 进程不是对每个写入的字符唤醒。
-the process is not woken up every for every character that's written.
 
 382
 00:22:20,550 --> 00:22:21,810
 好的，让我看看，
-Okay, let's see,
 
 383
 00:22:21,870 --> 00:22:26,430
 在这个为了演示而改写的驱动程序中，
-in this driver that I've specially hacked for demonstration purposes,
 
 384
 00:22:27,570 --> 00:22:29,760
 每个字符都有一个中断，
-there's an interrupt per character,
 
 385
 00:22:29,910 --> 00:22:33,660
 所以 uartwrite 的工作方式是
-so the the the way uartwrite works is that
 
 386
 00:22:33,690 --> 00:22:34,890
 对于每个字符，
-for each character
 
 387
 00:22:34,890 --> 00:22:38,310
 在这个 while 中，对于缓冲区中要写入的每个字符，
-that is in this while for each character in the buffer character supposed to write,
 
 388
 00:22:38,520 --> 00:22:41,910
 我们在这个循环中等待，
-we wait here in this loop,
 
 389
 00:22:42,090 --> 00:22:44,850
 直到 uart 准备好接受另一个字符，
-until the uart is ready to accept one more character,
 
 390
 00:22:45,060 --> 00:22:46,680
 我们再写入一个字符，
-we write one more character,
 
 391
 00:22:47,340 --> 00:22:49,500
 我们把这个完成标志设置为 0 ，
-we set this done flag to zero,
 
 392
 00:22:50,250 --> 00:22:55,260
 返回，在 sleep 中等待，知道完成标志为 1 。
-and go back and wait typically in sleep until the done flag is one.
 
 393
 00:22:55,970 --> 00:23:00,080
 然后，在 uart 发送完这个字符之后，
-And then after the uart finished sending this character,
 
 394
 00:23:00,140 --> 00:23:03,800
 它会中断，并且中断例程完成标志设置为 1 ，并进行唤醒，
-it'll interrupt and the interrupt routine will set done to one and do the wakeup,
 
 395
 00:23:03,800 --> 00:23:07,210
 所以，这里有一个 sleep wakeup ，
-so in fact there is a wake- sleep and wakeup
 
 396
 00:23:07,210 --> 00:23:09,580
 对于每个字符的循环的迭代中，
-in an iteration of the loop for every single character
 
 397
 00:23:10,900 --> 00:23:16,930
 uart 实际上有能力发送一些数量，
-and more the uart is actually capable of sending some number,
 
 398
 00:23:16,930 --> 00:23:20,280
 比如 4 个或 16 个或更多字符，
-like 4 16 or something characters at a time,
 
 399
 00:23:20,280 --> 00:23:21,450
 所以，更高效的驱动程序
-so a more efficient driver
 
 400
 00:23:21,450 --> 00:23:28,230
 在这个循环的每次迭代中向 uart 传递 16 个字符，
-would would hand 16 characters to the uart per iteration of this loop
 
 401
 00:23:28,410 --> 00:23:30,540
 每 16 个字符有一个中断，
-and there'd be an interrupt every 16 characters
 
 402
 00:23:30,690 --> 00:23:34,560
 并且更高速的设备，比如以太网驱动器，
-and higher speed devices are typically like ethernet drivers,
 
 403
 00:23:35,050 --> 00:23:38,110
 通常每个中断接收多得多的字节。
-typically accept many more bytes than that per interrupt.
 
 404
 00:23:39,890 --> 00:23:41,780
 好的。
-Alright.
 
 405
 00:23:42,320 --> 00:23:47,450
 好的，这只是接口概况的展示。
-Okay, so this is just an illustration of what the interface looks like.
 
 406
 00:23:48,140 --> 00:23:51,200
 sleep 和 wakeup 很好用，
-Sleep and wakeup are nice,
 
 407
 00:23:51,200 --> 00:23:54,530
 它们好用的一个原因是，它们相对灵活，
-because for one reason they're nice, they're relatively flexible,
 
 408
 00:23:54,920 --> 00:23:57,350
 sleep wakeup 并不关心 uart 是什么。
-sleep wakeup don't really care what it is uart to.
 
 409
 00:23:58,880 --> 00:23:59,540
 是的，你可以。
-Yeah, you can.
 
 410
 00:24:00,730 --> 00:24:02,950
 你不必告诉 sleep 你在等什么，
-You don't have to tell sleep what you're waiting for,
 
 411
 00:24:02,950 --> 00:24:04,840
 不必告诉 wakeup 发生了什么事，
-you don't have to tell wakeup what event happened,
 
 412
 00:24:04,930 --> 00:24:09,280
 你只需要使用匹配的睡眠通道 64 位值。
-you just need to have these matching sleep channel 64 bit values.
 
 413
 00:24:10,790 --> 00:24:16,520
 然而， sleep 接口有一个有趣的属性，
-However, there's one interesting property of the sleep interface,
 
 414
 00:24:16,670 --> 00:24:18,770
 我们要在这里传递一个锁，
-we have to pass it a lock here,
 
 415
 00:24:18,830 --> 00:24:22,160
 第二个参数，这个锁参数，
-there's a second argument, this lock argument
 
 416
 00:24:22,460 --> 00:24:29,090
 为什么 sleep 需要第二个参数，背后有一个很大的故事。
-and there's a big story behind why sleep takes this second argument.
 
 417
 00:24:30,480 --> 00:24:33,480
 我会解释这是怎么回事，
-And I'm gonna explain what's going on,
 
 418
 00:24:33,510 --> 00:24:36,600
 但更高层次的画面是，
-but the high level picture is,
 
 419
 00:24:36,600 --> 00:24:40,920
 这似乎是不可能的，
-that it's not doesn't seem to be possible
 
 420
 00:24:41,310 --> 00:24:47,940
 设计一种完全不知道你要等待的是什么的 sleep 。
-to design a sleep that is completely ignorant of what it is you're trying to wait for.
 
 421
 00:24:50,420 --> 00:24:52,850
 很难写出一种通用的 sleep ，
-It's hard to write a sort of general purpose sleep,
 
 422
 00:24:52,850 --> 00:24:56,090
 它只是在睡眠，等待一些特定的事件，
-that simply sleeps waiting for some specific event
 
 423
 00:24:56,390 --> 00:24:57,920
 这很危险，
-and this is danger,
 
 424
 00:24:57,920 --> 00:25:00,110
 我们稍后会看到，称为 lost wakeups ，
-which we'll see in a moment called lost wakeups
 
 425
 00:25:00,140 --> 00:25:02,480
 每种协调机制，
-that just about every coordination mechanism
 
 426
 00:25:02,480 --> 00:25:04,880
 必须以某种方式处理这种问题。
-has to grapple with somehow and deal with somehow.
 
 427
 00:25:06,360 --> 00:25:10,500
 而 sleep 接口，我们必须传入一个锁，
-And then the sleep interface, this fact, we have to pass a lock
 
 428
 00:25:10,500 --> 00:25:14,160
 是一种有点丑陋的实现，
-is sort of a little bit of ugly implementation,
 
 429
 00:25:14,190 --> 00:25:16,800
 以某种方式泄漏到接口中，
-leaking through into the interface in a way,
 
 430
 00:25:16,800 --> 00:25:18,000
 我稍后会解释。
-I'll explain in just a moment.
 
 431
 00:25:22,080 --> 00:25:22,920
 好的，我会解释，
-Yeah, I'll explain,
 
 432
 00:25:22,920 --> 00:25:23,460
 有一个问题，
-this is a question,
 
 433
 00:25:23,460 --> 00:25:26,220
 为什么我们需要完成标志和睡眠通道？
-why do we need the done flag and the sleep channel?
 
 434
 00:25:26,250 --> 00:25:28,140
 我会抓住这个问题，
-I will hold on to that question,
 
 435
 00:25:28,230 --> 00:25:30,870
 在五分钟或十分钟后解释这个问题。
-I'll explain that in five or ten minutes.
 
 436
 00:25:32,000 --> 00:25:38,150
 好的，在解释为什么 sleep 要用这个锁之前，
-Okay, so before explaining why it is that sleep is doing with this lock,
 
 437
 00:25:38,360 --> 00:25:41,560
 我想讨论一下，
-I actually want to talk a bit
 
 438
 00:25:41,560 --> 00:25:45,850
 如果我们有一个更简单的 sleep 会有什么影响，
-about what the implications would be if we had a simpler sleep,
 
 439
 00:25:46,210 --> 00:25:49,960
 它不需要额外的锁参数。
-that didn't have didn't take that extra lock argument.
 
 440
 00:25:51,130 --> 00:25:52,180
 所以。
-So.
 
 441
 00:25:59,180 --> 00:26:00,080
 好的，那么。
-Alright so.
 
 442
 00:26:05,390 --> 00:26:08,360
 这里的主题是 lost wakeups ，
-And the topic here is lost wakeups,
 
 443
 00:26:12,040 --> 00:26:16,930
 这是现在要描述的问题。
-that's the problem gonna describe now.
 
 444
 00:26:17,320 --> 00:26:21,020
 所以，假设接口只是
-so, suppose that the interface was
 
 445
 00:26:21,020 --> 00:26:30,250
 sleep 在任意的通道上，没有第二个参数，在没有第二自变量的该任意信道值上，
-just sleep on this arbitrary channel value with no second argument,
 
 446
 00:26:31,570 --> 00:26:33,250
 这个不能正常工作，
-you can't make this work,
 
 447
 00:26:33,250 --> 00:26:35,380
 所以我把这叫做 broken_sleep 。
-so I'm actually gonna call this broken_sleep.
 
 448
 00:26:37,560 --> 00:26:39,930
 你可以想象，
-And you could imagine,
 
 449
 00:26:39,960 --> 00:26:41,580
 如果我们不是更清楚地知道这一点，
-if we didn't know better that,
 
 450
 00:26:41,670 --> 00:26:51,790
 这样的 sleep 可以简单地将进程状态设置为这个特殊的休眠值，
-sleep like this could simply set the state of the process to this special sleeping value
 
 451
 00:26:51,790 --> 00:26:55,210
 表示不想继续运行了，我在等待一个特定的事件，
-which says I don't want to run anymore, I'm waiting for a specific event
 
 452
 00:26:55,660 --> 00:26:58,540
 如果你看一下 sleep 的 xv6 实现，
-and then if you look at the xv6 implementation of sleep,
 
 453
 00:26:58,540 --> 00:27:00,610
 你会看到它还做了其他事情，
-you'll see it does this among other things,
 
 454
 00:27:01,480 --> 00:27:05,050
 我们需要记录这个特殊的睡眠通道值，
-we need to record this special sleep channel value,
 
 455
 00:27:05,540 --> 00:27:10,640
 这样将来的 wakeup 调用就可以意识到我们在等待的东西，
-so that a future call to wakeup can realize that we're actually waiting for the thing,
 
 456
 00:27:10,640 --> 00:27:14,290
 wakeup 为我们唤醒，
-that the wakeup is waking us up for,
 
 457
 00:27:14,290 --> 00:27:17,320
 你可以想象 sleep 被打破，
-so you could imagine a sleep and would be broken,
 
 458
 00:27:17,350 --> 00:27:19,150
 它只做了这些，
-that really just did this,
 
 459
 00:27:19,180 --> 00:27:24,300
 我想你也必须获取这个进程的锁。
-I guess you'd have to take acquire this process is locked also.
 
 460
 00:27:25,890 --> 00:27:27,630
 当然，然后[] wakeup 。
-And then of course, [] wakeup.
 
 461
 00:27:34,280 --> 00:27:36,740
 这是关于 wakeup 是如何工作的，
-And this really is pretty much how wakeup works,
 
 462
 00:27:36,740 --> 00:27:38,240
 我们想唤醒所有的线程，
-we want to wakeup all the threads
 
 463
 00:27:38,240 --> 00:27:41,960
 它们正在等待，使用了特定的信道值调用 sleep ，
-that are waiting on that are called sleep with this particular channel value,
 
 464
 00:27:42,140 --> 00:27:43,520
 所以我们只是，
-so we're just going to say,
 
 465
 00:27:43,520 --> 00:27:48,240
 for each p 和进程表，
-you know for each p and the process table,
 
 466
 00:27:51,530 --> 00:27:57,630
 如果状态是睡眠状态，
-if the state if it's sleeping,
 
 467
 00:28:00,790 --> 00:28:05,920
 它睡眠在我们要唤醒的信道上，
-and it's sleeping on the channel that we're waking up,
 
 468
 00:28:13,990 --> 00:28:17,880
 然后将状态设置为可运行的，
-then set the state to runnable,
 
 469
 00:28:22,230 --> 00:28:25,860
 实际上模块[]，这就是 wakeup 所做的。
-actually modular [], this is pretty much what a wakeup does.
 
 470
 00:28:29,410 --> 00:28:33,340
 好吧，这个替补的[]会更好，
-Okay, so, some alternate [] [] would be nice,
 
 471
 00:28:33,340 --> 00:28:35,200
 如果 sleep 和 wakeup 都这么简单。
-if sleep and wakeup with this simple.
 
 472
 00:28:37,060 --> 00:28:39,490
 让我来演示一下，
-Let me demonstrate though,
 
 473
 00:28:45,500 --> 00:28:46,550
 让我来演示一下。
-let me demonstrate.
 
 474
 00:28:55,060 --> 00:28:58,030
 在我回到 xv6 代码之前，
-Well, before I go back to the xv6 code,
 
 475
 00:28:58,390 --> 00:28:59,740
 让我来概述一下，
-let me just outline
 
 476
 00:28:59,740 --> 00:29:03,280
 你将如何在 uart 驱动程序中使用这个 sleep 和 wakeup ，
-how you would use this sleep and wakeup in the uart driver
 
 477
 00:29:03,280 --> 00:29:05,350
 在某种程度上，是我们已经看到的情况的重复，
-and this is sort of a repeat of what we've already seen,
 
 478
 00:29:05,350 --> 00:29:08,200
 但是使用这个稍微简单一点的接口。
-but using this slightly simpler interface.
 
 479
 00:29:08,700 --> 00:29:10,620
 你会有。
-You would have.
 
 480
 00:29:11,140 --> 00:29:14,170
 驱动完成这个，有完成标志，
-And indeed the driver does this you have this done flag,
 
 481
 00:29:15,570 --> 00:29:17,970
 然后 uartwrite ，
-then uartwrite,
 
 482
 00:29:22,740 --> 00:29:29,160
 对于缓冲区中的每个字符，
-you know would say for each character in the buffer,
 
 483
 00:29:32,060 --> 00:29:35,450
 然后检查完成标志，
-and then which check this done flag
 
 484
 00:29:35,480 --> 00:29:42,510
 还没有完成，就去睡觉，
-just say while not done, go to sleep,
 
 485
 00:29:44,880 --> 00:29:50,460
 然后传递一个信道，不管是 tx_chan 还是别的，
-and then pass that channel whatever was tx_chan or something,
 
 486
 00:29:51,410 --> 00:29:52,430
 其实并不重要。
-doesn't really matter.
 
 487
 00:29:52,520 --> 00:29:56,780
 好的，然后我们将 c 发送给 uart ，
-Okay and then we're gonna send c to the uart,
 
 488
 00:29:57,430 --> 00:30:01,510
 并将 done 设置为 0 。
-and set done equals zero right.
 
 489
 00:30:03,030 --> 00:30:10,240
 然后，中断例程将其完成标志设置为真，
-And then the interrupt routine just sets it done flag is equal to true,
 
 490
 00:30:10,830 --> 00:30:11,490
 当然还有 wakeup 。
-and of course wakeup.
 
 491
 00:30:13,660 --> 00:30:19,470
 所以，这就是我们如何使用这种简化的 broken_sleep 。
-So this is how we could use this simplified broken_sleep.
 
 492
 00:30:19,680 --> 00:30:21,390
 好的，这其实是 broken_sleep 。
-Alright, so this is really broken_sleep.
 
 493
 00:30:22,400 --> 00:30:26,090
 这里，缺少的是锁，
-With this is missing though is locking,
 
 494
 00:30:27,280 --> 00:30:33,020
 所以，实际上，两个例程，
-so actually, both both of these routines
 
 495
 00:30:33,020 --> 00:30:36,890
 写入例程和中断例程的都必须使用锁。
-for both the write routine and the interrupt routine absolutely have to lock.
 
 496
 00:30:37,920 --> 00:30:40,140
 其中一个原因是，
-And one reason is that,
 
 497
 00:30:40,320 --> 00:30:42,600
 这个完成标志，任何时候我们共享数据时，
-this done flag, anytime we have shared data,
 
 498
 00:30:42,630 --> 00:30:44,730
 我们都需要对共享数据加锁，
-we really need to put a lock around the shared data,
 
 499
 00:30:45,510 --> 00:30:46,830
 另一个原因是，
-and the other reason is that,
 
 500
 00:30:47,010 --> 00:30:48,690
 实际上我没有把它放在这里，
-actually I didn't put it in here,
 
 501
 00:30:48,690 --> 00:30:51,960
 但是中断例程和写入例程
-but both the interrupt routine and the write routine
 
 502
 00:30:51,990 --> 00:30:55,200
 都需要访问 uart 硬件本身，
-need to access the hardware that uart hardware itself
 
 503
 00:30:55,260 --> 00:30:56,880
 通常这是一个错误，
-and typically it's an error,
 
 504
 00:30:56,910 --> 00:30:58,590
 除非你非常非常聪明，
-unless you're very very clever,
 
 505
 00:30:59,370 --> 00:31:01,470
 让两个线程
-it's an error to have two threads
 
 506
 00:31:01,680 --> 00:31:06,090
 同时读写内存映射硬件寄存器是错误的，
-concurrently try to read and write the memory mapped hardware registers,
 
 507
 00:31:06,690 --> 00:31:10,080
 所以，我们需要在这两个子例程中都设置一个锁，
-so we need a lock around in both of these subroutines
 
 508
 00:31:10,080 --> 00:31:20,690
 为了避免对完成标志竞争访问和对硬件的竞争访问。
-in order to avoid both racing access on done and racing accesses to the hardware.
 
 509
 00:31:21,140 --> 00:31:23,720
 所以问题是我们应该把锁放在哪里。
-So the question is where should we put the locks in.
 
 510
 00:31:25,050 --> 00:31:28,260
 在中断例程中很容易做到，
-It's it's easy in the interrupt routine,
 
 511
 00:31:28,260 --> 00:31:30,510
 我们在开始就加锁，
-we're gonna lock our lock at the beginning,
 
 512
 00:31:31,290 --> 00:31:34,320
 不管是什么锁，我想它叫 uart_tx_lock 或别的什么，
-whatever the lock I think its called uart_tx_lock or something
 
 513
 00:31:34,320 --> 00:31:35,730
 然后我们在最后解锁。
-and we're gonna unlock at the end.
 
 514
 00:31:36,880 --> 00:31:39,850
 所以中断例程只是获取一个锁并释放它，
-So the interrupt routine just takes a lock and releases it,
 
 515
 00:31:40,090 --> 00:31:43,780
 难题是如何在 uart 例程中放置锁。
-the puzzle is where to put the locks in the uart routine.
 
 516
 00:31:45,330 --> 00:31:47,860
 一种可能是，
-One possibility is
 
 517
 00:31:47,860 --> 00:31:49,810
 uartwrite 可以持有的锁
-that uartwrite could hold the lock
 
 518
 00:31:49,810 --> 00:31:53,920
 对于发送每个字符的整个序列。
-for the entire sequence of trying to send a character each character.
 
 519
 00:31:54,450 --> 00:32:03,350
 所以，我们可以在这里获取锁，在这里释放锁。
-So we could acquire the lock here, and unlock here.
 
 520
 00:32:06,200 --> 00:32:10,370
 所以，加锁和解锁在处理每个字符的开头和结尾，
-So lock and unlock it at the beginning and very end processing each character,
 
 521
 00:32:11,150 --> 00:32:13,580
 那么为什么这肯定行不通呢。
-so why, why does this definitely not work.
 
 522
 00:32:22,680 --> 00:32:24,180
 其中一个原因是
-One reason is that
 
 523
 00:32:24,180 --> 00:32:27,220
 我们走出这个循环的唯一方法是，
-the only way we can get out of this loop is that
 
 524
 00:32:27,220 --> 00:32:29,890
 中断例程将完成标志设置为 1 ，
-the interrupt routine sets done to one,
 
 525
 00:32:30,100 --> 00:32:34,600
 但是如果我们在整个序列中持有这个锁，
-but if we hold this lock for this entire sequence in it,
 
 526
 00:32:34,750 --> 00:32:36,580
 中断例程也需要锁，
-the interrupt routine also needs to lock
 
 527
 00:32:36,670 --> 00:32:39,400
 所以它会在这里旋转等待锁，
-and so it will sit here spinning waiting for the lock,
 
 528
 00:32:39,490 --> 00:32:42,130
 因为我们持有锁，
-because we hold the lock
 
 529
 00:32:42,250 --> 00:32:44,800
 并且在设置完成之前不会释放它，
-and aren't going to release it until done is set,
 
 530
 00:32:44,830 --> 00:32:48,820
 但是完成标志只能在中断例程获得锁时才能设置，
-but done can only be set when the interrupt routine is actually able to get the lock,
 
 531
 00:32:49,000 --> 00:32:52,300
 所以我们不能简单地持有锁
-so we cannot just simply hold the lock
 
 532
 00:32:53,590 --> 00:32:57,010
 在发送每个字符的整个序列中。
-across the entire sequence of sending each character.
 
 533
 00:33:00,070 --> 00:33:02,230
 好的，那么另一种可能是，
-Alright, so another possibility,
 
 534
 00:33:02,230 --> 00:33:04,450
 这里的令人讨厌的问题是
-the sort of nasty problem here is
 
 535
 00:33:04,450 --> 00:33:07,180
 uartwrite 持有锁，
-that uartwrite was holding a lock
 
 536
 00:33:07,180 --> 00:33:10,840
 在它希望中断进程发生的时候，
-at the time when it expected the interrupt routine to execute
 
 537
 00:33:10,870 --> 00:33:12,100
 就在这里，
-which is right here,
 
 538
 00:33:12,100 --> 00:33:15,370
 我们需要中断例程执行的唯一时间是，
-the only time when we really need the interrupt routine to execute is,
 
 539
 00:33:15,800 --> 00:33:16,880
 就在这一点上，
-is at this point here
 
 540
 00:33:17,060 --> 00:33:18,560
 其他时间持有锁也没有问题，
-otherwise it's okay to hold the lock,
 
 541
 00:33:18,800 --> 00:33:22,220
 所以另一种可能是在开始时获得锁，
-so another possibility would be to acquire the lock at the beginning,
 
 542
 00:33:22,220 --> 00:33:26,840
 因为我们需要保护对这个共享变量 done 的访问，
-because we need to protect our access to this shared variable done,
 
 543
 00:33:26,960 --> 00:33:33,900
 但在调用 sleep 前释放它，
-but release it before the call to sleep,
 
 544
 00:33:34,140 --> 00:33:38,130
 这给了中断例程机会执行并将完成标志设置为 1 ，
-that gives the interrupt routine a chance to execute and set done to one
 
 545
 00:33:38,130 --> 00:33:42,180
 然后我们会在 sleep 返回后重新获取它。
-and then we'll just re-acquire it after sleep returns.
 
 546
 00:33:43,470 --> 00:33:45,720
 然后我们回到开始，再检查一遍，
-So then we go back up to the top and check done again,
 
 547
 00:33:45,720 --> 00:33:46,560
 我们又拿到了锁。
-we have the lock again.
 
 548
 00:33:50,100 --> 00:33:53,490
 好的，让我修改驱动程序来做这件事。
-Alright, so let me actually modify my driver to do this.
 
 549
 00:33:58,940 --> 00:34:00,350
 我们会看到，好的。
-We'll see, yeah.
 
 550
 00:34:01,740 --> 00:34:03,570
 看看后果是什么。
-See what the consequences are.
 
 551
 00:34:06,050 --> 00:34:07,340
 好的。
-Alright.
 
 552
 00:34:08,020 --> 00:34:10,600
 所以我们所说的 sleep ，我们想要，
-So the sleep we're talking about where we want to,
 
 553
 00:34:10,900 --> 00:34:12,490
 你可以看到，这个代码所做的，
-you can see this code actually does,
 
 554
 00:34:13,210 --> 00:34:16,120
 在开始时获取锁，并在结束时释放它，
-acquire the lock at the very beginning and release it at the end
 
 555
 00:34:16,300 --> 00:34:19,210
 并且中断例程也获取和释放。
-and the interrupt routine also acquires and releases.
 
 556
 00:34:19,330 --> 00:34:22,540
 建议是我们要做两件事，
-And the proposal is that we do two things,
 
 557
 00:34:22,540 --> 00:34:29,170
 一个是，我们要探索为什么我的 broken_sleep 方法，
-one is, we're gonna, we're exploring is why my broken_sleep idea,
 
 558
 00:34:29,290 --> 00:34:33,100
 它只使用一个参数，
-that only takes a single argument,
 
 559
 00:34:33,130 --> 00:34:34,180
 为什么不能工作。
-why that doesn't work.
 
 560
 00:34:34,180 --> 00:34:37,420
 所以为了正确地进行使用锁，
-So the idea is that in order to make the locking workout right,
 
 561
 00:34:37,420 --> 00:34:38,770
 我们调用 broken_sleep ，
-we're gonna call broken_sleep alright,
 
 562
 00:34:38,770 --> 00:34:43,600
 但是我们在这里释放锁，
-but we're gonna release the lock here,
 
 563
 00:34:44,570 --> 00:34:48,120
 并在 sleep 返回后重新获得它。
-and re-acquire it after sleep returns.
 
 564
 00:34:53,730 --> 00:34:56,790
 这个 broken_sleep 所做的就是，
-And literally all this broken_sleep does is
 
 565
 00:34:56,790 --> 00:34:58,710
 我写在白板上的东西，
-exactly what I wrote on my little whiteboard,
 
 566
 00:34:58,710 --> 00:35:01,950
 也就是，它将状态设置为睡眠，
-namely, it sets the state to sleeping
 
 567
 00:35:01,950 --> 00:35:06,210
 并将信道设置为 tx_chan 参数，
-and sets the channel to this tx_chan argument,
 
 568
 00:35:06,330 --> 00:35:07,740
 然后调用 swtch 。
-then call swtch.
 
 569
 00:35:09,810 --> 00:35:12,340
 好的，让我们看看会发生什么。
-Alright, let's see what happens.
 
 570
 00:35:21,020 --> 00:35:24,170
 哦，看看这个，真的成功了，
-Oh, wow look at that, actually managed,
 
 571
 00:35:24,170 --> 00:35:27,530
 所以 init 正在打印，它是 init 启动消息，
-so init is printing out, it's init starting message,
 
 572
 00:35:27,530 --> 00:35:29,990
 它成功地写下了几个字符，
-and it actually managed to write a few characters
 
 573
 00:35:29,990 --> 00:35:31,400
 但是似乎卡住了。
-and that seems to have hung.
 
 574
 00:35:33,160 --> 00:35:35,140
 如果我输入一个字符，
-And it turns out that if I type a character,
 
 575
 00:35:35,140 --> 00:35:36,850
 我输入一个句号，
-I'm going to type a period,
 
 576
 00:35:38,110 --> 00:35:44,080
 通过输入句号，输出重新启动了，
-by typing peri- period, output restarts,
 
 577
 00:35:44,680 --> 00:35:47,410
 也许我运行 ls 会产生更多的输出，
-maybe make more output I run ls,
 
 578
 00:35:47,410 --> 00:35:53,280
 糟糕， ls 也输出几个字符，然后就停了，
-oops, ls also emitted a few characters and then stopped,
 
 579
 00:35:53,280 --> 00:35:56,250
 但是如果我输入一些东西，我输入 x ，
-but if I type something, I type type x,
 
 580
 00:35:57,120 --> 00:36:00,670
 将重新启动 ls ，它将继续运行。
-will do restart ls, it'll keep going.
 
 581
 00:36:02,060 --> 00:36:02,630
 所以。
-So.
 
 582
 00:36:05,170 --> 00:36:06,460
 你觉得这是怎么回事？
-What do you think is going on here?
 
 583
 00:36:08,170 --> 00:36:09,790
 所以你想提出一个理论。
-So you want to propose a theory.
 
 584
 00:36:20,960 --> 00:36:23,960
 这个问题肯定与我刚刚更改的代码有关，
-The problem definitely has to do with the code that I just changed,
 
 585
 00:36:24,170 --> 00:36:25,250
 那么发生了什么。
-so what's happening.
 
 586
 00:36:33,790 --> 00:36:36,340
 好的，这里的问题是，
-Alright, so what's going on here is
 
 587
 00:36:36,340 --> 00:36:41,350
 我的新代码释放了锁，
-that my new code releases the lock,
 
 588
 00:36:41,940 --> 00:36:43,530
 在这里释放了锁，
-releases this lock at this point,
 
 589
 00:36:43,590 --> 00:36:49,010
 然后在这里，中断发生了，
-and then right here, the interrupt happens,
 
 590
 00:36:49,010 --> 00:36:50,690
 因为一旦你释放锁，
-because as soon as you release the lock,
 
 591
 00:36:50,960 --> 00:36:53,030
 首先，会重新启用中断，
-first of all, the interrupts are re-enabled,
 
 592
 00:36:53,030 --> 00:36:54,740
 所以，在这个 CPU 上，中断可能发生，
-so in this CPU interrupts could happen,
 
 593
 00:36:54,740 --> 00:36:55,790
 这是一台多核心机器，
-this is a multi-core machine,
 
 594
 00:36:55,790 --> 00:36:59,860
 所以中断可以在任何核心上进行，
-so actually interrupts can be taken on any core,
 
 595
 00:37:00,160 --> 00:37:05,740
 所以几乎可以肯定，在这我标记的这一点上发生的是，
-so almost certainly what's going on at this point that I've marked in the code is
 
 596
 00:37:05,740 --> 00:37:11,200
 在其他核心上， UART 中断正在执行，
-that on some other core, the uart interrupt is executing
 
 597
 00:37:11,590 --> 00:37:13,480
 它在 acquire 上，
-and it's sitting in acquire,
 
 598
 00:37:14,090 --> 00:37:17,030
 等待其他核心上的锁。
-waiting for this lock on some other core.
 
 599
 00:37:19,350 --> 00:37:20,580
 所以当我释放了锁，
-And so as soon as I release it,
 
 600
 00:37:20,580 --> 00:37:23,580
 另一个核心将获得锁，
-that other core is going to acquire the lock,
 
 601
 00:37:23,970 --> 00:37:28,650
 会看到 uart 已经完成了字符的发送，
-is going to see that the uart has completed sending the character,
 
 602
 00:37:29,340 --> 00:37:33,120
 它将把这个传输完成标志设置为 1 ，
-it's going to set this transmit done flag to one,
 
 603
 00:37:33,900 --> 00:37:34,650
 太棒了，
-just great,
 
 604
 00:37:34,860 --> 00:37:38,100
 然后它使用 tx_chan 调用 wakeup 。
-and then it's gonna call wakeup on tx_chan.
 
 605
 00:37:39,130 --> 00:37:41,110
 这也很好，除了，
-Which is also fine, except,
 
 606
 00:37:42,090 --> 00:37:46,770
 因为写入线程仍在释放和 broken_sleep 之间执行，
-because the writing thread is still executing between the release and the broken_sleep,
 
 607
 00:37:47,130 --> 00:37:49,440
 写线程还没有进入睡眠，
-the writing thread hasn't gone to sleep yet,
 
 608
 00:37:49,770 --> 00:37:53,340
 所以，中断例程调用的 wakeup
-so the wakeup that the interrupt routine calls
 
 609
 00:37:53,370 --> 00:37:55,500
 并没有唤醒任何东西，
-doesn't actually wakeup anything up,
 
 610
 00:37:55,530 --> 00:37:57,540
 因为没有什么东西睡眠在那个信道上。
-because nothing's yet gone to sleep on that channel.
 
 611
 00:37:58,680 --> 00:38:05,040
 然后，写入线程将继续调用这个 broken_sleep
-And then, the writing thread will proceed to call this broken_sleep
 
 612
 00:38:05,040 --> 00:38:09,960
 这将将状态设置为睡眠，并设置睡眠信道，
-which will, you know, set the state to sleeping and set the sleep channel,
 
 613
 00:38:10,020 --> 00:38:13,050
 但是中断已经发生，并且 wakeup 已经被调用，
-but the interrupt has already happened and the wakeup has already been called,
 
 614
 00:38:13,080 --> 00:38:17,070
 所以这个睡眠，什么都不会唤醒，
-so this sleep, nothing will ever wakeup,
 
 615
 00:38:17,430 --> 00:38:18,540
 因为唤醒已经发生了。
-because the wakeup already happened.
 
 616
 00:38:20,270 --> 00:38:22,520
 这就是所谓的丢失唤醒问题。
-This is called the lost wakeup problem.
 
 617
 00:38:24,860 --> 00:38:29,120
 关于为什么或如何发生这种情况，有什么问题吗？
-Any questions about why or how this arises?
 
 618
 00:38:39,330 --> 00:38:42,660
 是的，是不是一直都是这样，
-Yeah, is it always going to be the case,
 
 619
 00:38:42,690 --> 00:38:45,630
 一旦东西丢失了，
-that once something gets lost,
 
 620
 00:38:45,630 --> 00:38:48,300
 一旦 wakeup 丢失了，
-once a wakeup gets lost,
 
 621
 00:38:48,300 --> 00:38:52,230
 在下一次，所有被缓冲的东西都会被丢弃。
-that on the next time, everything that's been buffered is just going to get dumped.
 
 622
 00:38:52,830 --> 00:38:57,360
 好的，这完全取决于发生了事情的细节。
-Well, it completely depends on the details of what's going on.
 
 623
 00:38:57,420 --> 00:38:59,850
 在这种情况下，它只是，
-In this case it's actually just us,
 
 624
 00:39:00,620 --> 00:39:03,020
 这是一种意外，
-it's sort of accidental that,
 
 625
 00:39:03,680 --> 00:39:08,150
 我输入某些内容会导致输出恢复，
-me typing something caused the output to resume,
 
 626
 00:39:08,270 --> 00:39:12,980
 我输入会导致输出得到修复，
-me typing input caused the output get fixed
 
 627
 00:39:13,040 --> 00:39:16,640
 原因是 uart 只有一种中断，
-and the reason for that is that the uart has only one kind of interrupt,
 
 628
 00:39:16,640 --> 00:39:19,570
 它调用相同的中断例程，
-it makes it, it calls the same interrupt routine
 
 629
 00:39:19,600 --> 00:39:24,100
 无论是信号输入还是信号完成输出，
-whether for input to signal input and the signal completed output,
 
 630
 00:39:24,580 --> 00:39:26,740
 所以，当我输入内容时，
-so when I type something which is input,
 
 631
 00:39:26,950 --> 00:39:29,980
 会调用 uart 中断例程，
-the this uart interrupt routine gets called
 
 632
 00:39:30,190 --> 00:39:34,180
 而 uart 将其作为输入已经到达的信号，
-and the uart is thinking of is calling it just a signal that input has arrived,
 
 633
 00:39:34,180 --> 00:39:36,880
 但实际上 xv6 中的中断例程，
-but in fact the interrupt routine in xv6,
 
 634
 00:39:37,090 --> 00:39:43,870
 注意到这段代码需要写入，
-you know looks for, you know notices that the you know the way this code happens to be written
 
 635
 00:39:44,140 --> 00:39:48,010
 如果 uart 准备好发送另一个字符，
-is that if the uart is ready to transmit another character,
 
 636
 00:39:48,010 --> 00:39:50,350
 它总是调用 wakeup ，
-it always calls wakeup,
 
 637
 00:39:50,900 --> 00:39:54,470
 虽然刚才可能已经调用过 wakeup 了，
-even though it's a while ago maybe I had already called wakeup,
 
 638
 00:39:54,740 --> 00:39:55,760
 所以这在某种程度上是偶然的，
-so it's sort of accidental
 
 639
 00:39:55,760 --> 00:39:58,910
 我输入字符导致重启，
-that me typing characters caused us to get restarted
 
 640
 00:39:59,090 --> 00:40:02,780
 有时候，如果有丢失的唤醒，
-and so sometimes if there are lost wakeups,
 
 641
 00:40:02,810 --> 00:40:06,620
 幸运地话，有时它们会以这种方式修复自己，
-sometimes they sort of fix themselves in this way, if you're lucky
 
 642
 00:40:06,620 --> 00:40:08,030
 而有时它们不会，
-and sometimes they don't,
 
 643
 00:40:08,120 --> 00:40:11,930
 如果 uart 具有分开的接收和发送中断例程，
-like if the uart had separate receive and transmit interrupt routines,
 
 644
 00:40:11,930 --> 00:40:14,550
 那就没有办法摆脱这件事了。
-then there have been no getting out of this.
 
 645
 00:40:16,040 --> 00:40:17,030
 这回答了你的问题吗？
-Does that answer your question?
 
 646
 00:40:17,360 --> 00:40:18,410
 好的，谢谢。
-Yes, thank you.
 
 647
 00:40:22,940 --> 00:40:23,510
 好的。
-Okay.
 
 648
 00:40:24,170 --> 00:40:24,980
 所以。
-So.
 
 649
 00:40:25,160 --> 00:40:26,030
 好的，请继续。
-Yes, please go ahead.
 
 650
 00:40:26,210 --> 00:40:30,320
 tx_done 位的作用是什么？
-What purpose does the tx_done bit serve?
 
 651
 00:40:31,820 --> 00:40:32,960
 哦， tx_done 位，
-Oh, the tx_done bit,
 
 652
 00:40:33,110 --> 00:40:36,140
 你是说这个标志 tx_done ，
-or you mean this flag tx_done,
 
 653
 00:40:36,590 --> 00:40:43,430
 这是中断例程与 uartwrite 通信的一种方式。
-it is simply a way for the interrupt routine to communicate to uartwrite.
 
 654
 00:40:44,000 --> 00:40:48,050
 先前传输的字符已经完成，
-That a previously transmitted character is finished
 
 655
 00:40:48,260 --> 00:40:51,710
 uartwrite 可以继续传输下一个字符，
-and it's OK for uartwrite to proceed to transmitting the next character,
 
 656
 00:40:52,010 --> 00:40:53,420
 所以它是一小段，
-so it's a little piece of,
 
 657
 00:40:54,320 --> 00:40:59,090
 中断例程到 uartwrite 的一个小通信标志。
-just like a little communication flag from the interrupt routine to uartwrite.
 
 658
 00:41:03,430 --> 00:41:07,090
 因为如果它会睡眠，
-Because if it it could like it would sleep
 
 659
 00:41:07,120 --> 00:41:09,520
 然后，当它醒来时，它会知道，
-and then it would know that when it wakes up,
 
 660
 00:41:10,100 --> 00:41:13,220
 可能是 uart 中断唤醒了它，
-it's probably uart interrupted woke it up,
 
 661
 00:41:13,400 --> 00:41:19,270
 所以可能已经设置了 tx_done 位，
-so probably the tx_done bit like would have been set,
 
 662
 00:41:19,300 --> 00:41:20,500
 但如果我们没有它，
-but if we didn't have it,
 
 663
 00:41:20,920 --> 00:41:22,720
 所以我想我是说，
-so I guess I'm saying that
 
 664
 00:41:23,050 --> 00:41:27,790
 wakeup 应该知道它是由 uart 中断引起的。
-actually wakeup it should know that it's from uart interrupt.
 
 665
 00:41:28,000 --> 00:41:29,800
 好的，这是你提问的另一种方式，
-Okay, so is another way of phrasing your question,
 
 666
 00:41:29,800 --> 00:41:31,930
 为什么这里会有个 while 循环，
-how come there's this while loop here,
 
 667
 00:41:33,540 --> 00:41:34,140
 而不是仅仅。
-instead of just.
 
 668
 00:41:34,140 --> 00:41:35,940
 好的，我想回答了我的问题，
-Okay, okay I think answer my question,
 
 669
 00:41:36,060 --> 00:41:37,830
 我想问题的答案是，
-I think the answer to my question is,
 
 670
 00:41:37,830 --> 00:41:40,440
 因为 uart 中断有两个目的。
-because uart interrupt serve two purposes.
 
 671
 00:41:40,440 --> 00:41:41,220
 好的。
-Okay, yeah.
 
 672
 00:41:42,040 --> 00:41:43,330
 是的，
-Yeah yeah yeah,
 
 673
 00:41:43,330 --> 00:41:45,760
 一般说来，你的问题的答案是
-in general, did your answer your question is
 
 674
 00:41:45,760 --> 00:41:49,570
 更笼统的回答的一个具体例子，
-sort of a specific instance of the more general answer that,
 
 675
 00:41:51,520 --> 00:41:56,830
 事实证明这不是实际的，
-it's it just turns out to be not practical
 
 676
 00:41:56,860 --> 00:42:01,300
 让睡眠和唤醒保证精确，
-to make sleeps and wakeups speed precise guaranteed precise,
 
 677
 00:42:01,300 --> 00:42:02,890
 也就是说，如果 sleep 返回，
-that is that if sleep returns,
 
 678
 00:42:02,890 --> 00:42:06,250
 那么可以肯定，无论你等待的是什么都已经发生了。
-then for sure, whatever you're waiting for has happened.
 
 679
 00:42:06,340 --> 00:42:11,170
 举个例子，假设我们有两个进程，
-So, one example of this is that suppose we have two processes,
 
 680
 00:42:11,170 --> 00:42:14,560
 它们同时试图写入 uart ，
-that are both trying to write that uart at the same time,
 
 681
 00:42:14,590 --> 00:42:16,210
 它们都在 uartwrite ，它们可以，
-they're both in uartwrite and they can,
 
 682
 00:42:16,210 --> 00:42:19,390
 因为在一个写完一个字符之后，它会休眠，
-because after one writes a character, it'll sleep,
 
 683
 00:42:19,660 --> 00:42:22,810
 释放锁，
-releasing that turns out releasing the lock
 
 684
 00:42:22,900 --> 00:42:25,330
 然后另一个可以进入循环
-and then the other one can enter that loop
 
 685
 00:42:25,330 --> 00:42:28,510
 并等待，直到 uart 不忙。
-and try to wait until uart not busy.
 
 686
 00:42:29,120 --> 00:42:31,190
 它们可能最终都会睡眠，
-And they both may both end up sleeping
 
 687
 00:42:31,430 --> 00:42:33,470
 并且当 uart 中发生中断时，
-and when an interrupt happens in the uart,
 
 688
 00:42:33,470 --> 00:42:34,730
 可以再接受一个字符，
-can accept one more character,
 
 689
 00:42:34,730 --> 00:42:36,590
 它们都会被唤醒，
-they'll both be woken up up,
 
 690
 00:42:36,590 --> 00:42:39,620
 但只有一个能真正写入这个字符。
-but only one should actually write the character.
 
 691
 00:42:40,270 --> 00:42:41,740
 这个 while 循环。
-And that this while loop.
 
 692
 00:42:42,180 --> 00:42:46,800
 事实上，我相信在 xv6 中的每个 sleep 都会出现 while 循环，
-And in fact you'll see a while loop every sleep, in xv6 I believe,
 
 693
 00:42:46,800 --> 00:42:48,420
 就是因为这个问题，
-it's because this problem of,
 
 694
 00:42:48,690 --> 00:42:49,800
 你可能醒来了，
-you maybe woken up,
 
 695
 00:42:49,800 --> 00:42:52,950
 但实际上有人拿走了你等待的东西，
-but really somebody else sort of took the thing you were waiting for,
 
 696
 00:42:52,950 --> 00:42:54,180
 所以你得再睡眠一次，
-so you have to sleep again,
 
 697
 00:42:54,360 --> 00:42:56,830
 这种情况随处可见。
-this happens pervasively.
 
 698
 00:42:59,600 --> 00:42:59,990
 好的。
-Okay.
 
 699
 00:42:59,990 --> 00:43:00,620
 谢谢。
-Thank you.
 
 700
 00:43:00,830 --> 00:43:01,310
 好的。
-Yes.
 
 701
 00:43:03,000 --> 00:43:04,230
 我有个问题。
-I've got a question.
 
 702
 00:43:04,900 --> 00:43:05,200
 好的。
-Yes.
 
 703
 00:43:05,230 --> 00:43:09,700
 所以看起来我们只看到一次丢失的唤醒，
-So it looks like we only saw one lost wakeup,
 
 704
 00:43:10,000 --> 00:43:13,060
 因为只要我们按下键输入一个字符，
-because as soon as we pressed like a character,
 
 705
 00:43:13,060 --> 00:43:16,330
 剩下的输出就都出来了，
-the rest of the output of the entire rest output came out,
 
 706
 00:43:16,510 --> 00:43:19,270
 我们不是应该看到多个丢失的唤醒吗，
-shouldn't we have seen multiple lost wakeups where,
 
 707
 00:43:19,480 --> 00:43:20,740
 为什么没有再发生一次。
-why didn't happen again.
 
 708
 00:43:21,220 --> 00:43:22,390
 哦，它是这样的，
-Oh, it did it did here,
 
 709
 00:43:22,390 --> 00:43:23,530
 让我来运行这个，
-let me let me run this,
 
 710
 00:43:23,530 --> 00:43:24,430
 我要运行 readme ，
-I'm going to run readme,
 
 711
 00:43:24,460 --> 00:43:25,630
 我要执行 cat README ，
-I'm going to cat README right,
 
 712
 00:43:25,630 --> 00:43:27,130
 这是几千字节，
-which is a couple thousand bytes,
 
 713
 00:43:27,310 --> 00:43:30,850
 所以，糟糕，我已经输入一些东西了。
-so, oops, I had already typed something.
 
 714
 00:43:31,570 --> 00:43:32,950
 我想我们已经有一个字符，
-I guess we've got one character,
 
 715
 00:43:33,040 --> 00:43:34,660
 我要输入一个句号，
-I'm going to type a period,
 
 716
 00:43:35,370 --> 00:43:38,040
 我们又多了几个字符，然后它又卡住了。
-we got a few more characters and then it hung up again.
 
 717
 00:43:38,680 --> 00:43:41,320
 我要再输入一个句号，另外几个字符。
-I'm gonna take another period, another couple characters.
 
 718
 00:43:41,890 --> 00:43:45,820
 每次我输入句号，会引起输入的中断，
-Each time I type a period that causes an interrupt for the input,
 
 719
 00:43:46,470 --> 00:43:47,880
 然后唤醒这个进程，
-which then wakes up the process
 
 720
 00:43:47,880 --> 00:43:50,520
 它可以再写出几个字符，然后再挂起来。
-and it could do a few more characters of wirtes then hangs again.
 
 721
 00:43:51,060 --> 00:43:52,590
 另一个丢失的唤醒。
-You know another lost wakeup.
 
 722
 00:43:53,930 --> 00:43:57,080
 是的，错过了，有道理。
-Yeah, just miss that, makes sense.
 
 723
 00:43:57,410 --> 00:43:58,430
 是的，所以我输入句号，
-Yeah, so I'm typing period,
 
 724
 00:43:58,430 --> 00:44:01,310
 每次丢失的唤醒都会得到几个字符，
-here I get a couple characters per lost wakeup,
 
 725
 00:44:01,310 --> 00:44:04,130
 因为丢失的唤醒需要这个巧合，
-because of the lost wakeup requires this coincidence,
 
 726
 00:44:04,130 --> 00:44:08,090
 中断已经发生了，并且等待获取锁，
-that the interrupt has already happened and was waiting to acquire the lock,
 
 727
 00:44:08,690 --> 00:44:09,440
 正是这样，
-just that,
 
 728
 00:44:10,200 --> 00:44:12,660
 我们经常会遇到这样的巧合，但并不总是。
-we get that coincidence a lot of the time, but not all the time.
 
 729
 00:44:15,650 --> 00:44:16,220
 好的。
-Alright.
 
 730
 00:44:17,260 --> 00:44:21,970
 好的，我们的目标是避免这个丢失唤醒的问题，
-Okay so our goal then is to get rid of this lost wakeup problem,
 
 731
 00:44:21,970 --> 00:44:24,910
 通过消除这个窗口，
-by somehow eliminating this window here,
 
 732
 00:44:25,540 --> 00:44:28,330
 在 release(&uart_tx_lock) 之间，
-between the release of the uart_tx_lock,
 
 733
 00:44:28,330 --> 00:44:29,740
 我们必须释放它，
-which we have to release,
 
 734
 00:44:29,740 --> 00:44:32,620
 因为中断需要这个锁，
-because the interrupt needs that lock,
 
 735
 00:44:32,620 --> 00:44:34,090
 所以我们必须释放锁。
-so we know we have to release the lock.
 
 736
 00:44:34,840 --> 00:44:36,610
 但是，我们想要消除这个窗口
-But somehow we want to eliminate this window
 
 737
 00:44:36,610 --> 00:44:41,830
 在释放锁和进程将自己标记为睡眠中，
-between when we release the lock and when the process actually marks itself as sleeping,
 
 738
 00:44:42,250 --> 00:44:45,430
 所以中断的 wakeup 可以看到进程处于睡眠状态，
-so that the interrupts wakeup will see that the process is sleeping
 
 739
 00:44:45,430 --> 00:44:48,160
 真正唤醒它，而不会丢失唤醒。
-and actually wake it up and therefore not lose the wakeup.
 
 740
 00:44:48,970 --> 00:44:51,460
 所以我们要消除这个窗口。
-So we've got to somehow close that window.
 
 741
 00:44:53,570 --> 00:44:57,860
 要做到这一点，会使睡眠接口变得更复杂，
-And to do that, we gotta make sleep's interface a little bit more complicated,
 
 742
 00:44:58,160 --> 00:45:05,500
 所以，回到原来可以工作的 sleep ，
-so, go back to the original working sleep
 
 743
 00:45:05,500 --> 00:45:07,000
 我称为可工作的 sleep ，
-and I called a working sleep
 
 744
 00:45:07,120 --> 00:45:12,000
 人们解决这个问题的方式是
-and the way that people solve this problem is
 
 745
 00:45:12,000 --> 00:45:13,710
 就是 sleep 需要，
-that sleep requires,
 
 746
 00:45:13,710 --> 00:45:16,200
 即使 sleep 并不知道你在等什么，
-even though sleep doesn't really know what you're waiting for,
 
 747
 00:45:16,500 --> 00:45:19,260
 它需要你在等待一些东西，
-it requires that you be waiting for something
 
 748
 00:45:19,410 --> 00:45:21,870
 另外，还需要一个锁，
-and furthermore that there be a lock
 
 749
 00:45:21,930 --> 00:45:24,570
 保护你等待的任何东西。
-that protects whatever it is you're waiting for.
 
 750
 00:45:25,710 --> 00:45:27,990
 所以它需要有一个睡眠状态，
-So it requires that there be a sleep condition,
 
 751
 00:45:28,910 --> 00:45:30,170
 它并不知道，
-which it doesn't really know about
 
 752
 00:45:30,590 --> 00:45:34,790
 睡眠状态是 tx_done 等于 1 ，
-the sleep condition is that tx_done is equal to one,
 
 753
 00:45:35,450 --> 00:45:36,920
 sleep 不知道睡眠状态是什么，
-sleep doesn't know what the sleep condition is,
 
 754
 00:45:36,920 --> 00:45:39,860
 但是它需要有一个锁，
-but it does it is requires, that there be a lock,
 
 755
 00:45:39,860 --> 00:45:43,550
 保护睡眠状态，也就是 uart_tx_lock ，
-that protects the sleep condition, namely this uart_tx_lock
 
 756
 00:45:43,820 --> 00:45:47,630
 当你检查状态时，是持有锁的，
-and the lock be locked when you check the condition,
 
 757
 00:45:47,630 --> 00:45:49,700
 你一直持有锁直到调用 sleep ，
-that you hold the lock until you call sleep,
 
 758
 00:45:50,030 --> 00:45:52,070
 然后把锁传递给 sleep 。
-and that you pass the lock to sleep.
 
 759
 00:45:52,430 --> 00:45:55,490
 在接口层面上， sleep 保证的是
-And what sleep promises essentially at the interface level is
 
 760
 00:45:55,490 --> 00:46:00,350
 它会原子地使进程睡眠并释放锁，
-that it's gonna atomically put the process to sleep and release the lock
 
 761
 00:46:00,650 --> 00:46:05,120
 作为一种，至少是一对不可分割的行动，
-as a sort of, at least it is an indivisible pair of actions,
 
 762
 00:46:05,120 --> 00:46:07,700
 至少对于 wakeup 来说是这样的。
-at least with respect to wakeup.
 
 763
 00:46:09,000 --> 00:46:12,200
 所以， wakeup 不会再看到这种情况，
-So, wakeup will never see this situation,
 
 764
 00:46:12,200 --> 00:46:15,710
 你释放了锁，但是进程没有睡眠，
-which yeah you release the lock, but you know the process is not sleep,
 
 765
 00:46:16,160 --> 00:46:20,210
 sleep 释放锁，进入睡眠状态是原子的。
-sleep makes the release of the lock and putting the process to sleep the atomic.
 
 766
 00:46:23,110 --> 00:46:26,710
 这里的规则是必须有一个条件，
-And the rules for this is that there has to be, this has to be a condition,
 
 767
 00:46:27,220 --> 00:46:29,620
 必须有一个保护条件的锁，
-which has to be a lock protecting the condition,
 
 768
 00:46:29,860 --> 00:46:31,720
 当你调用 sleep 时，必须持有锁，
-the lock has to be held when you call sleep,
 
 769
 00:46:31,720 --> 00:46:32,890
 你必须把锁传递给 sleep ，
-you have to pass the lock to sleep,
 
 770
 00:46:32,890 --> 00:46:39,070
 另外，当你调用 wakeup 时，也必须持有锁。
-and furthermore the lock has to be held, when you call wakeup.
 
 771
 00:46:39,640 --> 00:46:42,790
 当你调用 wakeup 时，需要持有这个条件锁，
-This condition lock needs to be held when you call wakeup wakeup,
 
 772
 00:46:42,790 --> 00:46:47,080
 所以这些都是程序员最好遵守的规则，
-so these are rules, that the programmer had better follow,
 
 773
 00:46:47,110 --> 00:46:49,660
 如果想要使用 sleep 和 wakeup 编写正确的代码。
-if they want to write correct code using sleep and wakeup.
 
 774
 00:46:52,790 --> 00:46:53,330
 好的。
-Alright.
 
 775
 00:46:55,790 --> 00:46:59,090
 让我们来看看 sleep 和 wakeup ，
-So let's look at the sleep and wakeup,
 
 776
 00:46:59,150 --> 00:47:00,890
 试着发现它们是如何
-trying to spot how they actually
 
 777
 00:47:01,070 --> 00:47:04,130
 使用这个额外信息和这些规则，
-use this extra little piece of information and these rules
 
 778
 00:47:04,550 --> 00:47:06,230
 以避免丢失的唤醒。
-to avoid lost wakeups.
 
 779
 00:47:06,380 --> 00:47:07,670
 首先我想看一下 wakeup ，
-So first I want to look at wakeup,
 
 780
 00:47:10,130 --> 00:47:12,050
 wakeup 并不令人惊讶，
-wakeup not very surprising,
 
 781
 00:47:12,530 --> 00:47:14,690
 它遍历整个进程表，
-it just runs through the entire process table,
 
 782
 00:47:15,050 --> 00:47:17,720
 它锁定每个进程，
-it locks every process,
 
 783
 00:47:17,930 --> 00:47:20,600
 还记得吗，在进程加锁之后，
-remember that, after it's locked process,
 
 784
 00:47:20,600 --> 00:47:23,090
 你不能查看加锁进程的状态，
-you can't really look at a process at state with locking it,
 
 785
 00:47:23,390 --> 00:47:24,710
 它锁定每个进程，
-it locks each process,
 
 786
 00:47:25,010 --> 00:47:26,810
 如果进程处于睡眠状态，
-if the process is sleeping,
 
 787
 00:47:27,320 --> 00:47:32,360
 而且睡眠的信道跟传递给 wakeup 的信道一样，
-and the channel that's sleeping for is the same channel that was passed to wakeup,
 
 788
 00:47:32,880 --> 00:47:36,420
 然后 wakeup 将进程的状态更改为可运行，
-then wakeup marks the changes the process of state to runnable
 
 789
 00:47:36,660 --> 00:47:38,520
 然后释放进程的锁。
-and then releases the process's lock.
 
 790
 00:47:40,400 --> 00:47:41,780
 这里没有什么令人惊讶的地方。
-So no surprises here.
 
 791
 00:47:42,960 --> 00:47:46,110
 我们忽略我的 broken_sleep ，
-We'll ignore my broken_sleep
 
 792
 00:47:46,110 --> 00:47:47,760
 而是查看原来的 sleep ，
-and instead look at sleep itself,
 
 793
 00:47:47,970 --> 00:47:49,800
 这里是 sleep 的实现，
-so here's the implementation of sleep,
 
 794
 00:47:52,820 --> 00:47:54,890
 现在，有这个新的 lock 参数。
-with now, this new lock argument.
 
 795
 00:47:56,690 --> 00:48:01,910
 所以我们知道 sleep 必须释放条件锁，
-So we know sleep has to reduce has to release that condition lock
 
 796
 00:48:01,940 --> 00:48:03,260
 这是它的第二个参数，
-that its second argument,
 
 797
 00:48:03,260 --> 00:48:04,190
 我们知道它必须释放它，
-we know it has to release it,
 
 798
 00:48:04,190 --> 00:48:07,390
 因为中断例程必须能够获取，
-because the you know the interrupt routine has to be able to acquire,
 
 799
 00:48:07,420 --> 00:48:10,540
 所以我们知道在 sleep 中某个地方释放锁，
-so we know there's going to be release of that lock somewhere inside sleep,
 
 800
 00:48:10,540 --> 00:48:12,850
 实际上，这是那个释放锁的地方，
-and indeed here's the release of that lock,
 
 801
 00:48:13,090 --> 00:48:14,380
 当然，我们会担心，
-of course we're worried,
 
 802
 00:48:14,620 --> 00:48:18,040
 在我们在这一点解锁之后，
-after we release the lock that at this very point,
 
 803
 00:48:18,310 --> 00:48:23,320
 可能会调用 wakeup 并且唤醒该进程，
-wakeup might be called and might wake up this process,
 
 804
 00:48:23,350 --> 00:48:25,810
 所以为了唤醒这个进程，
-so in order to might try to wake up this process,
 
 805
 00:48:25,810 --> 00:48:27,760
 不过，我们还没有标记为睡眠，
-but of course we haven't marked sleeping yet, right,
 
 806
 00:48:27,760 --> 00:48:31,600
 所以我们不能让 wakeup 执行。
-so we cannot afford to have wakeup execute.
 
 807
 00:48:33,550 --> 00:48:34,210
 糟糕。
-Oops.
 
 808
 00:48:34,270 --> 00:48:38,260
 让 wakeup 在这个 release 之后执行，即使我们已经释放。
-Have wakeup execute, right, after this release, even though we're releasing.
 
 809
 00:48:38,260 --> 00:48:40,330
 所以为了避免这种情况发生，
-So in order to cause that not to happen,
 
 810
 00:48:40,330 --> 00:48:42,280
 在释放条件锁之前，
-before releasing the condition lock,
 
 811
 00:48:42,310 --> 00:48:47,020
 sleep 会获取将要睡眠的进程的锁。
-sleep acquires the lock of the process that's going to sleep.
 
 812
 00:48:47,470 --> 00:48:55,360
 如果你还记得， wakeup 必须在持有条件锁的情况下调用，
-If you recall, wakeup must be called with the condition lock held
 
 813
 00:48:55,360 --> 00:48:57,160
 并且它获取，
-and it acquires the,
 
 814
 00:48:57,490 --> 00:48:59,200
 如果要唤醒进程，
-if it's about to wakeup process,
 
 815
 00:48:59,200 --> 00:49:02,050
 它首先必须等待获取进程锁。
-it first must wait to acquire that process's lock.
 
 816
 00:49:04,400 --> 00:49:07,310
 所以在这段时间里，
-So for the entire amount of time,
 
 817
 00:49:07,310 --> 00:49:12,890
 在 uartwrite 检查状态之前，
-between when uartwrite between, before uartwrite checked the condition,
 
 818
 00:49:13,160 --> 00:49:16,250
 当我们在这里调用 sched 时，
-when we when we call sched here,
 
 819
 00:49:16,580 --> 00:49:22,730
 这个线程始终持有条件锁和 p->lock 中的一个。
-this thread holds one or another of the condition lock and p->lock at all times.
 
 820
 00:49:23,910 --> 00:49:27,390
 我回到 uart ，想强调这一点，
-I just go back to uart, want to emphasize this,
 
 821
 00:49:27,420 --> 00:49:32,210
 uartwrite 在这里获取状态锁，
-uartwrite acquires the condition lock here
 
 822
 00:49:32,510 --> 00:49:36,140
 并将状态锁一直持有到它调用 sleep ，
-and holds the condition lock all the way through to where it calls sleep,
 
 823
 00:49:36,530 --> 00:49:38,180
 所以它获得状态锁，
-so it requires the condition lock,
 
 824
 00:49:38,570 --> 00:49:40,190
 在持有条件锁的情况下检查，
-checks the condition with lock held,
 
 825
 00:49:40,340 --> 00:49:42,680
 在持有状态锁的情况下调用 sleep ，
-call sleep with the condition lock held,
 
 826
 00:49:42,920 --> 00:49:45,590
 所以 wakeup 现在什么都做不了，
-so wakeup can't do anything now,
 
 827
 00:49:45,590 --> 00:49:47,960
 因为它甚至不允许调用 wakeup ，
-because it can not even allowed to call wakeup,
 
 828
 00:49:48,080 --> 00:49:50,690
 直到调用者拥有条件锁，
-until until the caller owns the condition locks,
 
 829
 00:49:50,690 --> 00:49:52,520
 所以 wakeup 肯定不是现在执行，
-so wakeup definitely not executing now,
 
 830
 00:49:53,540 --> 00:49:55,580
 我们还持有锁，我们调用 sleep ，
-we still hold the lock, we call sleep,
 
 831
 00:49:57,110 --> 00:50:00,160
 sleep 释放了条件锁，
-sleep releases the condition lock,
 
 832
 00:50:00,160 --> 00:50:03,820
 但首先获取进程锁。
-but first acquires the process's lock.
 
 833
 00:50:06,030 --> 00:50:07,380
 如果你还记得，
-And if you remember,
 
 834
 00:50:07,530 --> 00:50:08,160
 糟糕，
-oops,
 
 835
 00:50:10,050 --> 00:50:13,260
 调用 wakeup 使用条件锁，
-wakeup, wakeup is called with the condition lock,
 
 836
 00:50:13,530 --> 00:50:15,720
 在我们释放它之后。
-after we release it.
 
 837
 00:50:16,530 --> 00:50:18,840
 抱歉，在我们释放条件之后，
-Sorry, after we release the condition lock,
 
 838
 00:50:18,840 --> 00:50:19,890
 wakeup 可以被调用，
-wakeup can be called,
 
 839
 00:50:19,920 --> 00:50:22,500
 但是 wakeup 不会看到这个进程，
-but wakeup won't look at the process
 
 840
 00:50:22,500 --> 00:50:24,600
 直到它拥有我们持有的进程锁。
-until it has the process lock which we hold.
 
 841
 00:50:24,600 --> 00:50:26,580
 好的，所以 wakeup 仍然没有被执行。
-So okay, so wakeup is still not executing.
 
 842
 00:50:30,900 --> 00:50:34,140
 获取进程锁，释放条件锁，
-Acquire the process lock, release the condition lock,
 
 843
 00:50:34,170 --> 00:50:35,820
 在持有进程锁的同时，
-while holding the process lock,
 
 844
 00:50:35,820 --> 00:50:40,230
 把进程标记为睡眠在这个信道上，
-mark the process as sleeping on this particular channel
 
 845
 00:50:40,590 --> 00:50:43,470
 然后调用 sched ，它会调用 swtch ，
-and then calls sched, which calls swtch right,
 
 846
 00:50:43,500 --> 00:50:46,350
 我们仍然持有进程锁，所以 wakeup 没有做任何事情，
-we still have the process lock, so wakeup still isn't doing anything,
 
 847
 00:50:46,560 --> 00:50:47,700
 如果你还记得，
-and if you remember,
 
 848
 00:50:47,700 --> 00:50:52,260
 从这个线程切换到调度程序线程，
-the you know switching away from this thread to the scheduler thread
 
 849
 00:50:52,500 --> 00:50:55,320
 调度器例程在调用 swtch 返回后，
-and the scheduler routine after it's called the swtch returns,
 
 850
 00:50:55,380 --> 00:50:59,580
 释放最近运行的进程锁。
-releases recently running process's lock.
 
 851
 00:50:59,920 --> 00:51:03,250
 所以，在这里，在调度器中时，
-So at this point, after we're in the scheduler,
 
 852
 00:51:03,280 --> 00:51:07,360
 wakeup 可以获取这个进程的 p->lock ，
-wakeup can finally acquire p->lock for this process,
 
 853
 00:51:07,600 --> 00:51:12,170
 注意到它睡眠在这个信道上，
-notice that it's sleeping and on this channel
 
 854
 00:51:12,170 --> 00:51:13,670
 并将它的状态设置为唤醒。
-and set its state to wakeup.
 
 855
 00:51:14,110 --> 00:51:17,710
 所以我们保证了规则的效果，
-So we guaranteed the effect of the rule
 
 856
 00:51:17,710 --> 00:51:20,560
 当你调用 sleep 时，必须持有条件锁，
-that you have to hold the condition lock when calling sleep,
 
 857
 00:51:20,560 --> 00:51:22,090
 sleep 知道这个锁，
-the fact that sleep knows about that lock
 
 858
 00:51:22,090 --> 00:51:25,540
 并且只有在获取 p->lock 之后才释放它，
-and release it only after requiring process p->lock
 
 859
 00:51:25,720 --> 00:51:28,680
 而 wakeup 需要持有这两个锁，
-and wakeup needing to hold both locks
 
 860
 00:51:29,010 --> 00:51:30,480
 为了[考虑]这个进程，
-in order to [think about] this process
 
 861
 00:51:30,690 --> 00:51:33,900
 意味着我们不会再失去一个 wakeup ，
-means that we can no longer lose a wakeup,
 
 862
 00:51:34,140 --> 00:51:36,720
 所以我们解决了丢失唤醒的问题。
-so we fix this lost wakeup problem.
 
 863
 00:51:39,050 --> 00:51:40,700
 我意识到有些[关联]，
-I realized a little bit involved,
 
 864
 00:51:41,330 --> 00:51:43,100
 对于这里的事情，有什么问题吗？
-any questions about what's going on here?
 
 865
 00:52:02,910 --> 00:52:07,890
 好的，请随时提问。
-Alright, well, feel free to ask questions at any time.
 
 866
 00:52:09,480 --> 00:52:14,100
 好的，我们看到这个案例
-Alright, so we saw one, we saw this one, look at this one case,
 
 867
 00:52:14,100 --> 00:52:19,810
 其中使用 sleep 和 wakeup ，并避免了丢失唤醒，
-in which were using sleep and wakeup in a way that avoids lost wakeups,
 
 868
 00:52:20,140 --> 00:52:23,140
 在 xv6 中还有很多其他的版本，
-there's a bunch of others in xv6,
 
 869
 00:52:23,200 --> 00:52:27,580
 特别是，我们在等待的条件，
-this particular one, the thing that we're waiting for the condition that we're waiting for,
 
 870
 00:52:28,030 --> 00:52:30,220
 是发生中断，
-you know is that interrupt has occurred,
 
 871
 00:52:30,220 --> 00:52:34,360
 表明硬件已经准备好做下一件事，
-that has signalled that hardware is ready to do the next thing,
 
 872
 00:52:35,680 --> 00:52:40,260
 也有一些时候内核代码调用 sleep
-there's also times when kernel code calls sleep
 
 873
 00:52:40,290 --> 00:52:42,930
 为了等待其他的线程做一些事情，
-in order to wait for a diff some other thread to do something,
 
 874
 00:52:43,110 --> 00:52:45,330
 在概念上并没有什么不同，
-which is not actually in the end conceptually different,
 
 875
 00:52:45,330 --> 00:52:47,190
 但可能感觉有点不同，
-but may feel a little bit different,
 
 876
 00:52:47,190 --> 00:52:49,800
 例如，在管道代码中，
-so in the pipe code, for example,
 
 877
 00:52:50,680 --> 00:52:52,030
 如果你查看 piperead ，
-if you look at piperead,
 
 878
 00:52:56,210 --> 00:53:00,500
 这里有一堆东西，你可以忽略，
-there's a bunch of junk here which you have to ignore,
 
 879
 00:53:00,500 --> 00:53:05,460
 但是管道中的的读系统调用，最终调用 piperead ，
-but the read system call on the pipe, ends up calling piperead,
 
 880
 00:53:05,610 --> 00:53:08,520
 这里有一把锁保护管道，
-there's a lock that protects the pipe
 
 881
 00:53:08,550 --> 00:53:13,490
 而这就是条件锁，
-and this is going to end up being the condition lock,
 
 882
 00:53:13,880 --> 00:53:18,380
 piperead 需要等待，直到有数据缓冲在管道中，
-pipereed needs to wait until there's actually data buffered in the pipe,
 
 883
 00:53:18,530 --> 00:53:22,940
 那个条件是数据就绪，
-and that condition is that there's data ready,
 
 884
 00:53:22,940 --> 00:53:26,390
 是 nwrite 大于 nread ，
-is nread or nwrite is greater than nread
 
 885
 00:53:26,390 --> 00:53:28,340
 也就是写入的字节多于读取的字节，
-that is more bytes have been written than read,
 
 886
 00:53:28,670 --> 00:53:36,010
 当这不是真的， piperead 在 sleep 上，等待那种条件，
-while that's not true, piperead sits in sleep, waiting for that condition,
 
 887
 00:53:36,100 --> 00:53:39,910
 然后传入这个管道锁，
-and passes in this pipe lock,
 
 888
 00:53:39,970 --> 00:53:42,790
 条件锁到 sleep 中，
-the condition lock that protects the condition into sleep,
 
 889
 00:53:44,150 --> 00:53:45,950
 为了防止丢失唤醒。
-in order to protect against lost wakeup.
 
 890
 00:53:45,950 --> 00:53:47,750
 所以你可能丢失唤醒的原因是，
-So the reason why you might get lost wakeup is
 
 891
 00:53:47,750 --> 00:53:49,520
 在不同的核心上，
-that on a different core,
 
 892
 00:53:50,580 --> 00:53:52,710
 在文件的上面一点，
-a little farther up in the file,
 
 893
 00:53:52,710 --> 00:53:53,640
 在另一个核心上，
-on a different core,
 
 894
 00:53:53,730 --> 00:53:58,170
 可能有其他线程，刚刚调用了 pipewrite ，
-there's probably some other thread, just now calling pipewrite
 
 895
 00:53:58,530 --> 00:54:02,810
 它会将字节添加到管道缓冲区，
-and it's gonna add byte to the pipe buffer,
 
 896
 00:54:02,810 --> 00:54:09,090
 最后在 piperead 等待的信道上调用 wakeup ，
-and finally call the wakeup on the channel, that piperead waiting for
 
 897
 00:54:09,330 --> 00:54:14,580
 我们想要避免读取者检查的风险，
-and you know we want to avoid the risk that between the reader checking,
 
 898
 00:54:15,180 --> 00:54:19,740
 注意到这里没有字节可读，并且调用 sleep ，
-there's, noticing there's no bytes to read and calling sleep,
 
 899
 00:54:19,770 --> 00:54:23,700
 我们不想让另一个核心上的 pipewrite 在这里睡眠，
-we do not want to pipewrite on another core to sleep in there,
 
 900
 00:54:25,220 --> 00:54:29,300
 增加字节，唤醒我们，在我们进入睡眠之前，
-and add bytes and wake us up, before we've even gone to sleep, right,
 
 901
 00:54:29,300 --> 00:54:30,350
 会是一次丢失的唤醒。
-would be a lost wakeup.
 
 902
 00:54:31,600 --> 00:54:34,060
 这把锁，
-And this lock basically this lock
 
 903
 00:54:34,060 --> 00:54:37,030
 sleep 很小心地释放它，
-and the fact that sleep is careful about releasing it,
 
 904
 00:54:38,540 --> 00:54:41,360
 防止写入者睡眠，
-prevent a writer from sleeping in,
 
 905
 00:54:41,420 --> 00:54:43,220
 在检查条件和睡眠之间，
-between the check of the condition and the sleep,
 
 906
 00:54:43,280 --> 00:54:44,990
 因为写入者也必须获得锁。
-because the writer has to acquire the lock too.
 
 907
 00:54:48,670 --> 00:54:51,700
 对于你们来说，
-And for those of you are,
 
 908
 00:54:53,610 --> 00:54:57,060
 有人问到关于包裹 sleep 和 while 循环的问题，
-the people asked about wrapping sleep and while loops,
 
 909
 00:54:57,300 --> 00:55:02,670
 pipereed 和 pipewrite 都是在一段时间内睡眠的例子，
-both pipereed and pipewrite are examples of sleep wrapped in a while,
 
 910
 00:55:03,330 --> 00:55:09,220
 比如，这是 piperead 等待数据出现的循环，
-so for example the, this is the loop that piperead waits for data to appear,
 
 911
 00:55:09,220 --> 00:55:11,320
 等待管道缓冲器为非空，
-waits for the buff pipe buffer to be non empty,
 
 912
 00:55:11,770 --> 00:55:13,630
 这个 sleep 被包裹在一个循环中，
-and the sleep is wrapped in a loop
 
 913
 00:55:13,720 --> 00:55:16,020
 再说一次，原因是，
-and again the reason is that,
 
 914
 00:55:16,140 --> 00:55:20,790
 完全可以有多个进程读取相同的管道，
-there could be perfectly well be multiple processes reading the very same pipe
 
 915
 00:55:21,120 --> 00:55:23,970
 所以，如果写入着向管道写入一个字节，
-and so if a writer writes one byte to the pipe,
 
 916
 00:55:24,420 --> 00:55:26,130
 那里只有一个字节，
-so there's only one byte there,
 
 917
 00:55:26,190 --> 00:55:27,660
 写入者会调用 wakeup ，
-the writer's going to call wakeup,
 
 918
 00:55:28,660 --> 00:55:33,310
 这将唤醒所有正在读取该管道的多个进程，
-that's gonna wakeup all the multiple processes that were reading that pipe,
 
 919
 00:55:33,340 --> 00:55:35,230
 但是管道中只有一个字节，
-but there's only one byte in the pipe,
 
 920
 00:55:35,500 --> 00:55:40,420
 所以其中一个进程会首先被唤醒，
-and so one of those processes going to wakeup first, right,
 
 921
 00:55:40,480 --> 00:55:42,880
 它会首先从睡眠中醒来。
-it's going to come out of its sleep first.
 
 922
 00:55:43,000 --> 00:55:44,290
 这提醒了我，
-Actually, this reminds me,
 
 923
 00:55:44,290 --> 00:55:47,170
 关于 sleep ，还有一件重要的事情我忘了说，
-there's another crucial thing I forgot to mention about sleep,
 
 924
 00:55:49,170 --> 00:55:51,840
 这是 sleep 做的最后一件事，
-and that's that the last thing sleep does,
 
 925
 00:55:51,840 --> 00:55:52,770
 我们来看一下，
-let's look at,
 
 926
 00:55:55,980 --> 00:55:57,330
 这里是，
-here's, here's the,,
 
 927
 00:55:57,920 --> 00:55:58,400
 抱歉，
-sorry,
 
 928
 00:55:58,550 --> 00:55:59,780
 这里是 sleep 的结尾，
-here's the end of sleep,
 
 929
 00:55:59,900 --> 00:56:03,650
 sleep 做的最后一件事是获取条件锁，
-the last thing sleep does is acquires the condition lock,
 
 930
 00:56:03,890 --> 00:56:06,710
 所以，你必须在持有条件锁的情况下调用 sleep ，
-so you must call sleep with the condition lock held
 
 931
 00:56:06,920 --> 00:56:09,440
 sleep 在返回之前重新获取它。
-and sleep re-acquires it before it returns.
 
 932
 00:56:10,850 --> 00:56:14,510
 好的，这意味着，
-Okay, so what that means is that,
 
 933
 00:56:14,510 --> 00:56:15,800
 如果有一群读者，
-if there were a bunch of readers,
 
 934
 00:56:15,800 --> 00:56:17,750
 有一个字节被写入管道，
-there's one byte written to just return to a pipe
 
 935
 00:56:17,750 --> 00:56:19,550
 有一群读者被唤醒，
-and a bunch of readers that all woken up,
 
 936
 00:56:19,550 --> 00:56:22,100
 其中一个会成功，
-one of them will succeed,
 
 937
 00:56:22,220 --> 00:56:26,510
 其中一个线程成功获取这个锁，
-one of the sleep, so one of the threads will succeed in acquiring this lock,
 
 938
 00:56:27,000 --> 00:56:30,000
 其他线程会等待并睡眠，旋转等待锁，
-the others will be waiting and sleep, spinning waiting for the lock,
 
 939
 00:56:30,270 --> 00:56:33,600
 一个幸运的睡眠进程将会返回，
-that one lucky process sleep will return,
 
 940
 00:56:33,600 --> 00:56:34,560
 它会回到这个检查上，
-it will come back to this check
 
 941
 00:56:34,560 --> 00:56:38,040
 p->nwrite 比 nread 大 1 ，
-and you know p->nwrite is one larger than nread,
 
 942
 00:56:38,160 --> 00:56:39,180
 所以有数据可读，
-so its data to read,
 
 943
 00:56:39,180 --> 00:56:40,140
 它会跳出循环，
-it will fall out of the loop,
 
 944
 00:56:40,140 --> 00:56:41,370
 将读取一个字节，
-will read the one byte
 
 945
 00:56:41,520 --> 00:56:42,840
 现在缓冲区里什么都没有了，
-and now there's nothing in the buffer,
 
 946
 00:56:43,020 --> 00:56:45,540
 释放锁，然后返回，
-release the lock, and return,
 
 947
 00:56:45,600 --> 00:56:48,180
 现在下一个线程被唤醒，
-and now the next thread that was woken up,
 
 948
 00:56:48,660 --> 00:56:52,410
 它的 sleep 能够重新获得状态锁，
-it's sleep will be able to re-acquire the condition lock,
 
 949
 00:56:52,590 --> 00:56:57,350
 它的 sleep 将返回，重新检查循环条件，
-it's sleep will return, it will return, recheck the loop condition,
 
 950
 00:56:57,350 --> 00:57:00,860
 但是现在 nread 等于 nwrite ，
-but now nread is equal to nwrite,
 
 951
 00:57:01,040 --> 00:57:04,700
 所以这个线程和任何其他等待的线程将返回睡眠状态。
-and so that thread and any other thread waiting will go back to sleep.
 
 952
 00:57:04,880 --> 00:57:07,010
 这里再次强调，
-This is again just to reinforce,
 
 953
 00:57:07,010 --> 00:57:10,460
 为什么几乎每次调用 sleep ，
-why almost every, maybe every call to sleep
 
 954
 00:57:10,490 --> 00:57:13,190
 都必须包裹在一个重新检查条件的循环中。
-has to be wrapped in a loop that re-checks the condition.
 
 955
 00:57:18,360 --> 00:57:22,350
 关于管道使用 sleep ，有什么问题吗？
-Questions about the way sleep, pipes use sleep?
 
 956
 00:57:33,670 --> 00:57:40,300
 好的， sleep wakeup 接口规则有点复杂。
-Alright, the sleep and wakeup interface rules are a little bit complex.
 
 957
 00:57:41,420 --> 00:57:44,870
 因为你需要透露睡眠时在等待什么，
-Because you have to reveal a bit to sleep about what you're waiting for,
 
 958
 00:57:44,870 --> 00:57:47,000
 你必须告诉锁，并遵守一些规则，
-you have to tell the lock and follow some rules,
 
 959
 00:57:48,500 --> 00:57:50,360
 这有时是令人讨厌的。
-which is sometimes annoying.
 
 960
 00:57:50,630 --> 00:57:53,090
 另一方面， sleep 和 wakeup 是相当灵活的，
-On the other hand, sleep and wakeup pretty flexible,
 
 961
 00:57:53,090 --> 00:57:56,450
 部分原因是，它们不需要真正理解条件本身，
-partially, because they don't actually have to understand the condition itself,
 
 962
 00:57:56,630 --> 00:57:59,030
 只需要一个条件，一个锁，
-that just has to be a condition and be a lock,
 
 963
 00:57:59,270 --> 00:58:03,110
 还有其他一些级别稍高的方案，
-there are other schemes that are somewhat higher level,
 
 964
 00:58:03,290 --> 00:58:05,480
 还有其他的协调，比如 semaphore ，
-there's other coordination seems like the semaphore,
 
 965
 00:58:05,480 --> 00:58:07,760
 你从今天的阅读材料中读到的，
-you read about in the reading for today,
 
 966
 00:58:08,000 --> 00:58:11,030
 其中接口不是那么复杂，
-in which the interface is slightly less complex,
 
 967
 00:58:11,030 --> 00:58:13,700
 比如信号量，你不必告诉信号量有关锁的信息，
-like the semaphores, you don't have to tell the semaphore about a lock,
 
 968
 00:58:15,100 --> 00:58:19,000
 并且信号量的调用者不必担心丢失唤醒，
-and the caller to semaphore doesn't have to worry about lost wakeups,
 
 969
 00:58:19,030 --> 00:58:21,010
 信号量的内部实现，
-internally the implementation of the semaphore,
 
 970
 00:58:21,160 --> 00:58:23,830
 就像你们在今天的阅读材料中看到的，
-again as you saw in the reading for today,
 
 971
 00:58:23,830 --> 00:58:28,120
 信号量的内部实现担心丢失唤醒。
-the internal implementation of semaphores worries about lost wakeup.
 
 972
 00:58:28,120 --> 00:58:33,070
 因为接口专用于这些递增递减计数器，
-So, because the interface is specialized to these up down counters,
 
 973
 00:58:34,560 --> 00:58:38,040
 处理丢失唤醒的需要不会显示到接口中。
-the need to deal with lost wakeup doesn't leak through into the interface.
 
 974
 00:58:38,640 --> 00:58:40,770
 所以信号量稍微简单一些，
-So that semaphores are somewhat simpler,
 
 975
 00:58:40,770 --> 00:58:41,910
 尽管它们不那么普遍，
-although they're less general,
 
 976
 00:58:42,180 --> 00:58:45,420
 如果你没有一个计数，
-if you don't, if you don't have a count,
 
 977
 00:58:45,420 --> 00:58:46,710
 你不是在等待计数，
-you're not waiting for count,
 
 978
 00:58:46,710 --> 00:58:51,730
 那么信号量不一定会对你非常有帮助。
-then semaphores are not necessarily going to be super helpful for you.
 
 979
 00:58:52,240 --> 00:58:56,470
 所以，我说 sleep 和 wakeup 会更普遍一些。
-So that that causes me to claim that sleep and wakeup a little more general.
 
 980
 00:59:00,440 --> 00:59:01,970
 好的。
-Alright.
 
 981
 00:59:02,980 --> 00:59:05,230
 所以有了 sleep 和 wakeup 的经验，
-So with sleep and wakeup under our belts,
 
 982
 00:59:05,290 --> 00:59:10,180
 我想谈谈 xv6 面临的另一种挑战，
-I want to talk about one more kind of challenge that xv6 faces,
 
 983
 00:59:10,180 --> 00:59:11,860
 它与 sleep 和 wakeup 有关，
-that's actually related to sleep and wakeup
 
 984
 00:59:12,880 --> 00:59:15,970
 那就是如何关闭线程。
-and that's how to shut down threads.
 
 985
 00:59:16,000 --> 00:59:18,910
 每个线程系统，线程最终都需要退出，
-Every threading system, the threads eventually need to exit
 
 986
 00:59:18,910 --> 00:59:22,090
 我们需要清理它们的状态，释放它们的堆栈，
-and we need to clean up their state, free their stack,
 
 987
 00:59:22,300 --> 00:59:25,750
 在 xv6 上，当一个进程退出时，
-on xv6, when a process exits,
 
 988
 00:59:26,550 --> 00:59:28,320
 我们需要释放它的用户内存，
-we need to free its user memory
 
 989
 00:59:28,320 --> 00:59:31,200
 释放它的页表，释放它的 trapframe ，
-and free its page table and free its trapframe,
 
 990
 00:59:31,410 --> 00:59:36,780
 将进程表中的插槽标记为可重用。
-mark the process the slot in the process table as reusable.
 
 991
 00:59:37,140 --> 00:59:39,480
 所以，典型的清理要求是，
-So, these are sort of typical cleanup requirements is
 
 992
 00:59:39,480 --> 00:59:40,980
 一堆东西需要释放，
-a bunch of stuff that has to be freed
 
 993
 00:59:41,310 --> 00:59:48,010
 当线程退出或被杀死时。
-when threads exit or or killed.
 
 994
 00:59:48,190 --> 00:59:51,040
 但是这里有两个大问题，
-So, but there's two big problems that arise here,
 
 995
 00:59:51,100 --> 00:59:53,830
 与线程退出或杀死线程有关，
-with thread exit or killing threads,
 
 996
 00:59:53,830 --> 00:59:55,900
 其一，我们不能仅仅伸手，
-one is that we can't just reach out,
 
 997
 00:59:55,900 --> 01:00:01,360
 我们通常不能伸手，单方面摧毁另一个线程，
-we can't usually just reach out and unilaterally destroy another thread,
 
 998
 01:00:01,780 --> 01:00:02,920
 问题是，
-the problem is that,
 
 999
 01:00:02,920 --> 01:00:06,070
 其他线程可能正在另一个核心上执行，
-other thread may actually be currently executing on another core
 
 1000
 01:00:06,070 --> 01:00:07,270
 并使用其堆栈，
-and using its stack
 
 1001
 01:00:07,270 --> 01:00:11,170
 可能要将寄存器保存在结构上下文中或其他什么，
-and maybe about to save its registers in its struct context or whatever,
 
 1002
 01:00:11,530 --> 01:00:15,100
 另一个线程，如果它在内核中，可能持有锁，
-the other thread if it's in the kernel, maybe holding locks,
 
 1003
 01:00:15,100 --> 01:00:19,450
 它可能正在对内核数据结构进行一些复杂的更新，
-it may be in the middle of some complicated update to a kernel data structure,
 
 1004
 01:00:19,780 --> 01:00:22,000
 如果我们只是简单地强行中止它，
-and if we simply somehow shoot down the thread
 
 1005
 01:00:22,000 --> 01:00:23,650
 并停止，杀死在它的[轨道]上，
-and stop it dead in its [tracks],
 
 1006
 01:00:23,770 --> 01:00:28,840
 那么它可能已经完成了对一些内核数据的部分更新，
-then it may have gotten halfway through a delicate update to some kernel data,
 
 1007
 01:00:29,050 --> 01:00:31,120
 但我们在它完成之前强行中止了。
-but we shot it down before it completed.
 
 1008
 01:00:31,920 --> 01:00:38,560
 所以，我们不能承受这些事情发生。
-So, we can't afford any of those things to happen.
 
 1009
 01:00:39,820 --> 01:00:43,810
 另一个问题是，即使线程调用 exit ，
-Another problem is that even if a thread calls exit
 
 1010
 01:00:43,810 --> 01:00:46,180
 不是决定要杀死，
-and sort of decided for its not killed,
 
 1011
 01:00:46,180 --> 01:00:48,280
 而是自己决定要退出，
-but decided for itself that it wants to quit,
 
 1012
 01:00:49,180 --> 01:00:52,090
 它具有在执行时使用的资源，
-it has resources that it uses while executes
 
 1013
 01:00:52,090 --> 01:00:55,600
 比如它的堆栈，和在进程表中的插槽，
-like its stack, for example and its slot in the process table,
 
 1014
 01:00:55,810 --> 01:00:58,150
 当它还在执行时，
-and while it's still executing,
 
 1015
 01:00:58,650 --> 01:01:02,670
 它可能不能释放还在使用的资源。
-it, it may not be able to free up the resources that is still using.
 
 1016
 01:01:03,800 --> 01:01:07,100
 所以我们需要一种方法让线程，
-So we need a way for threads to,
 
 1017
 01:01:07,190 --> 01:01:08,720
 对于最后几个资源，
-for those last few resources,
 
 1018
 01:01:08,720 --> 01:01:10,790
 释放对执行至关重要的东西，
-that are critical to execution to somehow be freed,
 
 1019
 01:01:10,790 --> 01:01:12,140
 即使线程需要它们，
-even though the thread needs them,
 
 1020
 01:01:12,530 --> 01:01:14,450
 即使只是执行任何代码。
-even just execute any code at all.
 
 1021
 01:01:16,560 --> 01:01:18,690
 好的，记住这两个问题，
-Okay, so keep these two problems in mind,
 
 1022
 01:01:18,780 --> 01:01:23,000
 xv6 实际上有两个东西，
-xv6 actually has two, two things,
 
 1023
 01:01:23,000 --> 01:01:26,840
 关于停止线程或进程，
-that are related to shutting down threads or processes,
 
 1024
 01:01:26,930 --> 01:01:28,700
 一个是退出，另一个是杀死。
-one is exit and the other is kill.
 
 1025
 01:01:28,730 --> 01:01:30,350
 那么，我们先来看一下退出。
-So let's look at exit first.
 
 1026
 01:01:31,160 --> 01:01:33,560
 我会查看 proc.c 中用于退出的代码，
-I'll look at the code for exit in proc.c,
 
 1027
 01:01:34,810 --> 01:01:38,780
 这是 exit 系统调用所调用的。
-this is what the exit system call calls.
 
 1028
 01:01:41,480 --> 01:01:44,150
 退出最终要做的，
-And you know what exit has to do in the end,
 
 1029
 01:01:44,150 --> 01:01:46,490
 从外部接口上了解，
-we know sort of from the outside from the interface,
 
 1030
 01:01:46,490 --> 01:01:49,550
 它会释放进程内存和页表，
-that it's gonna free up the process memory and page tables,
 
 1031
 01:01:49,550 --> 01:01:51,170
 关闭打开的文件，
-got to close its open files
 
 1032
 01:01:51,740 --> 01:01:54,050
 我们也知道有一个 wait 调用，
-and we also know that there's this wait call,
 
 1033
 01:01:54,050 --> 01:01:56,030
 可能是父进程创造的，
-that the parent may be making, making
 
 1034
 01:01:56,030 --> 01:02:00,710
 exit 最终也必须唤醒父进程，
-and exit has to eventually cause the parent to be woken up as well
 
 1035
 01:02:01,580 --> 01:02:06,260
 所以我们要在 exit 代码中查看这些东西。
-and so we're going to look for all these things in the, in the exit code.
 
 1036
 01:02:06,710 --> 01:02:09,140
 所以你可以看到一些这样的东西，
-So you can see some of this stuff,
 
 1037
 01:02:09,140 --> 01:02:12,320
 比如 exit 关闭打开的文件，
-like exit specifically closes the open files,
 
 1038
 01:02:12,320 --> 01:02:13,820
 这可能非常复杂，
-and this might actually be quite complex,
 
 1039
 01:02:13,820 --> 01:02:17,150
 因为文件系统关闭文件，
-because the files or file system files closing them,
 
 1040
 01:02:17,150 --> 01:02:19,250
 涉及到比如引用计数的东西。
-actually involves things like reference counting.
 
 1041
 01:02:21,070 --> 01:02:22,120
 我们还没到那一步，
-And we haven't gotten there yet,
 
 1042
 01:02:22,120 --> 01:02:22,780
 但我们会看到，
-but we'll see that,
 
 1043
 01:02:22,930 --> 01:02:25,140
 这需要相当多的工作。
-this takes a fair amount of work.
 
 1044
 01:02:25,140 --> 01:02:29,610
 但是当你调用 exit 时，进程会继续并关闭它自己的文件。
-But a process goes ahead and closes when you call exit, closes its own files.
 
 1045
 01:02:30,950 --> 01:02:32,840
 它也会做一些类似的事情，
-And it also does something similar,
 
 1046
 01:02:32,840 --> 01:02:36,710
 它具有当前工作目录的记录，
-it has a record of the current working directory,
 
 1047
 01:02:36,710 --> 01:02:38,540
 就是当你是使用 cd 时会变的目录，
-which is what's changed when you call cd,
 
 1048
 01:02:38,540 --> 01:02:43,130
 它需要在将该引用释放到文件系统中。
-and it needs to to sort of release that reference into the file system.
 
 1049
 01:02:43,750 --> 01:02:46,930
 然后，还有其他一些讨厌的事情发生，
-Then there's some other horrible stuff that happens,
 
 1050
 01:02:46,960 --> 01:02:48,700
 这与事实有关，
-that's related to the fact,
 
 1051
 01:02:48,700 --> 01:02:51,370
 如果进程退出，
-that if a process exits,
 
 1052
 01:02:51,370 --> 01:02:53,650
 但它有自己的子进程，
-but it has children of its own,
 
 1053
 01:02:54,200 --> 01:02:59,120
 这些子进程由初始进程继承，
-those children are inherited by the init process,
 
 1054
 01:02:59,150 --> 01:03:00,290
 因为事实证明，
-because as it turns out,
 
 1055
 01:03:00,290 --> 01:03:01,430
 我们几分钟后就会看到，
-we'll see in a few minutes,
 
 1056
 01:03:01,430 --> 01:03:07,070
 每个退出的进程，都有来自父进程的对应的等待，
-that every process that exits, there has to be a corresponding wait from a parent,
 
 1057
 01:03:07,070 --> 01:03:11,230
 这完成了退出过程中的一些步骤，
-that actually finishes up some of the steps in exiting
 
 1058
 01:03:11,920 --> 01:03:15,610
 所以如果我退出，我的子进程需要等待，
-and so if I exit, my children they need to be waited for,
 
 1059
 01:03:15,610 --> 01:03:17,080
 我是它们的父进程，我不会等待它们，
-I was their parent, I'm not going to wait for them,
 
 1060
 01:03:17,080 --> 01:03:17,950
 因为我已经退出了。
-because I've exited.
 
 1061
 01:03:18,130 --> 01:03:20,500
 所以这里有一段代码，
-And so there's a stretch of code here
 
 1062
 01:03:20,500 --> 01:03:24,730
 exit 重新给退出进程的子进程设置父进程，
-and exit that is re-parenting the exiting processes children,
 
 1063
 01:03:24,730 --> 01:03:26,200
 这样它们的父进程就是 init ，
-so that their parents of init,
 
 1064
 01:03:26,200 --> 01:03:27,820
 它的进程 ID 是 1 。
-which is process id one.
 
 1065
 01:03:29,970 --> 01:03:33,780
 最后，一个进程唤醒它的父进程，
-And then finally, a process wakes up its own parent,
 
 1066
 01:03:34,170 --> 01:03:36,780
 可能在睡眠并等待，
-which might be waiting and sleeping and wait,
 
 1067
 01:03:39,500 --> 01:03:43,840
 并将自己的状态设置为僵尸状态，
-and sets its state to the zombie state,
 
 1068
 01:03:44,950 --> 01:03:46,000
 我们还没有，
-it turns out we haven't,
 
 1069
 01:03:46,580 --> 01:03:47,480
 但我们稍后会看到，
-but we'll see in a moment,
 
 1070
 01:03:47,480 --> 01:03:51,680
 这个进程还没有完全释放所有的资源，
-but the process hasn't completely finished releasing all of its resources,
 
 1071
 01:03:52,040 --> 01:03:54,830
 所以它没有准备好重新使用，
-so it's not quite ready to be reused,
 
 1072
 01:03:55,190 --> 01:03:57,080
 我们想要在一个位置结束，
-we want to end up in a position,
 
 1073
 01:03:57,080 --> 01:04:01,730
 这个进程所有的状态可以由 fork 重用，
-where the process can be and all its state can be reused by a fork,
 
 1074
 01:04:02,000 --> 01:04:04,670
 被另一个不相关的 fork 使用。
-by some other fork that's unrelated right.
 
 1075
 01:04:05,100 --> 01:04:06,630
 但我们还没到那一步，
-But we're not quite there yet,
 
 1076
 01:04:06,750 --> 01:04:08,820
 稍后我们会看到为什么，
-and we'll see why in a moment,
 
 1077
 01:04:08,820 --> 01:04:10,680
 我们把状态设为僵尸状态，
-we set the state to zombie,
 
 1078
 01:04:11,760 --> 01:04:14,940
 然后我们还没做完，
-and then we're not done yet,
 
 1079
 01:04:14,940 --> 01:04:16,470
 我们还没有释放这个进程，
-we haven't freed the process,
 
 1080
 01:04:16,530 --> 01:04:19,410
 我们只是跳到调度器中，
-we just jump into the scheduler,
 
 1081
 01:04:20,200 --> 01:04:25,880
 还没有完全释放我们的资源。
-without having completely finished freeing our resources.
 
 1082
 01:04:27,730 --> 01:04:28,630
 好的。
-Okay.
 
 1083
 01:04:29,440 --> 01:04:31,300
 所以这里的故事还在继续，
-So the story here continues,
 
 1084
 01:04:31,330 --> 01:04:34,210
 这里僵尸进程不会运行，
-this point zombie process won't be run,
 
 1085
 01:04:34,210 --> 01:04:36,700
 调度器仅运行可运行的进程，
-the scheduler only runs runnable processes,
 
 1086
 01:04:36,700 --> 01:04:38,890
 这个进程没有释放，
-so this process isn't quite free,
 
 1087
 01:04:38,920 --> 01:04:40,870
 因为这是状态等于未使用，
-because that would be state equals unused,
 
 1088
 01:04:40,990 --> 01:04:42,730
 但它肯定不会再运行了，
-but it's definitely not going to run again,
 
 1089
 01:04:42,760 --> 01:04:43,930
 因为在僵尸状态中，
-because in state zombie,
 
 1090
 01:04:43,930 --> 01:04:47,980
 所以对于调度器，现在运行的是其他东西。
-so [] to the scheduler, scheduler now runs something else.
 
 1091
 01:04:49,740 --> 01:04:53,460
 我们从关于退出和等待的描述中知道，
-We knew from the sort of description of exit and wait,
 
 1092
 01:04:53,520 --> 01:04:56,940
 在 Unix 中，如果进程退出，
-in Unix that, if a process exits,
 
 1093
 01:04:56,940 --> 01:05:00,330
 那么它的父进程调用 wait ，
-then its parent calls wait,
 
 1094
 01:05:00,330 --> 01:05:03,480
 wait 将返回信号通知父进程，
-the wait, that wait is going to return to signal to the parent,
 
 1095
 01:05:03,480 --> 01:05:05,790
 它的一个子进程退出了，
-that one of its children is exited,
 
 1096
 01:05:05,970 --> 01:05:08,010
 所以我们可以查看 wait 的实现。
-so we can look for the implementation of wait.
 
 1097
 01:05:12,770 --> 01:05:16,940
 wait 的实现也是一个大的循环，
-Also, here is the big loop, this implementation of wait,
 
 1098
 01:05:16,940 --> 01:05:21,230
 但是当进程调用 wait 时，
-but really what's going on is that when a process calls wait,
 
 1099
 01:05:21,680 --> 01:05:23,990
 它扫描进程表，
-it scans the process table,
 
 1100
 01:05:25,560 --> 01:05:31,380
 查找父进程为当前进程的进程，
-looking for processes whose parent is the current process,
 
 1101
 01:05:34,400 --> 01:05:36,260
 特别是查找这样的进程，
-and in particular looking for processes,
 
 1102
 01:05:36,260 --> 01:05:39,350
 它的父进程是当前进程并且处于僵尸状态，
-whose parent is the current process and in state zombie,
 
 1103
 01:05:39,380 --> 01:05:42,110
 那就是它们走到这一步，
-that is they've gotten that far,
 
 1104
 01:05:42,110 --> 01:05:45,230
 在退出或即将完成退出。
-in in exit or almost finished exiting.
 
 1105
 01:05:47,280 --> 01:05:49,980
 所以现在我们发现这调用 wait 系统调用，
-So now we found this called a wait to the wait system calls,
 
 1106
 01:05:49,980 --> 01:05:52,500
 找到已退出的子进程。
-found a child process that has exited.
 
 1107
 01:05:54,930 --> 01:06:02,190
 我不知道你是否记得 exit 可以返回这个 32 位的退出状态，
-And, I don't know if you remember exit can return this 32 bit exit status,
 
 1108
 01:06:02,190 --> 01:06:04,710
 让父进程，剩下的代码可以收集这些信息，
-so the parents of the next bunch of code collects that,
 
 1109
 01:06:05,040 --> 01:06:08,970
 然后是父进程调用 freproc ，
-and then it's the parent that calls freeproc,
 
 1110
 01:06:09,300 --> 01:06:13,290
 完成了最后一部，释放进程的资源。
-which does the final steps in freeing up process's resources.
 
 1111
 01:06:13,380 --> 01:06:14,730
 所以我们来看一下 freproc ，
-So we'll look at freeproc,
 
 1112
 01:06:15,670 --> 01:06:19,030
 这是最后一次关闭，这是很难处理的，
-and this is the final shutdown of stuff, that would be quite awkward,
 
 1113
 01:06:19,030 --> 01:06:23,500
 如果退出进程在执行时被释放，
-if the if the exiting process itself freed, while it was executing,
 
 1114
 01:06:24,520 --> 01:06:28,720
 它冻结 trapframe ，冻结用户页表，
-it freezes trapframe, freeze the user page table,
 
 1115
 01:06:29,260 --> 01:06:32,770
 如果我们释放内核堆栈，
-and if we freed kernel stacks,
 
 1116
 01:06:32,800 --> 01:06:37,540
 现有进程的内核堆栈也将在这里释放，
-the process's, existing process's kernel stack would be freed here also,
 
 1117
 01:06:37,810 --> 01:06:44,340
 但是由于堆栈保护页，
-but because of the stack guard, kernel stack stack guard page is,
 
 1118
 01:06:44,340 --> 01:06:49,680
 我们没有释放内核堆栈，无论何时释放内核堆栈，我们都不会免费，
-we don't actually ever turns out, we don't free, whenever free the kernel stacks,
 
 1119
 01:06:50,280 --> 01:06:53,940
 但是这些东西在退出时都是一种潜在的痛苦，
-but all the stuff that would be a sort of potentially a pain to free in the exit,
 
 1120
 01:06:54,520 --> 01:06:57,970
 当正在运行的退出进程由父进程释放时。
-while the exiting process is running is freed by the parent.
 
 1121
 01:07:00,610 --> 01:07:01,810
 这里需要注意的一件事是，
-One thing to notice here is that,
 
 1122
 01:07:01,810 --> 01:07:06,750
 wait 不仅是为了父进程方便，
-wait, wait is not just for the convenience of parents,
 
 1123
 01:07:06,750 --> 01:07:09,150
 它们想知道子进程什么时候退出，
-that want to know when their when their children have exited,
 
 1124
 01:07:09,390 --> 01:07:12,780
 wait 实际上是退出进程的关键部分，
-wait is actually critical piece of the exit process
 
 1125
 01:07:12,780 --> 01:07:16,710
 在 Unix 中，这是一个需要，
-and you really in Unix, it's just a requirement,
 
 1126
 01:07:16,920 --> 01:07:21,240
 wait 对应于每个退出的进程，
-that there be a wait that corresponds to every exiting process
 
 1127
 01:07:21,240 --> 01:07:25,800
 这就是为什么当进程退出其子进程时，
-and that's really the reason why when a process exits its children
 
 1128
 01:07:26,040 --> 01:07:28,050
 某种程度上给了 init ，
-are sort of given away to init,
 
 1129
 01:07:28,630 --> 01:07:31,120
 它们成为了 init 的子进程，
-they're turning to init children,
 
 1130
 01:07:31,240 --> 01:07:35,260
 当 init 在循环中调用 wait 时，
-when init does just calls wait in a loop,
 
 1131
 01:07:35,500 --> 01:07:37,780
 因为每个进程都要等待，
-because every process has to be waited for,
 
 1132
 01:07:37,780 --> 01:07:42,880
 让父进程可以调用 freproc 并完成资源释放，
-so that the parent can call freeproc and finish freeing up resources
 
 1133
 01:07:42,880 --> 01:07:44,230
 然后当它完全完成的时候，
-and then when it's completely done,
 
 1134
 01:07:44,860 --> 01:07:50,410
 如果父进程完成释放所有退出进程资源，
-it sets if the parents done freeing all the exit processes resources,
 
 1135
 01:07:51,040 --> 01:07:53,470
 将子进程状态设置为未使用，
-sets that child state unused,
 
 1136
 01:07:53,470 --> 01:07:59,890
 现在 fork 或将来调用 fork 可以重用该进程槽。
-now fork and you know some future called a fork can reuse that process slot.
 
 1137
 01:08:03,760 --> 01:08:04,660
 有什么问题吗？
-Any questions?
 
 1138
 01:08:07,890 --> 01:08:10,770
 哦，我有个关于 sleep 的问题，
-Oh, I have a question about sleep,
 
 1139
 01:08:10,920 --> 01:08:16,320
 所以在 sleep 中，我们。
-so in sleep where we are.
 
 1140
 01:08:17,500 --> 01:08:19,720
 是的，当我们，
-Yeah, so when we are,
 
 1141
 01:08:20,860 --> 01:08:23,390
 哦，抱歉，不是 sleep ，而是 exit 。
-oh, sorry, not sleep, exit.
 
 1142
 01:08:23,390 --> 01:08:24,500
 我想说的是 exit ，是的。
-I want say exit, yeah.
 
 1143
 01:08:28,340 --> 01:08:30,560
 是的，为什么我们，
-Yeah, so why are we,
 
 1144
 01:08:31,450 --> 01:08:37,450
 为什么我们要在重新分配父进程前[抓住]最初的父进程，
-why are we grabbing original parent before we reparent,
 
 1145
 01:08:37,480 --> 01:08:38,740
 这是必须的吗。
-is that necessary.
 
 1146
 01:08:42,000 --> 01:08:47,900
 这是[]代码，处理一种可能性，
-This is [] code, that's wrestling with the possibility
 
 1147
 01:08:47,960 --> 01:08:54,530
 进程和父进程同时退出的情况。
-that a process and its parent may exit at the same time.
 
 1148
 01:08:55,670 --> 01:08:57,680
 还有一些，
-And there's some,
 
 1149
 01:08:58,800 --> 01:09:03,510
 尽管最初的，不关心进程退出，
-even though ordinarily, just nothing interesting going on process exits,
 
 1150
 01:09:03,810 --> 01:09:05,970
 它的父进程等待它，一切都很好，
-its parent waits for it, everything's fine,
 
 1151
 01:09:06,780 --> 01:09:09,390
 但它可能是进程退出的父进程，
-but it could be that parent, that a process exits
 
 1152
 01:09:09,480 --> 01:09:11,460
 并且它的父进程同时退出，
-and its parent process exits at the same time
 
 1153
 01:09:11,460 --> 01:09:16,230
 所以当我们试图唤醒父进程，告诉它我们已经退出时，
-and so while we're trying to wake up our parent to tell we've exited,
 
 1154
 01:09:16,260 --> 01:09:17,940
 那个父进程已经退出了。
-that parent is itself exiting.
 
 1155
 01:09:18,460 --> 01:09:21,700
 这里有很多这样的代码，
-And a lot of this code here,
 
 1156
 01:09:22,420 --> 01:09:25,800
 我觉得我一年前是明白的，
-which I feel I kind of understood a year ago,
 
 1157
 01:09:25,800 --> 01:09:28,080
 但现在不再明白了，
-but don't any longer understand,
 
 1158
 01:09:28,110 --> 01:09:33,420
 是关于处理这种罕见的父进程和子进程同时退出的情况。
-is about taking care of this rare case of concurrent exits of a parent and child.
 
 1159
 01:09:33,960 --> 01:09:36,240
 如果不是因为这个，
-And if it weren't for that,
 
 1160
 01:09:36,330 --> 01:09:37,980
 那么这一切都会非常简单，
-it would all be extremely straightforward,
 
 1161
 01:09:37,980 --> 01:09:39,780
 进程有一个父进程，
-a parent, the process would have a parent
 
 1162
 01:09:39,930 --> 01:09:43,110
 它只需要在这里唤醒它的父进程。
-and it would just wake up its parent at this point.
 
 1163
 01:09:45,660 --> 01:09:48,380
 而且，我们不会，
-And, we wouldn't,
 
 1164
 01:09:48,470 --> 01:09:51,170
 它是对于父进程和子进程同时退出的。
-it were for concurrent exits a parent and child.
 
 1165
 01:09:51,780 --> 01:09:54,420
 子进程可以唤醒父进程。
-The child could just wake up its parent period.
 
 1166
 01:09:54,450 --> 01:09:56,010
 好的，我明白了，谢谢。
-Okay, I see, thank you.
 
 1167
 01:09:56,040 --> 01:09:58,170
 抱歉，我不能解释更多了。
-Sorry to not really be explaining here.
 
 1168
 01:09:59,510 --> 01:10:00,830
 我有一个简短的问题，
-I have a quick question,
 
 1169
 01:10:01,370 --> 01:10:07,550
 为什么我们要在唤醒父进程之后将进程状态设置为僵尸状态，
-so why are we setting the process state to zombie after we wake up the parent,
 
 1170
 01:10:07,700 --> 01:10:09,620
 我们想在此之前这么做。
-we want to do that before.
 
 1171
 01:10:09,860 --> 01:10:15,450
 哦，是的，是因为我们获得了，
-Oh yeah, it turns out because we've acquired the,
 
 1172
 01:10:16,170 --> 01:10:19,710
 现有进程获取了自己进程锁，
-the existing processes that required its own process lock,
 
 1173
 01:10:19,980 --> 01:10:22,230
 父进程不能看到这个进程。
-the parent can't look at this process.
 
 1174
 01:10:22,760 --> 01:10:25,850
 我们在这里获得了自己的锁，
-And we've acquired our own lock here
 
 1175
 01:10:25,850 --> 01:10:27,020
 然后我们调用 sched ，
-and then we're going to call sched,
 
 1176
 01:10:27,020 --> 01:10:34,160
 父进程需要等待子进程的锁，也就是 p->lock ，
-the parent, is parents wait acquires p-> requires the child's lock, which is p->lock
 
 1177
 01:10:34,550 --> 01:10:37,070
 这意味着在这个获取
-and so that means that between this acquire
 
 1178
 01:10:37,130 --> 01:10:43,280
 和我们调用 sched 之后，调度器线程释放 p->lock 之间，
-and when after we call sched and the scheduler thread releases this p->lock,
 
 1179
 01:10:43,340 --> 01:10:48,280
 在这块代码中，父进程不能看到这个进程。
-the parent can't look at this process in this block of code.
 
 1180
 01:10:48,310 --> 01:10:48,790
 好的。
-Okay.
 
 1181
 01:10:48,940 --> 01:10:51,490
 所以这些东西的顺序并不重要，
-So the order of this stuff doesn't matter,
 
 1182
 01:10:51,490 --> 01:10:54,710
 事实上，如果我们没有锁，
-indeed if we didn't have the lock up,
 
 1183
 01:10:55,350 --> 01:10:56,880
 也有可能其他的。
-it's possible some other.
 
 1184
 01:10:57,240 --> 01:11:03,790
 在大多数情况下，如果我们不持有锁，任何顺序都不会起作用。
-Well, in most situations, no order would work if we didn't hold the lock.
 
 1185
 01:11:06,530 --> 01:11:09,620
 不管怎样，是的，因为我们有一把锁，顺序无关紧要，
-Anyway, yeah because we hold a lock, that the order doesn't matter,
 
 1186
 01:11:09,620 --> 01:11:10,760
 因为父进程看不到。
-because the parent can't look.
 
 1187
 01:11:11,120 --> 01:11:11,930
 理解了。
-That makes sense.
 
 1188
 01:11:19,020 --> 01:11:20,190
 好的。
-Okay.
 
 1189
 01:11:21,980 --> 01:11:26,810
 好的，我想强调的技巧是，
-Okay, so the trick here is the trick I wanted to emphasize was that,
 
 1190
 01:11:29,150 --> 01:11:33,200
 在很大程度上，子进程没有，
-to a great extent, actually the child doesn't,
 
 1191
 01:11:33,620 --> 01:11:35,660
 最终，子进程并没有释放所有的资源，
-in the end, the child doesnt free all its resources,
 
 1192
 01:11:35,660 --> 01:11:37,790
 因为它不能，因为它仍在执行，
-because it can't, because it's still using the whole executes
 
 1193
 01:11:37,790 --> 01:11:41,480
 取而代之的是一些其他线程，也就是父线程
-and instead some other thread, namely the parent
 
 1194
 01:11:41,630 --> 01:11:47,270
 来释放执行所需的资源，
-does the freeing of the delicate resources that are required for execution,
 
 1195
 01:11:47,780 --> 01:11:49,370
 所以这是一种技巧，
-so that's sort of a trick
 
 1196
 01:11:49,370 --> 01:11:53,810
 让我们极大地简化了退出。
-to allow us to that greatly simplify exit.
 
 1197
 01:11:56,080 --> 01:12:00,270
 好的，我最后要看的是 kill ，
-Okay, the last thing I want to look at is kill,
 
 1198
 01:12:00,690 --> 01:12:04,290
 你知道 kill 系统调用，
-so that you know the kill system call,
 
 1199
 01:12:04,290 --> 01:12:08,250
 在 Unix 中，可以调用 kill 系统调用，
-one process in Unix can call that make the kill system call,
 
 1200
 01:12:08,520 --> 01:12:11,040
 传递另一个进程的进程 id ，
-passes the process id of a different process
 
 1201
 01:12:11,280 --> 01:12:12,570
 目标是，
-and the goal is that
 
 1202
 01:12:12,660 --> 01:12:16,920
 导致另一个进程，目标进程停止执行。
-that should cause that other process, the target process to stop executing.
 
 1203
 01:12:17,510 --> 01:12:20,030
 如果我们一不小心，
-And if we're not careful,
 
 1204
 01:12:20,030 --> 01:12:23,750
 这有风险，特别是如果内核中执行的其他进程，
-you know this risks especially if other processes executing in the kernel,
 
 1205
 01:12:24,560 --> 01:12:28,370
 这个风险可能在几分钟前就提到了，
-this risk is probably mentioned a few minutes ago,
 
 1206
 01:12:28,370 --> 01:12:32,240
 你想杀死的进程的内核线程，
-where gosh that you know the kernel thread of the process you're trying to kill
 
 1207
 01:12:32,240 --> 01:12:34,340
 可能正在更新一些东西，
-might might in the middle of updating something,
 
 1208
 01:12:34,340 --> 01:12:37,190
 比如，更新文件系统，创建文件，
-you know updating the file system, creating a file, for example
 
 1209
 01:12:37,250 --> 01:12:40,190
 我们不能直接杀死它，
-and we can't just kill it dead on the spot,
 
 1210
 01:12:40,190 --> 01:12:45,710
 因为这将使一些多步骤操作只完成一半。
-because that would leave some delicate multi step operation only halfway completed.
 
 1211
 01:12:46,200 --> 01:12:51,930
 现在，我们知道 kill 不能真正停止目标进程，
-Now, so we know that kill can't really just stop the target process,
 
 1212
 01:12:52,350 --> 01:12:56,850
 事实上，在 xv6 中，在 Unix 中也是如此，
-and indeed in xv6 and the Unix as well,
 
 1213
 01:12:56,970 --> 01:13:00,090
 kill 几乎不会做什么事情，
-kill does almost absolutely nothing,
 
 1214
 01:13:01,050 --> 01:13:04,800
 它扫描进程表，查找目标进程 id ，
-it scans the process table looking for the target process id
 
 1215
 01:13:04,860 --> 01:13:11,110
 只是在进程的进程结构中设置这个标志，
-and just sets this flag in that process's process structure,
 
 1216
 01:13:12,000 --> 01:13:16,140
 而且，如果它处于睡眠状态，调用到可运行，
-and also, if it was sleeping, calls to be runnable,
 
 1217
 01:13:16,140 --> 01:13:17,400
 从睡眠中唤醒，
-so to wake up from sleep,
 
 1218
 01:13:17,400 --> 01:13:19,080
 它所做的就是设置这个标志，
-but all it does is set this flag,
 
 1219
 01:13:19,110 --> 01:13:23,610
 它不会停止另一个进程的执行或任何类似的操作。
-it doesn't stop the other process from executing or anything like it.
 
 1220
 01:13:26,490 --> 01:13:29,910
 kill 是非常温和的，
-Kill itself very gentle,
 
 1221
 01:13:30,790 --> 01:13:33,730
 游戏是，
-the game is that,
 
 1222
 01:13:33,730 --> 01:13:37,690
 目标进程在内核代码中，
-the target process at points in the kernel code
 
 1223
 01:13:37,690 --> 01:13:40,420
 在那里会安全地停止执行，
-where it would be safe to stop executing,
 
 1224
 01:13:41,170 --> 01:13:45,100
 另一个进程检查它自己的终止标志，
-the other process checks its own killed flag,
 
 1225
 01:13:45,130 --> 01:13:46,090
 如果设置了，
-and if it's set,
 
 1226
 01:13:46,180 --> 01:13:51,580
 其他进程会自动退出，调用 exit 函数，
-the other process sort of voluntarily exits, calls this exit function
 
 1227
 01:13:52,240 --> 01:13:56,300
 你可以在 trap.c 上看到其中的一些点，
-and you can see some of those points at trap.c,
 
 1228
 01:13:56,690 --> 01:14:00,560
 实际上，你可以在 trap.c 中看到所有的点，
-in fact you can see all the points trap.c,
 
 1229
 01:14:01,400 --> 01:14:02,870
 所以，如果我们在 usertrap 中，
-so if we're in usertrap
 
 1230
 01:14:02,870 --> 01:14:06,590
 在实际执行系统调用之前，
-in a system call, before actually executing the system call,
 
 1231
 01:14:06,620 --> 01:14:08,570
 如果进程已被终止，
-if the process has already been killed
 
 1232
 01:14:08,840 --> 01:14:11,810
 或者如果在这个进程调用了 kill ，
-or if kill has been called for this process,
 
 1233
 01:14:12,050 --> 01:14:14,510
 然后进程调用 exit 并离开。
-then the process calls exit and goes away.
 
 1234
 01:14:15,180 --> 01:14:18,030
 这是内核中的一个点，没有持有任何锁，
-And this is a point in the kernel where it's not holding any locks,
 
 1235
 01:14:18,030 --> 01:14:19,740
 它没有在做任何事情，
-it's not in the middle of doing anything,
 
 1236
 01:14:20,190 --> 01:14:25,050
 所以，进程是安全的，只需退出并调用 exit 。
-and so it's completely safe for the process to just quit and call exit.
 
 1237
 01:14:26,230 --> 01:14:31,450
 在 usertrap 末尾有一个类似的检查。
-And there's a similar check, at the end of usertrap.
 
 1238
 01:14:33,920 --> 01:14:39,360
 所以，在系统调用之后，进程还会检查它是否被终止，
-So after a system call, the process also checks if it's being killed
 
 1239
 01:14:39,420 --> 01:14:44,190
 实际上，这段代码会执行，
-and indeed this code here executes,
 
 1240
 01:14:44,430 --> 01:14:47,610
 即使进程被中断打断，
-even if the process is interrupted by an interrupt,
 
 1241
 01:14:47,610 --> 01:14:49,890
 比如，定时器中断关闭，
-so for example the timer interrupt goes off,
 
 1242
 01:14:50,160 --> 01:14:52,830
 然后，这段代码会执行，
-then this code will execute
 
 1243
 01:14:52,830 --> 01:14:55,140
 我们会看到这个进程已被终止，
-and we'll see that the process has been killed
 
 1244
 01:14:55,140 --> 01:14:56,430
 然后这个进程将会退出。
-and then the process will exit.
 
 1245
 01:14:59,350 --> 01:15:00,970
 所以，这意味着，
-And so what that means is
 
 1246
 01:15:00,970 --> 01:15:05,320
 kill 的意思是，
-that the what kill means, kill the meaning of kill,
 
 1247
 01:15:05,320 --> 01:15:09,100
 kill 的作用不是直接停止其他进程，
-the effective kill is not exactly stop the other process right now,
 
 1248
 01:15:09,650 --> 01:15:10,820
 而更像是，
-it's much more like,
 
 1249
 01:15:11,030 --> 01:15:14,900
 如果用户空间中的其他进程，
-well you know if the process other processes in user space,
 
 1250
 01:15:14,900 --> 01:15:17,420
 然后下一次它进行系统调用时，
-then the next time it makes a system call,
 
 1251
 01:15:18,500 --> 01:15:19,610
 它会退出，
-it will exit
 
 1252
 01:15:20,300 --> 01:15:22,490
 或者下一次定时器中断发生时，
-or the next time a timer interrupt goes off
 
 1253
 01:15:22,490 --> 01:15:26,240
 当目标进程执行其他用户代码时，
-while executing user code in the target process,
 
 1254
 01:15:26,360 --> 01:15:29,060
 如果它被定时器中断或其他中断中断，
-if it's interrupted by a timer interrupt or some other interrupt,
 
 1255
 01:15:29,210 --> 01:15:30,920
 那么它也会退出。
-then it will also exit.
 
 1256
 01:15:30,920 --> 01:15:32,660
 所以，这里可能会有明显的延迟，
-So there might be a significant delay,
 
 1257
 01:15:32,660 --> 01:15:38,480
 在一个进程调用 kill 和另一个进程实际退出。
-between when one process calls kill and when the other process actually exits.
 
 1258
 01:15:39,440 --> 01:15:42,620
 事情就是这样的。
-And that's just the way it is.
 
 1259
 01:15:44,420 --> 01:15:45,980
 虽然有一个中间问题，
-There's a sort of intermediate question
 
 1260
 01:15:45,980 --> 01:15:49,490
 如果进程没有在自己的用户空间，
-though if the process is not in use, it's own user space,
 
 1261
 01:15:49,490 --> 01:15:51,350
 而是在进行系统调用中，
-but is in the middle of a system call,
 
 1262
 01:15:53,180 --> 01:15:54,320
 它被杀死，
-and it's killed,
 
 1263
 01:15:54,650 --> 01:15:56,240
 我们需要做些什么特别的事情吗？
-do we need to do anything special?
 
 1264
 01:15:57,110 --> 01:15:59,840
 可能会出现这种情况的原因是，
-The reason why this may come up is,
 
 1265
 01:15:59,840 --> 01:16:03,540
 假设进程正在从控制台读取，
-suppose the process is reading from the console, right,
 
 1266
 01:16:03,600 --> 01:16:05,550
 读取你输入的下一个字符，
-you know reading for the next character you type,
 
 1267
 01:16:05,550 --> 01:16:07,830
 你可能知道明天都不会输入另一个字符。
-you may not type another character until tomorrow.
 
 1268
 01:16:08,440 --> 01:16:11,380
 这是可以的，如果你终止进程，
-And it would be nice if when you kill the process,
 
 1269
 01:16:11,380 --> 01:16:14,020
 它实际上在明天之前就消失了。
-it actually went away before tomorrow.
 
 1270
 01:16:15,970 --> 01:16:20,290
 所以，在 xv6 的很多点上。
-And for that reason, in a number of points in xv6
 
 1271
 01:16:20,290 --> 01:16:23,710
 当进程在睡眠中，
-in which a process is sleeping,
 
 1272
 01:16:24,320 --> 01:16:26,000
 xv6 会安排，
-xv6 actually arranges that,
 
 1273
 01:16:26,000 --> 01:16:29,420
 如果它在内核中睡眠时被杀死，
-if it's killed while sleeping in the kernel,
 
 1274
 01:16:29,990 --> 01:16:31,580
 它实际上会退出。
-it will actually exit.
 
 1275
 01:16:31,730 --> 01:16:33,920
 让我来展示一下这个机制，
-So, let me show you the machinery for that,
 
 1276
 01:16:34,760 --> 01:16:37,340
 首先要看的就是 kill 本身。
-the first thing to look at is in kill itself.
 
 1277
 01:16:39,020 --> 01:16:43,160
 你可以看到，如果目标进程处于睡眠状态，
-You can see that if the target process is sleeping,
 
 1278
 01:16:43,720 --> 01:16:45,640
 然后 kill 会将状态设置为可运行，
-then kill will set state to runnable
 
 1279
 01:16:45,940 --> 01:16:48,190
 这意味着即使它调用了 sleep ，
-and that'll mean that even if it had called sleep,
 
 1280
 01:16:48,750 --> 01:16:50,070
 调度器现在也会运行它，
-the scheduler will now run it
 
 1281
 01:16:50,100 --> 01:16:52,320
 它会简单地从睡眠中恢复过来。
-and it will simply return from sleep.
 
 1282
 01:16:52,800 --> 01:16:56,850
 所以让我们来看看一个真正重要的地方，
-And so let's look at a place where that actually matters,
 
 1283
 01:16:56,850 --> 01:17:02,010
 在管道代码中，如果进程处于睡眠状态，等待读取管道，
-in the pipe code, if a process is in sleep waiting to read a pipe,
 
 1284
 01:17:05,190 --> 01:17:08,970
 它被杀死， kill 设置从睡眠到可运行，
-and it's killed, kill set to runnable return from sleep,
 
 1285
 01:17:09,060 --> 01:17:10,770
 回到这个循环的顶部，
-go back to the top of this loop,
 
 1286
 01:17:11,310 --> 01:17:13,440
 如果在管道中没有数据，
-probably if there was no data in the pipe,
 
 1287
 01:17:13,440 --> 01:17:15,630
 在管道中仍然没有数据，
-before the pi-, still be no data in the pipe,
 
 1288
 01:17:15,780 --> 01:17:21,720
 现在， piperead 会检查进程是否已被终止，
-and now piperead at least checks whether the process has been killed
 
 1289
 01:17:21,840 --> 01:17:22,890
 如果它已经被杀死，
-and if it has been killed,
 
 1290
 01:17:22,890 --> 01:17:24,120
 不是再次睡眠，
-instead of sleeping again,
 
 1291
 01:17:24,300 --> 01:17:28,410
 piperead 会返回一个错误，并不重要，
-the piperead will return return an error, doesn't really matter,
 
 1292
 01:17:28,440 --> 01:17:33,540
 但我们要回到的是这个系统调用，
-but we're returning to is this syscall,
 
 1293
 01:17:33,540 --> 01:17:35,880
 因为我们在系统调用中，
-since we're in a system call,
 
 1294
 01:17:36,400 --> 01:17:41,230
 管道最终返回系统调用，
-where pipe really returns to in the end is returns from the system call,
 
 1295
 01:17:41,470 --> 01:17:45,310
 然后 usertrap 再次检查 p->killed ，
-and then usertrap checks p->killed again
 
 1296
 01:17:45,430 --> 01:17:46,300
 现在可以退出了。
-and will now exit.
 
 1297
 01:17:46,810 --> 01:17:49,700
 所以，对于 sleep 来说，
-So for, sleeps,
 
 1298
 01:17:49,790 --> 01:17:55,280
 我们知道[逃脱]是可以的，当它被杀死，
-that we know it's okay to just bail out of when a process is killed,
 
 1299
 01:17:55,640 --> 01:17:58,310
 这些循环检查 killed 标志，
-those loop's check the killed flag,
 
 1300
 01:17:58,340 --> 01:18:01,610
 但也有 sleep 这样是不可以的，
-but there are also sleeps where it would not be okay,
 
 1301
 01:18:02,060 --> 01:18:03,680
 对一个要退出的进程，
-for a process to quit,
 
 1302
 01:18:03,680 --> 01:18:05,120
 如果它在睡眠状态下被杀死。
-if it's killed in that sleep.
 
 1303
 01:18:05,990 --> 01:18:10,580
 比如，如果某个进程正在更新磁盘上的文件系统，
-So, for example if a process is in the middle of updating the file system on disk
 
 1304
 01:18:10,580 --> 01:18:11,750
 要创建新文件，
-to create a new file
 
 1305
 01:18:11,930 --> 01:18:14,450
 现在不是时候，
-that is it bad time,
 
 1306
 01:18:14,600 --> 01:18:16,520
 即使它在睡眠等待磁盘，
-even if it's sleeping waiting for the disk,
 
 1307
 01:18:16,520 --> 01:18:19,970
 对于一个进程来说，现在不是退出的时候，
-that's a bad time for a process to just decide to quit,
 
 1308
 01:18:19,970 --> 01:18:20,720
 因为它已经被杀死，
-because it's been killed,
 
 1309
 01:18:20,720 --> 01:18:23,120
 我们要完成完整的文件系统操作，
-we want to finish the complete file system operation,
 
 1310
 01:18:23,240 --> 01:18:25,460
 只有在那时进程才可以退出，
-and only then have the process exit,
 
 1311
 01:18:25,790 --> 01:18:27,230
 所以你可以看到这个，
-and so you can see this,
 
 1312
 01:18:27,350 --> 01:18:28,340
 我们已经看过了，
-we've looked at this,
 
 1313
 01:18:28,340 --> 01:18:33,200
 但我将在磁盘驱动程序中展示。
-but I'll show you in the disk driver.
 
 1314
 01:18:33,960 --> 01:18:35,820
 睡眠循环的一个例子，
-An example of a sleep loop,
 
 1315
 01:18:35,880 --> 01:18:37,380
 不会检查 killed ，
-that doesn't check killed,
 
 1316
 01:18:37,590 --> 01:18:38,520
 看那里,
-look at that,
 
 1317
 01:18:40,720 --> 01:18:42,310
 所以在这里，这是 sleep ，
-so here we are, this is the sleep
 
 1318
 01:18:42,730 --> 01:18:48,230
 进程等待磁盘完成读取磁盘块，
-in which they process waits for the disk to finish reading a disk block,
 
 1319
 01:18:48,290 --> 01:18:50,060
 它绝对不会检查 killed ，
-and it absolutely doesn't check killed,
 
 1320
 01:18:50,750 --> 01:18:53,360
 因为它想要完成它，
-because it wants to finish it,
 
 1321
 01:18:53,360 --> 01:18:54,860
 也许在创建文件的过程中，
-maybe in the middle of creating a file,
 
 1322
 01:18:54,860 --> 01:18:56,870
 涉及多个磁盘读取和写入，
-which involves multiple disk reads and writes,
 
 1323
 01:18:57,020 --> 01:18:59,420
 想要完成整个文件系统操作，
-want to finish the entire file system operation,
 
 1324
 01:18:59,600 --> 01:19:00,860
 整个系统调用，
-the entire system call
 
 1325
 01:19:01,250 --> 01:19:03,770
 然后才检查 p->killed 并退出。
-and only then check p->killed and exit.
 
 1326
 01:19:06,990 --> 01:19:08,280
 有什么问题吗？
-Questions about anything?
 
 1327
 01:19:10,820 --> 01:19:11,870
 我有一个问题，
-I have a question,
 
 1328
 01:19:11,870 --> 01:19:15,290
 为什么 kill 允许以这种方式，
-about why kill allowed in the way it it,
 
 1329
 01:19:15,530 --> 01:19:18,320
 为什么进程不会杀死所有其他的进程，
-why wouldn't the process kill all the other processes
 
 1330
 01:19:18,320 --> 01:19:21,790
 你可以自己运行。
-if you can run, oh, by itself.
 
 1331
 01:19:25,140 --> 01:19:28,140
 你知道，如果你在麻省理工学院的 Athena 分时机器上这样做，
-Well, you know you do that MIT on a Athena time sharing machine
 
 1332
 01:19:28,140 --> 01:19:29,460
 可能会把你赶出学校。
-will probably kick you out of school.
 
 1333
 01:19:31,490 --> 01:19:34,820
 是的，但是为什么允许这样做呢？
-Right, but why is it allowed.
 
 1334
 01:19:34,940 --> 01:19:39,950
 在 xv6 允许，因为 xv6 是一个玩具操作系统，
-It's allowed in xv6, because xv6 is a toy operating system,
 
 1335
 01:19:39,950 --> 01:19:44,300
 它只是
-that it just the,
 
 1336
 01:19:44,960 --> 01:19:51,820
 在 xv6 中，任何与权限有关的东西都不存在，
-anything that has to do with like permissions just doesn't exist in xv6,
 
 1337
 01:19:52,360 --> 01:19:54,610
 在 Linux 或真正的操作系统中，
-in Linux or a real operating system,
 
 1338
 01:19:55,150 --> 01:19:57,580
 每个进程都有一个用户 id ，
-every process has a user id,
 
 1339
 01:19:57,910 --> 01:20:02,650
 对应于执行该进程的人类用户，
-that corresponds to the more or less to the human user who's executing the process
 
 1340
 01:20:02,710 --> 01:20:07,330
 一些系统调用使用进程的用户 id
-and some system calls use the user id of the process
 
 1341
 01:20:07,330 --> 01:20:10,030
 检查允许哪些进程执行此操作，
-to kind of check what is the process allowed to do this,
 
 1342
 01:20:10,450 --> 01:20:15,760
 所以在 Linux 中，你会在这里看到一个额外的检查，
-and so in Linux, you would see a extra check here,
 
 1343
 01:20:15,790 --> 01:20:21,250
 就是调用进程必须具有相同的用户 id ，
-that said that the calling process has to have the same user id,
 
 1344
 01:20:21,340 --> 01:20:23,080
 与想要杀死的进程一样，
-as the process is trying to kill,
 
 1345
 01:20:23,290 --> 01:20:24,700
 否则是不允许的。
-otherwise it's not allowed.
 
 1346
 01:20:25,730 --> 01:20:28,490
 而且，至少在分时背景下，
-And that, at least in a time sharing context,
 
 1347
 01:20:29,170 --> 01:20:30,460
 我们有多个用户，
-we have multiple users
 
 1348
 01:20:30,460 --> 01:20:32,320
 我们不希望他们杀死彼此的进程，
-and we don't want them to kill each other's processes,
 
 1349
 01:20:32,410 --> 01:20:35,410
 这或多或少可以防止人们，
-that's more or less sufficient to keep people from
 
 1350
 01:20:35,440 --> 01:20:39,040
 使其难以杀死其他人的进程。
-make it hard for people to kill other people's processes.
 
 1351
 01:20:41,090 --> 01:20:42,320
 好的，我明白了，谢谢。
-Okay I see, thank you.
 
 1352
 01:20:45,400 --> 01:20:47,740
 init 进程是否会退出？
-Does init process ever exit?
 
 1353
 01:20:48,770 --> 01:20:50,210
 让我找找。
-Let me check.
 
 1354
 01:20:54,430 --> 01:20:57,580
 是的，如果 fork 失败，退出，
-Yes, if fork fails, exit,
 
 1355
 01:20:57,640 --> 01:21:00,610
 然而，这个问题的真正答案是否定的，
-however the real answer to the question is no,
 
 1356
 01:21:00,610 --> 01:21:03,430
 其目的是 init 永远不会退出，
-the intent is that init never exit,
 
 1357
 01:21:03,760 --> 01:21:05,110
 它们只是在这个循环中，
-they just sit in this loop
 
 1358
 01:21:05,500 --> 01:21:09,950
 一遍又一遍地调用 wait ，
-and what is doing is calling wait over and over again,
 
 1359
 01:21:10,340 --> 01:21:15,800
 如果 init 退出，我认为这是系统中的致命错误，系统将崩溃。
-if init exits, I think that's a fatal error in the system will crash.
 
 1360
 01:21:16,360 --> 01:21:19,330
 内核中的某个地方有代码，可能在 exit 中。
-There's code somewhere in the kernel, it says, may be in exit.
 
 1361
 01:21:19,940 --> 01:21:20,870
 检查一下 exit 。
-Just check exit.
 
 1362
 01:21:30,240 --> 01:21:33,150
 是的，在这里， exit ，在 exit 的开头，
-Yeah, here we are, exit, at the beginning of exit,
 
 1363
 01:21:33,330 --> 01:21:37,230
 如果当前进程是是 init 进程，那就是一个 panic 。
-if it looks like the current process is the init process, it's a panic.
 
 1364
 01:21:37,860 --> 01:21:41,690
 因为，这个系统最终会陷入停顿，
-Because, this system would eventually [] to a halt,
 
 1365
 01:21:41,690 --> 01:21:42,710
 如果没有 init ，
-if there were no init,
 
 1366
 01:21:42,740 --> 01:21:45,290
 因为这样就没有什么东西收集，
-because then there would be nothing collect,
 
 1367
 01:21:45,320 --> 01:21:48,380
 没有什么东西调用 wait 对于那些退出的进程，
-nothing to call wait on these exiting processes
 
 1368
 01:21:48,380 --> 01:21:50,690
 并且没有任何东西可以完成进程的释放，
-and nothing to complete the freeing of the processes
 
 1369
 01:21:50,690 --> 01:21:52,400
 慢慢地，我们的进程耗尽了，
-and gradually we run out of processes,
 
 1370
 01:21:52,400 --> 01:21:55,810
 那就是另一个错误了。
-and then that would be some other error.
 
 1371
 01:21:56,940 --> 01:21:58,230
 我们必须有 init 。
-We have to have init.
 
 1372
 01:21:58,700 --> 01:21:59,780
 所以真正的答案是不，
-So the real answer is that no,
 
 1373
 01:21:59,780 --> 01:22:01,430
 它确实不能被允许退出，
-it really can't be allowed to exit,
 
 1374
 01:22:02,260 --> 01:22:02,980
 最好不要退出。
-better not exit.
 
 1375
 01:22:08,750 --> 01:22:09,290
 好的。
-Okay.
 
 1376
 01:22:12,580 --> 01:22:13,480
 还有其他问题吗？
-Any other questions?
 
 1377
 01:22:16,280 --> 01:22:18,500
 这是另一个问题，
-Um, it's another question,
 
 1378
 01:22:18,770 --> 01:22:22,160
 所以，我们在这节课上还没有谈到太多，
-so, we haven't really talked about much in this class yet,
 
 1379
 01:22:22,160 --> 01:22:27,460
 但看看关闭操作系统会发生什么或需要发生什么。
-but look what happens or what needs to happen to shut down the OS.
 
 1380
 01:22:28,480 --> 01:22:29,380
 被拔掉电源。
-Got unplugged.
 
 1381
 01:22:30,840 --> 01:22:31,320
 好的。
-Okay.
 
 1382
 01:22:31,350 --> 01:22:32,310
 好的。
-Okay.
 
 1383
 01:22:32,340 --> 01:22:33,360
 是的。
-Yeah.
 
 1384
 01:22:33,870 --> 01:22:36,270
 是的，这很复杂，
-Yeah, this is very complex,
 
 1385
 01:22:36,270 --> 01:22:37,740
 这取决于你运行的是什么，
-and it depends on what you're running,
 
 1386
 01:22:37,740 --> 01:22:41,990
 如果你在，如果机器当前什么都不做，
-if you're, if the operating if the machine is currently doing nothing,
 
 1387
 01:22:42,650 --> 01:22:47,510
 好的，这个问题的部分答案是，
-well, part of the answer the question is
 
 1388
 01:22:47,510 --> 01:22:49,640
 文件系统最终，
-that the file system ends up being,
 
 1389
 01:22:50,610 --> 01:22:53,130
 因为文件系统是永久性的，
-because the file system is permanent,
 
 1390
 01:22:53,430 --> 01:22:56,970
 文件系统会从一个重启到另一个重启。
-you know the file system is carried over from reboot to reboot.
 
 1391
 01:22:57,790 --> 01:23:00,940
 我们需要让文件系统保持良好的状态，
-We need to leave the file system in good shape,
 
 1392
 01:23:01,060 --> 01:23:04,930
 所以，如果我们正在对文件系统进行某些更新，
-so if we were in the middle of some update to the file system,
 
 1393
 01:23:04,930 --> 01:23:06,130
 比如创建文件，
-like creating a file,
 
 1394
 01:23:06,160 --> 01:23:09,910
 然后我们想要关闭系统或者停电之类的，
-then we want to shut the system down or the power fails or something,
 
 1395
 01:23:09,910 --> 01:23:13,090
 我们绝对需要一个策略来确保，
-we absolutely need a strategy to make sure that,
 
 1396
 01:23:14,340 --> 01:23:17,010
 尽管我们正在对文件系统进行一些复杂的更新，
-even though we were in the middle of some complex update to the file system,
 
 1397
 01:23:17,010 --> 01:23:19,680
 我们不会把它留在文件系统中，
-that we don't leave it in the file system in a state,
 
 1398
 01:23:20,010 --> 01:23:25,950
 我们不会在磁盘文件系统结构中公开任何损坏的不变量，
-we don't expose any broken invariance in the on disk file system structures,
 
 1399
 01:23:26,100 --> 01:23:29,100
 因为文件实际上只是一种在磁盘上的数据结构。
-because the files is really just a data structure, that lives on disk.
 
 1400
 01:23:29,750 --> 01:23:32,720
 所以有很多这样的，
-So there's like a lot of,
 
 1401
 01:23:33,320 --> 01:23:35,990
 一些机制来确保，
-that's sort of machinery involved in making sure that
 
 1402
 01:23:35,990 --> 01:23:38,900
 如果你关机了或者停电了或者谁知道会发生什么，
-if you shut down or the power fails or who knows what that,
 
 1403
 01:23:39,170 --> 01:23:43,670
 我们可以恢复磁盘上的文件系统。
-the disk can, that we can recover the file system on disk.
 
 1404
 01:23:45,030 --> 01:23:46,620
 对于其他，不是为了这个，
-For the rest of, it's not for that,
 
 1405
 01:23:49,100 --> 01:23:52,700
 那么，你是不是要做一些特殊的事情来关机，
-then, whether you have to do anything special to shutdown
 
 1406
 01:23:52,730 --> 01:23:55,100
 取决于你正在运行什么进程，
-depends on what processes you're running,
 
 1407
 01:23:55,190 --> 01:23:58,280
 如果你正在运行某个重要的服务器，一台数据库服务器，
-if you're running some important server, a database server,
 
 1408
 01:23:58,280 --> 01:24:01,730
 许多其他计算机依赖，并从网络上访问，
-that a lot of other computers depend on and use over the network,
 
 1409
 01:24:02,210 --> 01:24:06,530
 答案可能是你不被允许关机，
-who knows, the answer may be that you just cannot be allowed to shut down,
 
 1410
 01:24:06,530 --> 01:24:10,490
 因为你提供的服务对很多其他计算机都很重要。
-because you're providing a service that's critical to a bunch of other computers.
 
 1411
 01:24:11,080 --> 01:24:12,850
 如果你的计算机没有执行任何操作。
-If your computer is not doing much of anything.
 
 1412
 01:24:15,200 --> 01:24:16,760
 那你就可以把它关掉，
-Then you can just turn it off
 
 1413
 01:24:16,940 --> 01:24:19,170
 它会停止执行，
-and it will stop executing
 
 1414
 01:24:20,040 --> 01:24:21,180
 没有什么可做的，
-and there's not much to do,
 
 1415
 01:24:21,270 --> 01:24:23,280
 真的，也许你问题的答案是，
-really, may be the answer to your question is,
 
 1416
 01:24:24,360 --> 01:24:25,410
 如果你想关闭计算机，
-if you want to shut down the computer,
 
 1417
 01:24:25,410 --> 01:24:27,270
 确保文件系统状态良好，
-make sure the file system is in good shape
 
 1418
 01:24:27,300 --> 01:24:30,270
 然后停止执行指令，就好了。
-and then stop executing instructions and that's fine.
 
 1419
 01:24:31,730 --> 01:24:32,240
 好的。
-Good.
 
 1420
 01:24:32,240 --> 01:24:34,010
 有道理，是的，谢谢。
-That makes sense, yeah, thank you.
 
 1421
 01:24:37,090 --> 01:24:37,930
 还要别的吗？
-Anything else?
 
 1422
 01:24:41,980 --> 01:24:44,020
 哦，抱歉，我还有一个问题，
-Oh, sorry, I have another question,
 
 1423
 01:24:44,020 --> 01:24:46,960
 那么这个信号量接口是什么。
-so what is this semaphore interface.
 
 1424
 01:24:48,740 --> 01:24:50,000
 关于 p 和 v 。
-About p and v.
 
 1425
 01:24:53,330 --> 01:24:57,080
 所以，只有这两个函数？
-So just two, just those two functions?
 
 1426
 01:24:57,650 --> 01:24:59,360
 嗯，是的。
-Um, yeah.
 
 1427
 01:25:00,100 --> 01:25:02,470
 是的， xv6 实际上没有信号量，
-Yeah, xv6 doesn't have semaphores really,
 
 1428
 01:25:02,470 --> 01:25:05,110
 但是书中的信号量，我想它只是 p 和 v ，
-but you know the books semaphores, I think it's just p and v,
 
 1429
 01:25:05,170 --> 01:25:09,310
 信号量对象有两个方法 p 和 v 。
-there are two methods, you have a semaphore object has two methods p and v.
 
 1430
 01:25:11,010 --> 01:25:13,080
 好的，我明白了，谢谢。
-Okay, I see, thank you.
 
 1431
 01:25:13,110 --> 01:25:13,560
 好的。
-Sure.
 
 1432
 01:25:20,600 --> 01:25:21,410
 还要别的吗？
-Anything else?
 
 1433
 01:25:25,170 --> 01:25:25,830
 好的。
-Alright.
 
