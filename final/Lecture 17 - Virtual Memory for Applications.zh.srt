@@ -1,6974 +1,5576 @@
 1
 00:00:00,030 --> 00:00:02,040
 这个实验对比锁实验。
-The lab compares to the locking lab.
 
 2
 00:00:07,180 --> 00:00:08,440
 它更直截一点。
-It was a bit more straightforward.
 
 3
 00:00:09,230 --> 00:00:11,090
 好的，你完成了吗，
-Good, are you completely,
 
 4
 00:00:11,090 --> 00:00:13,250
 你完成实验了吗，还是。
-have you finished the lab, or you are.
 
 5
 00:00:15,320 --> 00:00:18,230
 我昨天刚开始，一半了，所以。
-I just started yesterday and a halfway, so.
 
 6
 00:00:18,350 --> 00:00:21,230
 好的，我想这对刚开始的人来说是个好消息，
-Okay, good, I guess that's good news for people who are starting,
 
 7
 00:00:21,620 --> 00:00:23,000
 有人完成了吗？
-anybody finished it yet?
 
 8
 00:00:24,960 --> 00:00:26,640
 我完成了。
-I have, I finished it.
 
 9
 00:00:27,250 --> 00:00:30,880
 有令人不快的意外或者得到很好的解决？
-And any any nasty surprises or worked out reasonably well?
 
 10
 00:00:31,390 --> 00:00:35,480
 我想它成功了，是的。
-I think it worked out okay, yeah.
 
 11
 00:00:37,870 --> 00:00:39,310
 比锁实验容易多了？
-Much easier than the lock lab?
 
 12
 00:00:40,200 --> 00:00:41,220
 至少我是这么认为的。
-I think so, at least.
 
 13
 00:00:42,120 --> 00:00:44,760
 好的，希望其他人也是如此。
-Well, hopefully will be the case for everybody else too.
 
 14
 00:00:45,510 --> 00:00:49,710
 好的，让我开始吧，
-Yeah yeah, let me get started
 
 15
 00:00:50,010 --> 00:00:56,490
 我今天要讨论的话题是用户应用程序的虚拟内存，
-and the topic I want to talk about today is virtual memory for user applications,
 
 16
 00:00:56,490 --> 00:01:05,560
 在 1991 年这篇由 Appel 和 Li 编写的论文的指导下。
-you know on sort of guided by this paper from 1991, by Appel and Li.
 
 17
 00:01:06,490 --> 00:01:09,640
 所以我们的出发点是，
-So the starting point basically is that,
 
 18
 00:01:09,640 --> 00:01:11,080
 如你们所知，
-as you well know,
 
 19
 00:01:11,080 --> 00:01:20,900
 操作系统内核以创造性的方式使用虚拟内存页表。
-that the OS kernel use virtual memory page tables in creative ways.
 
 20
 00:01:26,680 --> 00:01:32,380
 你已经看到我们有一个懒分配实验，写时复制实验，
-You've seen that we have a lazy allocation lab, copy-on-write lab,
 
 21
 00:01:32,380 --> 00:01:34,660
 以及许多其他类型的特性，
-as well as many other sort of features,
 
 22
 00:01:34,660 --> 00:01:40,750
 在 xv6 中实现的各个方面，
-that you know implementation to or aspects of the implementation in the xv6, so.
 
 23
 00:01:42,140 --> 00:01:47,490
 这篇论文的论点，
-And basically the argument that the paper makes, the paper argues,
 
 24
 00:01:48,950 --> 00:01:52,130
 用户应用程序应该受益于
-you know the user application should actually benefit to
 
 25
 00:01:52,130 --> 00:01:53,540
 或应该具有相同的能力，
-or should have the same powers,
 
 26
 00:01:53,570 --> 00:02:01,900
 用户应用程序也可以使用虚拟内存。
-you know, user apps can use VM too.
 
 27
 00:02:03,320 --> 00:02:05,690
 我的意思是，
-A little bit, I mean when I mean again,
 
 28
 00:02:05,780 --> 00:02:08,060
 当然，你的应用程序使用虚拟内存，
-of course, your application running with virtual memory,
 
 29
 00:02:08,060 --> 00:02:10,370
 但我对 VM 真正的意思是，
-but I really mean with VM is that
 
 30
 00:02:10,700 --> 00:02:14,240
 它们希望有与内核相同的机制，
-they would like to have the same mechanisms that kernel has
 
 31
 00:02:14,240 --> 00:02:17,240
 在用户模式访问用户应用程序，
-to its access user application where in user mode,
 
 32
 00:02:17,240 --> 00:02:19,490
 应用程序能够接受页面错误，
-application will be able to take page faults,
 
 33
 00:02:19,490 --> 00:02:21,710
 然后可以响应这些页面错误，
-and then you know respond to those page faults,
 
 34
 00:02:21,710 --> 00:02:24,170
 可以修改保护位，
-you know be able to change the protection bits,
 
 35
 00:02:24,610 --> 00:02:28,390
 或修改页表中的特权级别。
-or the privilege level to levels in the page table.
 
 36
 00:02:30,420 --> 00:02:34,380
 所以，在这篇论文中讨论这种情况，
-And so, in the paper argues this case
 
 37
 00:02:34,650 --> 00:02:37,020
 通过观察一系列不同的应用程序，
-by looking at a bunch of different applications,
 
 38
 00:02:38,650 --> 00:02:41,170
 比如六、七种不同类型的应用程序，
-like six or seven different types of applications
 
 39
 00:02:41,170 --> 00:02:44,260
 也许我会问你，什么是你最喜欢的应用程序，
-and maybe I will ask you like what was your favorite application,
 
 40
 00:02:44,880 --> 00:02:48,070
 你在论文中遇到的。
-you encountered in the paper.
 
 41
 00:02:50,770 --> 00:02:53,320
 有没有人想说一下？
-Anybody wanna [chime] in and talk the?
 
 42
 00:03:00,260 --> 00:03:04,880
 它们可以允许用户应用程序决定，
-They can allow the user application to decide that
 
 43
 00:03:04,880 --> 00:03:07,670
 一个页面可以，
-a page is going to be,
 
 44
 00:03:08,310 --> 00:03:13,200
 我猜他们更改了某个特定页面的访问位。
-I guess they change the access bits for some particular page.
 
 45
 00:03:13,780 --> 00:03:15,190
 是的，这是其中一种机制，
-Yeah, that's one of the mechanisms,
 
 46
 00:03:15,190 --> 00:03:17,080
 我只是好奇有哪些应用程序，
-I'm just curious which applications,
 
 47
 00:03:17,080 --> 00:03:19,240
 你知道，他们用很多不同的应用程序来证明这一点，
-you know they make the case with a bunch of different applications,
 
 48
 00:03:19,270 --> 00:03:25,370
 比如垃圾收集器或并发垃圾收集器，
-like the garbage collector or concurrent garbage collector,
 
 49
 00:03:26,210 --> 00:03:27,830
 还有其他几个，
-and a couple other ones,
 
 50
 00:03:27,830 --> 00:03:30,650
 只是想知道你觉得哪几个最有趣。
-you know just wondering which ones you thought were most interesting.
 
 51
 00:03:40,160 --> 00:03:44,480
 他们还使用哪些其他应用程序来证明自己的观点。
-What other applications do they use or the used to make their case.
 
 52
 00:03:47,660 --> 00:03:50,450
 我认为数据压缩应用程序非常酷。
-I thought the data compression application was pretty cool.
 
 53
 00:03:53,930 --> 00:03:55,040
 另一种[]是，
-And the other [] were,
 
 54
 00:03:58,500 --> 00:03:59,820
 人们[]。
-people were [] by.
 
 55
 00:04:04,780 --> 00:04:09,400
 我认为在多个不同系统之间共享虚拟内存非常酷，
-I thought the sort of shared virtual memory between multiple different systems that was pretty cool,
 
 56
 00:04:09,400 --> 00:04:12,670
 我想我没有完全理解它是怎么运作的，
-I didn't, I don't think I fully understood how it worked,
 
 57
 00:04:12,670 --> 00:04:14,410
 但是使用保护位的总体思路是
-but the general idea of using the protection bits
 
 58
 00:04:14,410 --> 00:04:18,370
 确保不同机器以正确方式使用共享内存，
-to make sure that different machines are are using that shared memory in the right way
 
 59
 00:04:18,370 --> 00:04:20,200
 保护不变量是有意义的。
-and protecting invariance makes sense.
 
 60
 00:04:21,250 --> 00:04:22,300
 所以，就是这样，
-So, that's it,
 
 61
 00:04:23,290 --> 00:04:28,210
 基本上整个领域发展使用这种方法，
-you know basically it turns out that whole area developed in way that one,
 
 62
 00:04:28,270 --> 00:04:31,090
 论文最初描述了 SVM （共享虚拟内存），
-paper originally described the SVM,
 
 63
 00:04:32,320 --> 00:04:34,000
 发展一个完整的研究领域，
-developing a whole research area,
 
 64
 00:04:34,560 --> 00:04:37,050
 人们用各种聪明的技巧
-where you know people all kinds of clever tricks
 
 65
 00:04:37,050 --> 00:04:39,660
 试着实现这种方案。
-to try to make that actually that scheme to fly.
 
 66
 00:04:40,620 --> 00:04:41,220
 还有其他的吗？
-Any others?
 
 67
 00:04:50,450 --> 00:04:53,150
 因为他们会去做一些其他的应用程序，
-Because they go off and do a couple other paper applications
 
 68
 00:04:53,150 --> 00:04:54,830
 他们基本上认为，
-and they basically argue that
 
 69
 00:04:54,830 --> 00:04:57,710
 如果你观察所有这些完全不同的应用程序，
-you know if you look at all these different quite different applications
 
 70
 00:04:57,710 --> 00:05:00,680
 比如共享虚拟内存，数据压缩或垃圾收集器，
-like shared virtual memory data compression or garbage collector,
 
 71
 00:05:00,680 --> 00:05:01,940
 本质上有很大的不同，
-you know very different in nature,
 
 72
 00:05:02,240 --> 00:05:03,620
 但事实证明，
-but it turns out that,
 
 73
 00:05:03,620 --> 00:05:05,090
 它们都依赖于
-all of them actually rely on
 
 74
 00:05:05,090 --> 00:05:08,690
 少量的虚拟内存原语使其真正工作。
-a small number of virtual memory primitives to actually make it work.
 
 75
 00:05:09,300 --> 00:05:12,330
 所以论文[]的第一个问题是，
-And so the first question to the paper [] is
 
 76
 00:05:12,330 --> 00:05:14,460
 比如，需要的原语应该是什么样子，
-like okay what what what should the primitives look,
 
 77
 00:05:14,460 --> 00:05:18,620
 比如用户应用程序需要的，
-like the user application needs,
 
 78
 00:05:18,620 --> 00:05:20,870
 如果它们想要实现其中一个应用程序。
-if they want to implement one of those applications.
 
 79
 00:05:22,260 --> 00:05:24,180
 所以让我稍微讨论一下这个，
-And so let me talk a little bit about that,
 
 80
 00:05:24,180 --> 00:05:25,470
 首先，什么是原语。
-first you know what primitives is.
 
 81
 00:05:33,080 --> 00:05:36,440
 所以它们是，
-And so they are,
 
 82
 00:05:36,770 --> 00:05:38,090
 它们是显而易见的，
-the ones they the obvious one,
 
 83
 00:05:38,090 --> 00:05:40,730
 当然你需要一些原语，
-of course you need something of a primitive,
 
 84
 00:05:40,730 --> 00:05:42,050
 让我们看 Trap ，
-let's go what I call Trap,
 
 85
 00:05:42,350 --> 00:05:47,300
 允许内核内部发生的页面错误，
-basically to allow a page fault that happens sort of inside the kernel
 
 86
 00:05:47,300 --> 00:05:49,190
 传播到用户空间。
-to be propagated up to user space.
 
 87
 00:05:50,120 --> 00:05:52,250
 然后在用户空间中，
-And then in user space,
 
 88
 00:05:52,250 --> 00:05:56,210
 处理程序可以处理它的页面错误，
-you know the handler can then deal with its page fault
 
 89
 00:05:56,240 --> 00:05:59,390
 然后以通常的方式返回内核，
-and then of course return in the usual way back to the kernel,
 
 90
 00:05:59,390 --> 00:06:00,980
 然后恢复指令。
-and then resume the instruction.
 
 91
 00:06:01,710 --> 00:06:03,780
 所以很明显这样的原语是必要的，
-So clearly the primitive like that is necessary,
 
 92
 00:06:03,780 --> 00:06:07,200
 否则你无法对页面错误做出任何响应。
-because otherwise you couldn't do anything in response to a page fault.
 
 93
 00:06:08,120 --> 00:06:12,320
 另一个要讨论的原语是 Prot1 ，
-The other primitive you know they talk about this Prot1,
 
 94
 00:06:12,590 --> 00:06:19,860
 这降低了页面的可访问性，
-which decreases the accessibility of page,
 
 95
 00:06:19,860 --> 00:06:21,660
 他们谈论了很多关于可访问性的问题，
-they talk a lot about accessibility,
 
 96
 00:06:21,660 --> 00:06:26,120
 或者你知道可访问性是什么意思？
-or and what do you mean with accessibility?
 
 97
 00:06:30,660 --> 00:06:31,230
 有人知道吗？
-Anybody?
 
 98
 00:06:33,920 --> 00:06:35,840
 是否可读写。
-Whether is read, write.
 
 99
 00:06:36,530 --> 00:06:40,490
 是的，有不同的方式
-Yeah, yeah, so there's different ways
 
 100
 00:06:40,490 --> 00:06:42,770
 来降低它们的可访问性，
-in which you can decrease their accessibility,
 
 101
 00:06:42,770 --> 00:06:46,820
 你从一个页面读写到只读，
-you go from a page that maybe has read write go to just read only,
 
 102
 00:06:47,240 --> 00:06:51,110
 或者你从只读到根本没有访问权限。
-or maybe you go from read only to actually have no access at all.
 
 103
 00:06:55,670 --> 00:06:57,140
 他们还提出，
-They also proposed that,
 
 104
 00:06:57,140 --> 00:07:00,770
 每个页面都应该有一个 Prot1 ，
-basically there should be one for each individual page, that's Prot1,
 
 105
 00:07:00,860 --> 00:07:01,700
 也应该有一个，
-there should be one
 
 106
 00:07:01,700 --> 00:07:05,510
 你可以对应用程序的页面集合进行调用，
-that actually you can do for the application call for a collection of pages,
 
 107
 00:07:06,400 --> 00:07:10,120
 所以 ProtN 原则上归结为
-and so basically ProtN boils down in principle
 
 108
 00:07:10,120 --> 00:07:12,850
 调用 Prot1 N 次，
-to calling Prot1 N times,
 
 109
 00:07:12,940 --> 00:07:15,490
 但是，他们讨论为什么，
-but why, why do they argue that
 
 110
 00:07:15,490 --> 00:07:20,050
 我们也应该有这个 ProtN 原语。
-we should have actually a ProtN version of this primitive too.
 
 111
 00:07:23,070 --> 00:07:27,960
 是不是因为它更有效率，
-Is it because actually it's more efficient,
 
 112
 00:07:27,960 --> 00:07:32,220
 因为保护 N 个页面的开销
-because the overhead of protecting the N pages
 
 113
 00:07:32,220 --> 00:07:34,350
 并不比保护一个页面多多少，
-is not much more than protecting one,
 
 114
 00:07:34,350 --> 00:07:40,600
 因为，他们谈到了一些比如摊销的东西。
-because, they talked about something like amortizing the work of.
 
 115
 00:07:42,670 --> 00:07:44,710
 是的，完全正确，
-Yeah yeah, absolutely right,
 
 116
 00:07:44,770 --> 00:07:46,540
 所以如果你做一个 Prot1 ，
-so basically if you do a Prot1,
 
 117
 00:07:46,570 --> 00:07:50,790
 你必须更改页表位，并做一些工作，
-basically you have to change the page table bits, and do some work,
 
 118
 00:07:50,970 --> 00:07:52,620
 然后在 Prot1 的后面，
-and then at the end of that Prot1,
 
 119
 00:07:52,620 --> 00:07:55,380
 通常需要刷新 TLB ，
-you know typically want to have to flush the TLB,
 
 120
 00:07:55,380 --> 00:07:57,930
 这是在 xv6 中实现的，
-remember this from xv6 implementation,
 
 121
 00:07:58,510 --> 00:08:00,970
 而刷新 TLB 很昂贵，
-and flushing TLB is expensive
 
 122
 00:08:01,240 --> 00:08:03,010
 如果能摊销，那就更好了，
-and it would be nice if you could amortize
 
 123
 00:08:03,010 --> 00:08:06,580
 在整个页表变化时，刷新 TLB 。
-basically flushing TLB overall you know the page table changes.
 
 124
 00:08:07,130 --> 00:08:10,340
 所以， ProtN 可以归结为 N 次，
-So basically ProtN boils down to N times
 
 125
 00:08:11,420 --> 00:08:15,050
 N 次更改页表位加上一次 TLB 刷新。
-N times changing page table bits plus one TLB flush.
 
 126
 00:08:15,640 --> 00:08:17,200
 如果你做 N 次 Prot1 ，
-And if you did N times Prot1,
 
 127
 00:08:17,200 --> 00:08:19,810
 你将有一个页表切换，
-you would have a one page table switch
 
 128
 00:08:19,810 --> 00:08:22,120
 加上一个页表修改，
-plus one page table modification
 
 129
 00:08:22,120 --> 00:08:24,280
 以及每页的一个 TLB 刷新，
-plus one TLB flush from each page,
 
 130
 00:08:24,640 --> 00:08:26,680
 这样你可以节省 TLB 刷新。
-so you can save the TLB flush.
 
 131
 00:08:27,630 --> 00:08:28,440
 这能理解吗？
-Does that make sense?
 
 132
 00:08:37,450 --> 00:08:43,940
 好的，然后原语的 Unprot ，
-Okay, then you know the primitive Unprot,
 
 133
 00:08:43,940 --> 00:08:47,420
 这增加了可访问性，
-this increases accessibility as they call it,
 
 134
 00:08:49,940 --> 00:08:51,170
 基本上就是说，
-basically meaning you know,
 
 135
 00:08:51,170 --> 00:08:54,170
 比如，如果页面现在有只读访问，
-if page for example have what had read only access now,
 
 136
 00:08:54,170 --> 00:08:56,780
 我们将其提升为具有读写访问权限。
-we're just going to promote it to actually have read and write access.
 
 137
 00:08:57,480 --> 00:08:59,760
 这里还提到了另外两个原语，
-There are two other primitives are mentioning,
 
 138
 00:08:59,760 --> 00:09:03,540
 一个原语是找出脏页面，
-one is primitive to actually find out which page which page is dirty,
 
 139
 00:09:04,080 --> 00:09:06,660
 以及另一个原语 Map2 ，
-and another primitive Map2,
 
 140
 00:09:06,810 --> 00:09:10,350
 允许一个应用程序
-which allows, to allows an application
 
 141
 00:09:10,350 --> 00:09:15,450
 在同一个地址空间映射两次，
-to map a particular range twice in the same address page,
 
 142
 00:09:15,450 --> 00:09:17,730
 同一个地址空间，
-the same address space,
 
 143
 00:09:17,910 --> 00:09:21,750
 但具有不同程度的可访问性。
-but with a different degrees of accessibility.
 
 144
 00:09:22,540 --> 00:09:24,490
 我们一会儿就能看到这一点。
-We'll see that showing up in a second.
 
 145
 00:09:25,320 --> 00:09:28,080
 所以你看看这些原语，
-So you look at these primitives,
 
 146
 00:09:28,110 --> 00:09:30,600
 xv6 支持其中的任何一个，
-you know xv6 support any of these,
 
 147
 00:09:32,490 --> 00:09:34,020
 对于用户级应用程序。
-you know for user level applications.
 
 148
 00:09:46,810 --> 00:09:48,250
 不是开箱即用，
-Not out of the box,
 
 149
 00:09:48,250 --> 00:09:52,120
 但是也许我们实现的警报处理程序感觉很接近。
-but maybe the alarm handler that we implemented feels close.
 
 150
 00:09:52,270 --> 00:09:55,540
 好的，他们把警报处理程序记在脑海里，
-Good yeah, they keep the alarm handler in their mind,
 
 151
 00:09:55,540 --> 00:09:58,780
 当然与 Trap 的感觉非常接近，
-that certainly feels very close correctly that is related to the Trap one,
 
 152
 00:10:02,480 --> 00:10:03,830
 但除此之外，
-but other than that,
 
 153
 00:10:03,830 --> 00:10:05,720
 xv6 不支持任何一个，
-there are xv6 support none of this, right,
 
 154
 00:10:05,810 --> 00:10:08,780
 实际上它是一个非常小的 Unix 接口，
-actually it's a very minimal Unix interface,
 
 155
 00:10:08,840 --> 00:10:14,330
 不支持任何更高级的虚拟内存原语，
-doesn't support any of the more advanced virtual memory primitives,
 
 156
 00:10:14,420 --> 00:10:19,370
 即使在内部内核本身确实具有所有可用的机制，
-even though internally the kernel itself does have all the mechanism available,
 
 157
 00:10:19,520 --> 00:10:23,750
 但是你不会将系统调用暴露到用户空间。
-but you're not exposed to user space into a form of system calls.
 
 158
 00:10:24,180 --> 00:10:25,710
 所以，论文认为，
-As a result, the papers arguing that
 
 159
 00:10:26,010 --> 00:10:28,620
 任何一种好的操作系统都应该提供
-any sort of good operating systems should provide
 
 160
 00:10:28,620 --> 00:10:30,600
 这些原语或系统调用，
-you know these primitives or system calls,
 
 161
 00:10:30,600 --> 00:10:31,740
 以便应用程序可以使用它们。
-so the application can use them.
 
 162
 00:10:32,530 --> 00:10:34,090
 所以自然与这个问题有关，
-So that naturally relates to the question,
 
 163
 00:10:34,090 --> 00:10:41,380
 比如，我们今天的 Unix 有多大的范围可用，
-like what what's the scope you know we've Unix today are available,
 
 164
 00:10:41,410 --> 00:10:43,540
 事实证明，任何，
-it turns out, basically you know any,
 
 165
 00:10:43,540 --> 00:10:46,390
 看看现代的 Unix ，比如 Linux ，
-look at modern Unix like Linux,
 
 166
 00:10:46,660 --> 00:10:48,820
 你知道这些原语就在那里，
-you know these primitives are there,
 
 167
 00:10:49,220 --> 00:10:53,900
 也许与论文中讨论的不完全一样，
-maybe not exactly the same flavor as argued in the paper,
 
 168
 00:10:53,900 --> 00:10:54,590
 但它们确实存在。
-but they are there.
 
 169
 00:10:55,350 --> 00:10:56,820
 你甚至在论文中看到了，
-You even saw it in the paper, correct
 
 170
 00:10:56,820 --> 00:11:00,690
 或者某些操作系统确实具有它们子集的某个版本，
-or some of the operating system did have some version of a subset of them,
 
 171
 00:11:00,930 --> 00:11:04,380
 但今天它们基本上广泛支持。
-but today they basically widely supported.
 
 172
 00:11:04,820 --> 00:11:06,200
 如果你看看今天的 Unix ，
-If you look at Unix today,
 
 173
 00:11:07,080 --> 00:11:09,870
 让我们看看它是如何实现它的。
-let's see how it actually there instantiate it.
 
 174
 00:11:12,410 --> 00:11:13,910
 所以第一个，
-And so one of the first ones
 
 175
 00:11:13,910 --> 00:11:15,350
 可能是最重要的一个，
-is probably the most important one
 
 176
 00:11:15,470 --> 00:11:17,480
 就是所谓的 mmap ，
-is something that's just called mmap,
 
 177
 00:11:18,210 --> 00:11:22,380
 它可以用来获取某个对象，
-and that can be used to take some object
 
 178
 00:11:22,380 --> 00:11:25,020
 并将其映射到调用者的地址空间中，
-and map it into the address space of the caller,
 
 179
 00:11:25,540 --> 00:11:27,850
 比如你想要映射一个文件，
-sort of example if you want to map a file,
 
 180
 00:11:30,160 --> 00:11:33,580
 然后系统调用有以下的形式，
-you know, then you know the system calls something of the following form,
 
 181
 00:11:33,610 --> 00:11:34,870
 调用 mmap ，
-you know call mmap,
 
 182
 00:11:35,840 --> 00:11:41,480
 mmap 有相当多的参数，
-mmap actually has quite a bit of a building number of arguments,
 
 183
 00:11:41,870 --> 00:11:43,940
 第一个是，
-the first basically says like what you,
 
 184
 00:11:43,940 --> 00:11:47,990
 你可以指定一个想要映射的地址，
-you can specify a particular address you would like it to be mapped to
 
 185
 00:11:48,050 --> 00:11:53,390
 或者你可以让内核决定选择地址，
-or you can let the kernel decides to choose the address,
 
 186
 00:11:53,390 --> 00:11:56,750
 在这种情况下，你指定 null ，
-and in that case, you specified just null
 
 187
 00:11:56,750 --> 00:12:00,380
 然后内核选择对象要映射的地址，
-and kernel pick an address where to map you know the object,
 
 188
 00:12:00,770 --> 00:12:02,000
 指定长度，
-specify the length,
 
 189
 00:12:02,460 --> 00:12:04,770
 指定保护位，
-you specify the protection bits,
 
 190
 00:12:04,770 --> 00:12:08,600
 比如读/写，
-you know, for example read slash write,
 
 191
 00:12:08,990 --> 00:12:12,320
 然后一些我们要讨论的参数，
-and then you know some argument, we want to talk about,
 
 192
 00:12:12,320 --> 00:12:14,180
 还有一个叫做 MAP_PRIVATE 的东西，
-and there's something called MAP_PRIVATE,
 
 193
 00:12:14,210 --> 00:12:16,490
 你必须说一些事情，
-basically you have to say something about how,
 
 194
 00:12:21,380 --> 00:12:24,380
 如果写那个特定的对象，会发生什么，
-what happens if you actually write to that particular object,
 
 195
 00:12:26,640 --> 00:12:28,440
 我们跳过大多数，
-let's skip that mostly,
 
 196
 00:12:28,500 --> 00:12:29,880
 然后你可以，
-then you can for,
 
 197
 00:12:29,880 --> 00:12:32,580
 我们可以传入文件描述符和偏移量，
-we can actually pass in the file descriptor and offset,
 
 198
 00:12:34,000 --> 00:12:35,530
 这就是说，
-and basically what this says is that
 
 199
 00:12:35,860 --> 00:12:39,580
 你应该映射文件对象的内容，
-you know you should map the content of the file object,
 
 200
 00:12:39,610 --> 00:12:42,040
 由文件描述符指向，
-pointed to by the file descriptor
 
 201
 00:12:42,310 --> 00:12:45,910
 然后你从偏移量获取对象的文件内容，
-and you take the file content to the object you know at offset,
 
 202
 00:12:46,030 --> 00:12:50,710
 使用长度映射那个特定地址。
-map that basically that particular particular address you know with that length.
 
 203
 00:12:51,510 --> 00:12:53,160
 所以，这允许你提供
-And so this basically allows you to serve
 
 204
 00:12:53,220 --> 00:12:54,840
 所谓的内存映射文件，
-what is called memory map file,
 
 205
 00:12:55,020 --> 00:12:58,740
 你可以将文件内容放入你的地址空间，
-so you can bring the contents of the file into your address space,
 
 206
 00:12:58,770 --> 00:13:02,910
 实际上调用读取或写入系统调用。
-would actually having to call read or write system calls.
 
 207
 00:13:03,400 --> 00:13:04,540
 这在某种程度上是很方便的，
-It's sort of convenient, correct,
 
 208
 00:13:04,540 --> 00:13:08,080
 因为这样你可以只用普通的指针来操作文件，
-because then you can manipulate the file just ordinary pointers,
 
 209
 00:13:08,080 --> 00:13:09,880
 你可以在特定位置写入，
-you can write at particular locations
 
 210
 00:13:09,880 --> 00:13:14,510
 然后在某个点上，你可以写回到磁盘，
-and then at some point you can write to come back to to the disk
 
 211
 00:13:14,510 --> 00:13:18,110
 所以它是操作数据结构的方便的接口，
-and so it is a convenient interface to a manipulate data structures,
 
 212
 00:13:18,110 --> 00:13:20,840
 可能存储在文件中。
-that might be stored into might be stored in the file.
 
 213
 00:13:21,700 --> 00:13:27,670
 实际上，你将实现这个特定版本的 mmap ，
-And in fact, you will be implementing this specific version of mmap
 
 214
 00:13:27,670 --> 00:13:30,340
 或者基于文件的 mmap 的某个版本，
-or some version of the file based mmap
 
 215
 00:13:30,340 --> 00:13:31,540
 在下一个实验中。
-actually in the next lab.
 
 216
 00:13:33,950 --> 00:13:37,520
 这集成了 xv6 的文件系统部分，
-So this basically integrates you know the file system part of xv6,
 
 217
 00:13:37,520 --> 00:13:39,440
 xv6 的虚拟内存部分，
-you know virtual memory part of xv6
 
 218
 00:13:39,440 --> 00:13:40,550
 你可以将它们联系起来，
-and you can sort of hook them up
 
 219
 00:13:40,550 --> 00:13:42,950
 通过实现 mmap ，
-and by supplying by actually implementing mmap,
 
 220
 00:13:43,980 --> 00:13:46,620
 mmap 还可以以其他方式使用，
-mmap can also be used in other ways,
 
 221
 00:13:46,620 --> 00:13:48,420
 你可以使用映射文件，
-so you can use the map file,
 
 222
 00:13:48,420 --> 00:13:51,780
 你也可以用它来映射匿名内存，
-you can also use it to map anonymous memory,
 
 223
 00:13:54,580 --> 00:13:56,830
 这是对 sbrk 的一种替代，
-and that's basically sort of an alternative to sbrk
 
 224
 00:13:56,830 --> 00:13:58,900
 你可以要求内核，
-where you can sort of ask the kernel,
 
 225
 00:13:58,900 --> 00:14:01,030
 请给我一些内存，
-please you know give me a bunch of memory,
 
 226
 00:14:01,300 --> 00:14:05,080
 并且映射在这个特定的地址。
-and you know map at this particular address.
 
 227
 00:14:07,480 --> 00:14:11,440
 所以这是核心系统调用之一，
-So that is one of the core system calls
 
 228
 00:14:11,620 --> 00:14:13,840
 并与第二个原语[相关]。
-and [related] back to the primitives in the second.
 
 229
 00:14:16,570 --> 00:14:20,410
 好的，还有几个调用是必要的，
-Okay, there's a couple more calls that are necessary
 
 230
 00:14:20,590 --> 00:14:24,790
 以支持论文所主张的原语，
-to actually support the primitives at the paper argued for
 
 231
 00:14:24,790 --> 00:14:26,680
 Unix 拥有它们，
-and Unix has has them,
 
 232
 00:14:26,680 --> 00:14:28,480
 所以更多的关于今天的 Unix，
-so there's more Unix today,
 
 233
 00:14:30,200 --> 00:14:33,290
 这里有一个 mprotect 系统调用，
-there's an mprotect system call,
 
 234
 00:14:34,800 --> 00:14:37,950
 一旦你将某些内容映射到地址空间，
-so once you have something mapped into the address space,
 
 235
 00:14:38,370 --> 00:14:44,760
 你可以更改权限，
-you can actually you know change the the permissions,
 
 236
 00:14:44,910 --> 00:14:45,840
 所以无论什么，
-so whatever you can make
 
 237
 00:14:45,840 --> 00:14:50,070
 mprotect 映射某些东西到地址空间，
-it just you know mprotect the particular map something into the address space,
 
 238
 00:14:50,070 --> 00:14:53,340
 然后 mprotect ，比如它的一部分或全部的子集，
-then you know mprotect for example for a subset of that part or all of it
 
 239
 00:14:53,580 --> 00:14:55,680
 并将其映射到特定的保护级别，
-and map it to particular protection level,
 
 240
 00:14:56,070 --> 00:14:57,270
 比如，如果你做了这个，
-so for example if you did this,
 
 241
 00:14:57,270 --> 00:14:59,430
 可以执行加载，
-basically loads could be executed,
 
 242
 00:14:59,760 --> 00:15:05,410
 但是保存会变成一个页面错误，
-but stores would you know change into change into a page fault
 
 243
 00:15:05,800 --> 00:15:07,000
 同样，如果你想确保
-and similarly if you want to make sure
 
 244
 00:15:07,000 --> 00:15:09,820
 地址空间中的范围完全不可访问，
-that range in address space is completely inaccessible,
 
 245
 00:15:09,820 --> 00:15:13,580
 你可以，对 mprotect 使用 NONE ，
-then you can, mprotect with NONE
 
 246
 00:15:13,820 --> 00:15:15,650
 然后它们，
-and you know basically then both,
 
 247
 00:15:15,650 --> 00:15:22,160
 任何对这个页面或这个地址范围的访问，
-everything basically, every access to that particular page or to that address range
 
 248
 00:15:22,310 --> 00:15:24,680
 从地址到地址加上长度，
-starting from address to address plus length,
 
 249
 00:15:24,740 --> 00:15:27,260
 将导致页面错误。
-will result in a page fault.
 
 250
 00:15:28,830 --> 00:15:30,450
 还有一个类似的版本，
-There's a similar version,
 
 251
 00:15:31,620 --> 00:15:34,350
 对 mmap 有一个相应的调用，叫做 unmap ，
-there's a corresponding call to mmap called unmap,
 
 252
 00:15:34,590 --> 00:15:38,760
 这允许你删除映射或删除地址范围。
-that allows you to basically remove a mapping or remove an address range.
 
 253
 00:15:43,620 --> 00:15:46,620
 如果你好奇这些调用是怎么工作的，
-And actually, if you curious you know exactly how these calls work,
 
 254
 00:15:46,620 --> 00:15:51,660
 你可以查看这些系统调用的手册页。
-you know you should look up the man page of these system calls.
 
 255
 00:15:52,580 --> 00:16:00,470
 最后，我们真正需要的是系统调用 sigaction ，
-And then finally you know the one that we really need is system call sigaction,
 
 256
 00:16:04,530 --> 00:16:06,330
 这是一个信号处理程序，
-and basically this is a signal handler,
 
 257
 00:16:11,210 --> 00:16:12,500
 并允许应用程序，
-and allows the application
 
 258
 00:16:12,500 --> 00:16:16,250
 比如，如果某个特定信号发生，
-to say like you know if a particular signal happens,
 
 259
 00:16:16,250 --> 00:16:18,440
 然后调用这个特殊的函数，
-then you know call this particular function,
 
 260
 00:16:19,530 --> 00:16:22,140
 所以也许你可以安装函数 f
-so maybe you can install basically function f
 
 261
 00:16:22,140 --> 00:16:24,930
 作为特定信号的信号处理程序，
-as a signal handler for a particular signal,
 
 262
 00:16:25,510 --> 00:16:27,490
 在页面错误的情况下，
-and in the case of you know page faults,
 
 263
 00:16:27,490 --> 00:16:33,130
 产生的信号叫做 segfault ，
-you know the signal that is generated yeah something was called segfault,
 
 264
 00:16:36,740 --> 00:16:40,160
 你可能以前在用户代码中看到过 segfault ，
-typically, you might have seen segfault in user code before,
 
 265
 00:16:40,160 --> 00:16:42,620
 通常在 segfault 中发生的情况是
-you know typically what happens in the segfault is
 
 266
 00:16:42,620 --> 00:16:44,600
 应用程序停止和崩溃，
-basically application stops and crashes,
 
 267
 00:16:44,870 --> 00:16:48,020
 但是如果应用程序安装了处理程序，
-but if the application had installed a handler
 
 268
 00:16:48,550 --> 00:16:51,970
 对于 segfault 事件或 segfault 信号，
-for you know segfault event or segfault signal,
 
 269
 00:16:52,000 --> 00:16:54,790
 那么不是停止应用程序，
-then instead of the application being stopped,
 
 270
 00:16:54,880 --> 00:16:57,580
 而是处理程序被内核调用，
-the handler would have been called by the kernel,
 
 271
 00:16:57,580 --> 00:17:01,000
 然后应用程序可能会响应该特定的 segfault ，
-and then the application can maybe respond to that particular segfault,
 
 272
 00:17:01,000 --> 00:17:04,870
 以内核响应页面错误的同样的方式，
-in the same way in some sense that the kernel responds to a page fault
 
 273
 00:17:04,870 --> 00:17:07,000
 可能还会修复页表，
-and maybe fixes up the page table,
 
 274
 00:17:07,000 --> 00:17:10,460
 这样可以继续执行，
-so that you know the execution can continue
 
 275
 00:17:10,460 --> 00:17:13,820
 在这种情况下，也许处理程序会调用 mprotect ，
-and in this case, maybe the handler will actually call mprotect
 
 276
 00:17:13,820 --> 00:17:16,460
 或修改权限，
-or change the permissions,
 
 277
 00:17:16,490 --> 00:17:19,220
 这样指令就可以恢复并继续。
-so that actually the instruction can resumed and continue.
 
 278
 00:17:21,010 --> 00:17:24,930
 在这件事上，
-And, so in this in fact,
 
 279
 00:17:24,930 --> 00:17:28,620
 我们最熟悉的版本，
-you know you are the most familiar version that we were,
 
 280
 00:17:28,620 --> 00:17:32,340
 我们所看到的 sigaction ，比如 sigalarm ，
-the things that we've seen like a sigaction much like sigalarm,
 
 281
 00:17:32,870 --> 00:17:35,600
 就像 Amir 之前提到的，
-as Amir mentioned a little bit earlier,
 
 282
 00:17:35,600 --> 00:17:37,520
 在 sigalarm 实验中，
-in this sigalarm lab,
 
 283
 00:17:37,520 --> 00:17:42,110
 你可以安装 alarm 程序，
-where you could install the alarm program,
 
 284
 00:17:42,110 --> 00:17:44,030
 安装一个处理程序，
-basically installed a handler,
 
 285
 00:17:44,030 --> 00:17:46,070
 它在每个时钟周期调用，
-that will have to be called at every clock tick
 
 286
 00:17:46,100 --> 00:17:49,070
 或每个时间段调用，
-or every you know period of time,
 
 287
 00:17:49,430 --> 00:17:52,730
 基本上， sigaction 在某种程度上等同于，
-and you know basically sigaction is sort of the equivalent that,
 
 288
 00:17:52,730 --> 00:17:57,760
 可以对不同类型的信号做出反应。
-the general version of it where basically can respond to different types of signals.
 
 289
 00:17:59,170 --> 00:18:00,220
 关于这个，有什么问题吗？
-Any questions about this?
 
 290
 00:18:02,780 --> 00:18:05,870
 这里像是 mprotect 实现了，
-It seems like mprotect implies that
 
 291
 00:18:05,870 --> 00:18:09,470
 你可以在各个地址上添加不同的权限级别，
-you can add different permission levels on individual addresses
 
 292
 00:18:09,500 --> 00:18:12,080
 而在我们一直在使用的 xv6 中，
-whereas in like xv6 that we've been working with,
 
 293
 00:18:12,110 --> 00:18:14,660
 你只能在整页上应用权限，
-you can only apply permissions on full pages,
 
 294
 00:18:14,660 --> 00:18:17,360
 那是不同的， mprotect 。
-is that is that a difference, that's mprotect.
 
 295
 00:18:17,860 --> 00:18:19,150
 不，这不是真正的不同，
-No, it's not real difference,
 
 296
 00:18:19,150 --> 00:18:22,750
 它是在页面级别的粒度上工作的，
-you know it works at a page level granularity,
 
 297
 00:18:24,400 --> 00:18:26,350
 而且它不会暴露，
-and it doesn't expose,
 
 298
 00:18:26,350 --> 00:18:29,560
 有一个单独的调用来找出页面的大小，
-you know there's a separate call to find out what the page page sizes,
 
 299
 00:18:29,620 --> 00:18:31,270
 如果你好奇的话。
-if you actually curious about it.
 
 300
 00:18:33,630 --> 00:18:34,200
 谢谢。
-Thank you.
 
 301
 00:18:35,440 --> 00:18:39,070
 所以如果你想一想论文中的原语，
-Um, so if you think about the primitives that were in the paper,
 
 302
 00:18:39,070 --> 00:18:40,600
 我们可以把它们映射起来，
-you know we can map them correctly,
 
 303
 00:18:40,600 --> 00:18:43,030
 比如现代 Unix 或Unix 通常提供的。
-like what currently Unix or Unix typically provide.
 
 304
 00:18:43,030 --> 00:18:46,050
 那么， Trap 对应的是什么，
-So, what equivalent correct to Trap,
 
 305
 00:18:46,080 --> 00:18:48,510
 在 Unix 中会提供的
-you know that we're in Unix would be provided
 
 306
 00:18:48,510 --> 00:18:51,330
 就是 sigaction 调用。
-something called the sigaction sigaction call.
 
 307
 00:18:53,850 --> 00:18:56,070
 关于 ProtN 和 Prot1 ，
-And about you know ProtN and Prot1,
 
 308
 00:18:58,800 --> 00:19:00,180
 它们相当于什么？
-what is the equivalent to that?
 
 309
 00:19:06,680 --> 00:19:11,300
 好的，这三个都可以使用 mprotect 来实现，
-Okay, so basically all three of them correctly can be implemented using mprotect,
 
 310
 00:19:14,550 --> 00:19:16,980
 而且 mprotect 非常灵活，
-and mprotect you know is flexible enough,
 
 311
 00:19:16,980 --> 00:19:18,810
 你可以在一页上使用它，
-that you could do it by a single page
 
 312
 00:19:18,840 --> 00:19:24,090
 或者你可以提供由多个页面组成的内容，
-or actually just ask or you can actually provide something consists of multiple pages
 
 313
 00:19:24,090 --> 00:19:27,690
 然后你可以得到刷新一次 TLB 的好处，
-and then you could do, you get the same benefit of one TLB flush,
 
 314
 00:19:27,780 --> 00:19:32,580
 用于更改一系列页面上的权限。
-for changing permissions on a whole series of pages.
 
 315
 00:19:34,300 --> 00:19:35,530
 好吧？
-Okay?
 
 316
 00:19:36,140 --> 00:19:39,080
 这些调用可以直接映射到一些原语中，
-These calls are almost directly map into some of the primitives,
 
 317
 00:19:39,410 --> 00:19:43,490
 Dirty 有点难做到，
-turns out that you know dirty, actually a little bit harder to do,
 
 318
 00:19:43,580 --> 00:19:47,420
 没有直接对应的原语或系统调用，
-you know there's not a direct primitive for or system call for,
 
 319
 00:19:47,480 --> 00:19:51,110
 尽管你可以用一些技巧来完成它。
-although you can sort of more or less get it done with some tricks.
 
 320
 00:19:51,290 --> 00:19:53,570
 稍后我会稍微谈一下 Map2 ，
-And I'll talk a little bit later about Map2,
 
 321
 00:19:54,190 --> 00:19:57,340
 也有办法做到这个，
-there's also a way to do it,
 
 322
 00:19:57,340 --> 00:19:58,450
 但是并不完全是
-but it's not completely
 
 323
 00:19:58,450 --> 00:20:01,450
 一种直接对应 Map2 的系统调用，
-you know sort of a system call just directly maps onto Map2,
 
 324
 00:20:01,720 --> 00:20:05,470
 如果你有多个 mmap ，
-it turns out that if you with multiple mmaps,
 
 325
 00:20:08,760 --> 00:20:14,210
 你也可以实现这个特定功能。
-you can actually achieve this particular functionality too.
 
 326
 00:20:16,080 --> 00:20:16,650
 好吧？
-Okay?
 
 327
 00:20:16,980 --> 00:20:18,960
 所以，思考这篇论文的一种方式是，
-So one way to think about this paper is
 
 328
 00:20:18,960 --> 00:20:23,430
 内核开发人员可能并不完全受这篇文章的驱动，
-the kernel developers you know maybe not totally driven by this paper,
 
 329
 00:20:23,430 --> 00:20:28,620
 但是内核开发人员已经扩展了这些，
-but kernel developers, you know have extended you know these,
 
 330
 00:20:28,680 --> 00:20:31,050
 已经提供了这些原语，
-where have provided these primitives
 
 331
 00:20:31,050 --> 00:20:34,440
 对今天的用户应用程序。
-actually to you know today's user applications.
 
 332
 00:20:37,420 --> 00:20:41,020
 好的，我想说一下关于实现的事情，
-Okay, I want to say a few words about the implementation,
 
 333
 00:20:41,020 --> 00:20:43,840
 只是更多的概述，
-just a much more sketch level,
 
 334
 00:20:44,170 --> 00:20:50,050
 然后讨论一下应用程序本身，
-and then talk a little bit about you know the applications themselves
 
 335
 00:20:50,050 --> 00:20:52,360
 看看他们是如何使用这些原语的。
-and see how they use these particular primitives.
 
 336
 00:21:00,700 --> 00:21:05,140
 好的，让我们来谈谈两个有趣的方面。
-Okay, so, let's talk about there's two aspects that are sort of interesting.
 
 337
 00:21:05,140 --> 00:21:06,970
 一个是发生了什么，
-One is actually what actually happens
 
 338
 00:21:07,000 --> 00:21:09,730
 在虚拟内存系统中，来支持这一点。
-inside the virtual memory system to actually support this.
 
 339
 00:21:14,620 --> 00:21:15,940
 我只想把它概述出来，
-I'm just going to sketch this out,
 
 340
 00:21:15,940 --> 00:21:18,010
 比如最重要的部分是什么，
-like what the most important pieces are,
 
 341
 00:21:18,160 --> 00:21:19,150
 事实上，
-and in fact you know
 
 342
 00:21:19,480 --> 00:21:24,340
 这与即将到来的 mmap 实验有点相关，
-this is sort of a little bit relevant to mmap lab that is coming up,
 
 343
 00:21:24,370 --> 00:21:26,440
 因为你要做类似的事情。
-because you're going to do something similar.
 
 344
 00:21:26,440 --> 00:21:30,970
 所以今天的 Unix 的地址空间，
-So address space typically in Unix today
 
 345
 00:21:30,970 --> 00:21:34,090
 是由硬件页表来表示的，
-is represented by you know of course the hardware page table,
 
 346
 00:21:34,770 --> 00:21:36,510
 其中包含转换，
-which contains the translations,
 
 347
 00:21:37,160 --> 00:21:42,590
 但通常它是用一组操作系统数据结构扩充的，
-but typically it's augmented with a set of OS data structure,
 
 348
 00:21:42,590 --> 00:21:45,380
 与任何特定的硬件设计无关，
-not related to any specific hardware design,
 
 349
 00:21:45,740 --> 00:21:54,860
 这些称为虚拟内存区，
-these are called virtual, virtual memory areas,
 
 350
 00:21:57,900 --> 00:21:59,550
 简称为 VMA 。
-in short VMAs.
 
 351
 00:22:02,740 --> 00:22:07,630
 基本上， VMA 代表的是
-Basically, what VMA, what VMA represents is
 
 352
 00:22:07,630 --> 00:22:12,550
 记录一些关于连续地址范围的信息。
-you know record some information about the contiguous range of addresses.
 
 353
 00:22:20,470 --> 00:22:22,420
 所以如果你考虑地址空间，
-So if you think about an address space,
 
 354
 00:22:22,980 --> 00:22:26,310
 可能在地址空间中具有多个区段，
-it might have a number of sections in the address space,
 
 355
 00:22:26,310 --> 00:22:28,140
 每个连续的范围，
-you know each one contiguous range,
 
 356
 00:22:28,140 --> 00:22:31,110
 每个部分都是 VMA 。
-basically for each section that would be VMA.
 
 357
 00:22:31,760 --> 00:22:37,520
 VMA 可能具有所有相同的权限，
-And the VMA you know may also has all the same permissions
 
 358
 00:22:37,580 --> 00:22:41,090
 那个范围的所有页面有相同的权限，
-through all the pages in that range at the same permissions,
 
 359
 00:22:43,540 --> 00:22:46,360
 它们背后都是同一个对象。
-and they're backed by the same object.
 
 360
 00:22:55,010 --> 00:23:00,200
 比如，如果你有 mmap 文件
-For example, if you have a mmap map map, mmap file,
 
 361
 00:23:00,320 --> 00:23:08,660
 然后，文件的 VMA 描述该文件的任何权限，
-then, the be VMA for that file that describes whatever permissions for the file
 
 362
 00:23:08,780 --> 00:23:12,290
 同文件本身的信息一样，
-as well as you know the information about the file itself,
 
 363
 00:23:12,290 --> 00:23:16,160
 比如，与 VMA 在一起的文件描述符，
-the file descriptor, for example, that goes along with that particular VMA
 
 364
 00:23:16,460 --> 00:23:22,640
 而且文件中的偏移量也是 VMA 对应的。
-and you know the offset in the file were that VMA corresponds to.
 
 365
 00:23:24,220 --> 00:23:27,220
 事实上，即将到来的实验里，
-In fact you know in the lab upcoming lab,
 
 366
 00:23:27,220 --> 00:23:31,900
 你将实现一个非常简单的 VMA 版本，
-you know you will implement a very simple version of VMA
 
 367
 00:23:31,900 --> 00:23:38,620
 并使用它来实现对于文件的 mmap 系统调用，
-and use that to actually implement mmap system call for files,
 
 368
 00:23:38,620 --> 00:23:40,540
 你可以在 VMA 中记录，
-where basically you can record in the VMA,
 
 369
 00:23:40,540 --> 00:23:42,850
 文件描述符和偏移量，
-you are literally the file descriptor and the offset
 
 370
 00:23:43,240 --> 00:23:46,900
 对应特定的 mmap 调用，已经映射的范围。
-that corresponds to that particular mmap call, the range have been mapped.
 
 371
 00:23:49,460 --> 00:23:50,480
 对于这个，有什么问题吗？
-Any questions about this?
 
 372
 00:23:56,900 --> 00:24:00,170
 好的，那么第二个重要的部分，
-Okay, so then the second piece you know sort of important
 
 373
 00:24:00,170 --> 00:24:02,150
 我们有一点经验，
-and then we have a little bit of experience with,
 
 374
 00:24:02,150 --> 00:24:05,300
 这可能是值得的经历的是，
-it's probably worthwhile you know going through is
 
 375
 00:24:05,450 --> 00:24:11,850
 Trap 或 sigaction 处理程序是如何，
-actually how trap or sigaction actually the handler,
 
 376
 00:24:12,780 --> 00:24:14,250
 实际的 Trap 是如何工作的。
-how an actual Trap will work.
 
 377
 00:24:16,900 --> 00:24:18,760
 实际上，你需要更小心。
-Actually, you'll be more careful.
 
 378
 00:24:21,190 --> 00:24:24,750
 所以我们实现了一个用户级别的 trap ，
-So we have a user level traps are implemented,
 
 379
 00:24:27,320 --> 00:24:30,290
 这是非常符合，
-and this follows very, it follows very much
 
 380
 00:24:30,290 --> 00:24:36,140
 与 sigalarm 系统调用的大纲是一样的，
-you know the same outline as actually the sigalarm system call
 
 381
 00:24:36,140 --> 00:24:39,770
 然后，当时钟周期到达时，
-and then the up call that happened when a clock tick,
 
 382
 00:24:39,770 --> 00:24:43,690
 已经[超过]了时间限制。
-actually [passed] the time limit.
 
 383
 00:24:44,360 --> 00:24:46,250
 所以这里的设置是
-And so the sort of setting here is
 
 384
 00:24:46,250 --> 00:24:48,530
 不是时钟周期，而是页表，
-not not you know clock ticks but page tables,
 
 385
 00:24:48,530 --> 00:24:51,980
 所以让我们假设有一些 PTE ，
-so let's assume there's some PTE
 
 386
 00:24:51,980 --> 00:24:56,760
 标记为无效的，
-that has that marked you know in invalid
 
 387
 00:24:58,420 --> 00:25:00,160
 或者它可能是只读的，
-or maybe it's read only
 
 388
 00:25:00,160 --> 00:25:01,540
 而你在保存到其中，
-and you're actually stored to it
 
 389
 00:25:01,570 --> 00:25:06,070
 那么，当应用程序访问这个 PTE 时，会发生什么，
-and so what happens when the application accesses that PTE,
 
 390
 00:25:06,070 --> 00:25:08,020
 实际上是无效的，
-that actually is basically invalid
 
 391
 00:25:08,020 --> 00:25:10,570
 或者没有产生有效的转换。
-or doesn't result in a valid translation.
 
 392
 00:25:10,660 --> 00:25:12,820
 正如我们所知，
-Well as we know,
 
 393
 00:25:12,820 --> 00:25:16,050
 CPU 跳转到内核模式，
-then the CPU jumps into kernel mode,
 
 394
 00:25:20,290 --> 00:25:22,870
 跳入内核的固定地址，
-jumps into the kernel at a fixed address,
 
 395
 00:25:22,870 --> 00:25:26,740
 想想 trampoline 代码，
-you know you know look at the think the trampoline code,
 
 396
 00:25:26,740 --> 00:25:28,660
 内核保存状态，
-the kernel save state,
 
 397
 00:25:30,430 --> 00:25:32,230
 比如保存到 trapframe ，
-so, for example save to trapframe,
 
 398
 00:25:35,350 --> 00:25:39,190
 然后访问虚拟内存系统，
-then basically asks you know the VM system,
 
 399
 00:25:40,820 --> 00:25:45,110
 现在做什么。
-and what now, what to do.
 
 400
 00:25:47,430 --> 00:25:49,950
 虚拟内存系统可能会温和地执行某些操作，
-And the VM system might do something so gently
 
 401
 00:25:49,950 --> 00:25:53,220
 如果这种情况发生在懒分配实验，
-and in case if this happened in the lazy lab
 
 402
 00:25:53,220 --> 00:25:55,050
 以及写入时复制实验，
-and in the copy-on-write lab,
 
 403
 00:25:55,110 --> 00:25:57,960
 你的 trap 处理程序代码，
-where you know your trap handler code,
 
 404
 00:25:57,960 --> 00:26:00,600
 查看页表数据结构，
-you know sort of looks at the page table data structures,
 
 405
 00:26:00,600 --> 00:26:02,670
 在这种情况下，将查看 VMA ，
-in this case, resume will look at the VMAs,
 
 406
 00:26:03,120 --> 00:26:05,460
 查看范围是什么，
-and you know see what the scope is
 
 407
 00:26:05,460 --> 00:26:10,410
 进程[折叠]的地址，
-just to address that were where the process [folded] on
 
 408
 00:26:10,560 --> 00:26:12,720
 看看需要做些什么，
-and see what needs to be done,
 
 409
 00:26:12,720 --> 00:26:14,760
 比如，如果它是 segfault ，
-and so for example if it is a segfault
 
 410
 00:26:14,760 --> 00:26:19,020
 并且应用程序已经安装了处理程序来处理它，
-and application has installed handler to deal with it,
 
 411
 00:26:19,020 --> 00:26:21,180
 那么向上调用，
-then basically that up call
 
 412
 00:26:21,210 --> 00:26:25,170
 或事件处理程序将传播到用户空间。
-or a handler of the event would be propagated to user space.
 
 413
 00:26:25,760 --> 00:26:28,700
 所以，我们假设安装了一个处理程序，
-And so basically let's say there was a handler installed,
 
 414
 00:26:28,700 --> 00:26:33,080
 然后我们就可以向上调用进入用户空间，
-then basically we're gonna get up call to into user space,
 
 415
 00:26:35,880 --> 00:26:39,390
 像 sigalarm 实验的方法一样，
-in the same way as in the sigalarm lab,
 
 416
 00:26:39,540 --> 00:26:44,640
 它将在用户空间中运行处理程序，
-you know that will run you know the handler in user space,
 
 417
 00:26:44,640 --> 00:26:49,410
 这个处理程序可能会调用 mprotect 来改变保护位。
-the handler you know might call you know mprotect you know to change the protections.
 
 418
 00:26:52,540 --> 00:26:54,850
 然后处理程序返回，
-And, then the handler returns to,
 
 419
 00:26:54,850 --> 00:26:56,950
 用户处理程序返回内核代码，
-user handler returns to kernel code,
 
 420
 00:27:00,290 --> 00:27:01,280
 到达内核，
-to kernel,
 
 421
 00:27:03,920 --> 00:27:10,330
 然后内核恢复被打断的程序。
-and then the kernel basically resumes you know the interrupted process.
 
 422
 00:27:15,180 --> 00:27:16,830
 好的，而且你必须，
-Okay, and you have to,
 
 423
 00:27:16,830 --> 00:27:20,160
 如果，当内核恢复中断进程时，
-if the, when the kernel resumes that interrupt the process,
 
 424
 00:27:20,160 --> 00:27:25,890
 比如，如果处理程序修复了用户程序的地址空间，
-you know if for example the handler fixed up sort of the address space of the user program,
 
 425
 00:27:25,920 --> 00:27:28,770
 那么指令可能会正确地执行，
-then they might actually instruction might use execute correctly
 
 426
 00:27:28,800 --> 00:27:30,840
 或者如果出现问题，
-or if something is wrong,
 
 427
 00:27:30,840 --> 00:27:33,510
 可能会立即重新进入内核，
-maybe trap back into the kernel right away again,
 
 428
 00:27:33,510 --> 00:27:34,350
 如果，
-if you know the,
 
 429
 00:27:36,820 --> 00:27:41,050
 如果硬件仍然无法转换那个特定虚拟地址。
-if the the hardware still can't translate that particular virtual address.
 
 430
 00:27:42,920 --> 00:27:43,730
 这能理解吗？
-Does this make sense?
 
 431
 00:27:45,890 --> 00:27:50,170
 再说一遍， sigalarm 实验，
-Maybe there's, remember again, the sigalarm lab
 
 432
 00:27:50,170 --> 00:27:52,030
 然后这个就很熟悉了。
-and then this would be quite familiar.
 
 433
 00:27:53,660 --> 00:27:55,160
 是的，我有个问题。
-Yeah, I have a question.
 
 434
 00:27:57,140 --> 00:27:58,190
 那一种，
-What kind of,
 
 435
 00:27:58,250 --> 00:28:03,410
 我想，当我们允许用户运行
-I think when we're allowing the user to actually run
 
 436
 00:28:03,530 --> 00:28:06,260
 在页面错误上的处理程序，
-a handler code on a page fault,
 
 437
 00:28:06,380 --> 00:28:09,410
 难道没有额外的安全漏洞，
-aren't there additional security vulnerabilities,
 
 438
 00:28:09,410 --> 00:28:10,670
 可能会导致这一点，
-that could result as a part of this,
 
 439
 00:28:10,670 --> 00:28:12,560
 所以我想知道能不能谈谈这件事。
-so I was wondering if it could speak to that.
 
 440
 00:28:12,560 --> 00:28:13,970
 是的，这是个好问题，
-Yeah, it's a great question,
 
 441
 00:28:14,360 --> 00:28:15,830
 顺便说一句，
-by the way,
 
 442
 00:28:15,830 --> 00:28:18,980
 能不能每个人都把摄像头打开，
-can you like maybe everybody turn on their cameras too,
 
 443
 00:28:20,770 --> 00:28:21,670
 如果可能的话，
-if possible,
 
 444
 00:28:21,700 --> 00:28:22,960
 如果你愿意这么做，
-if you're comfortable doing that,
 
 445
 00:28:22,960 --> 00:28:24,160
 我会很感激。
-I really appreciate it.
 
 446
 00:28:24,160 --> 00:28:27,100
 我想班上很多同学也会感激的。
-I think many students in the class will appreciate it too.
 
 447
 00:28:27,760 --> 00:28:30,310
 是的，所以有一个安全问题，
-Yeah, so there's a security issue,
 
 448
 00:28:31,680 --> 00:28:36,900
 第一，人们怎么看，
-the first, what do people think,
 
 449
 00:28:38,230 --> 00:28:39,940
 这是否破坏了用户内核（隔离），
-does this break user kernel
 
 450
 00:28:39,940 --> 00:28:43,060
 或者不同进程之间的隔离。
-or you know the isolation between different processes.
 
 451
 00:28:49,340 --> 00:28:52,970
 另一种问法是， sigalarm 是否破破坏了隔离。
-Another way asking the question did sigalarm break you know isolation.
 
 452
 00:29:00,080 --> 00:29:01,730
 它是没问题的，
-Would it be okay,
 
 453
 00:29:01,730 --> 00:29:06,590
 因为处理程序的代码
-because the, that that code that the handler
 
 454
 00:29:06,770 --> 00:29:11,820
 仍然可以访问相同的虚拟内存，
-would still have access to the same virtual memory,
 
 455
 00:29:11,820 --> 00:29:14,490
 我的意思是，如果有不同的虚拟内存用于进程
-I mean, if there are different virtual memories for the process
 
 456
 00:29:14,490 --> 00:29:16,560
 对于每个进程，
-and for like for each of the processes,
 
 457
 00:29:16,560 --> 00:29:21,300
 那么处理程序不能查看其他进程的内存，
-then that handler shouldn't be able to look into other process's memory,
 
 458
 00:29:22,410 --> 00:29:23,190
 这样就可以了。
-that would be okay.
 
 459
 00:29:23,430 --> 00:29:24,360
 是的，当然，
-Yeah, sure,
 
 460
 00:29:24,360 --> 00:29:25,620
 当我们向上调用时，
-when we do the upcall correct,
 
 461
 00:29:25,620 --> 00:29:29,370
 我们向上调用安装了处理程序的特定用户空间，
-we're up, make the upcall that specific user space that actually installed the handler,
 
 462
 00:29:30,300 --> 00:29:32,550
 所以处理程序在相同的上下文中运行，
-so the handler basically runs in the same context,
 
 463
 00:29:32,550 --> 00:29:34,800
 运行相同的页表，
-as runs with the same page table
 
 464
 00:29:34,800 --> 00:29:37,500
 与应用程序安装处理程序一样，
-as the application that installed the handler
 
 465
 00:29:37,920 --> 00:29:41,220
 所以它唯一能做的就是影响应用程序，
-and so the only thing it really can do is you know affect that application,
 
 466
 00:29:41,220 --> 00:29:43,650
 但是那是应用程序的问题，
-but you know that's the application problem,
 
 467
 00:29:43,740 --> 00:29:46,020
 不会影响到任何其他的应用程序，
-can't really affect anybody any other application,
 
 468
 00:29:46,020 --> 00:29:51,030
 因为它不能访问其他应用程序页表，
-because it doesn't have any access to the other applications page tables,
 
 469
 00:29:52,450 --> 00:29:53,620
 或者可以强制切换到它们。
-or can force switch into them.
 
 470
 00:29:55,190 --> 00:29:56,510
 所以这是好的，
-So this turns out to be fine,
 
 471
 00:29:56,570 --> 00:29:58,970
 当然，如果处理程序没有返回或者做了什么坏事，
-of course if the handler doesn't return or does something bad,
 
 472
 00:29:58,970 --> 00:30:01,670
 最终，内核可以杀死那个进程，
-in the end, the kernel just kill, can always kill the process,
 
 473
 00:30:02,330 --> 00:30:03,950
 所以没有什么，
-so nothing really,
 
 474
 00:30:03,950 --> 00:30:07,160
 唯一可能变坏的是
-you know the only thing that can go bad is
 
 475
 00:30:07,160 --> 00:30:08,630
 这个过程会伤害到自己，
-you know the process can hurt itself,
 
 476
 00:30:08,750 --> 00:30:10,640
 但它不会伤害任何其他进程。
-but it can't hurt any other processes.
 
 477
 00:30:13,080 --> 00:30:14,130
 Amir ，这能理解吗？
-Amir, does that make sense?
 
 478
 00:30:16,390 --> 00:30:17,920
 好的，谢谢。
-Yes, thank you.
 
 479
 00:30:18,940 --> 00:30:24,080
 好的，现在我想举几个例子，
-Okay, so now I want to go through a couple examples,
 
 480
 00:30:24,770 --> 00:30:26,330
 看看你可以如何使用它。
-and so to see how you could use it.
 
 481
 00:30:26,360 --> 00:30:29,060
 我将从一个非常简单的例子开始，
-And I'll start out with very simple example
 
 482
 00:30:29,090 --> 00:30:30,710
 让我们自己进入其中，
-to get ourselves into it
 
 483
 00:30:30,710 --> 00:30:32,990
 然后我们会转移到垃圾收集器，
-and then we'll move to the garbage collector,
 
 484
 00:30:33,230 --> 00:30:35,540
 因为很多人问关于垃圾收集器的问题，
-because lots of people ask questions about the garbage collector,
 
 485
 00:30:35,540 --> 00:30:37,730
 所以，这是一个很好的用来深入研究。
-so that seems like a good one to dive into.
 
 486
 00:30:40,000 --> 00:30:44,470
 好的，我想说的第一个例子是琐碎的想法，
-Okay, the first example I want to talk about trivial idea,
 
 487
 00:30:44,500 --> 00:30:47,920
 实际上论文中甚至没有提到，
-but you know in fact there's not even mentioned in the paper,
 
 488
 00:30:48,540 --> 00:30:52,110
 但这是一种很酷的方式
-but it is a sort of a cool way
 
 489
 00:30:52,110 --> 00:30:55,410
 来说明应用程序获得的能力，
-of illustrating you know the power that applications get,
 
 490
 00:30:55,410 --> 00:30:58,050
 如果它们有这些原语可用的话。
-if they actually have these primitives available to them.
 
 491
 00:30:58,720 --> 00:31:07,970
 基本的想法是建立一个巨大的记忆表，
-And the basic idea is to actually build a huge you know memorization table,
 
 492
 00:31:11,040 --> 00:31:13,290
 而记忆表所做的，
-and the memorization table is basically what it does,
 
 493
 00:31:13,290 --> 00:31:16,350
 它记住一些计算的结果。
-it just remember you know the result of some computation.
 
 494
 00:31:16,980 --> 00:31:18,780
 所以，比如你可以用下面的方式来思考，
-And so, for example you can think about in the following way,
 
 495
 00:31:18,780 --> 00:31:20,340
 假设我们在这里有一张表，
-let's say we're here's our table,
 
 496
 00:31:21,260 --> 00:31:24,860
 表从 0 开始到 n ，
-and you know table start to get whatever zero to some n
 
 497
 00:31:25,220 --> 00:31:31,730
 表存储的是运行一些昂贵函数的结果，
-and what the table stores is the result of running some expensive function,
 
 498
 00:31:33,600 --> 00:31:37,050
 对于参数 0 ，或者其他什么 f(n) 。
-for that argument 0 or for whatever f(n).
 
 499
 00:31:38,370 --> 00:31:39,540
 所以如果你愿意，
-So if you wanted to,
 
 500
 00:31:39,720 --> 00:31:42,060
 如果这张表是预计算的，
-you know if this table were sort of pre computed,
 
 501
 00:31:42,090 --> 00:31:43,830
 它想要在时间的开始，
-it wants in the beginning of time
 
 502
 00:31:44,160 --> 00:31:45,600
 然后你想查找，
-and then you wanted to look up,
 
 503
 00:31:45,600 --> 00:31:49,080
 比如你想知道 f(i) 的值是多少，
-like you wanted to know what value for f(i) was,
 
 504
 00:31:49,110 --> 00:31:52,900
 你要做的就是在表中查找，
-well what you do is you just look up in the table,
 
 505
 00:31:53,700 --> 00:31:55,320
 在插槽 i 里，
-you know in the slot i
 
 506
 00:31:55,440 --> 00:32:00,780
 你得到将要计算的 f(i) 的值。
-and basically you get the the value that f(i) would have computed.
 
 507
 00:32:01,470 --> 00:32:04,830
 所以这可能会返回一个昂贵的计算，
-And so this would return maybe an expensive computation,
 
 508
 00:32:04,860 --> 00:32:06,390
 也许 f 是非常昂贵的，
-maybe f is very expensive,
 
 509
 00:32:06,660 --> 00:32:09,360
 转变为一个表查找，
-into a basically table lookup,
 
 510
 00:32:10,050 --> 00:32:11,160
 这是一个很酷的技巧，
-sort of a cool trick,
 
 511
 00:32:11,190 --> 00:32:16,500
 存储预计算的结果，
-you know to basically store the results for pre computes
 
 512
 00:32:16,500 --> 00:32:19,110
 并存储昂贵计算的结果，
-and store the results of an expensive computation,
 
 513
 00:32:19,260 --> 00:32:22,110
 如果相同的计算很多很多次，
-and if that's the same computation is actually many many times,
 
 514
 00:32:22,260 --> 00:32:24,270
 然后提前计算每个，
-then you know pre compute good ones,
 
 515
 00:32:24,270 --> 00:32:28,380
 你可能会有好处，只要需做一点事情。
-you might be an advantage to small thing to do.
 
 516
 00:32:30,620 --> 00:32:32,000
 这样的设置，能理解吗？
-Does that setup makes sense?
 
 517
 00:32:33,740 --> 00:32:35,450
 好的，那么问题是，
-Okay, so then the issue,
 
 518
 00:32:35,900 --> 00:32:39,620
 是的，当然是那个表或挑战，
-yeah you of course is that the table or the challenge,
 
 519
 00:32:43,040 --> 00:32:44,240
 那个表可能很大，
-the table might be big,
 
 520
 00:32:48,730 --> 00:32:50,140
 可能实际上很大，
-might be actually in fact very big,
 
 521
 00:32:50,140 --> 00:32:52,150
 它甚至可能比你的物理内存更大，
-it might be bigger than maybe your physical memory,
 
 522
 00:32:56,060 --> 00:32:57,500
 但是拥有它还是很好的。
-but it's still nice to have it.
 
 523
 00:32:58,210 --> 00:32:59,200
 所以解决方案，
-So the solution,
 
 524
 00:32:59,200 --> 00:33:05,570
 你可以用来解决这个问题的一个解决方案是，
-one solution you know that you could used to solve this problem is
 
 525
 00:33:05,570 --> 00:33:10,930
 使用论文中描述的虚拟内存原语。
-to basically use the virtual memory primitives as described in the paper.
 
 526
 00:33:12,550 --> 00:33:13,720
 原语。
-Primitives.
 
 527
 00:33:16,810 --> 00:33:18,130
 你要做的是，
-And what you do is
 
 528
 00:33:18,130 --> 00:33:20,230
 首先你分配一个很大的范围，
-you know first of all you allocate a huge range,
 
 529
 00:33:26,200 --> 00:33:27,460
 但是不要真正映射，
-but don't really map,
 
 530
 00:33:27,490 --> 00:33:30,940
 不要分配与该范围相对应的任何物理内存，
-you know don't actually allocate any physical memory corresponding to that range
 
 531
 00:33:30,940 --> 00:33:32,800
 []使用部分地址空间，
-[] use part of your address space,
 
 532
 00:33:33,070 --> 00:33:35,350
 然后假设我要使用地址空间的这一部分，
-then say I'm going to use that part of my address space,
 
 533
 00:33:35,350 --> 00:33:36,370
 必须存储那张表。
-you've got to store the table.
 
 534
 00:33:37,520 --> 00:33:41,870
 然后，在一个页面上，
-And then, on a page,
 
 535
 00:33:41,870 --> 00:33:44,270
 在表中没有内容，
-the, there's no content in the table,
 
 536
 00:33:44,270 --> 00:33:45,740
 有个地址范围，
-there is address ranges exist,
 
 537
 00:33:45,980 --> 00:33:47,480
 所以如果你做一个表查找，
-so if you do a table lookup,
 
 538
 00:33:47,780 --> 00:33:48,650
 比如 tb[i] ，
-like table i,
 
 539
 00:33:49,600 --> 00:33:51,910
 那会导致页面错误。
-you know that will result into a page fault.
 
 540
 00:33:56,000 --> 00:33:58,040
 所以这个方案出现在页面错误上，
-And so this plan is on the page fault,
 
 541
 00:33:58,040 --> 00:33:59,930
 你计算所有的条目，
-you know, you compute all the entries
 
 542
 00:33:59,930 --> 00:34:04,580
 或者所有的页面都覆盖了表中的条目，
-or you know all the page basically covers a bunch of entries in the table,
 
 543
 00:34:04,760 --> 00:34:05,690
 如果我们到达其中之一，
-if we reach one of them,
 
 544
 00:34:05,900 --> 00:34:08,970
 你计算函数 f(i) ，
-you're basically you compute function f(i),
 
 545
 00:34:09,630 --> 00:34:12,030
 把它保存在插槽 tb[i] 中，
-store it in the slot table i,
 
 546
 00:34:13,000 --> 00:34:16,510
 然后恢复应用程序，
-and then basically resume you know the application right now,
 
 547
 00:34:16,510 --> 00:34:18,010
 那个，
-the,
 
 548
 00:34:18,900 --> 00:34:21,660
 当然映射到物理页面，
-of course the map the physical page,
 
 549
 00:34:21,660 --> 00:34:23,400
 所以会有页面错误，
-you know so basically take the page fault,
 
 550
 00:34:23,670 --> 00:34:24,810
 你分配页面，
-you allocate page,
 
 551
 00:34:28,520 --> 00:34:30,980
 并在那个页中保存，
-and may store in that page,
 
 552
 00:34:31,010 --> 00:34:34,850
 作为 f(i) 的结果，对于页面中所有插槽。
-as a result of f(i) for all the slots in the page.
 
 553
 00:34:36,760 --> 00:34:38,200
 它的优势是，
-And the advantage of it is, correct,
 
 554
 00:34:38,200 --> 00:34:40,420
 有几个优势，
-if you know a couple of advantages,
 
 555
 00:34:40,420 --> 00:34:43,090
 如果你重新计算 f(i) ，
-if you have to ever compute f(i) again,
 
 556
 00:34:43,300 --> 00:34:45,700
 你要做的就是表查找，
-you know you're going to actually do the table lookup
 
 557
 00:34:45,700 --> 00:34:47,830
 你不需要做任何昂贵的计算，
-and you don't actually have to do any expensive computation,
 
 558
 00:34:47,830 --> 00:34:48,430
 只需要表查找，
-just table lookup,
 
 559
 00:34:48,700 --> 00:34:51,400
 事实上，即使你查找表 i 加 1，
-in fact, you know even if you do a table i plus 1,
 
 560
 00:34:51,400 --> 00:34:55,300
 在那个特定的页面上会有一堆条目，
-like there's gonna be a bunch of entries in the in that particular page,
 
 561
 00:34:55,390 --> 00:34:57,040
 它们基本上都可以免费了，
-they're all basically can now be free,
 
 562
 00:34:57,070 --> 00:34:58,360
 只是做表查找。
-you know just table lookups.
 
 563
 00:34:59,220 --> 00:35:01,050
 当然，你一直这样做，
-Of course, you keep doing this,
 
 564
 00:35:01,170 --> 00:35:03,660
 然后你将会消耗掉所有物理内存，
-then you're going to consume all physical memory,
 
 565
 00:35:03,660 --> 00:35:07,740
 所以页面错误处理程序还必须抛出一些页面，
-and so you know the page fault handler also has to throw out some pages,
 
 566
 00:35:07,740 --> 00:35:09,420
 如果内存快用完了，
-if you're running out of memory,
 
 567
 00:35:09,420 --> 00:35:17,700
 所以如果有太多的内存在使用，
-so you know if much memories in use, use,
 
 568
 00:35:18,510 --> 00:35:20,250
 释放其中一些页面。
-free some of them, free some pages.
 
 569
 00:35:23,500 --> 00:35:26,380
 当然，然后你必须改变保护级别，
-And of course then you have to change, change the protection level
 
 570
 00:35:26,830 --> 00:35:30,460
 确保将来会出现这些条目的页面错误。
-to make sure that you're going to get in the future page fault for those entries.
 
 571
 00:35:31,060 --> 00:35:36,550
 所以你可能要调用 Prot1 或 ProtN ，
-So you have to presumably call you know Prot1 or ProtN
 
 572
 00:35:37,120 --> 00:35:40,080
 以减少页面的可访问性，
-to reduce the accessibility of the page
 
 573
 00:35:40,080 --> 00:35:41,280
 这是论文中的术语。
-and the terminology of the paper.
 
 574
 00:35:42,530 --> 00:35:44,690
 这能理解吗，这是一种方案。
-Does this make sense, that's sort of a plan.
 
 575
 00:35:49,330 --> 00:35:50,620
 好的。
-Okay.
 
 576
 00:35:51,180 --> 00:35:53,400
 是的，你需要映射它，
-Yeah, you would need to map it,
 
 577
 00:35:53,460 --> 00:35:56,790
 需要从操作系统请求
-would need to request from the operating system
 
 578
 00:35:56,790 --> 00:35:59,340
 将其映射到特定地址，对吧，
-to map it to a particular address, right,
 
 579
 00:35:59,610 --> 00:36:01,800
 因为它可以去任何地方。
-because it can go anywhere, okay.
 
 580
 00:36:01,920 --> 00:36:03,030
 是的，我们会去任何地方，
-Yeah we're going to be anywhere,
 
 581
 00:36:03,030 --> 00:36:05,670
 需要操作系统告诉它在哪里。
-as long as you know the operation system tell where it actually is.
 
 582
 00:36:07,570 --> 00:36:08,230
 好的。
-Okay.
 
 583
 00:36:08,740 --> 00:36:10,300
 或许说得更具体一点，
-Maybe to make a little bit more concrete,
 
 584
 00:36:10,300 --> 00:36:12,490
 实际上，我实现了这个方案。
-actually I have a little implementation of this plan.
 
 585
 00:36:13,070 --> 00:36:14,540
 我们可以看一下，
-And we can just look at it
 
 586
 00:36:14,570 --> 00:36:17,720
 看看是什么，
-and see what are,
 
 587
 00:36:17,750 --> 00:36:21,860
 你如何使用现有的 Unix 原语来做到这个。
-you know, how do you actually do that using the existing you know Unix primitives.
 
 588
 00:36:24,190 --> 00:36:24,850
 让我。
-Let me.
 
 589
 00:36:32,190 --> 00:36:32,970
 好的。
-Okay.
 
 590
 00:36:36,500 --> 00:36:39,950
 大家能看到 Emacs 的缓冲区吗，
-Can everybody see the Emacs buffer,
 
 591
 00:36:41,430 --> 00:36:42,690
 字体够大吗？
-is the font large enough?
 
 592
 00:36:47,040 --> 00:36:48,540
 我想这就是答应了。
-I assume that as a yes.
 
 593
 00:36:49,200 --> 00:36:51,780
 所以这是应用程序，
-So here's the application,
 
 594
 00:36:52,140 --> 00:36:53,700
 让我到最下面。
-let me go to the bottom.
 
 595
 00:36:54,220 --> 00:36:56,500
 所以这是 main ，
-So here's main,
 
 596
 00:36:56,530 --> 00:36:58,930
 main 基本上是 setup_sqrt_region ，
-main basically setup_sqrt_region,
 
 597
 00:36:58,960 --> 00:37:00,850
 基本上是分配地址空间，
-basically allocates address space,
 
 598
 00:37:01,360 --> 00:37:05,650
 但并不真正分配属于它的物理页。
-but doesn't really allocate the physical pages belonging to it.
 
 599
 00:37:06,390 --> 00:37:08,760
 然后它调用函数 test_sqrt_region ，
-And then it calls this function test_sqrt_region
 
 600
 00:37:08,760 --> 00:37:11,910
 以随机顺序遍历该表，
-to basically go through that table in a random order,
 
 601
 00:37:12,470 --> 00:37:18,440
 检查表中该位置的平方根条目，
-and you know basically checks whether the square root entry in the table for that position
 
 602
 00:37:18,560 --> 00:37:21,050
 是正确的平方根值，
-is indeed the correct square root value
 
 603
 00:37:21,050 --> 00:37:23,480
 只需在之前逐字计算。
-by just computing it literally before that.
 
 604
 00:37:24,010 --> 00:37:24,640
 好的？
-Okay?
 
 605
 00:37:25,270 --> 00:37:28,030
 所以 test_sqrt_region 将运行，
-So basically test_sqrt_region is going to run
 
 606
 00:37:28,030 --> 00:37:29,920
 它可能会产生页面错误，
-and it's going to presumably generate page fault,
 
 607
 00:37:29,920 --> 00:37:32,770
 因为到目前为止还没有真正填满表。
-because none of the tables actually filled in so far.
 
 608
 00:37:33,960 --> 00:37:35,160
 那么它是怎么，
-So how does it,
 
 609
 00:37:35,190 --> 00:37:36,720
 我们怎么才能得到那些页面错误，
-how do we get those page faults,
 
 610
 00:37:36,720 --> 00:37:40,290
 好的，这是一段代码，
-well here's the sort of the fragment of code,
 
 611
 00:37:40,290 --> 00:37:43,290
 你需要安装一个处理程序，
-that you need to basically install a handler
 
 612
 00:37:43,290 --> 00:37:45,120
 一个特定事件的信号处理程序，
-a signal handler for a particular event,
 
 613
 00:37:45,420 --> 00:37:46,980
 我们在这里设置，
-we were basically setting here,
 
 614
 00:37:47,100 --> 00:37:53,760
 安装 SIGSEGV 事件，处理程序 SIGSEGV ，
-install for a SIG-, you know the SIGSEGV event, the handler SIGSEGV,
 
 615
 00:37:54,180 --> 00:37:56,970
 所以，当 segfault 发生时，
-and so when a segfault happens,
 
 616
 00:37:56,970 --> 00:37:58,110
 当页面故障发生时，
-when a page fault happens,
 
 617
 00:37:58,200 --> 00:38:02,640
 内核将调用 handle_sigsegv ，
-basically the function, the kernel will call sig handle_sigsegv
 
 618
 00:38:03,030 --> 00:38:06,390
 你可以提取出故障地址，
-and basically you can extract the faulting address,
 
 619
 00:38:06,390 --> 00:38:08,850
 这看起来和你的陷阱代码很像，
-you know this looks very similar to your trap code,
 
 620
 00:38:08,850 --> 00:38:10,500
 你们以前见过很多次。
-you've seen many many times before.
 
 621
 00:38:11,060 --> 00:38:13,820
 基本上，这个方案是非常直截的，
-And basically the plan is very straightforward,
 
 622
 00:38:14,210 --> 00:38:17,930
 我们将页面映射到特定地址，
-we map a page at that particular address,
 
 623
 00:38:17,990 --> 00:38:21,530
 因为那是我们想填入的地址，
-you know because that's the address that we want to fill in,
 
 624
 00:38:21,890 --> 00:38:23,330
 我们必须，
-we have to,
 
 625
 00:38:23,390 --> 00:38:25,070
 所以我这里的昂贵函数
-so my expensive function here,
 
 626
 00:38:25,070 --> 00:38:28,480
 或者是昂贵函数的替换，
-or the, the replacement for the expensive function
 
 627
 00:38:28,480 --> 00:38:31,150
 或者昂贵函数是平方根函数，
-or the role of expensive function is the square root function,
 
 628
 00:38:31,330 --> 00:38:36,370
 所以我们要填入平方根的值，
-and so we want to basically fill in you know the square root of whatever value,
 
 629
 00:38:36,370 --> 00:38:39,190
 它必须在表中的那个特定位置。
-it has to be there at that particular location in the table.
 
 630
 00:38:39,730 --> 00:38:43,150
 所以，我们分配一个页面并将其映射到那里，
-So we allocate a page and and map it there
 
 631
 00:38:43,450 --> 00:38:47,800
 然后我们计算该页的所有平方根条目，
-and then we calculate for that page all the square root entries,
 
 632
 00:38:48,280 --> 00:38:49,480
 然后我们就完成了，
-and then we're done
 
 633
 00:38:49,720 --> 00:38:52,150
 这个应用程序有点极端，
-and this this application is a little bit extreme,
 
 634
 00:38:52,390 --> 00:38:53,140
 我所做的是，
-what I did is
 
 635
 00:38:53,140 --> 00:38:57,100
 我在只分配一个物理页面的情况下运行这个表，
-basically I run this table with only one physical page allocated,
 
 636
 00:38:57,100 --> 00:38:59,110
 所以不管最后一页是什么，
-so whatever the last page was,
 
 637
 00:38:59,140 --> 00:39:02,350
 会通过 munmap 来释放它。
-would just release it by munmap it.
 
 638
 00:39:03,050 --> 00:39:04,910
 所以我们有一张巨大的表，
-And so we have a gigantic table,
 
 639
 00:39:05,000 --> 00:39:08,450
 用一个物理页面来表示它。
-that's basically represented it by one physical page.
 
 640
 00:39:09,470 --> 00:39:10,940
 我们可以直接运行，
-And we can just run,
 
 641
 00:39:10,940 --> 00:39:11,630
 我们想要，
-you know we wanted to,
 
 642
 00:39:11,630 --> 00:39:12,710
 我们可以运行这个应用程序，
-we could run this application,
 
 643
 00:39:12,710 --> 00:39:16,190
 会很激动人心，
-it's gonna be that particular exciting,
 
 644
 00:39:17,330 --> 00:39:18,230
 为什么不呢。
-why not.
 
 645
 00:39:19,520 --> 00:39:23,250
 所以，编译它，
-So, compile it,
 
 646
 00:39:23,250 --> 00:39:26,910
 在一个表中随机地跳来跳去，
-you know and basically go through and randomly bounces around in a table,
 
 647
 00:39:26,910 --> 00:39:29,430
 可能造成许多不同的页面错误，
-presumably causing a lot of different page faults,
 
 648
 00:39:29,670 --> 00:39:31,680
 在所有条目中，
-in all the entries you know actually work out
 
 649
 00:39:31,740 --> 00:39:34,050
 所以即使非常巨大，
-and so even though there's gigantic,
 
 650
 00:39:34,050 --> 00:39:38,700
 这个虚拟平方跟表，
-it square root page table, table, virtual square root table,
 
 651
 00:39:38,700 --> 00:39:42,300
 实际上，表的物理表示只由一个页面组成。
-the actually physical representation of that table just consist of a single page.
 
 652
 00:39:43,180 --> 00:39:46,660
 这是一个非常简单的例子，
-And this sort of example of one of the very simple example,
 
 653
 00:39:46,660 --> 00:39:48,430
 你可以做一件很酷的事情，
-of one of the cool things you can do,
 
 654
 00:39:48,580 --> 00:39:53,470
 如果这些虚拟内存原语对用户应用程序可用。
-if these virtual memory primitives available to user applications.
 
 655
 00:39:56,430 --> 00:39:57,750
 对于这个，有什么问题吗？
-Any questions about this?
 
 656
 00:39:58,790 --> 00:40:02,630
 您能不能快速地复习一下最后一点，
-Could you just quickly go over that last point,
 
 657
 00:40:02,930 --> 00:40:04,610
 为什么只有一个物理页，
-on why there's only one physical page,
 
 658
 00:40:04,610 --> 00:40:06,320
 我想我当时在想，
-I guess I was thinking during it,
 
 659
 00:40:06,320 --> 00:40:09,320
 这听起来有点像懒分配，
-like oh this sounds similar to lazy allocation,
 
 660
 00:40:09,320 --> 00:40:10,550
 为什么会不同，
-why, why is it different
 
 661
 00:40:10,550 --> 00:40:11,990
 我想那回答了我的问题，
-and I think that answered my question,
 
 662
 00:40:11,990 --> 00:40:13,310
 但是我不太明白，
-but I I didn't quite follow,
 
 663
 00:40:13,670 --> 00:40:14,540
 为什么我们最终。
-why we ended up.
 
 664
 00:40:15,240 --> 00:40:16,260
 好的，原因是，
-Okay, the reason,
 
 665
 00:40:16,260 --> 00:40:18,570
 好的，所以当我们开始设置的时候，
-okay, so when we start when we set it up,
 
 666
 00:40:18,570 --> 00:40:20,550
 我们没有页面，
-we have no pages,
 
 667
 00:40:21,210 --> 00:40:25,320
 setup_sqrt_region 分配地址空间，
-setup_sqrt_region actually allocates address space,
 
 668
 00:40:25,350 --> 00:40:30,270
 但是立即 unmap 地址关联的所有物理内存。
-but then unmap all the physical memory associated with that address immediately.
 
 669
 00:40:30,940 --> 00:40:32,380
 所以，在启动点，
-So the point of startup,
 
 670
 00:40:32,410 --> 00:40:34,990
 没有物理页分配给这个特定的表。
-there's no physical pages allocated to this particular table.
 
 671
 00:40:35,690 --> 00:40:36,410
 这能理解吗？
-Does that make sense?
 
 672
 00:40:39,160 --> 00:40:39,610
 是的。
-Yeah.
 
 673
 00:40:40,030 --> 00:40:42,010
 好的，然后我们遇到页面错误时，
-Okay, then we get, when we get a page fault,
 
 674
 00:40:42,600 --> 00:40:44,730
 这意味着整个表中有一页，
-that means there's like one page out of the whole table,
 
 675
 00:40:44,730 --> 00:40:46,020
 我们没有映射，
-that we have not map,
 
 676
 00:40:46,020 --> 00:40:47,400
 我们没有映射页面，
-we have map no pages,
 
 677
 00:40:47,550 --> 00:40:48,750
 但我们遇到页面错误，
-but we're gonna page fault,
 
 678
 00:40:48,750 --> 00:40:50,190
 现在我们映射一个页面，
-now we're gonna map one page,
 
 679
 00:40:50,920 --> 00:40:52,210
 在这一页里，
-and in that one page,
 
 680
 00:40:52,210 --> 00:40:52,870
 我们要填上，
-we're going to fill in
 
 681
 00:40:52,870 --> 00:40:56,470
 平方根 i ， i 加 1 ，或 i 加其他值，
-whatever you know the square root of i, i plus one, i plus whatever,
 
 682
 00:40:56,470 --> 00:40:58,180
 只提供那一页。
-just gonna afford that particular page.
 
 683
 00:40:59,960 --> 00:41:02,180
 然后，如果我们有一个页面映射，
-And then, if we had a page map,
 
 684
 00:41:02,300 --> 00:41:04,280
 在这种情况下，第一次，我们没有，
-which in this case, the first time around, we didn't,
 
 685
 00:41:04,670 --> 00:41:05,930
 就没什么可做的。
-there's nothing to be done.
 
 686
 00:41:06,880 --> 00:41:08,860
 所以，现在应用程序运行，
-So now the application runs,
 
 687
 00:41:08,860 --> 00:41:12,760
 在平方根表中查找更多条目页面，
-you know and look up some more entries page in the square root table
 
 688
 00:41:12,820 --> 00:41:15,490
 可能会得到另一个页面错误，
-and may get another page table for another page fault,
 
 689
 00:41:15,580 --> 00:41:17,410
 因为它查找的平方根条目，
-because it was looking up a square root entry,
 
 690
 00:41:17,410 --> 00:41:19,570
 实际上不在分配的页面上。
-that actually is not on the allocated page.
 
 691
 00:41:20,080 --> 00:41:20,590
 好的？
-Okay?
 
 692
 00:41:21,100 --> 00:41:22,810
 所以在这一点上，我们得到了另一个页面错误，
-So that point, we get another page fault,
 
 693
 00:41:23,420 --> 00:41:25,730
 然后我们分配第二个页面，
-and then we allocate a second page,
 
 694
 00:41:25,910 --> 00:41:29,780
 我们对特定的页面计算平方根，
-we calculate the square roots you know for that particular page,
 
 695
 00:41:29,990 --> 00:41:32,000
 然后我们 unmap 最后一页。
-and then we unmap the last page.
 
 696
 00:41:33,500 --> 00:41:35,390
 当然，在实践中，你永远不会这样做，
-These is of course like practice you would never do this,
 
 697
 00:41:35,570 --> 00:41:39,350
 在实践中，你可能会保留一组工作页面或类似的内容，
-in practice you would try to keep a working set of set of pages or something like that,
 
 698
 00:41:39,650 --> 00:41:42,470
 但为了表明你可以走得相当极端，
-but just to show that you can go pretty extreme,
 
 699
 00:41:42,470 --> 00:41:47,120
 你可以用一页内存来表示很大的表，
-that you can represent like huge page, huge table with a single page of memory,
 
 700
 00:41:47,180 --> 00:41:51,680
 这个特定代码片段 unmap 最后一个页面，
-this particular fragment of code unmaps that last one but last page,
 
 701
 00:41:52,900 --> 00:41:53,650
 然后它继续运行。
-then it keeps running.
 
 702
 00:41:53,980 --> 00:41:57,340
 所以，在任何时间点，
-So, any point instance, at any point of time,
 
 703
 00:41:57,370 --> 00:41:59,560
 只有一个物理页面在使用。
-there's only one physical page being used.
 
 704
 00:42:02,880 --> 00:42:04,710
 这回答了你的问题吗？
-Does that answer your question?
 
 705
 00:42:06,800 --> 00:42:07,850
 是的，我想是的，谢谢。
-Yeah, I think so, thank you.
 
 706
 00:42:08,300 --> 00:42:09,020
 好的。
-Okay good.
 
 707
 00:42:09,810 --> 00:42:11,820
 它就像，
-It's just like, it's more like,
 
 708
 00:42:12,600 --> 00:42:14,280
 这显然不是你在实践中会做的事情，
-this is clearly not something you would do in practice,
 
 709
 00:42:14,280 --> 00:42:17,820
 也许更多是可以让你知道原语的力量，
-maybe there's more to show you know the power of the primitives,
 
 710
 00:42:17,820 --> 00:42:21,510
 你可以使用一个物理页面表示这个巨大的表。
-you know that you can represent the gigantic table using one single physical page.
 
 711
 00:42:24,690 --> 00:42:25,590
 还有其他问题吗？
-Any other questions?
 
 712
 00:42:30,130 --> 00:42:34,220
 好的，接下来我想做的是，
-Okay, what I would like to do next then is
 
 713
 00:42:34,220 --> 00:42:35,570
 讨论一下另一个例子，
-talk about another example,
 
 714
 00:42:35,780 --> 00:42:40,190
 特别我想讨论一下垃圾收集器，
-and in particular I want to talk about the garbage collector,
 
 715
 00:42:40,960 --> 00:42:43,540
 因为很多问题都是关于垃圾收集器的。
-you know since a lot of questions were about the garbage collector.
 
 716
 00:42:58,990 --> 00:43:03,790
 所以，垃圾收集器是一种方式，
-And so you know yeah, so the garbage collectors are a way of
 
 717
 00:43:03,790 --> 00:43:07,120
 对于编程语言，
-basically for programming languages
 
 718
 00:43:07,120 --> 00:43:11,230
 或者做内存分配和清除的语言，
-or languages that basically do memory allocation and freeing
 
 719
 00:43:11,440 --> 00:43:12,940
 对于程序员的行为，
-on behalf of the programmer,
 
 720
 00:43:12,940 --> 00:43:14,530
 所以程序员不需要调用，
-so the programmer doesn't have to call,
 
 721
 00:43:14,800 --> 00:43:16,600
 必须 C 必须调用 malloc ，
-like C correct you have to call malloc
 
 722
 00:43:16,600 --> 00:43:18,820
 然后必须显式调用 free 来释放内存，
-and then you have to call free explicitly to free the memory,
 
 723
 00:43:19,120 --> 00:43:21,580
 使用垃圾收集器的语言，
-languages that use garbage collectors,
 
 724
 00:43:21,640 --> 00:43:26,770
 应用程序只需要调用 malloc ，
-basically the application only has, only basically call malloc,
 
 725
 00:43:26,830 --> 00:43:28,750
 再也不用担心释放内存的问题，
-never has to worry about actually freeing the memory,
 
 726
 00:43:28,840 --> 00:43:30,640
 垃圾收集器将做这个工作，
-basically the garbage collector will do the work
 
 727
 00:43:30,640 --> 00:43:32,470
 确定内存是否仍在使用，
-to determine if the memory still is in use,
 
 728
 00:43:32,470 --> 00:43:33,700
 如果内存没有使用，
-and if the memory is not in use,
 
 729
 00:43:33,790 --> 00:43:35,650
 那么它释放它。
-then it's actually a free it.
 
 730
 00:43:36,360 --> 00:43:37,920
 所以这很好，
-And so it's nice,
 
 731
 00:43:37,920 --> 00:43:41,610
 你知道哪些编程语言带有垃圾收集器？
-you know what are some example programming languages that have garbage collectors?
 
 732
 00:43:43,590 --> 00:43:44,190
 Java 。
-Java.
 
 733
 00:43:44,550 --> 00:43:49,740
 是的， java python Go 它们中的许多都是，
-Yeah,java python, you know, Go, many of them actually correct,
 
 734
 00:43:49,800 --> 00:43:52,680
 几乎除了 C 和 Rust ，
-almost you know other than maybe C Rust,
 
 735
 00:43:52,740 --> 00:43:56,310
 其他每种编程语言都有一个垃圾收集器，
-there every other programming language basically has a garbage collector.
 
 736
 00:43:56,640 --> 00:43:57,120
 好的？
-Okay?
 
 737
 00:43:57,240 --> 00:43:58,650
 所以正如你可以想象的，
-So as you can imagine,
 
 738
 00:43:58,680 --> 00:44:03,510
 垃圾收集器有非常多的文献和设计空间，
-there's a huge literature and a design space for garbage collectors
 
 739
 00:44:03,750 --> 00:44:05,670
 这篇论文的重点不是
-and the point of this paper is not
 
 740
 00:44:05,670 --> 00:44:07,890
 尽可能使用最好的垃圾收集器，
-like to use the best garbage collector possible,
 
 741
 00:44:07,890 --> 00:44:09,840
 但这里说明了，
-but here you know basically illustrate
 
 742
 00:44:09,990 --> 00:44:12,210
 如果垃圾收集器可以利用
-if garbage collectors could take advantage of
 
 743
 00:44:12,240 --> 00:44:14,310
 这些用户级别的内存原语。
-you know these user level of the memory primitives.
 
 744
 00:44:15,690 --> 00:44:20,820
 所以，论文中讨论的特殊垃圾收集器是复制垃圾收集器。
-And so the particular garbage colloctor the paper discusses is copying garbage collector.
 
 745
 00:44:31,690 --> 00:44:33,520
 基本方案是，
-And the basical plan is sort of
 
 746
 00:44:33,520 --> 00:44:36,640
 顶层大纲如下所示，
-you know the top level outline is as follows
 
 747
 00:44:36,850 --> 00:44:39,100
 有一个内存，
-you know basically have a memory,
 
 748
 00:44:39,700 --> 00:44:42,400
 一个从内存中分配的堆，
-a heap from which you know memory is allocated,
 
 749
 00:44:42,550 --> 00:44:45,640
 你将堆中的内存分成两部分，
-you divide the memory the heap in two pieces,
 
 750
 00:44:46,060 --> 00:44:47,710
 一种是 from 部分，
-one is the from piece,
 
 751
 00:44:48,490 --> 00:44:50,410
 也就是论文中所说的 from 空间，
-what the paper calls the from space
 
 752
 00:44:50,560 --> 00:44:52,090
 另一个是 to 空间。
-and the other is the to space.
 
 753
 00:44:53,490 --> 00:44:57,930
 假设我们开始使用应用程序，
-And, let's say we're having started with applications to start
 
 754
 00:44:57,960 --> 00:44:59,670
 所有的内存都是空闲的，
-and so all memory is free,
 
 755
 00:44:59,790 --> 00:45:02,730
 开始在 from 空间中分配内存，
-basically start allocating memory in the from space,
 
 756
 00:45:02,790 --> 00:45:07,180
 假设我们分配了树状数据结构，
-so let's say we allocated maybe tree like data structure,
 
 757
 00:45:07,450 --> 00:45:09,580
 你知道这是 root ，
-you know that here's the root,
 
 758
 00:45:11,260 --> 00:45:15,220
 树可能有一个指向其他对象的指针，
-so the tree and that maybe has a pointer to another object,
 
 759
 00:45:15,550 --> 00:45:18,190
 它可能有一个指向其他对象的指针，
-and that maybe has a pointer to another object,
 
 760
 00:45:18,190 --> 00:45:19,870
 root 也指向它，
-and that is also pointed to by the root,
 
 761
 00:45:20,110 --> 00:45:25,180
 像是带着一堆东西的环。
-sort of just for a little cicle with of objects.
 
 762
 00:45:25,740 --> 00:45:29,700
 也许我们引入的应用程序也有很多其他的内存，
-And maybe the application we introduced a lot of other memory too,
 
 763
 00:45:29,790 --> 00:45:32,430
 但已经没有任何东西指向它了，
-but there's nothing pointing to it anymore
 
 764
 00:45:32,790 --> 00:45:36,090
 所以，唯一活的对象是这些，
-and so basically the only objects live objects are the ones,
 
 765
 00:45:36,090 --> 00:45:38,130
 可以从 root 访问。
-that actually are basically accessible from the root.
 
 766
 00:45:38,840 --> 00:45:39,830
 所以在某种程度上，
-So at some point,
 
 767
 00:45:40,280 --> 00:45:42,980
 比如我可能已经分配了很多内存，
-like maybe I've allocated lots of memory before
 
 768
 00:45:43,190 --> 00:45:45,620
 我们再分配一个对象，
-and we allocate one more object,
 
 769
 00:45:45,620 --> 00:45:47,630
 结果就没有空间了，
-and it turns out there's no space anymore,
 
 770
 00:45:47,930 --> 00:45:49,970
 应用程序要求再添加一个对象，
-application ask for one more object,
 
 771
 00:45:49,970 --> 00:45:51,620
 结果发现已经没有空间了，
-it turns out there's no space anymore for it,
 
 772
 00:45:51,620 --> 00:45:54,470
 因为整个 from 空间都被使用了。
-because the whole from space basically has been used.
 
 773
 00:45:55,580 --> 00:45:58,760
 所以基本的想法是复制垃圾收集器，
-So then the basic idea is in this a copying garbage collector
 
 774
 00:45:58,760 --> 00:46:00,650
 获取对象，
-is to take the objects
 
 775
 00:46:00,830 --> 00:46:05,690
 并将其复制到用户的 to 空间，
-and copy them over to the user to the to space
 
 776
 00:46:05,720 --> 00:46:07,040
 你这样做的方式是，
-and the way you do it is
 
 777
 00:46:07,040 --> 00:46:08,240
 你从 root 开始，
-you start from the root,
 
 778
 00:46:08,240 --> 00:46:12,470
 因为每个应用程序有一组寄存器，
-because every application where every has a set of registers,
 
 779
 00:46:12,470 --> 00:46:15,230
 顶层指针保存的位置，
-where basically this top level pointers are stored,
 
 780
 00:46:15,680 --> 00:46:19,250
 或者可能堆栈上有局部变量，
-or maybe there's a local variables on the stack,
 
 781
 00:46:19,490 --> 00:46:21,410
 基本上有一组 root ，
-basically there's a set of root
 
 782
 00:46:21,620 --> 00:46:23,960
 为了简单起见，我假设只有一个 root ，
-and there for simplicity, I'm just going to assume there's one root
 
 783
 00:46:24,140 --> 00:46:26,330
 你从顶层开始追踪。
-and you start tracing basically from the top level.
 
 784
 00:46:26,690 --> 00:46:30,800
 所以你把 root 对象复制到 to 空间，
-So you know you copy the root object over to the to space,
 
 785
 00:46:32,460 --> 00:46:36,120
 这是你在这一点上唯一要做的事，
-and you know and that's the only thing you do at that point
 
 786
 00:46:36,150 --> 00:46:38,850
 然后，当然，叶子指针，
-and then you know of course that leaves you know the pointers
 
 787
 00:46:39,760 --> 00:46:43,390
 仍然指向它们以前的物体。
-you know still pointing to whatever objects they were there before.
 
 788
 00:46:46,440 --> 00:46:48,270
 然后你想要把物体复制过来，
-And then you're gonna want to copy the object over,
 
 789
 00:46:48,270 --> 00:46:50,850
 你检查，我们扫描物体，
-you go and inspect, we scan the object,
 
 790
 00:46:51,000 --> 00:46:53,400
 当然，语言运行时确切地知道
-then of course the language runtime knows exactly
 
 791
 00:46:53,400 --> 00:46:54,540
 对象是什么类型，
-what type the object is
 
 792
 00:46:54,540 --> 00:46:55,740
 并且知道指向哪里，
-and knows where the points are
 
 793
 00:46:56,100 --> 00:46:57,360
 查看那些指针，
-and just look at these pointers
 
 794
 00:46:57,360 --> 00:47:03,150
 然后说，也许我应该多复制一些指针过来，
-and says okay, maybe I should copy some more pointers over,
 
 795
 00:47:03,150 --> 00:47:05,190
 因为这些是线索，
-because those are actually a clue,
 
 796
 00:47:05,190 --> 00:47:06,810
 是活动数据结构的一部分。
-you know part of the live data structure.
 
 797
 00:47:07,300 --> 00:47:09,700
 所以我们可以选择顶层指针，
-And so basically maybe we'll take the top level pointer,
 
 798
 00:47:10,410 --> 00:47:11,430
 查看那个对象，
-look at that object,
 
 799
 00:47:11,430 --> 00:47:17,880
 复制那个对象到 to 空间，
-you copy that object over you know to the to space,
 
 800
 00:47:18,120 --> 00:47:20,220
 更新这里的指针，
-updates you know the pointer here,
 
 801
 00:47:20,250 --> 00:47:22,770
 用来表示它在这里，
-you know to actually indicate that actually it has here
 
 802
 00:47:22,770 --> 00:47:25,890
 并将其指向对象的复制的版本。
-and pointing it to you know copied version of the object.
 
 803
 00:47:26,550 --> 00:47:27,510
 然后，当然，
-And then of course,
 
 804
 00:47:28,020 --> 00:47:29,490
 稍后我们需要记住，
-later on we need to remember,
 
 805
 00:47:29,490 --> 00:47:31,950
 这个对象被复制了，
-that we're actually this object has been copied,
 
 806
 00:47:32,250 --> 00:47:34,560
 所以你看到一些额外的信息，
-so you saw a little bit of extra information
 
 807
 00:47:34,770 --> 00:47:37,770
 记住这些对象现在仍然在那里工作，
-and remember that these objects are now still work there,
 
 808
 00:47:39,620 --> 00:47:40,880
 在这个过程中，
-in this process,
 
 809
 00:47:40,910 --> 00:47:46,010
 将对象从 from 空间移动到 to 空间，
-you know a sort of moving an object from the from space to the to space
 
 810
 00:47:46,010 --> 00:47:50,270
 并且在 from 空间中留下转发指针，称为转发。
-and leaving a forwarding pointer in the from space, is called forwarding.
 
 811
 00:47:58,980 --> 00:48:00,060
 好的，所以我们现在，
-Okay, so we now,
 
 812
 00:48:00,580 --> 00:48:01,600
 所以我们做了这个，
-so we did this,
 
 813
 00:48:01,720 --> 00:48:04,610
 我们修好这个指针，
-we did fix this pointer,
 
 814
 00:48:04,610 --> 00:48:05,720
 我们修好那个指针，
-we fix that pointer,
 
 815
 00:48:05,870 --> 00:48:07,100
 还剩下一个，
-there's one more left,
 
 816
 00:48:07,490 --> 00:48:09,620
 所以我们看看那个对象，
-so we'll look at that object
 
 817
 00:48:09,650 --> 00:48:13,190
 然后像以前一样把它复制过来，
-and we copy it over like before,
 
 818
 00:48:13,800 --> 00:48:17,550
 它仍然有一个指向这个对象的指针，
-and it still has a pointer pointing to this object,
 
 819
 00:48:17,580 --> 00:48:19,770
 所以现在我们看一下这个特定的指针，
-so now we look at that particular pointer,
 
 820
 00:48:19,800 --> 00:48:23,160
 查看指针，它已经被复制了，
-look at pointer, say ah, that actually has already been copied
 
 821
 00:48:23,580 --> 00:48:25,620
 事实上，我们知道新的位置在哪里，
-and in fact we know what the new location is,
 
 822
 00:48:25,800 --> 00:48:28,740
 所以，我们可以直接更新指向正确的位置。
-so we can just straight updated to point to the right place.
 
 823
 00:48:30,720 --> 00:48:32,100
 好的，在这一点上，
-Okay, and so at this point,
 
 824
 00:48:32,130 --> 00:48:35,670
 所有的指针都被正确地更新了，
-you know all the pointers have been you know correctly updated,
 
 825
 00:48:35,670 --> 00:48:38,640
 整个结构，整个环，
-you know the whole structure, you know the whole cycle,
 
 826
 00:48:38,640 --> 00:48:42,720
 对象从 from 空间移动到 to 空间，
-basically of objects as we move from the from space to to space
 
 827
 00:48:42,960 --> 00:48:44,100
 所以，在这一点上，我们完成了。
-and so at this point, we're done.
 
 828
 00:48:53,930 --> 00:48:54,920
 在这一点上，我们做完了，
-At this point, we're done,
 
 829
 00:48:54,980 --> 00:48:57,800
 我们转发了所有的对象，
-we forwarded all the objects
 
 830
 00:48:58,040 --> 00:49:00,380
 基本上 from 空间，
-and basically the from space
 
 831
 00:49:00,380 --> 00:49:03,290
 所有在 from 空间的对象都被丢弃了，
-now you know all the objects in the from space are being discarded,
 
 832
 00:49:07,520 --> 00:49:08,630
 现在是空闲空间了。
-and it's now free space.
 
 833
 00:49:17,070 --> 00:49:17,880
 这能理解吗？
-Does that make sense?
 
 834
 00:49:19,360 --> 00:49:21,940
 这是复制垃圾收集器的基本方案。
-That's the basic plan in a copying garbage collector.
 
 835
 00:49:23,540 --> 00:49:26,960
 好的，现在论文中使用的方案，
-Okay, now the scheme that is used in the paper,
 
 836
 00:49:27,320 --> 00:49:29,990
 这里有几个复杂的东西，
-there's a couple of sophistications,
 
 837
 00:49:30,760 --> 00:49:32,170
 我想谈谈它们。
-I want to talk about them.
 
 838
 00:49:34,680 --> 00:49:36,480
 第一个复杂的东西，
-First sophistication,
 
 839
 00:49:37,220 --> 00:49:39,980
 一种它们称为，
-you know is that you know they actually they're called
 
 840
 00:49:39,980 --> 00:49:43,050
 被称为 Baker's 算法，
-this is called Baker's algorithm,
 
 841
 00:49:43,050 --> 00:49:43,920
 这是一种老的算法，
-it's an old algorithm,
 
 842
 00:49:44,770 --> 00:49:49,350
 其中一个很好的特性是，
-and one of the nice you know features has
 
 843
-00:49:49,350 --> 00:49:49,650
-is
-
-844
 00:49:49,650 --> 00:49:53,370
 有时，它最初被称为实时的，
-that sometimes it's originally called real-time,
 
-845
+844
 00:49:53,370 --> 00:49:57,690
 real 的意思是它是一个增量垃圾收集器。
-real what I meant is it's an incremental garbage collector.
 
-846
+845
 00:50:02,730 --> 00:50:07,170
 所以，主要的想法是，
-So, and the main idea is that,
 
-847
+846
 00:50:11,350 --> 00:50:16,410
 这里我们有两个 from 空间和 to 空间，
-here if we have our two from space and to space,
 
-848
+847
 00:50:19,340 --> 00:50:24,590
 主要的想法是我们有 root ，
-main idea is that you know we have our root again,
 
-849
+848
 00:50:25,400 --> 00:50:28,400
 这是 root ，它有两个指针，
-here's root, it had two pointers,
 
-850
+849
 00:50:30,540 --> 00:50:32,010
 它指回来。
-and it's pointing back.
 
-851
+850
 00:50:34,520 --> 00:50:35,780
 主要的想法是，
-The main idea is that,
 
-852
+851
 00:50:35,780 --> 00:50:41,750
 它不需要停止整个世界，复制所有内容，
-it's not really necessary to stop the world and copy everything over
 
-853
+852
 00:50:42,020 --> 00:50:43,700
 然后基本上恢复[比赛]，
-and then basically resume [competition],
 
-854
+853
 00:50:44,400 --> 00:50:49,150
 唯一需要的是通过 root 进行复制，
-the only thing really necessary is to actually move copy over the root,
 
-855
+854
 00:50:51,670 --> 00:50:53,110
 基本上什么也不做，
-and basically do nothing else,
 
-856
+855
 00:50:53,380 --> 00:50:57,610
 在这一点上， root 已经被复制了，
-and so basically you know at this point you know the root has been copied,
 
-857
+856
 00:50:57,670 --> 00:51:03,040
 但是它的指针还指向这里，
-but you know it's pointers are still pointing you know the here,
 
-858
+857
 00:51:03,040 --> 00:51:04,930
 因为对象尚未被扫描，
-because that object has not been scanned,
 
-859
+858
 00:51:05,020 --> 00:51:07,510
 它的指针还没有更新。
-it hasn't been, it's pointer haven't been updated yet.
 
-860
+859
 00:51:08,250 --> 00:51:10,410
 它的基本思想是，
-And and the basic idea is
 
-861
+860
 00:51:10,410 --> 00:51:14,760
 每当应用程序调用 new 时，
-then whenever the application calls new,
 
-862
+861
 00:51:19,480 --> 00:51:21,610
 每次调用 new ，
-you know whenever new call,
 
-863
+862
 00:51:21,610 --> 00:51:23,410
 你扫描几个对象，
-you scan a few more objects,
 
-864
+863
 00:51:23,410 --> 00:51:25,270
 或者你多[转发]几个对象。
-or you forward a couple more objects.
 
-865
+864
 00:51:34,920 --> 00:51:36,240
 这是很好的，
-And that's sort of nice, correct,
 
-866
+865
 00:51:36,240 --> 00:51:37,800
 因为你分摊了
-because basically you spread
 
-867
+866
 00:51:37,830 --> 00:51:43,170
 复制整个活动堆的花费，
-the cost of actually you know copying the complete you know active or live heap
 
-868
+867
 00:51:43,380 --> 00:51:45,570
 从应用程序增量步骤中，
-from the application incremental steps,
 
-869
+868
 00:51:45,600 --> 00:51:49,170
 每个 new 调用分配一点，
-every new every call allocates contributes a little bit,
 
-870
+869
 00:51:49,170 --> 00:51:51,180
 来完成一个完整的复制操作。
-you know to actually do a complete copy operation.
 
-871
+870
 00:51:52,670 --> 00:51:56,870
 当然，应用程序也可能使用其中的一些指针，
-And of course the application might also be using you know some of these pointers,
 
-872
+871
 00:51:56,870 --> 00:52:03,290
 比如，如果 root 取消引用第二个红色指针，
-for example if you know root will be dereferencing actually this, this second red pointer,
 
-873
+872
 00:52:03,350 --> 00:52:05,450
 它还指向 from 空间，
-it's still actually pointing into the from space,
 
-874
+873
 00:52:05,480 --> 00:52:06,680
 当然，这是危险的，
-and of course that is dangerous,
 
-875
+874
 00:52:06,680 --> 00:52:09,320
 因为我们不应该跟踪 from 空间的指针。
-because we shouldn't be tracking pointers in the from space.
 
-876
+875
 00:52:09,740 --> 00:52:13,280
 这意味着每次取消引用时，
-And so basically this means that every time you do dereference,
 
-877
+876
 00:52:16,440 --> 00:52:17,970
 取消引用一个指针，
-do dereference a pointer,
 
-878
+877
 00:52:20,410 --> 00:52:21,370
 你需要检查，
-you need to check,
 
-879
+878
 00:52:23,610 --> 00:52:27,060
 检查它是不是在 from 空间，
-check if it's in the from space, if in from space,
 
-880
+879
 00:52:29,020 --> 00:52:32,410
 如果是这样的话，要做转发。
-and if so, you know do the forwarding.
 
-881
+880
 00:52:36,880 --> 00:52:38,980
 所以应用程序允许使用指针，
-And so the application is allowed to use the pointers,
 
-882
+881
 00:52:38,980 --> 00:52:39,940
 但必须运行，
-but basically to run,
 
-883
+882
 00:52:39,940 --> 00:52:42,850
 编译器必须对应用程序进行检测，
-the compiler has to instrument the application
 
-884
+883
 00:52:42,850 --> 00:52:45,790
 检查每个指针访问，
-that basically every pointer accesses surrounded by that check,
 
-885
+884
 00:52:46,120 --> 00:52:50,230
 所以，我们保持了不变量，
-so that you know, we basically maintain the invariant that all,
 
-886
+885
 00:52:50,560 --> 00:52:53,410
 在 to 空间中的任何指针处，
-at any pointer in the to space,
 
-887
+886
 00:52:53,410 --> 00:52:55,180
 指向 to 空间中的对象。
-you know points to objects in to space.
 
-888
+887
 00:52:56,040 --> 00:52:57,660
 我们需要确保，
-And we need to ensure that, correct,
 
-889
+888
 00:52:57,660 --> 00:52:59,220
 因为当我们最后完成时，
-because when in the end we're done,
 
-890
+889
 00:52:59,400 --> 00:53:02,850
 我们想把删除 from 空间，
-you know we want to remove the from space
 
-891
+890
 00:53:02,850 --> 00:53:07,680
 这样我们就可以丢弃它，将其作为自由空间重新使用。
-and have, so that we can discard it and reuse it as free space.
 
-892
+891
 00:53:09,810 --> 00:53:12,810
 好的，有什么问题吗，这是基本的设置。
-Okay, any questions about this, this is sort of the basic setup.
 
-893
+892
 00:53:20,710 --> 00:53:23,080
 好的，所以，如果没有问题，
-Okay, so, if there are no questions,
 
-894
+893
 00:53:23,080 --> 00:53:25,720
 关于这个方案，论文中提到了两点，
-in the paper makes two points you know about this scheme
 
-895
+894
 00:53:25,840 --> 00:53:31,510
 第一个，这很烦人，或者不好，
-and one is you know it's annoying or too bad
 
-896
+895
 00:53:31,510 --> 00:53:33,580
 你每次都要取消引用，
-you actually have to do this dereference at every time,
 
-897
+896
 00:53:34,130 --> 00:53:37,520
 所以这意味着加载或存储指令，
-so basically this means load or store instruction,
 
-898
+897
 00:53:37,610 --> 00:53:40,670
 不是单个指令，而是一串指令，
-instead of being single instruction actually has a bunch of instructions,
 
-899
+898
 00:53:40,670 --> 00:53:42,500
 也就是分支指令，
-namely branch instruction
 
-900
+899
 00:53:42,500 --> 00:53:45,290
 可能调用一个函数来执行它，
-and perhaps you know calling a function to actually do it forward,
 
-901
+900
 00:53:46,030 --> 00:53:50,560
 所以这会增加应用程序的成本。
-and so you know that increase the cost of the application.
 
-902
+901
 00:53:51,380 --> 00:53:54,500
 第二件指出的事情是，
-The second thing that actually points out is that
 
-903
+902
 00:53:54,770 --> 00:54:01,940
 让垃圾收集器并行并不是那么容易，
-it is not that easy to parallelize the garbage collector,
 
-904
+903
 00:54:02,060 --> 00:54:03,470
 因为也许在一个很好的配置下，
-because maybe in a nice setting,
 
-905
+904
 00:54:03,470 --> 00:54:05,540
 比如，你在一台多核机器上运行，
-it's like if you're running in a multi-core machine,
 
-906
+905
 00:54:05,540 --> 00:54:07,670
 那里有很多空闲的 CPU ，
-where you know have a lot of free CPUs,
 
-907
+906
 00:54:07,670 --> 00:54:12,020
 我把收集器放在后台，
-basically I [realize] that the collector you know just put in the backgrounds,
 
-908
+907
 00:54:12,020 --> 00:54:15,680
 遍历对象图，
-you know traverse the object graph,
 
-909
+908
 00:54:16,020 --> 00:54:20,130
 在它执行的过程中，递量地复制东西。
-and you know copy things incrementally over as it continues.
 
-910
+909
 00:54:20,640 --> 00:54:25,080
 但是如果应用程序同时正在使用这个图，
-But if the application at the same time you know is using the graph,
 
-911
+910
 00:54:25,080 --> 00:54:27,090
 这个应用程序有风险，
-there's a risk you know the application maybe,
 
-912
+911
 00:54:27,090 --> 00:54:28,980
 这里有一个引用检查，
-you know, there's one of the reference check,
 
-913
+912
 00:54:28,980 --> 00:54:31,440
 其中一个检查开始复制对象，
-one of these checks starts copying an object,
 
-914
+913
 00:54:31,530 --> 00:54:33,690
 同时，收集器也在复制对象，
-while at the same time, the collectors also copying the object
 
-915
+914
 00:54:33,690 --> 00:54:35,220
 如果我们不小心，
-and if we're not very carefully,
 
-916
+915
 00:54:35,280 --> 00:54:38,340
 最终可能会把对象复制两次，
-we may end up with the object copied twice
 
-917
+916
 00:54:38,340 --> 00:54:40,920
 而指针没有指向正确的位置，
-and that pointer you know not pointing in the right places,
 
-918
+917
 00:54:40,950 --> 00:54:43,410
 你可以很容易地看到这里有一个竞态条件，
-you can easily see correct there's a race condition,
 
-919
+918
 00:54:43,530 --> 00:54:46,050
 可能的竞态条件。
-possible of a possibility of race conditions.
 
-920
+919
 00:54:48,260 --> 00:54:52,360
 所以论文描述了一个方案，
-So the paper basically describes a scheme,
 
-921
+920
 00:54:52,390 --> 00:54:55,660
 如果你有用户级别的原语，
-it's like if you had you know the user level primitives,
 
-922
+921
 00:54:55,900 --> 00:54:57,580
 那么你可以做一些不同的事情，
-then actually you could do something different,
 
-923
+922
 00:54:57,580 --> 00:54:59,230
 你可以使用一个很酷的技巧，
-you could do a cool trick
 
-924
+923
 00:54:59,470 --> 00:55:03,730
 你可以使用虚拟内存，
-and you can actually use VM, you know virtual memory
 
-925
+924
 00:55:03,730 --> 00:55:07,570
 来降低检查成本，
-to basically reduce the cost of the check,
 
-926
+925
 00:55:07,780 --> 00:55:11,110
 几乎可以免费获得并发性。
-in almost get concurrency for free.
 
-927
+926
 00:55:12,180 --> 00:55:15,210
 所以基本的想法如下，
-And so the basic idea is as follows,
 
-928
+927
 00:55:15,600 --> 00:55:22,060
 我们有相同的设置，
-you know we have our same setup,
 
-929
+928
 00:55:22,060 --> 00:55:25,450
 我们的 from 和 to 。
-you know our from and here's our to.
 
-930
+929
 00:55:26,270 --> 00:55:28,130
 我们要做的是，
-And what we're gonna do is
 
-931
+930
 00:55:28,130 --> 00:55:32,510
 我们有区域，
-like we're gonna have we're gonna have we're gonna region,
 
-932
+931
 00:55:32,540 --> 00:55:36,030
 我们把 to 空间虚拟地分开，
-we actually divide the to space virtually
 
-933
+932
 00:55:36,030 --> 00:55:40,980
 或者我们把 to 空间划分一个未扫描区域，
-or literally we divide the to space in an area that is a unscanned.
 
-934
+933
 00:55:45,110 --> 00:55:46,610
 让我说得更清楚一点，
-Let me a little bit more clear,
 
-935
+934
 00:55:48,760 --> 00:55:52,310
 我们有一个区域，这里是扫描的，
-we have an area basically, here is scanned,
 
-936
+935
 00:55:54,440 --> 00:55:56,750
 还有一个区域是未被扫描的。
-and an area unsacnned.
 
-937
+936
 00:55:59,000 --> 00:56:02,960
 最初整个区域都是未扫描的，
-And initially basically you know the whole area is unscanned,
 
-938
+937
 00:56:03,440 --> 00:56:05,390
 当开始的时候，
-you know when you know start out,
 
-939
+938
 00:56:05,390 --> 00:56:08,360
 你做了从 from 到 to 的翻转，
-you know you make the flip from the from to the to space,
 
-940
+939
 00:56:08,510 --> 00:56:10,310
 还没有扫描过任何东西，
-nothing has been scanned yet,
 
-941
+940
 00:56:10,640 --> 00:56:12,290
 因为现在还没有任何对象，
-because there's no objects at the yet,
 
-942
+941
 00:56:12,290 --> 00:56:14,840
 但是方案是以相同的方式开始的，
-and so but basically scheme starts in the same way,
 
-943
+942
 00:56:14,870 --> 00:56:18,250
 我们复制 root 对象，
-we copy over the root object,
 
-944
+943
 00:56:20,310 --> 00:56:21,600
 它曾经在这里，
-it used to be there,
 
-945
+944
 00:56:21,690 --> 00:56:22,890
 然后把它复制过来，
-and copy it over,
 
-946
+945
 00:56:22,920 --> 00:56:24,060
 有一些指针，
-you know have some pointers,
 
-947
+946
 00:56:24,060 --> 00:56:27,060
 这些指针仍然指向原来的，
-you know basically these pointers point still back into the,
 
-948
+947
 00:56:32,910 --> 00:56:33,540
 糟糕，
-oops,
 
-949
+948
 00:56:33,660 --> 00:56:37,500
 是的，这些指针会指向老的 from 空间，
-yeah, and these pointers will point back into the old from space
 
-950
+949
 00:56:37,860 --> 00:56:39,480
 就是这样，
-and so that's it,
 
-951
+950
 00:56:39,480 --> 00:56:43,260
 现在我们要做的是，
-and now we're basically saying, and what we're gonna do is
 
-952
+951
 00:56:43,380 --> 00:56:47,220
 对于未扫描的区域，也就是这一点，
-for the unscanned area, which is this point [],
 
-953
+952
 00:56:47,730 --> 00:56:51,480
 我们在没有权限的情况下映射它们，
-we're going to basically map and map them with no permission,
 
-954
+953
 00:56:52,200 --> 00:56:53,130
 映射 None 。
-map none.
 
-955
+954
 00:56:56,380 --> 00:56:57,670
 那么这意味着什么，
-And so what does that mean,
 
-956
+955
 00:56:57,670 --> 00:56:58,630
 这意味着，
-well, that means that,
 
-957
+956
 00:56:58,630 --> 00:57:00,400
 在第一次运行应用程序时，
-the first time run the application,
 
-958
+957
 00:57:00,640 --> 00:57:01,870
 在我们翻转之后，
-you know after we did the flip,
 
-959
+958
 00:57:02,140 --> 00:57:03,610
 垃圾收集器翻转之后，
-the garbage collector it to flip,
 
-960
+959
 00:57:03,610 --> 00:57:06,730
 应用程序第一次使用 root 指针，
-the first time the application is use the root pointer,
 
-961
+960
 00:57:07,000 --> 00:57:08,830
 它会出现页面错误，
-it will get a page fault,
 
-962
+961
 00:57:08,860 --> 00:57:13,540
 因为这一部分地址范围是未映射的。
-because you know that part of the address range has actually unmapped.
 
-963
+962
 00:57:14,010 --> 00:57:16,470
 所以想法是，在错误处理程序中，
-So basically then the idea is in the fault handler,
 
-964
+963
 00:57:22,350 --> 00:57:24,930
 扫描一页对象，
-scan one page of objects,
 
-965
+964
 00:57:31,960 --> 00:57:33,970
 并转发需要转发的。
-and forward to what that need to be forwarded.
 
-966
+965
 00:57:37,850 --> 00:57:39,950
 所以我们在这个特殊的设置中，
-So basically you know we in this particular setting,
 
-967
+966
 00:57:39,950 --> 00:57:42,590
 到目前为止，我们只复制了 root ，
-where we're only copied over just the root so far,
 
-968
+967
 00:57:42,800 --> 00:57:47,150
 我们要通过 root 复制，
-you know we are going to copy over root,
 
-969
+968
 00:57:47,150 --> 00:57:52,340
 我们可以扫描 root 指向的对象中的指针，
-we can scan you know the pointers in the object to which the root is pointing,
 
-970
+969
 00:57:52,430 --> 00:57:53,900
 在这种情况下，只有两个，
-in this case there are only two of them,
 
-971
+970
 00:57:53,930 --> 00:57:58,530
 我们把这两个对象复制到未扫描的空间，
-we kind of copy over those two objects you know into the unscanned space,
 
-972
+971
 00:57:58,530 --> 00:58:00,720
 或者让我在这里稍微画的不同一点，
-or maybe let me drawing slightly different here,
 
-973
+972
 00:58:01,700 --> 00:58:06,990
 让它看起来像我们已经复制了这两个指向的对象，
-just make it look like we've got copy over those two objects that were pointing to
 
-974
+973
 00:58:07,500 --> 00:58:09,690
 我们更新，
-and basically we update you know the,
 
-975
+974
 00:58:09,810 --> 00:58:15,400
 我们将这条扫描线从这里移动到那里，
-you know we move this scan line you know from here to there,
 
-976
+975
 00:58:16,080 --> 00:58:17,250
 所以这是扫描过的。
-so this is you know scanned.
 
-977
+976
 00:58:20,230 --> 00:58:21,820
 所以在我们扫描完这一页之后，
-And so after we scan the page,
 
-978
+977
 00:58:21,820 --> 00:58:27,110
 我们可以增加保护，
-we can actually increase you know basically protect
 
-979
+978
 00:58:27,110 --> 00:58:28,340
 或者你可以取消保护扫描页，
-or basically unprotect,
 
-980
+979
 00:58:30,880 --> 00:58:34,890
 您可以取消对页面的保护，取消对扫描页面的保护。
-you can unprotect the page, unprotect the scan page.
 
-981
+980
 00:58:42,510 --> 00:58:43,170
 好的?
-Okay?
 
-982
+981
 00:58:44,120 --> 00:58:45,230
 然后，
-And you know the,
 
-983
+982
 00:58:45,350 --> 00:58:48,530
 然后应用程序只能访问特定的对象，
-and then the application you know can just you know access the particular object,
 
-984
+983
 00:58:48,530 --> 00:58:51,440
 因为我们转换了对象内部的指针，
-because we translated you know the pointer that's inside of the objects,
 
-985
+984
 00:58:51,440 --> 00:58:53,480
 它对应用程序公开是安全的，
-it's safe to expose it to the application,
 
-986
+985
 00:58:53,690 --> 00:58:55,550
 应用程序可以遍历这些指针，
-the application can traverse those pointers,
 
-987
+986
 00:58:55,670 --> 00:59:00,260
 当然，这些指针仍然指向已扫描的对象，
-of course those pointers are still pointing to objects that are having been scanned in,
 
-988
+987
 00:59:00,350 --> 00:59:02,930
 我们会再次出现页面错误，
-then we'll, we'll get a page fault again
 
-989
+988
 00:59:02,930 --> 00:59:04,460
 然后我们再多扫描一点。
-and then we scan a little bit more.
 
-990
+989
 00:59:04,920 --> 00:59:07,410
 所以它的好处仍然是递增的，
-So it basically has the benefits still incremental,
 
-991
+990
 00:59:11,350 --> 00:59:13,120
 你仍然可以做一些工作，
-you can still do a little bit of work,
 
-992
+991
 00:59:13,120 --> 00:59:13,840
 每次，
-you know every time,
 
-993
+992
 00:59:13,840 --> 00:59:15,400
 我们每次执行 new 时，
-we can also do it every time new,
 
-994
+993
 00:59:15,400 --> 00:59:17,620
 我们可以分配一些，做一些工作，
-we can actually allocate you know some do some work,
 
-995
+994
 00:59:17,620 --> 00:59:19,570
 但它还有额外的好处，
-but it has the additional benefit,
 
-996
+995
 00:59:19,780 --> 00:59:21,640
 不再需要指针检查了，
-there's no no pointer check anymore,
 
-997
+996
 00:59:25,060 --> 00:59:26,470
 指针检查仍在那里，
-the pointer check is still there,
 
-998
+997
 00:59:26,950 --> 00:59:28,090
 但它是在硬件中完成的，
-but it's done in hardware,
 
-999
+998
 00:59:28,600 --> 00:59:30,790
 虚拟内存硬件我们完成了这项工作。
-with the page, the VM hardware does it for us.
 
-1000
+999
 00:59:39,280 --> 00:59:40,090
 这能理解吗？
-Does that make sense?
 
-1001
+1000
 00:59:41,950 --> 00:59:44,320
 有任何关于方案，有什么问题吗？
-Any questions about this, about this plan?
 
-1002
+1001
 00:59:45,680 --> 00:59:48,230
 我有个问题，
-I have a question,
 
-1003
+1002
 00:59:48,260 --> 00:59:54,870
 在处理程序中，你说扫描一页对象，
-so, in, in the handler you're saying that you scan one page of objects,
 
-1004
+1003
 00:59:54,870 --> 00:59:56,640
 但你如何知道，
-but how do you know that,
 
-1005
+1004
 00:59:57,200 --> 01:00:04,220
 root 引用的对象将指向相同的，
-the objects that the root has references to will be will fall into the same,
 
-1006
+1005
 01:00:04,250 --> 01:00:08,600
 比如你如何知道真正需要转发的对象，
-like how do you know that the objects that really need to be forwarded,
 
-1007
+1006
 01:00:08,900 --> 01:00:13,520
 为了不违反放在同一页中的不变量。
-in order to not violate the invariant will be in the same page.
 
-1008
+1007
 01:00:14,200 --> 01:00:14,950
 你会，
-You'll be,
 
-1009
+1008
 01:00:14,950 --> 01:00:17,860
 好的，页面中有一些对象，
-okay, there's some set of objects in the page,
 
-1010
+1009
 01:00:17,860 --> 01:00:19,870
 一开始，
-the starting,
 
-1011
+1010
 01:00:19,870 --> 01:00:22,030
 好的，但是我们假设，
-okay but let's say you know what the,
 
-1012
+1011
 01:00:23,930 --> 01:00:29,530
 好的，在我们开始翻转这些空间的时候，
-okay, at the beginning when we flip this spaces,
 
-1013
+1012
 01:00:29,530 --> 01:00:30,850
 to 空间里什么都没有，
-there's nothing in the to space,
 
-1014
+1013
 01:00:32,780 --> 01:00:33,680
 我们能做的是，
-what we could do is,
 
-1015
+1014
 01:00:33,680 --> 01:00:34,640
 我们能做的正确的事是，
-like what the right thing to do is
 
-1016
+1015
 01:00:34,640 --> 01:00:36,920
 我只是试着复制一页，
-just copy I just tried to just copy one page,
 
-1017
+1016
 01:00:36,920 --> 01:00:41,180
 复制或转发一页，
-but basically copy over or forward one page,
 
-1018
+1017
 01:00:41,180 --> 01:00:43,580
 复制 n 个对象，
-basically copy n objects over,
 
-1019
+1018
 01:00:43,580 --> 01:00:45,050
 这样它们就填满了完整的一页。
-so that they fill a complete page.
 
-1020
+1019
 01:00:46,040 --> 01:00:46,520
 好的。
-Right.
 
-1021
+1020
 01:00:46,760 --> 01:00:50,720
 现在，我们有 n 个对象位于这一页上，都是未扫描的，
-Now we have n objects sitting on that one page, all unscanned,
 
-1022
+1021
 01:00:51,820 --> 01:00:54,460
 然后，在某个时刻，页面错误处理程序发生，
-then, at some point a page fault handler happen
 
-1023
+1022
 01:00:54,610 --> 01:00:56,620
 然后垃圾收集器，
-and then you know the garbage collector,
 
-1024
+1023
 01:00:56,620 --> 01:01:00,580
 收集器检查这一页上的每个对象，
-you know collector go through each object on that one page
 
-1025
+1024
 01:01:00,640 --> 01:01:02,680
 并查看它的指针，
-and looks for its pointers,
 
-1026
+1025
 01:01:03,260 --> 01:01:04,100
 对于每个指针，
-and for each pointer,
 
-1027
+1026
 01:01:04,100 --> 01:01:08,210
 它会复制这些对象
-it will copies over those you know objects
 
-1028
+1027
 01:01:08,240 --> 01:01:13,790
 到 to 空间的未扫描部分。
-into the, into the unscan part of the to space.
 
-1029
+1028
 01:01:14,240 --> 01:01:17,750
 所以，如果任何人或者应用程序使用其中之一，
-And so that if you know anybody or if the application would use one of those,
 
-1030
+1029
 01:01:17,750 --> 01:01:19,280
 对象将得到一个页面错误，
-what objects will get a page fault
 
-1031
+1030
 01:01:19,280 --> 01:01:21,380
 并且它们可以扫描那些，依此类推。
-and they can scan those etc etc.
 
-1032
+1031
 01:01:23,690 --> 01:01:24,740
 这回答了你的问题吗？
-Does that answer the question?
 
-1033
+1032
 01:01:25,100 --> 01:01:25,550
 是的。
-Yeah.
 
-1034
+1033
 01:01:27,000 --> 01:01:27,690
 好的。
-Okay.
 
-1035
+1034
 01:01:28,900 --> 01:01:30,880
 哦，抱歉，我也有个问题。
-Oh, sorry, I also had a question.
 
-1036
+1035
 01:01:31,090 --> 01:01:35,770
 是的，所以在你将 to 翻转为 from 之后。
-Yeah, so after you do this do flip the to in the from.
 
-1037
+1036
 01:01:36,280 --> 01:01:36,760
 好的。
-Okay.
 
-1038
+1037
 01:01:37,330 --> 01:01:40,870
 好的，你从 from 空间开始，
-Okay, you, you start out in the from space,
 
-1039
+1038
 01:01:40,870 --> 01:01:42,640
 把它翻转过来，
-you flip it up, you flip to,
 
-1040
+1039
 01:01:42,670 --> 01:01:44,470
 复制为 to 空间，
-you copied over to the to space
 
-1041
+1040
 01:01:44,470 --> 01:01:46,150
 然后你调用 from ，
-and then you call the from,
 
-1042
+1041
 01:01:46,150 --> 01:01:48,070
 一旦你完成了扫描，
-once you're done with the complete with scanning,
 
-1043
+1042
 01:01:48,740 --> 01:01:51,950
 你已经做好了 from 空间完全清空，
-and you're done with the from space is completely clear,
 
-1044
+1043
 01:01:51,950 --> 01:01:53,300
 你只要把名字翻过来，
-just you flip the names,
 
-1045
+1044
 01:01:53,390 --> 01:01:56,750
 并且开始使用 to 空间来进行分配，
-and you start using the to space to actually do the allocations
 
-1046
+1045
 01:01:56,750 --> 01:01:58,640
 直到它装满，然后你再翻转一次。
-until it's full and then you flip again.
 
-1047
+1046
 01:02:02,820 --> 01:02:03,750
 谢谢。
-Thank you.
 
-1048
+1047
 01:02:08,070 --> 01:02:10,800
 还有什么问题吗？
-Any further questions?
 
-1049
+1048
 01:02:12,990 --> 01:02:17,280
 所以，这篇论文还提出的一个论点是，
-So one of the, one of the things that one of the arguments the paper also makes,
 
-1050
+1049
 01:02:17,280 --> 01:02:21,360
 虚拟内存系统或使用虚拟内存的另一件事，
-that you know the one other thing that the VM system or using VM,
 
-1051
+1050
 01:02:21,360 --> 01:02:24,420
 简化了并发性，
-simplifies is basically concurrency,
 
-1052
+1051
 01:02:25,560 --> 01:02:27,780
 它的论点是，
-the argument is that,
 
-1053
+1052
 01:02:28,600 --> 01:02:33,250
 收集器只能浏览未扫描的页面，
-basically the collector you can just go through the unscanned pages,
 
-1054
+1053
 01:02:33,250 --> 01:02:36,220
 所以我们有浏览和扫描页面，
-so we have go through and scan pages
 
-1055
+1054
 01:02:36,220 --> 01:02:39,010
 每次扫描一个页面，
-and basically scan one page at a time,
 
-1056
+1055
 01:02:39,370 --> 01:02:44,020
 它保证应用程序没有指针，
-and if it is guaranteed that the application has no pointers
 
-1057
+1056
 01:02:44,020 --> 01:02:47,350
 或者不能在同一时间内访问那个页面，
-or cannot access in the same time that page,
 
-1058
+1057
 01:02:47,350 --> 01:02:48,370
 因为它是未映射的。
-because its unmap.
 
-1059
+1058
 01:02:49,280 --> 01:02:52,490
 所以，只需要，
-And so, you know as long as the,
 
-1060
+1059
 01:02:53,180 --> 01:02:56,810
 所以，页面硬件引入了
-so the paging hardware basically sort of introduces
 
-1061
+1060
 01:02:56,840 --> 01:03:00,590
 显式同步或竞态保护，
-explicit synchronization or protection against races,
 
-1062
+1061
 01:03:00,680 --> 01:03:04,100
 因为只有收集器在 from 能访问那个页面，
-because only the collector can access that page at the from
 
-1063
+1062
 01:03:04,190 --> 01:03:06,950
 应用程序实际上不能访问那个页面。
-and the application can actually not access the page.
 
-1064
+1063
 01:03:07,650 --> 01:03:11,340
 所以它提供了一个很好的自动并行性，
-So it gives a nice automatic parallelism,
 
-1065
+1064
 01:03:11,340 --> 01:03:13,560
 应用程序可以运行并执行它的工作，
-where the application can run and do its business,
 
-1066
+1065
 01:03:13,590 --> 01:03:15,090
 收集器可以做它的工作，
-the collector can do its business,
 
-1067
+1066
 01:03:15,210 --> 01:03:18,450
 并且它们永远不会踩到对方的脚趾，
-and they will never step on each other's toes,
 
-1068
+1067
 01:03:18,510 --> 01:03:23,250
 因为如果应用程序遇到未扫描的页面，
-because if the application ever will touch an unscanned page
 
-1069
+1068
 01:03:23,430 --> 01:03:24,600
 将获得一个页面错误，
-and it get a page fault,
 
-1070
+1069
 01:03:24,870 --> 01:03:31,650
 而且收集器从来不碰扫描过的页面，
-and, and the collector never touches scanned pages,
 
-1071
+1070
 01:03:31,770 --> 01:03:33,810
 所以永远不会干扰应用程序。
-and so will never interfere with the application.
 
-1072
+1071
 01:03:35,430 --> 01:03:39,750
 所以你可以免费得到并行，
-So you get sort of concurrency for free,
 
-1073
+1072
 01:03:39,750 --> 01:03:41,190
 但它实际上有一个棘手的问题。
-but it actually has a tricky issue.
 
-1074
+1073
 01:03:48,420 --> 01:03:49,860
 虽然几乎是免费的，
-Although it's almost for free,
 
-1075
+1074
 01:03:49,860 --> 01:03:52,500
 实际上有一件事你必须安排，
-you know there's actually one thing you actually have to arrange,
 
-1076
+1075
 01:03:52,860 --> 01:03:56,580
 就是区域，
-which is the area, correct,
 
-1077
+1076
 01:03:56,580 --> 01:03:59,100
 在未扫描区域，是未映射的，
-in the unscanned area, which actually unmapped,
 
-1078
+1077
 01:03:59,130 --> 01:04:03,630
 所以我们看一下前面的图片，
-so we look at our picture from before,
 
-1079
+1078
 01:04:03,630 --> 01:04:05,070
 这里有两个，
-here are two,
 
-1080
+1079
 01:04:05,760 --> 01:04:08,600
 这里是 from ，这里是 to ，
-where here's our from, here's our to,
 
-1081
+1080
 01:04:08,690 --> 01:04:14,260
 我们把它分成了未扫描的和已扫描的区域，
-and you know we have split in the unscanned, scanned the area,
 
-1082
+1081
 01:04:14,860 --> 01:04:17,800
 并且未扫描的，它的保护位是 None 。
-and unscanned it has no, none, protect none.
 
-1083
+1082
 01:04:19,110 --> 01:04:20,340
 所以这就提出了一个问题，
-So that raises the question,
 
-1084
+1083
 01:04:21,100 --> 01:04:23,830
 收集器是如何通过，
-you know how this actually do collector go through,
 
-1085
+1084
 01:04:23,830 --> 01:04:26,230
 因为我们不能访问这些页面，
-because we can't actually access those pages,
 
-1086
+1085
 01:04:26,230 --> 01:04:31,000
 因为它们是未映射的，是无法访问的。
-because you know they're unmap, correct, they're inaccessible.
 
-1087
+1086
 01:04:31,610 --> 01:04:33,560
 所以，技巧是这样的，
-And so and the trick is basically as follows,
 
-1088
+1087
 01:04:33,800 --> 01:04:36,530
 这就是 map2 的作用，
-and this is where map2 comes in,
 
-1089
+1088
 01:04:38,260 --> 01:04:41,440
 我们要做的是映射相同的物理内存，
-what we're gonna do is actually going to map that same physical memory,
 
-1090
+1089
 01:04:42,060 --> 01:04:43,320
 我们映射一次，
-we mapped at once, correct,
 
-1091
+1090
 01:04:43,320 --> 01:04:44,820
 我们这样映射一次，
-we mapped at once in this way,
 
-1092
+1091
 01:04:45,490 --> 01:04:50,220
 然后以收集器的角度再映射一次，
-and gonna map the second time in the collector's view,
 
-1093
+1092
 01:04:50,220 --> 01:04:53,170
 收集器视角的 to 空间。
-sort of the collector's view of the to space.
 
-1094
+1093
 01:04:54,490 --> 01:04:56,680
 所以，这里是收集器的角度，这里是应用的角度，
-So here's collector's view, here's the app view
 
-1095
+1094
 01:04:57,280 --> 01:04:58,510
 从收集器的角度来看，
-and in the collector's view,
 
-1096
+1095
 01:04:58,540 --> 01:05:01,570
 仍然有和以前一样 to 和 from 。
-where I still have to and from exactly like before.
 
-1097
+1096
 01:05:02,680 --> 01:05:03,730
 哎呀，让我试试。
-Oops, let me try.
 
-1098
+1097
 01:05:04,750 --> 01:05:07,350
 我们有 to 和 from 。
-We have to and from.
 
-1099
+1098
 01:05:09,100 --> 01:05:10,720
 我们实际上在做的是，
-And what we're doing actually
 
-1100
+1099
 01:05:10,720 --> 01:05:12,430
 这是我们的未扫描区域，
-you know here's our unscanned area,
 
-1101
+1100
 01:05:16,380 --> 01:05:20,220
 但在收集器看来，我们映射那些未扫描区域为可读写，
-but in the collector, we map actually those unscanned area read and write,
 
-1102
+1101
 01:05:21,350 --> 01:05:23,900
 这样收集器才能通过，
-and so that the collector actually can go through,
 
-1103
+1102
 01:05:23,900 --> 01:05:27,560
 扫描对象转发指针是必要的。
-look at the, scan the objects you know and forward pointer is necessary.
 
-1104
+1103
 01:05:28,530 --> 01:05:32,550
 所以这是需要 map2 调用的地方，
-And so the here's look at the place where this map2 call is necessary,
 
-1105
+1104
 01:05:32,550 --> 01:05:38,730
 排列物理内存映射两次，
-where arrange physical piece of physical memory is actually mapped twice
 
-1106
+1105
 01:05:38,730 --> 01:05:40,470
 在应用程序的地址空间中，
-in the address space of an application,
 
-1107
+1106
 01:05:40,470 --> 01:05:41,910
 以两种不同的保护级别，
-at two different levels of protection,
 
-1108
+1107
 01:05:42,590 --> 01:05:44,930
 让这样的场景是可行的。
-to basically make things, scenario like this work.
 
-1109
+1108
 01:05:46,850 --> 01:05:47,900
 对于这个，有什么问题吗？
-Any questions about this?
 
-1110
+1109
 01:05:57,670 --> 01:05:59,230
 我有个问题，
-I have a question,
 
-1111
+1110
 01:05:59,230 --> 01:06:06,160
 你会给应用程序中的每个收集器
-do you, do you kind of give each collector in the app,
 
-1112
+1111
 01:06:08,160 --> 01:06:11,190
 不同版本的页表，还是。
-different versions of the page table, or.
 
-1113
+1112
 01:06:11,400 --> 01:06:13,830
 不，它们有相同的页表，
-No, they have the same page table, correct,
 
-1114
+1113
 01:06:13,830 --> 01:06:17,190
 但是它们把内存映射到两个地方，
-but they have the memory mapped in two place,
 
-1115
+1114
 01:06:17,190 --> 01:06:20,070
 物理内存映射在地址空间中的两个不同位置，
-the physical memory map in two different places in the address space,
 
-1116
+1115
 01:06:20,070 --> 01:06:22,440
 在页表中的两个不同位置。
-in two different places places in page table.
 
-1117
+1116
 01:06:23,560 --> 01:06:28,990
 而且，在一个地方，映射是无效的，
-And, in one place you basically the mapping is invalid,
 
-1118
+1117
 01:06:29,440 --> 01:06:33,100
 在另一个地址范围中，映射是可读写的。
-and in the other address range, you make the mapping read write.
 
-1119
+1118
 01:06:35,940 --> 01:06:36,420
 好的。
-Okay.
 
-1120
+1119
 01:06:39,440 --> 01:06:42,860
 我把这个说得更清楚一点，
-Let me make, make a make this a little bit more clear,
 
-1121
+1120
 01:06:44,150 --> 01:06:45,590
 因为很多关于它的问题。
-since there were so many questions about it.
 
-1122
+1121
 01:06:47,790 --> 01:06:54,510
 我有一个对这个想法的的简单实现，
-I actually have a trivial implementation of actually this basic idea,
 
-1123
+1122
 01:06:54,600 --> 01:06:56,370
 论文中描述的想法，
-the idea that was described in the paper,
 
-1124
+1123
 01:06:56,580 --> 01:06:58,230
 你可以了解得更具体一点。
-that you could make it a little bit more concrete.
 
-1125
+1124
 01:07:00,250 --> 01:07:02,920
 所以，让我来介绍一下，
-And so, let me walk through this
 
-1126
+1125
 01:07:02,920 --> 01:07:05,950
 请随意问问题，
-and ask feel free to jump in,
 
-1127
+1126
 01:07:06,520 --> 01:07:09,160
 基本上实现了论文中所描述的内容，
-basically toy implementation of what's described in the paper
 
-1128
+1127
 01:07:09,340 --> 01:07:10,600
 我敢肯定它有漏洞，
-and I'm sure it has bugs,
 
-1129
+1128
 01:07:10,600 --> 01:07:14,470
 我的意思是，我没有认真地测试过它，
-I mean, I haven't really tested this in any way seriously,
 
-1130
+1129
 01:07:14,590 --> 01:07:16,960
 但它主要描述了，
-but it's mostly there's illustrates
 
-1131
+1130
 01:07:16,960 --> 01:07:18,760
 让一切变得更具体。
-you know to make everything slightly more concrete.
 
-1132
+1131
 01:07:19,330 --> 01:07:20,860
 所以，收集器，
-So the collector,
 
-1133
+1132
 01:07:20,920 --> 01:07:24,160
 应用程序使用的 API 是，
-the API if you will that the application uses is,
 
-1134
+1133
 01:07:24,370 --> 01:07:25,870
 一个 new 和 readptr ，
-a new and readptr,
 
-1135
+1134
 01:07:25,870 --> 01:07:32,590
 readptr 检查指针是否在 from 空间中，
-and readptr is that basically does the check whether pointers in from space,
 
-1136
+1135
 01:07:32,590 --> 01:07:34,990
 如果它在 from 空间中，则需要复制，
-and if it is in the from space, that needs to be copied
 
-1137
+1136
 01:07:35,230 --> 01:07:37,960
 当然，当我们使用虚拟内存技巧时，
-and of course when we're using VM tricks,
 
-1138
+1137
 01:07:37,960 --> 01:07:40,000
 那么 readptr 将会非常轻，
-then basically this readptr is going to be very cheap,
 
-1139
+1138
 01:07:40,000 --> 01:07:43,060
 我们只返回参数。
-we basically return the [] return the argument.
 
-1140
+1139
 01:07:44,590 --> 01:07:46,960
 如果我们只针对这个简单的应用程序，
-If we're just for this simple application,
 
-1141
+1140
 01:07:46,960 --> 01:07:50,380
 我有一个链表，它有两个 root ，
-I have a linked list and it has two roots,
 
-1142
+1141
 01:07:50,380 --> 01:07:50,860
 指向，
-you know pointing,
 
-1143
+1142
 01:07:50,860 --> 01:07:53,980
 一个指向链表的头部，一个指向链表的最后一个节点，
-one to the head and one to the last node of the linked list,
 
-1144
+1143
 01:07:53,980 --> 01:07:55,570
 这是一个循环链表，
-it's a circular linked list,
 
-1145
+1144
 01:07:56,040 --> 01:07:58,350
 没有什么真正令人兴奋的事情发生，
-and nothing really too exciting going on,
 
-1146
+1145
 01:07:58,350 --> 01:08:00,960
 基本上应用程序所做的是，
-basically what the application [] does is,
 
-1147
+1146
 01:08:01,380 --> 01:08:03,990
 上千次创建列表，
-you know thousand times makes the list
 
-1148
+1147
 01:08:04,380 --> 01:08:07,260
 make_clist 和 check_clist ，
-and make_clist and check_clist,
 
-1149
+1148
 01:08:07,290 --> 01:08:08,880
 所以它会产生很多垃圾，
-and so it generates a lot of garbage,
 
-1150
+1149
 01:08:08,880 --> 01:08:10,770
 比如每次 make_clist 完成，
-like everytime after to make_clist is done,
 
-1151
+1150
 01:08:11,130 --> 01:08:12,060
 它会产生一个新的，
-it's going to make a new one
 
-1152
+1151
 01:08:12,060 --> 01:08:13,920
 所以上一个列表成了垃圾。
-and so the last list is basically garbage.
 
-1153
+1152
 01:08:14,760 --> 01:08:16,830
 所以收集器有事情要做，
-And so the collector actually has something to do
 
-1154
+1153
 01:08:16,830 --> 01:08:20,460
 make_clist 就是一些难看的代码，
-and make_clist you know is basically a little bit of ugly code,
 
-1155
+1154
 01:08:20,700 --> 01:08:25,290
 主要是因为每个指针都包裹在 readptr 中，
-mostly because you know every pointer needs to be wrapped in this readptr check,
 
-1156
+1155
 01:08:26,130 --> 01:08:28,920
 通常情况下，当然会由编译器生成，
-normally, of course would be generated by a compiler
 
-1157
+1156
 01:08:28,980 --> 01:08:31,740
 我没有针对垃圾收集语言的编译器，
-and I don't really have a compiler for a garbage collected language
 
-1158
+1157
 01:08:31,740 --> 01:08:37,140
 所以我只是在模拟可能由编译器生成的。
-and so I'm just simulating what may be a compiler that might have generated.
 
-1159
+1158
 01:08:39,080 --> 01:08:42,470
 基本上，代码所做的是，
-And basically you want you know the code does is,
 
-1160
+1159
 01:08:42,470 --> 01:08:46,310
 它构建的至少具有 LISTSZ 的列表，
-it goes through the built a list of at least LISTSZ,
 
-1161
+1160
 01:08:46,430 --> 01:08:47,840
 分配一个新元素，
-allocates a new element
 
-1162
+1161
 01:08:48,170 --> 01:08:53,000
 放到列表的开头，
-and stick to the prepend at the beginning of the list,
 
-1163
+1162
 01:08:53,000 --> 01:08:56,540
 然后更新最后一个指针指向列表的开头，
-and then updates the last pointer to point basically to the beginning of the list,
 
-1164
+1163
 01:08:56,750 --> 01:08:57,620
 所以这是环形的。
-so that's circular.
 
-1165
+1164
 01:08:59,920 --> 01:09:02,740
 关于这一小段代码，有什么问题吗？
-Any questions about this little fragment of code?
 
-1166
+1165
 01:09:06,400 --> 01:09:07,570
 所以最有趣的问题是，
-So the most interesting question is,
 
-1167
+1166
 01:09:07,570 --> 01:09:09,250
 收集器到底是怎么做的，
-like what goes on exactly the collector,
 
-1168
+1167
 01:09:09,370 --> 01:09:12,430
 让我们首先看看没有虚拟内存的情况，
-let's first look at the case where there's no virtual memory,
 
-1169
+1168
 01:09:12,640 --> 01:09:14,350
 我们不会使用这些技巧。
-where we're not using these tricks.
 
-1170
+1169
 01:09:15,120 --> 01:09:17,640
 所以我们只需要看看两个 API ，
-And so we just have to look at two APIs,
 
-1171
+1170
 01:09:17,970 --> 01:09:20,640
 一种是 new 和 readptr 。
-one is new and readptr.
 
-1172
+1171
 01:09:21,240 --> 01:09:23,910
 所以，这里是 new ，
-So here's new,
 
-1173
+1172
 01:09:24,120 --> 01:09:27,000
 忽略这个 mutex ，它是针对虚拟内存解决方案的，
-forget the mutex, that is for the VM based solution,
 
-1174
+1173
 01:09:27,800 --> 01:09:30,380
 基本上，
-basically, I [] that,
 
-1175
+1174
 01:09:30,380 --> 01:09:33,770
 我们假设我们有一段时间没有扫描，没有收集，
-we're assuming that we're actually not scanning, we're not collecting for a while,
 
-1176
+1175
 01:09:33,980 --> 01:09:42,240
 我们会检查是否还有足够的空间在空闲空间中，
-were basically, we check if there's enough space left in the free space,
 
-1177
+1176
 01:09:42,240 --> 01:09:44,250
 如果有足够的自由空间，
-if there's enough free space left,
 
-1178
+1177
 01:09:44,250 --> 01:09:46,380
 我们只是向上一点，
-you know we just bump up to point a little bit,
 
-1179
+1178
 01:09:46,380 --> 01:09:48,510
 分配对象并将其返回。
-you know to allocate object and return it.
 
-1180
+1179
 01:09:49,310 --> 01:09:53,000
 如果没有足够的空间，
-And if there's not enough space less left,
 
-1181
+1180
 01:09:53,000 --> 01:09:54,350
 那么我们必须翻转，
-then we basically have to flip,
 
-1182
+1181
 01:09:54,350 --> 01:09:55,880
 我们必须运行垃圾收集器。
-we have to do the garbage collector run.
 
-1183
+1182
 01:09:56,710 --> 01:09:58,690
 所以我们看看 flip ，
-And so we look at flip,
 
-1184
+1183
 01:09:59,920 --> 01:10:03,580
 flip 是切换 to 和 from 指针，
-you know flip basically switches the to from pointers around,
 
-1185
+1184
 01:10:04,030 --> 01:10:10,600
 转发应用程序包含的两个 root ，
-and basically forward which you know the two roots that this application has,
 
-1186
+1185
 01:10:10,900 --> 01:10:15,640
 从 from 空间到 to 空间，
-you know to the from the from space to space,
 
-1187
+1186
 01:10:15,670 --> 01:10:16,900
 所以让我们看看 forward 。
-so let's look at forward.
 
-1188
+1187
 01:10:25,000 --> 01:10:26,080
 所以这是 forward ，
-So here's forward,
 
-1189
+1188
 01:10:26,560 --> 01:10:32,520
 forward 查看 o 指向的对象，
-it looks if the forward object that is pointed to by o,
 
-1190
+1189
 01:10:32,520 --> 01:10:34,410
 它看起来总是在 from 空间中，
-it looks always actually in the from space,
 
-1191
+1190
 01:10:34,410 --> 01:10:35,880
 如果它在 from 空间中，
-if it is in the from space
 
-1192
+1191
 01:10:36,300 --> 01:10:38,190
 并且之前没有被复制过，
-and it has not been copied before,
 
-1193
+1192
 01:10:38,810 --> 01:10:41,210
 然后我们要复制它，
-then we're gonna copy it
 
-1194
+1193
 01:10:41,660 --> 01:10:44,030
 现在我们就完成了。
-and now we're done.
 
-1195
+1194
 01:10:44,030 --> 01:10:47,480
 所以我们把对象从 from 空间移到 to 空间，
-So we moved the object from the from space to to space,
 
-1196
+1195
 01:10:47,930 --> 01:10:49,460
 如果我们已经复制了它，
-if we already copied it,
 
-1197
+1196
 01:10:49,460 --> 01:10:51,380
 那么我们可以替换指针，
-then basically we can replace the pointer,
 
-1198
+1197
 01:10:51,470 --> 01:10:54,250
 我们有新的指针是，
-you know we have the new pointer is
 
-1199
+1198
 01:10:54,250 --> 01:10:57,970
 指向已经移动的对象的指针，
-actually the pointer to the already moved object
 
-1200
+1199
 01:10:58,090 --> 01:10:58,900
 并返回该指针。
-and return that.
 
-1201
+1200
 01:10:59,990 --> 01:11:00,740
 好的?
-Okay?
 
-1202
+1201
 01:11:01,630 --> 01:11:02,650
 所以这就是转发。
-So that's forwarding.
 
-1203
+1202
 01:11:04,060 --> 01:11:07,780
 所以，然后 readptr ，
-And so, then the readptr you know we actually ever,
 
-1204
+1203
 01:11:09,730 --> 01:11:11,470
 readptr 通过，
-readptr to basically go through,
 
-1205
+1204
 01:11:17,770 --> 01:11:20,020
 让我们看看 readptr 和垃圾收集器，
-let's see what the readptr with the garbage collecter,
 
-1206
+1205
 01:11:20,020 --> 01:11:22,930
 readptr 在这里，
-just readptr it's like right here,
 
-1207
+1206
 01:11:24,360 --> 01:11:27,150
 如果我们不使用虚拟内存，
-if we're not using if we're not using VM,
 
-1208
+1207
 01:11:27,390 --> 01:11:28,890
 它说做的，
-basically what it does,
 
-1209
+1208
 01:11:28,980 --> 01:11:30,810
 它做的是 forward 操作，
-it does a forward operation,
 
-1210
+1209
 01:11:30,810 --> 01:11:33,510
 在 forward 操作中检查是否在 from 空间中，
-in the forward operation is checking if the from space,
 
-1211
+1210
 01:11:33,510 --> 01:11:37,440
 如果不在 from 空间中，那就什么都不做，
-if not in the from space, then, do nothing,
 
-1212
+1211
 01:11:37,440 --> 01:11:40,020
 如果它在 from 空间中，则重新执行复制。
-if it is in the from space, then do this copy again.
 
-1213
+1212
 01:11:40,590 --> 01:11:42,750
 所以我们在这里看到这是昂贵的检查，
-So here we see this sort of the expensive check,
 
-1214
+1213
 01:11:42,750 --> 01:11:45,630
 检查对象是否真的在 from 空间中。
-is really checking if the object actually sits in the from space.
 
-1215
+1214
 01:11:48,520 --> 01:11:49,270
 有什么问题吗，
-Any questions,
 
-1216
+1215
 01:11:51,170 --> 01:11:56,750
 在我跳到使用虚拟内存技巧的版本之前。
-before I jump into sort of the version that actually use the VM tricks.
 
-1217
+1216
 01:11:58,480 --> 01:12:01,810
 好的，让我们来看看虚拟内存的技巧，
-Okay, let's look at actually what the VM tricks,
 
-1218
+1217
 01:12:02,480 --> 01:12:06,950
 所以设置在这里，
-so the setup is a little bit, is here,
 
-1219
+1218
 01:12:07,220 --> 01:12:11,690
 这里有一个名为 shm_open 的调用，
-basically you know there's a call called shm_open
 
-1220
+1219
 01:12:11,690 --> 01:12:14,330
 它允许你创建一个共享内存对象，
-that allows you to create a shared memory object,
 
-1221
+1220
 01:12:14,360 --> 01:12:16,460
 这是一个 Linux 调用或 Unix 调用，
-it's a Linux call or Unix call,
 
-1222
+1221
 01:12:17,010 --> 01:12:19,740
 它的行为几乎就像一个文件，但它不是，
-and it almost behaves like a file, but it's not,
 
-1223
+1222
 01:12:20,610 --> 01:12:22,890
 它的行为类似于文件，但它不是文件，
-it behaves like a file, but it is not a file,
 
-1224
+1223
 01:12:22,890 --> 01:12:23,880
 它只是驻留在内存中，
-it just sits in memory,
 
-1225
+1224
 01:12:23,880 --> 01:12:26,100
 没有与之相关的磁盘空间或任何东西，
-there's no disk space associated with it or anything,
 
-1226
+1225
 01:12:26,100 --> 01:12:27,960
 它就像内存中的文件系统。
-it's like an in-memory file system, if you will.
 
-1227
+1226
 01:12:28,820 --> 01:12:32,000
 基本上我们在做的是，
-And, basically you know what we're doing is
 
-1228
+1227
 01:12:32,000 --> 01:12:34,310
 我们分配一个共享存储器对象，
-we allocate one of the shared memory objects,
 
-1229
+1228
 01:12:34,610 --> 01:12:37,190
 我们将共享存储器对象截断为
-we truncate the shared memory object to be
 
-1230
+1229
 01:12:37,190 --> 01:12:40,520
 to 和 from 空间的大小之和，
-the size of the sum of the to and the from space,
 
-1231
+1230
 01:12:40,520 --> 01:12:42,440
 所以我们有一个空间，
-so we have a space,
 
-1232
+1231
 01:12:42,940 --> 01:12:49,060
 然后我们对于 mutator 映射一次，
-and then we map it once in the for mutator,
 
-1233
+1232
 01:12:49,060 --> 01:12:51,070
 并且对于收集器映射一次。
-and we map it once you know for the collector.
 
-1234
+1233
 01:12:52,150 --> 01:12:56,380
 所以这就是这里的操作顺序，
-So this is basically you know the sort of sequence of operations here,
 
-1235
+1234
 01:12:56,380 --> 01:12:59,140
 shm_open ftruncate 和两个 mmap ，
-you know the shm_open, the ftruncate and the two mmaps
 
-1236
+1235
 01:12:59,410 --> 01:13:02,500
 基本上等同于 map2 调用。
-are basically sort of equivalent of the map2 calls.
 
-1237
+1236
 01:13:04,580 --> 01:13:06,950
 所以我们看看，
-And so we look at you know,
 
-1238
+1237
 01:13:07,620 --> 01:13:11,280
 让我们回到我们的实现上来，
-let's go back up to our implementation,
 
-1239
+1238
 01:13:11,640 --> 01:13:15,780
 在虚拟内存情况下的 readptr 什么也不做，
-the readptr in the VM case does nothing,
 
-1240
+1239
 01:13:15,780 --> 01:13:18,780
 这里不会检查，直接返回指针。
-you know there's no check whatsoever would return a pointer straight.
 
-1241
+1240
 01:13:19,480 --> 01:13:22,480
 然后我们使用[]指针，
-And then you know of course we used [] pointer,
 
-1242
+1241
 01:13:22,480 --> 01:13:23,650
 我们会收到一个页面错误，
-we're gonna get a page fault,
 
-1243
+1242
 01:13:23,680 --> 01:13:27,010
 就像前面在平方根表应用程序中那样，
-like as before in the square roots table application,
 
-1244
+1243
 01:13:27,400 --> 01:13:29,320
 也许这里是页面错误处理程序，
-maybe here's the page fault handler,
 
-1245
+1244
 01:13:30,090 --> 01:13:33,850
 如果是一个页面在，
-so it is, if it's a page on
 
-1246
+1245
 01:13:33,850 --> 01:13:36,790
 让我在这里想一下，
-and actually let me run a little bit here,
 
-1247
+1246
 01:13:39,450 --> 01:13:44,280
 如果对象已经被移到了某个地方，并且位于未扫描的区域，
-if you know the object was moved somewhere earlier and sitting in the unscanned area,
 
-1248
+1247
 01:13:44,280 --> 01:13:45,420
 我们得到一个页面错误，
-we're getting a page fault
 
-1249
+1248
 01:13:45,420 --> 01:13:48,330
 那么扫描页面函数会运行。
-and basically the scan page you know function runs.
 
-1250
+1249
 01:13:49,010 --> 01:13:53,630
 但是扫描页面函数运行在，
-and but you know the the scan page function runs
 
-1251
+1250
 01:13:53,630 --> 01:13:56,930
 使用收集器的地址范围，
-actually with you know the address ranges of the collector
 
-1252
+1251
 01:13:57,290 --> 01:13:58,430
 所以它是可以工作的，
-and so it actually can work,
 
-1253
+1252
 01:13:58,430 --> 01:14:03,680
 因为 mutator ，应用程序不能触及这些页面，
-because otherwise a mutator correct, the application cannot touch those pages,
 
-1254
+1253
 01:14:03,680 --> 01:14:05,960
 因为这样我们就会得到页面错误。
-because then we take a result in a page fault.
 
-1255
+1254
 01:14:07,880 --> 01:14:11,660
 一旦我们扫描了所有的页面，
-And once you know we can, you know once we've scanned all the pages,
 
-1256
+1255
 01:14:11,750 --> 01:14:14,300
 那么你知道，
-then you know the,
 
-1257
+1256
 01:14:14,570 --> 01:14:20,460
 收集器使用户应用程序可以访问页面，
-the collector actually makes the page actually accessible to the user application,
 
-1258
+1257
 01:14:24,740 --> 01:14:26,570
 再看一遍 flip 可能会有帮助，
-It may be helpful to look at flip again,
 
-1259
+1258
 01:14:26,780 --> 01:14:30,710
 只是为了看看 flip 发生了什么，
-just to see what happens, actually flip what happens,
 
-1260
+1259
 01:14:31,070 --> 01:14:34,370
 我们切换， from 空间已经满了，
-we switch from the from space is full,
 
-1261
+1260
 01:14:34,550 --> 01:14:39,980
 我们将整个 to 空间标记为应用程序不可访问，
-we make basically mark the whole to space as not accessible to the application,
 
-1262
+1261
 01:14:40,460 --> 01:14:41,420
 然后我们移动，
-and then we move to,
 
-1263
+1262
 01:14:41,420 --> 01:14:46,320
 收集器将 root 头和 root 尾移动到 to 空间，
-collector moves actually the root head and the root last you know to the to space,
 
-1264
+1263
 01:14:46,320 --> 01:14:50,820
 应用程序不能访问或至少不能直接访问，
-that the application cannot access or at least not directly,
 
-1265
+1264
 01:14:50,820 --> 01:14:52,050
 将会导致，
-and you know will result,
 
-1266
+1265
 01:14:52,050 --> 01:14:55,020
 当应用程序访问 root 头和 root 尾，
-whenever the application accesses root head, root last,
 
-1267
+1266
 01:14:55,140 --> 01:14:57,780
 它会导致页面错误，
-it will actually result in a page fault,
 
-1268
+1267
 01:14:58,050 --> 01:15:00,210
 然后收集器可以复制东西，
-and then the collector can copy things over
 
-1269
+1268
 01:15:00,210 --> 01:15:01,650
 然后保护这个页面。
-and then protect the one page.
 
-1270
+1269
 01:15:03,750 --> 01:15:04,530
 这能理解吗？
-Does that make sense?
 
-1271
+1270
 01:15:17,240 --> 01:15:19,460
 好的，注意在处理程序中，
-Okay note in the handler correct,
 
-1272
+1271
 01:15:19,460 --> 01:15:21,890
 首先扫描页面是至关重要的，
-it's actually crucial that first the pages scanned,
 
-1273
+1272
 01:15:21,890 --> 01:15:26,390
 在应用程序可以访问的页面之前，
-before you make you know the page accessible to the application,
 
-1274
+1273
 01:15:26,390 --> 01:15:33,470
 因为如果你在扫描之前让它可以访问，
-because if you were to make it accessible before you scan that,
 
-1275
+1274
 01:15:33,470 --> 01:15:35,900
 如果有多个应用程序线程，
-you know, and if there were multiple application threads,
 
-1276
+1275
 01:15:35,990 --> 01:15:41,390
 那么那些应用程序可能会查看未扫描区域中的对象，
-then those applications might be looking at objects on the in the unscanned area,
 
-1277
+1276
 01:15:41,510 --> 01:15:43,010
 当然，我们需要禁止这样做，
-of course that we need to forbid that,
 
-1278
+1277
 01:15:43,160 --> 01:15:45,770
 这就是用来扫描的代码，
-that's over this code basically for scans
 
-1279
+1278
 01:15:45,830 --> 01:15:49,230
 然后提高保护级别，
-and then raises the protection level,
 
-1280
+1279
 01:15:49,230 --> 01:15:51,390
 以便应用程序可以访问这些页面。
-so the application can access the pages.
 
-1281
+1280
 01:15:56,150 --> 01:16:01,730
 关于收集器和使用虚拟内存的技巧，有什么问题吗？
-Any questions about the collector and tricks to use virtual memory?
 
-1282
+1281
 01:16:07,210 --> 01:16:07,990
 好的。
-Okay.
 
-1283
+1282
 01:16:09,080 --> 01:16:11,510
 在这种情况下，我想总结几点，
-In that case I want to wrap up a couple points,
 
-1284
+1283
 01:16:11,510 --> 01:16:18,440
 在结束之前，我想说明一点。
-I wanna make one point basically before wrapping up.
 
-1285
+1284
 01:16:22,430 --> 01:16:23,630
 一个问题是，
-You know, one question to ask,
 
-1286
+1285
 01:16:23,630 --> 01:16:25,370
 在这里你应该使用虚拟内存吗，
-should you use the VM for this,
 
-1287
+1286
 01:16:30,760 --> 01:16:33,220
 它做了那些技巧的回报，
-it really is it does those tricks payoff
 
-1288
+1287
 01:16:33,370 --> 01:16:36,340
 因为很多，
-and because many of the,
 
-1289
+1288
 01:16:36,370 --> 01:16:38,920
 比如许多其他的垃圾收集器，
-for example garbage collectors and many garbage collectors out there,
 
-1290
+1289
 01:16:38,920 --> 01:16:42,040
 根本没有虚拟内存，
-that actually don't use virtual memory at all,
 
-1291
+1290
 01:16:42,070 --> 01:16:43,750
 而是使用基本的设施，
-but use basic instrument,
 
-1292
+1291
 01:16:43,750 --> 01:16:44,890
 编译器实际上是
-you know the compiler is actually
 
-1293
+1292
 01:16:44,890 --> 01:16:49,120
 非常清楚生成的代码的设备，
-very aware of the code generated an instrument you know the code correctly,
 
-1294
+1293
 01:16:49,540 --> 01:16:52,750
 采用各种其他技巧会降低性能。
-and as all kinds of other tricks to reduce the performance overhead.
 
-1295
+1294
 01:16:53,450 --> 01:16:55,880
 所以观察结果是，在大多数情况下，
-So the observation is that in most cases,
 
-1296
+1295
 01:16:56,460 --> 01:16:57,750
 这是可以的，
-it can be,
 
-1297
+1296
 01:16:58,510 --> 01:17:02,020
 而且大多数情况下都可以通过额外的指令来实现。
-and most cases could have been implemented with extra instructions.
 
-1298
+1297
 01:17:14,240 --> 01:17:15,410
 也就是说，
-And that is,
 
-1299
+1298
 01:17:16,550 --> 01:17:20,420
 如果你是一个编译器或运行库，或者是一种编程语言，
-you know if you were basically a compiler or runtime, or for a programming language,
 
-1300
+1299
 01:17:20,420 --> 01:17:22,280
 或许那也不是那么糟糕，
-then maybe that's not so bad,
 
-1301
+1300
 01:17:22,910 --> 01:17:24,800
 因为编译器可以实现，
-because the compiler can do the implementation,
 
-1302
+1301
 01:17:25,160 --> 01:17:27,800
 但是如果你不是运行时应用程序，
-but if you know there's not a runtime applications
 
-1303
+1302
 01:17:27,800 --> 01:17:30,770
 不是编译器应用程序或编程语言设置，
-not compiler application or a programming language settings,
 
-1304
+1303
 01:17:30,980 --> 01:17:33,020
 那么可能会很痛苦。
-then that might be painful.
 
-1305
+1304
 01:17:33,380 --> 01:17:36,290
 所以事实证明，对于这些应用程序，
-So it turns out that for some of these applications
 
-1306
+1305
 01:17:36,290 --> 01:17:38,570
 根本不涉及编译器，
-where there's no compiler involved at all,
 
-1307
+1306
 01:17:38,570 --> 01:17:40,190
 比如，像检查点
-for example like check pointing
 
-1308
+1307
 01:17:40,890 --> 01:17:44,920
 或共享虚拟内存，
-or you know do shared virtual memory,
 
-1309
+1308
 01:17:45,190 --> 01:17:49,870
 那些确实需要这种原语。
-those actually you know really needs these kind of primitives.
 
-1310
+1309
 01:17:50,350 --> 01:17:51,760
 所以在实践中，
-And so in practice,
 
-1311
+1310
 01:17:51,760 --> 01:17:52,870
 是这种情况，
-you know it is the case that
 
-1312
+1311
 01:17:52,870 --> 01:17:55,900
 对于应用程序员，这些原始语不是值得的，
-you know not application programmers I find these primitive worthwhile,
 
-1313
+1312
 01:17:55,900 --> 01:17:58,120
 但今天的操作系统支持它们。
-but basically today's operating systems support them.
 
-1314
+1313
 01:18:05,610 --> 01:18:06,240
 好的?
-Okay?
 
-1315
+1314
 01:18:08,880 --> 01:18:10,890
 有人问，其实很多人都在问，
-Some people ask, a lot of people actually asking,
 
-1316
+1315
 01:18:10,890 --> 01:18:13,290
 发生了什么变化，
-what has changed since,
 
-1317
+1316
 01:18:16,510 --> 01:18:17,890
 自 91 年以来发生了什么变化。
-what has changed since 91.
 
-1318
+1317
 01:18:22,110 --> 01:18:23,820
 有一件事已经改变了，
-You know, one thing that has changed,
 
-1319
+1318
 01:18:23,820 --> 01:18:26,490
 当然，大多数 Unix 现在支持原语，
-of course, like most Unix do support the primitives now,
 
-1320
+1319
 01:18:27,210 --> 01:18:29,910
 实际上从 91 年开始有很多变化，
-and in fact there are many changes since 91,
 
-1321
+1320
 01:18:29,910 --> 01:18:32,760
 是的，也许很难想象，
-yeah yeah, maybe hard to imagine,
 
-1322
+1321
 01:18:32,760 --> 01:18:36,150
 但基本上虚拟内存系统在不断发展，
-but basically there's a continuous development in the VM system,
 
-1323
+1322
 01:18:36,240 --> 01:18:40,710
 所以如果你看 Linux 的 git 日志，
-so if you look at like Linux you know git log,
 
-1324
+1323
 01:18:40,830 --> 01:18:45,540
 你会发现它继续开发，
-you'll see, you know there's a there's continued developing
 
-1325
+1324
 01:18:45,540 --> 01:18:46,920
 内核的各个方面，
-the all aspects of the kernel,
 
-1326
+1325
 01:18:47,040 --> 01:18:50,760
 也包括虚拟内存系统的不断发展。
-and including a continuous development of the VM system.
 
-1327
+1326
 01:18:51,520 --> 01:18:54,070
 你知道一些更大的变化，
-And you know some of the bigger changes,
 
-1328
+1327
 01:18:54,070 --> 01:18:57,430
 在过去的十年里有什么大的变化，
-what are some big changes in the last you know whatever ten years,
 
-1329
+1328
 01:18:59,600 --> 01:19:03,350
 现在有五级页表，
-there there's you know there's now five level page table
 
-1330
+1329
 01:19:03,650 --> 01:19:09,380
 来处理非常大的的地址，
-to deal with really large a bigger addresses,
 
-1331
+1330
 01:19:09,380 --> 01:19:17,530
 有地址空间标识符来处理 TLB 刷新的成本。
-there's address space identifiers to deal with TLB the cost of TLB flushes.
 
-1332
+1331
 01:19:18,410 --> 01:19:20,420
 最近，大约在一年前，
-More recently a year ago or something like that
 
-1333
+1332
 01:19:20,420 --> 01:19:24,830
 称为 KPTI 内核页表隔离被引入，
-something is called was introduced called KPTI kernel page table isolation,
 
-1334
+1333
 01:19:25,130 --> 01:19:30,410
 这是因为 meltdown 攻击，
-which you know is there because of the meltdown attacks
 
-1335
+1334
 01:19:30,410 --> 01:19:32,450
 我们将在本学期晚些时候讨论。
-and we'll talk about later in the semester.
 
-1336
+1335
 01:19:33,020 --> 01:19:39,200
 所以，虚拟内存系统绝对不是静态系统，
-So, you know the virtual memory system is absolutely not a static system,
 
-1337
+1336
 01:19:39,200 --> 01:19:42,650
 几乎在任何内核的所有方面之后都不是静态的，
-almost after no aspect of any kernel kernel is static,
 
-1338
+1337
 01:19:42,740 --> 01:19:46,310
 几乎每隔几个月就会有大的变化，
-there's a traumatic amount of changes almost every couple months,
 
-1339
+1338
 01:19:46,760 --> 01:19:48,320
 在内核的不同方面，
-in different aspects of the kernel,
 
-1340
+1339
 01:19:49,010 --> 01:19:52,520
 所以，在系统中，有时会完全重写，
-and so in systems, once in a while actually completely rewritten,
 
-1341
+1340
 01:19:53,040 --> 01:19:55,710
 所以它总是在不断变化。
-so it's always in flux.
 
-1342
+1341
 01:19:57,000 --> 01:19:58,560
 好了，我说到这里就到此为止，
-Okay, let me stop with that
 
-1343
+1342
 01:19:58,590 --> 01:20:00,900
 任何人还有更多的问题，
-and you know anybody has more questions,
 
-1344
+1343
 01:20:00,900 --> 01:20:03,210
 请随时向提问，
-you know please feel free to ask them
 
-1345
+1344
 01:20:03,210 --> 01:20:05,070
 如果你要走，那就走吧。
-or if you have to go, feel free to go.
 
-1346
+1345
 01:20:11,430 --> 01:20:14,970
 我能问一下第一批幻灯片中的一张吗，
-Could I ask about one of the first slides,
 
-1347
+1346
 01:20:15,000 --> 01:20:18,490
 抱歉，我正在看，
-where of, sorry, I'm trying to see it,
 
-1348
+1347
 01:20:18,700 --> 01:20:22,660
 它是虚拟内存实现，这张幻灯片之后的两张幻灯片。
-it's VM implementation like two slides after this one.
 
-1349
+1348
 01:20:23,500 --> 01:20:26,110
 是的，就是那个。
-Yes, that one.
 
-1350
+1349
 01:20:26,530 --> 01:20:30,880
 你所说的地址连续范围是什么意思？
-What do you mean exactly by continuous range for addresses?
 
-1351
+1350
 01:20:31,060 --> 01:20:34,510
 哦，连续的虚拟地址范围，
-Oh, yeah continuous range of virtual addresses,
 
-1352
+1351
 01:20:35,340 --> 01:20:40,380
 VMA 复制 1000 到 2000 之间的范围，
-so you know the may you know VMA copies range 1000 to 2000,
 
-1353
+1352
 01:20:41,540 --> 01:20:46,130
 如果你有另一个地址范围，比如 2100 ，
-and if you had another address range like 2100 or something like that,
 
-1354
+1353
 01:20:46,130 --> 01:20:47,930
 那就有自己的 VMA ，
-that would be has its own VMA,
 
-1355
+1354
 01:20:51,460 --> 01:20:54,490
 所以每个 VMA 覆盖连续的地址范围，
-so every VMA covers a continuous range of addresses,
 
-1356
+1355
 01:20:54,880 --> 01:20:56,110
 上面没有洞。
-there are no holes in it.
 
-1357
+1356
 01:20:57,440 --> 01:20:58,040
 好的。
-Okay.
 
-1358
+1357
 01:20:58,670 --> 01:20:59,750
 这让事情变得容易了，
-That makes it easier,
 
-1359
+1358
 01:20:59,750 --> 01:21:04,310
 正如你会在 mmap 实验室中看到的，
-as you will see in the, as you will see mmap lab,
 
-1360
+1359
 01:21:04,310 --> 01:21:06,110
 这使我们更容易对事情进行处理，
-that will make it much easier to reason about things,
 
-1361
+1360
 01:21:09,040 --> 01:21:12,040
 VMA 范围内的地址没有空洞。
-addresses in the range of VMA has no hole in it.
 
-1362
+1361
 01:21:14,460 --> 01:21:17,100
 好的，那么这些是为了，
-Okay, okay, so those are for,
 
-1363
+1362
 01:21:17,460 --> 01:21:24,830
 这个特殊的情况， mmap 。
-this particular use case, for mmap, right.
 
-1364
+1363
 01:21:26,560 --> 01:21:27,430
 是的。
-Yeah.
 
-1365
+1364
 01:21:27,640 --> 01:21:28,540
 好的，我明白了，谢谢。
-Okay,I see,thank you.
 
-1366
+1365
 01:21:28,960 --> 01:21:31,300
 所以可以认为每次 mmap 调用，
-So basically you can think about it for every mmap call,
 
-1367
+1366
 01:21:31,300 --> 01:21:33,850
 就有一个 VMA ，如果 mmap 不重叠。
-there's one VMA, if mmaps don't overlap.
 
-1368
+1367
 01:21:35,910 --> 01:21:39,870
 哦，好的，我想我明白了，谢谢。
-Oh, okay, okay I think I think I understand, thank you.
 
-1369
+1368
 01:21:43,850 --> 01:21:50,060
 问一下对于高，
-To ask, so for for the high,
 
-1370
+1369
 01:21:50,060 --> 01:21:52,970
 垃圾收集器的 to 和 from ，
-on the to and from like garbage collection,
 
-1371
+1370
 01:21:52,970 --> 01:21:55,970
 什么时候停下来并重新开始，
-when do you stop and start again,
 
-1372
+1371
 01:21:56,030 --> 01:21:59,990
 我猜收集器可以一直运行，如果它是并发的。
-like I guess collector runs can run all the time, if its concurrent.
 
-1373
+1372
 01:22:00,170 --> 01:22:03,290
 是的，这就是虚拟内存解决方案最酷的地方之一，
-Yeah, that's one of the cool things about this VM solution,
 
-1374
+1373
 01:22:03,290 --> 01:22:04,760
 收集器可以一直运行，
-the collector can run all the time,
 
-1375
+1374
 01:22:05,420 --> 01:22:10,430
 一旦没有未扫描的物体，它就可以停止。
-and it can stop once basically it has there's no more unscanned objects.
 
-1376
+1375
 01:22:11,900 --> 01:22:14,360
 好的，所以你必须通过，
-Okay, so you have, but you have to go through,
 
-1377
+1376
 01:22:14,390 --> 01:22:15,350
 也就是说，
-that means you,
 
-1378
+1377
 01:22:16,320 --> 01:22:18,930
 所以你浏览所有内容，
-so so you'll go through all of the stuff
 
-1379
+1378
 01:22:18,960 --> 01:22:21,240
 比如 from 部分中的所有对象，
-like all of the objects in the from section
 
-1380
+1379
 01:22:21,240 --> 01:22:24,750
 你要做的就是把它们收集起来或者复制过来，
-and all you're either gonna collect them or copy them over
 
-1381
+1380
 01:22:24,810 --> 01:22:26,370
 你怎么知道你通过了所有的。
-how do you know you've gone through all of them.
 
-1382
+1381
 01:22:27,340 --> 01:22:31,150
 在某个时候，你追踪对象从上到下，
-You, at some point, you you trace the object up and down, correct,
 
-1383
+1382
 01:22:31,540 --> 01:22:34,660
 在某些时候，你不再添加任何对象，
-and at some point, you're not adding any objects anymore,
 
-1384
+1383
 01:22:34,660 --> 01:22:36,280
 因为你过去已经复制过了。
-because you already copied them in the past.
 
-1385
+1384
 01:22:36,920 --> 01:22:38,270
 好的，理解了。
-Okay okay, that makes sense.
 
-1386
+1385
 01:22:38,270 --> 01:22:39,230
 你不再增加，
-You don't add any more,
 
-1387
+1386
 01:22:39,230 --> 01:22:41,540
 因为你的未扫描区域没有增长，
-basically your unscanned area is not growing,
 
-1388
+1387
 01:22:41,540 --> 01:22:43,610
 所以，如果你的未扫描区域不再增长，你就不会。
-so if your unscanned area is not growing anymore, you don't.
 
-1389
+1388
 01:22:44,640 --> 01:22:48,630
 好的，然后当你把它复制，取消映射，
-Okay, okay, and then when you copy it over you unmap it,
 
-1390
+1389
 01:22:48,630 --> 01:22:53,910
 如果有人试图访问旧指针，将是无效的，对吧。
-so if someone tries to access the old pointer is going to be invalid, right.
 
-1391
+1390
 01:22:54,150 --> 01:22:55,500
 好的，理解了，谢谢。
-Okay, that makes sense, thanks.
 
-1392
+1391
 01:22:55,860 --> 01:22:57,990
 好的，回头见。
-Alright, I'll see you guys later.
 
-1393
+1392
 01:23:01,060 --> 01:23:02,140
 谢谢。
-Thank you.
 
-1394
+1393
 01:23:02,470 --> 01:23:03,040
 不用谢。
-You're welcome.
 
-1395
+1394
 01:23:12,120 --> 01:23:14,880
 好的，我想今天可能就到这里了。
-Okay, I think that may be it for today.
 

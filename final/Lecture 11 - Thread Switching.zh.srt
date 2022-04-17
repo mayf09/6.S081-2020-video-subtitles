@@ -1,7609 +1,6084 @@
 1
 00:00:00,030 --> 00:00:00,930
 有人听到我说话吗？
-Anyone hear me?
 
 2
 00:00:02,860 --> 00:00:03,430
 我能听见你说话。
-I can hear you.
 
 3
 00:00:03,850 --> 00:00:05,170
 谢谢，好的。
-Thank you, alright.
 
 4
 00:00:06,500 --> 00:00:10,520
 我想用今天的讲座来讨论一下线程，
-I'd like to spend today's lecture talking about threads
 
 5
 00:00:10,520 --> 00:00:12,680
 以及 xv6 如何进行线程切换，
-and how xv6 does thread switching,
 
 6
 00:00:12,980 --> 00:00:17,870
 这是关于[xv6]的底层的讲座，
-this is a sort of one of the under the hood lectures about [xv6],
 
 7
 00:00:17,870 --> 00:00:21,560
 我们之前讲过关于系统调用中断，
-we've had lectures before about how the system calls interrupts,
 
 8
 00:00:21,560 --> 00:00:23,120
 页表和锁是如何工作的，
-page tables and locks work
 
 9
 00:00:23,510 --> 00:00:25,880
 今天我们将讨论
-and today we're going to talk about
 
 10
 00:00:26,660 --> 00:00:29,480
 xv6 是如何在不同进程之间切换的。
-how does the xv6 switches among different processes.
 
 11
 00:00:32,040 --> 00:00:34,230
 最高层次的原因是，
-The reason for this the highest level reason for this is
 
 12
 00:00:34,230 --> 00:00:36,180
 因为人们喜欢他们的电脑能够
-that people like their computer to be able to
 
 13
 00:00:36,180 --> 00:00:39,090
 同时完成多项任务，
-do more than one task at the same time,
 
 14
 00:00:39,540 --> 00:00:42,330
 所以原因可能是支持分时，
-so the reason might be that you're supporting time sharing,
 
 15
 00:00:42,330 --> 00:00:45,540
 像 Athena 一样，允许多个用户同时登录，
-like Athena allows many users to login at the same time
 
 16
 00:00:45,540 --> 00:00:47,310
 它们都可以运行进程，
-and you know they call run processes
 
 17
 00:00:47,610 --> 00:00:49,530
 甚至是一台单用户机器，
-or even a single user machine
 
 18
 00:00:49,560 --> 00:00:50,670
 甚至是你的 iPhone ，
-or even your iPhone,
 
 19
 00:00:51,040 --> 00:00:53,440
 你可以运行许多不同的进程，
-you may run many different processes
 
 20
 00:00:53,440 --> 00:00:56,680
 并期望计算机能做你要求它做的所有事情，
-and expect the computer to do all the things you ask of it,
 
 21
 00:00:56,680 --> 00:00:57,490
 而不只是一件事。
-not just one thing.
 
 22
 00:01:00,260 --> 00:01:03,860
 人们喜欢支持多任务的另一个原因是，
-Another reason that people like to support multiple tasks is
 
 23
 00:01:03,860 --> 00:01:06,350
 因为它可以简化程序结构，
-because it can ease program structure,
 
 24
 00:01:06,470 --> 00:01:08,690
 特别是今天的话题线程，
-threads in particular today's topic,
 
 25
 00:01:08,810 --> 00:01:11,930
 有时作为一种方式来帮助人们，
-are sometimes used as a way to help people,
 
 26
 00:01:11,930 --> 00:01:16,970
 帮助程序员以一种简单优雅的方式把程序组合在一起，
-to help programmers put together a program in a sort of simple elegant way,
 
 27
 00:01:17,000 --> 00:01:18,140
 以降低复杂性，
-to reduce complexity,
 
 28
 00:01:18,290 --> 00:01:19,910
 实际上你已经看到了这样的例子，
-and you actually saw an example of this
 
 29
 00:01:19,910 --> 00:01:22,010
 在第一个实验中的素数筛子，
-in the first lab with the prime number sieve,
 
 30
 00:01:22,010 --> 00:01:26,060
 它不使用线程，但使用多个进程，
-which didn't use threads exactly but use multiple processes,
 
 31
 00:01:26,060 --> 00:01:30,590
 为了帮助构建素数筛选软件，
-in order to help structure this your prime number sieve software
 
 32
 00:01:30,590 --> 00:01:34,850
 这是一种更方便、更优雅或更简单的方式，
-and arguably it's sort of a more convenient or elegant or simpler way
 
 33
 00:01:34,850 --> 00:01:36,850
 去写那个软件。
-to to write that software.
 
 34
 00:01:37,620 --> 00:01:40,920
 人们使用线程的最后一个原因是，
-And the final reason why people use threads is,
 
 35
 00:01:40,920 --> 00:01:44,460
 为了从多核机器获得并行加速，
-to get parallel speedup from multi core machines,
 
 36
 00:01:44,700 --> 00:01:48,120
 所以分解你的程序是很常见的，
-so it's common to break up your program
 
 37
 00:01:48,120 --> 00:01:51,030
 使用线程的方式，
-in a way that using threads
 
 38
 00:01:51,030 --> 00:01:55,110
 允许同一程序的不同部分在不同的内核上运行，
-to allow different parts of the same program to run on different cores,
 
 39
 00:01:55,110 --> 00:01:57,600
 也许如果你幸运的话，
-and if you can, maybe if you're lucky,
 
 40
 00:01:57,600 --> 00:02:01,710
 你可以把程序拆分为四个线程运行在四个核心上，
-if you can split your program up to run on four threads on four cores,
 
 41
 00:02:01,740 --> 00:02:05,370
 你也许可以把它的速度提高到原来的四倍。
-you might be able to get a factor of four speedup how fast it runs.
 
 42
 00:02:06,780 --> 00:02:11,850
 实际上，你可以将 xv6 内核视为一个多核并行程序。
-And indeed, you can view the xv6 kernel as a multi-core parallel program.
 
 43
 00:02:12,700 --> 00:02:15,070
 那么线程是什么，
-So what threads are,
 
 44
 00:02:15,070 --> 00:02:18,760
 是一种简化编程的抽象，
-is an abstraction to simplify programming,
 
 45
 00:02:18,940 --> 00:02:20,650
 当你有很多任务时，
-when you have many tasks,
 
 46
 00:02:20,650 --> 00:02:22,600
 当你想要同时处理多项任务时，
-when you want to juggle many tasks,
 
 47
 00:02:22,630 --> 00:02:24,430
 所以线程是什么，
-so what a thread is is,
 
 48
 00:02:24,670 --> 00:02:28,960
 你可以把线程想成一个单一的串行执行，
-you can think of a thread as just being a single serial execution,
 
 49
 00:02:28,960 --> 00:02:31,390
 如果你写一个程序做一件又一件事情，
-if you just write a program that does one thing after another,
 
 50
 00:02:31,390 --> 00:02:32,560
 你运行这个程序，
-and you run that program,
 
 51
 00:02:32,830 --> 00:02:37,570
 你可以把这个程序看作是一种单一的控制线程。
-that you know you can view the program as a sort of single thread of control.
 
 52
 00:02:38,290 --> 00:02:41,830
 所以，这是一个宽泛的定义。
-So, this is a loose definition.
 
 53
 00:02:44,160 --> 00:02:47,790
 因为，人们所说的线程有多种不同的定义，
-Because there's many different sort of flavors of what people mean by threads,
 
 54
 00:02:47,790 --> 00:02:52,920
 但我们说这是一个串行执行，
-but we'll say it's one serial execution,
 
 55
 00:02:53,250 --> 00:02:58,990
 因此，如果你启动一个 CPU ，
-so it's what you get if you fire up one CPU
 
 56
 00:02:58,990 --> 00:03:02,560
 让它用普通的方式一条接一条地执行指令。
-and have it you know just execute one instruction after another in the ordinary way.
 
 57
 00:03:05,580 --> 00:03:07,770
 我们经常谈到线程有状态，
-We often talk about thread having state,
 
 58
 00:03:07,800 --> 00:03:08,820
 因为结果是，
-because it's going to turn out,
 
 59
 00:03:08,820 --> 00:03:10,830
 我们想要保存线程状态，
-we're going to want to save away thread state
 
 60
 00:03:10,830 --> 00:03:11,760
 之后再恢复它，
-and restore it later,
 
 61
 00:03:12,780 --> 00:03:15,630
 所以思考线程状态的正确方式是，
-and so the right way to think about thread state,
 
 62
 00:03:15,630 --> 00:03:16,620
 最重要的部分，
-for the most part,
 
 63
 00:03:16,740 --> 00:03:21,120
 最重要的线程状态的可能是程序计数器，
-the most important part perhaps of the thread state is its program counter,
 
 64
 00:03:21,420 --> 00:03:22,830
 因为它是执行，
-because it's an execution,
 
 65
 00:03:22,830 --> 00:03:25,530
 我们很关心它在执行中的什么位置，
-we care a lot about where is it in its execution
 
 66
 00:03:25,710 --> 00:03:27,960
 它执行指令的地址是什么，
-and what address is it executing instructions,
 
 67
 00:03:29,010 --> 00:03:32,910
 但我们也关心微处理器的其它状态，
-but also we care about the rest of the microprocessor state,
 
 68
 00:03:32,910 --> 00:03:34,860
 这是支持执行所必需的，
-that's required to support this execution
 
 69
 00:03:35,100 --> 00:03:36,300
 所以这意味着它是。
-and so that means it's.
 
 70
 00:03:38,520 --> 00:03:42,960
 线程状态包括编译器用来保存变量的寄存器，
-The state of a thread includes the registers that the compiler uses to hold variables
 
 71
 00:03:43,200 --> 00:03:47,070
 还因为编译器生成代码的方式，
-and also because the just the way the compiler generates code,
 
 72
 00:03:47,130 --> 00:03:49,200
 线程状态包括堆栈，
-thread state includes a stack,
 
 73
 00:03:49,970 --> 00:03:53,150
 所以，一般每个线程都有自己的堆栈，
-so typically each thread has its own stack
 
 74
 00:03:53,150 --> 00:03:54,770
 专用于执行该线程，
-dedicated to executing that thread,
 
 75
 00:03:54,770 --> 00:03:58,130
 堆栈记录函数调用的记录，
-and the stack records, the record of function calls,
 
 76
 00:03:59,960 --> 00:04:04,490
 反映该线程执行中的当前点。
-that the reflect the current point in the execution of that thread.
 
 77
 00:04:05,630 --> 00:04:10,130
 所以， xv6 在其内部包括线程系统，
-And so what a threading system xv6 includes a threading system inside it,
 
 78
 00:04:10,160 --> 00:04:11,720
 线程系统的所做的是，
-what a threading system does is
 
 79
 00:04:11,780 --> 00:04:18,200
 自动执行多个交织的线程，
-manage this interleave, automate the interleaving of multiple threads,
 
 80
 00:04:18,410 --> 00:04:22,820
 你可能希望启动 200 或 400 或 1000 个线程，
-you would like to be able to fire up two or 400 or a thousand threads
 
 81
 00:04:22,820 --> 00:04:28,380
 线程系统会处理所有这些线程，
-and the threading system figure out how to juggle all those threads
 
 82
 00:04:28,380 --> 00:04:30,780
 使它们全部发展，全部执行。
-and cause them all to make [progress] and all to execute.
 
 83
 00:04:32,030 --> 00:04:36,920
 有两个主要的策略，
-There's really two main strategy,
 
 84
 00:04:36,920 --> 00:04:38,390
 我们想要交错，
-so we want to [interleave],
 
 85
 00:04:39,210 --> 00:04:43,430
 这是一个很大的话题，
-this is gonna be big topic here,
 
 86
 00:04:43,430 --> 00:04:46,790
 如何交错多个线程，
-how to interleave threads, many threads,
 
 87
 00:04:47,240 --> 00:04:50,090
 交错执行多个线程的一种方法是
-one way to interleave the execution of many threads is
 
 88
 00:04:50,090 --> 00:04:51,920
 拥有多个 CPU ，
-to have multiple CPUs,
 
 89
 00:04:55,070 --> 00:04:57,890
 像是在多核处理器上，
-maybe as on a multi-core processor
 
 90
 00:04:58,490 --> 00:05:00,770
 然后每个 CPU 可以运行自己的线程，
-and then each CPU can run its own thread,
 
 91
 00:05:00,770 --> 00:05:01,970
 所以如果你有 4 个 CPU ，
-so if you have four CPUs,
 
 92
 00:05:01,970 --> 00:05:05,540
 很明显可以运行 4 个线程，
-there's an obvious way to run four threads,
 
 93
 00:05:05,540 --> 00:05:07,070
 每个 CPU 上运行一个线程，
-to run one thread per CPU,
 
 94
 00:05:07,070 --> 00:05:11,030
 然后每个线程自动获得自己的程序计数器寄存器，
-and then each thread automatically gets its own program counter registers,
 
 95
 00:05:11,030 --> 00:05:15,320
 程序计数器寄存器是与正在运行的 CPU 关联的，
-that is the program counter register is associated with the CPU is running on,
 
 96
 00:05:15,680 --> 00:05:18,440
 但是如果你有 4 个 CPU 和上千个线程，
-but if you have four CPUs and you have a thousand threads,
 
 97
 00:05:18,590 --> 00:05:23,830
 那么如何在核心上使用线程，
-then you know how using one core of thread,
 
 98
 00:05:23,830 --> 00:05:26,320
 不是一个好回答的问题。
-is not going to be enough of an answer.
 
 99
 00:05:26,530 --> 00:05:29,740
 所以，我们看到的另一个主要策略是，
-And so the other main strategy that we'll see,
 
 100
 00:05:30,620 --> 00:05:34,280
 实际上，这节课的大部分内容都是，
-indeed the topic of most of this lecture is
 
 101
 00:05:34,310 --> 00:05:41,360
 每个 CPU 如何在不同线程之间切换，
-how each CPU is going to switch among different threads,
 
 102
 00:05:41,390 --> 00:05:43,580
 所以，如果我有一个 CPU 和上千个线程，
-so if I have one CPU and a thousand threads,
 
 103
 00:05:43,670 --> 00:05:47,810
 我们看看 xv6 是如何构建切换系统的，
-we're going to see how xv6 builds switching system,
 
 104
 00:05:48,050 --> 00:05:50,300
 这允许 xv6 在一段时间内运行一个线程，
-that allows xv6 to run one thread for a while
 
 105
 00:05:50,300 --> 00:05:52,340
 然后切换并放在一边，
-and then switch and set aside
 
 106
 00:05:52,340 --> 00:05:53,900
 保存该线程的状态，
-and save the state of that one thread
 
 107
 00:05:53,900 --> 00:05:56,540
 并切换到第二个线程，执行一段时间，
-and switch to executing a second thread for a while
 
 108
 00:05:56,540 --> 00:05:57,950
 然后是第三个线程，等等，
-and then a third thread and so forth,
 
 109
 00:05:57,950 --> 00:06:00,080
 直到它执行了每个线程的一部分，
-until it's executed a little bit of each thread,
 
 110
 00:06:00,080 --> 00:06:04,340
 然后，返回到第一个线程并继续执行，等等。
-and then go back and execute more of the of the first thread and so on.
 
 111
 00:06:06,170 --> 00:06:08,690
 实际上， xv6 和大多数操作系统，
-And indeed, xv6 like most operating system,
 
 112
 00:06:08,690 --> 00:06:13,640
 xv6 在所有可用核心上运行线程，
-[] the xv6 will run threads on all the cores that are available
 
 113
 00:06:13,640 --> 00:06:16,820
 并且每个核心在线程之间切换，
-and each core will switch among threads,
 
 114
 00:06:17,030 --> 00:06:19,760
 因为通常是，尽管并非总是如此，
-because there's typical typically, although not always,
 
 115
 00:06:19,760 --> 00:06:23,030
 线程数通常比 CPU 数多得多。
-there's typically many more threads than there are CPUs.
 
 116
 00:06:24,780 --> 00:06:31,290
 一个线程系统的不同之处，
-One of the many ways in which different threading systems
 
 117
 00:06:31,320 --> 00:06:33,930
 或者线程系统实例的不同之处是，
-or instances of threading systems differ is
 
 118
 00:06:33,930 --> 00:06:35,580
 是它们否共享内存。
-in whether or not they share memory.
 
 119
 00:06:36,960 --> 00:06:44,380
 所以这是很重要一点。
-So this is important point.
 
 120
 00:06:45,040 --> 00:06:48,640
 一种可能是，你可以有一个单独的地址空间，
-One possibility is that you could have a single address space,
 
 121
 00:06:48,670 --> 00:06:50,920
 许多线程在该地址空间中执行，
-with many threads executing in that address space
 
 122
 00:06:50,920 --> 00:06:52,810
 它们可以看到彼此的变动，
-and then they see each other's changes,
 
 123
 00:06:52,990 --> 00:06:56,950
 如果共享内存的一个线程修改了变量，
-if one of the threads sharing some memory modifies variable,
 
 124
 00:06:56,950 --> 00:06:59,770
 那么其它共享该内存的线程会看到修改。
-then the other thread sharing that memory will see the modification.
 
 125
 00:07:01,430 --> 00:07:04,520
 所以，在线程共享内存的情况下，
-And so it's in the context of threads running and sharing memory
 
 126
 00:07:04,520 --> 00:07:06,080
 我们需要锁，
-that we need things like the locks
 
 127
 00:07:06,080 --> 00:07:08,390
 你在上一节课上看到的。
-that you saw in the last lecture.
 
 128
 00:07:10,330 --> 00:07:13,510
 xv6 内核是共享内存的，
-Xv6 kernel is shared memory,
 
 129
 00:07:13,750 --> 00:07:16,840
 所以 xv6 有，
-so xv6, there's,
 
 130
 00:07:17,170 --> 00:07:19,810
 xv6 支持内核线程的概念，
-xv6 has, supports the [notion] of kernel threads,
 
 131
 00:07:19,810 --> 00:07:22,630
 每个进程有一个内核线程，
-there's one kernel thread per process
 
 132
 00:07:22,630 --> 00:07:24,670
 来执行该进程的系统调用，
-that executes system calls for that process,
 
 133
 00:07:24,820 --> 00:07:27,520
 所有这些内核线程共享内核内存，
-all those kernel threads share kernel memory,
 
 134
 00:07:28,240 --> 00:07:30,730
 所以 xv6 内核线程共享内存。
-so xv6 kernel threads do share memory.
 
 135
 00:07:34,400 --> 00:07:37,500
 另一方面，
-And on the other hand,
 
 136
 00:07:37,650 --> 00:07:39,420
 xv6 还有另一种线程，
-xv6 has another kind of threads,
 
 137
 00:07:39,420 --> 00:07:43,020
 每个用户进程都有一个控制线程，
-each user process essentially has a single thread of control,
 
 138
 00:07:43,020 --> 00:07:45,870
 执行该进程的用户指令，
-that executes the user instructions for that process,
 
 139
 00:07:46,080 --> 00:07:51,270
 实际上， xv6 内核线程机制的一大部分是
-and indeed a lot of the xv6 kernel threading machinery is
 
 140
 00:07:51,270 --> 00:07:56,940
 支持自动地在多个用户进程之间切换，
-automatically in support of being able to support and switch them on many user processes,
 
 141
 00:07:56,970 --> 00:07:59,010
 每个用户进程具有内存，
-each user process has a memory
 
 142
 00:07:59,010 --> 00:08:01,080
 单个线程在其中运行，
-and a single thread that runs in that memory,
 
 143
 00:08:01,290 --> 00:08:05,750
 所以 xv6 用户进程，
-so xv6 user processes,
 
 144
 00:08:11,160 --> 00:08:13,110
 每个进程有一个线程，
-each process has one thread
 
 145
 00:08:13,110 --> 00:08:20,520
 所以在单个 xv6 用户进程内的线程之间不会共享内存，
-and so there's no sharing of memory among threads within a single xv6 user process,
 
 146
 00:08:20,520 --> 00:08:21,840
 因为你有多个进程，
-because you get multiple processes,
 
 147
 00:08:21,840 --> 00:08:25,770
 但是每个进程都是一个地址空间和单个线程，
-but each of those processes is an address space with a single thread,
 
 148
 00:08:27,000 --> 00:08:29,310
 在 xv6 中的进程步共享内存。
-the processes in xv6 don't share memory.
 
 149
 00:08:29,790 --> 00:08:32,400
 在其它更复杂的操作系统中，
-In other more sophisticated operating systems,
 
 150
 00:08:32,400 --> 00:08:33,510
 比如，在 Linux 中，
-for example Linux,
 
 151
 00:08:35,110 --> 00:08:42,310
 Linux 用户级允许在一个进程中有多个线程，
-Linux user level does allow multiple threads in a process
 
 152
 00:08:42,310 --> 00:08:46,750
 并且这些线程共享那个单个进程的内存，
-and the processes and those threads share the memory of that single process
 
 153
 00:08:47,380 --> 00:08:49,780
 这非常酷，如果你想编写用户级的程序，
-and that's super cool if you want to write user level programs
 
 154
 00:08:49,780 --> 00:08:54,940
 用户级并行程序可以使用多核提速，
-that user level parallel programs that get speed up from multiple cores
 
 155
 00:08:55,060 --> 00:08:56,650
 需要另一种，
-better requires sort of another,
 
 156
 00:08:56,770 --> 00:08:59,290
 它使用了很多相同的基础技术，
-it uses a lot of the same basic techniques,
 
 157
 00:08:59,290 --> 00:09:00,580
 我们今天要讨论的，
-we're going to talk about today,
 
 158
 00:09:00,580 --> 00:09:04,390
 但是，在 Linux 实现它有一定的复杂度，
-but there's a certain amount more sophistication in Linux to get it,
 
 159
 00:09:05,000 --> 00:09:08,600
 跟踪每个进程的多个线程，而不只是一个。
-keep track of multiple threads per process instead of just one.
 
 160
 00:09:12,250 --> 00:09:15,970
 好的，从高层次上，我想提一下，
-Okay, at a sort of high level, I just want to mention,
 
 161
 00:09:15,970 --> 00:09:17,890
 还有其他方法，
-that there's other ways
 
 162
 00:09:17,890 --> 00:09:22,150
 可以支持在一台计算机上交错执行多个任务，
-to support the interleaving of multiple tasks on a single computer
 
 163
 00:09:22,510 --> 00:09:24,940
 我们不会讨论它们，
-and we're not going to talk about them,
 
 164
 00:09:25,030 --> 00:09:29,020
 如果你好奇，可以看看事件驱动编程的东西，
-if you're curious you can look up things like event-driven programming
 
 165
 00:09:29,020 --> 00:09:30,910
 或者状态机，
-or state machines
 
 166
 00:09:31,060 --> 00:09:34,030
 它们是非线程技术，
-and these are non-thread techniques
 
 167
 00:09:34,060 --> 00:09:37,360
 在许多不同任务之间共享一台计算机，
-to share one computer among many different tasks,
 
 168
 00:09:37,480 --> 00:09:42,730
 这些是不同层次的不同方案，
-it turns out you know sort of on the spectrum of different schemes
 
 169
 00:09:42,730 --> 00:09:44,770
 为了支持计算机上的多任务，
-for supporting multiple tasks on a computer,
 
 170
 00:09:44,860 --> 00:09:46,570
 线程效率不是很高，
-threads are not very efficient,
 
 171
 00:09:46,600 --> 00:09:48,130
 有更有效的方案，
-there's a more efficient schemes,
 
 172
 00:09:48,700 --> 00:09:51,670
 但是线程通常是最方便的方式，
-but threads are usually the most convenient way,
 
 173
 00:09:51,700 --> 00:09:53,500
 最适合程序员的方式，
-most programmer friendly way,
 
 174
 00:09:53,680 --> 00:09:57,220
 来支持许多不同的任务。
-to support lots of different tasks.
 
 175
 00:09:59,770 --> 00:10:04,610
 好的，这里有几个挑战，
-Okay, there's a couple of challenges,
 
 176
 00:10:04,610 --> 00:10:05,840
 我们必须解决，
-that we're gonna have to bite off,
 
 177
 00:10:05,870 --> 00:10:08,420
 如果我们要实现线程系统。
-if we want to implement a threading system.
 
 178
 00:10:12,590 --> 00:10:15,800
 所以这是高级别的挑战。
-The, so this is just high level challenges.
 
 179
 00:10:22,880 --> 00:10:24,350
 一个是我之前提到的，
-One is as I mentioned before,
 
 180
 00:10:24,350 --> 00:10:28,710
 如何实现交错（线程）的切换，
-how to actually implement the switching for interleave,
 
 181
 00:10:28,800 --> 00:10:37,030
 这个切换允许我们交错执行多个线程，
-the switching that allows us to interleave the execution of multiple threads,
 
 182
 00:10:37,570 --> 00:10:43,680
 这个进程的切换决定有一个广义名称，
-and this sort of broad name for this process of switching deciding,
 
 183
 00:10:43,680 --> 00:10:47,190
 离开一个线程，并执行另一个线程，
-or going to leave off one thread and start executing another thread,
 
 184
 00:10:47,340 --> 00:10:48,600
 这通常称为调度。
-it's often called scheduling.
 
 185
 00:10:51,520 --> 00:10:55,810
 我们将看到 xv6 []的一段代码，
-And we'll see that xv6 [] as an actual piece of code,
 
 186
 00:10:55,810 --> 00:10:56,650
 就是调度器，
-that's the scheduler,
 
 187
 00:10:56,650 --> 00:10:58,750
 实际上，有多个调度器，每个核心一个，
-indeed has multiple schedulers one per core,
 
 188
 00:10:59,530 --> 00:11:02,830
 但是关于如何驱动，
-but the general idea of how do you drive,
 
 189
 00:11:02,830 --> 00:11:04,660
 如何决定从一个切换到另一个，
-the decision to switch from one to another,
 
 190
 00:11:04,660 --> 00:11:06,310
 如何选择要运行的下一个线程，
-how to pick the next thread to run,
 
 191
 00:11:07,000 --> 00:11:07,780
 这就是调度。
-its called scheduling.
 
 192
 00:11:10,120 --> 00:11:12,100
 另一个问题是，
-Another question is,
 
 193
 00:11:12,100 --> 00:11:14,800
 如果你想实现从一个线程到另一个线程的切换，
-if you want to actually implement the switch from one thread to another,
 
 194
 00:11:14,800 --> 00:11:16,750
 你需要保存和恢复，
-you need to save and restore,
 
 195
 00:11:16,930 --> 00:11:19,840
 所以我们需要决定，需要保存什么，
-so we need to decide what needs to be saved
 
 196
 00:11:20,170 --> 00:11:21,970
 保存到哪，
-and where to save it,
 
 197
 00:11:22,900 --> 00:11:26,260
 当我们离开一个线程时，需要保存它，
-when, it needs to be saved when we leave off executing one thread
 
 198
 00:11:26,260 --> 00:11:30,820
 并在稍后想要重新执行该线程时，恢复它，
-and restored when we want to resume executing that thread at some later time,
 
 199
 00:11:31,180 --> 00:11:34,870
 最后一个问题是，如何处理计算密集型线程。
-and final question is what to do about compute bound threads.
 
 200
 00:11:37,960 --> 00:11:41,560
 很多选择，
-The, many of the options,
 
 201
 00:11:41,740 --> 00:11:44,500
 很多切换线程的直接的选择，
-many of the most straightforward options for thread switching
 
 202
 00:11:44,770 --> 00:11:46,930
 引入线程自愿表示，
-involve the threads are voluntarily saying
 
 203
 00:11:46,930 --> 00:11:48,370
 我要保存自己的状态，
-well I'm going to save away my state
 
 204
 00:11:48,370 --> 00:11:51,400
 让另一个线程运行，
-and sort of run another, let another thread be run,
 
 205
 00:11:51,460 --> 00:11:56,050
 但是，如果我们有一个用户程序做长时间的计算，
-but what do we have a user program that's doing some long running calculation,
 
 206
 00:11:56,050 --> 00:11:57,280
 可能需要几个小时，
-that might take hours,
 
 207
 00:11:57,430 --> 00:12:00,190
 它不会特别考虑，
-it's not going to be particularly thinking about,
 
 208
 00:12:00,190 --> 00:12:02,560
 现在是时候让别的线程运行了，
-oh now be time to good time to let something else run,
 
 209
 00:12:02,770 --> 00:12:06,340
 所以最方便是，通过某种方式
-so it's most convenient to have some way of
 
 210
 00:12:06,340 --> 00:12:11,260
 自动从长时间运行的计算密集型进程收回控制权，
-sort of automatically revoking control from some long running compute bound process,
 
 211
 00:12:11,440 --> 00:12:14,260
 把它放在一边，之后再运行。
-setting it aside and maybe running it later.
 
 212
 00:12:16,780 --> 00:12:18,850
 好的，我要谈谈这些，
-Alright, so I'm going to talk about these,
 
 213
 00:12:18,850 --> 00:12:21,070
 实际上，首先我要谈谈，
-I'm actually going to talk about
 
 214
 00:12:21,070 --> 00:12:24,850
 处理计算密集型线程的机制。
-the machinery for dealing with compute bound threads first.
 
 215
 00:12:27,220 --> 00:12:31,860
 而且，方案就是你以前知道的，
-And, scheme for that is something you've come up before,
 
 216
 00:12:32,520 --> 00:12:34,110
 那就是定时器中断。
-that's timer interrupts.
 
 217
 00:12:38,340 --> 00:12:41,150
 这里的想法是，
-And the idea here is that,
 
 218
 00:12:41,180 --> 00:12:46,040
 每个核心，每个 CPU 上都有一个硬件，
-there's a, a piece of hardware on each CPU on each core,
 
 219
 00:12:46,280 --> 00:12:49,640
 它会产生周期性的中断，
-that generates periodic interrupts,
 
 220
 00:12:49,850 --> 00:12:52,160
 而 xv6 或任何操作系统
-and the xv6 or any operating system
 
 221
 00:12:52,160 --> 00:12:54,920
 将这些中断传送给内核，
-really arranges to have those interrupts delivered to the kernel,
 
 222
 00:12:54,920 --> 00:12:58,250
 所以，即使我们在用户级运行一些循环，
-so even if we're running at user level at some loop
 
 223
 00:12:58,250 --> 00:13:01,640
 比如计算 pi 的前 10 亿位，
-that's you know computing the first billion digits of pi,
 
 224
 00:13:01,730 --> 00:13:05,960
 尽管如此，定时器中断还是会在某个时间点发生，
-nevertheless the timer interrupts go off at some point
 
 225
 00:13:05,960 --> 00:13:07,430
 可能是每 10 毫秒一次，
-maybe every ten milliseconds
 
 226
 00:13:07,640 --> 00:13:10,820
 将控制从该用户级代码转移到
-and transfer control from that user level code
 
 227
 00:13:10,910 --> 00:13:12,770
 内核中的中断处理程序，
-into the interrupt handler in the kernel,
 
 228
 00:13:12,860 --> 00:13:18,320
 这是内核获得控制权的第一步，
-and so that's the first step in the kernel being able to gain control
 
 229
 00:13:18,320 --> 00:13:22,370
 用来在不同的用户级线程之间切换，
-to switch among different user level processes, user level threads,
 
 230
 00:13:22,580 --> 00:13:25,820
 即使那些用户级线程不是协作的。
-even if those user level threads aren't cooperative.
 
 231
 00:13:26,900 --> 00:13:32,720
 基本方案是，在中断处理器中，
-And the basic scheme is that in the interrupt handler,
 
 232
 00:13:32,720 --> 00:13:36,920
 所以我们有处理这些程序的内核中断。
-so we're gonna have you know kernel handler for these interrupts.
 
 233
 00:13:38,170 --> 00:13:39,640
 我们会看到，
-And we'll see,
 
 234
 00:13:40,500 --> 00:13:44,370
 内核处理程序让出，
-that the kernel handler yields,
 
 235
 00:13:44,430 --> 00:13:47,010
 这个名称是 yields ，
-this is the sort of name for this it yields,
 
 236
 00:13:49,290 --> 00:13:53,730
 内核处理程序自愿让出 CPU 给调度器，
-the kernel handler sort of voluntarily yields the CPU back to the scheduler
 
 237
 00:13:53,730 --> 00:13:56,400
 告诉调度器，你现在可以运行其他线程。
-it tell the scheduler look, you can let something else run now.
 
 238
 00:13:58,240 --> 00:14:03,060
 而这个让出是一种线程切换的形式，
-And this yields is really a form of thread switch,
 
 239
 00:14:03,060 --> 00:14:06,330
 它保存了当前线程的状态，
-that saves away the state of the current thread,
 
 240
 00:14:06,480 --> 00:14:07,920
 这样以后就可以恢复。
-so it can be restored later.
 
 241
 00:14:10,320 --> 00:14:12,390
 我们会在这里看到整个流程，
-And we'll see the full story here,
 
 242
 00:14:12,390 --> 00:14:13,920
 实际上，你已经在这里看到了整个流程，
-actually you've seen a lot of the full story here,
 
 243
 00:14:13,920 --> 00:14:15,360
 因为它涉及到中断，
-because it involves an interrupt,
 
 244
 00:14:16,050 --> 00:14:18,330
 你已经知道整个流程有些复杂，
-what you already know about the full story some complex,
 
 245
 00:14:18,330 --> 00:14:20,640
 但是基本的想法是定时器中断
-but the basic idea is that a timer interrupt
 
 246
 00:14:21,000 --> 00:14:22,500
 将控制权交给内核，
-gives control to the kernel
 
 247
 00:14:22,500 --> 00:14:25,560
 而内核自愿让出 CPU ，
-and the kernel voluntarily yields the CPU,
 
 248
 00:14:26,820 --> 00:14:30,900
 这个术语称为抢占调度。
-this is called as a piece of terminology preemptive scheduling.
 
 249
 00:14:38,980 --> 00:14:40,990
 它的意思是，
-And what that means is that,
 
 250
 00:14:41,140 --> 00:14:42,880
 抢占的意思是，
-the preemptive means is that,
 
 251
 00:14:43,780 --> 00:14:47,740
 即使正在运行的代码不愿意，
-even if the code that's running doesn't, you know doesn't want to,
 
 252
 00:14:48,070 --> 00:14:51,010
 没有明确地让出 CPU ，
-you know doesn't explicitly yield the CPU,
 
 253
 00:14:51,160 --> 00:14:53,500
 定时器中断会夺走控制权，
-the timer interrupt is going to take control away
 
 254
 00:14:53,710 --> 00:14:55,570
 我们会让出给它，
-and we're going to yield for it
 
 255
 00:14:55,570 --> 00:15:02,150
 抢占式调度的反义词称为自愿式调度。
-and the opposite of preemptive scheduling might be called maybe voluntary scheduling.
 
 256
 00:15:05,040 --> 00:15:06,330
 有趣的事情是，
-And the interesting thing is that
 
 257
 00:15:06,330 --> 00:15:11,370
 抢占式调度在 xv6 等操作系统中的实现是
-the the implementation in xv6 and other operating systems of preemptive scheduling is
 
 258
 00:15:11,370 --> 00:15:14,100
 定时器中断强制夺取 CPU ，
-this timer interrupt forcibly takes away the CPU
 
 259
 00:15:14,400 --> 00:15:18,840
 然后内核自愿让出，
-and then the kernel basically does a voluntary yield
 
 260
 00:15:18,840 --> 00:15:21,300
 切换到那个进程的线程。
-thread thread switch on [have] of that process.
 
 261
 00:15:24,100 --> 00:15:30,850
 这里出现的另一个术语是，
-Now, another just piece of terminology that comes up here is
 
 262
 00:15:30,850 --> 00:15:33,610
 当线程运行时，
-that while the threads running,
 
 263
 00:15:33,640 --> 00:15:36,630
 有必要区分，
-there's need to distinguish,
 
 264
 00:15:36,990 --> 00:15:42,510
 系统区分当前在某些 CPU 上运行的线程，
-systems that distinguish between threads that are currently actually running on some CPU
 
 265
 00:15:42,630 --> 00:15:48,330
 与想要运行，但当前没有在任何 CPU 上运行的线程，
-versus threads that would like to run, but aren't currently running on any CPU,
 
 266
 00:15:48,330 --> 00:15:51,150
 但是如果 CPU 空闲就可以运行，
-but you know could run if a CPU became free
 
 267
 00:15:51,390 --> 00:15:54,060
 与那些实际上不想运行的线程，
-versus threads that actually don't want to run,
 
 268
 00:15:54,060 --> 00:15:55,590
 因为它们在等待 IO ，
-because they're waiting for IO
 
 269
 00:15:55,590 --> 00:15:58,020
 或者在等待什么事件。
-or waiting for some event.
 
 270
 00:15:58,600 --> 00:16:01,780
 这种区别通常称为状态，
-And [] this distinction is often called state,
 
 271
 00:16:02,980 --> 00:16:05,110
 即使线程的完整状态
-even though the full state of the thread is
 
 272
 00:16:05,110 --> 00:16:07,540
 要比这复杂得多。
-actually much more complicated than that.
 
 273
 00:16:09,830 --> 00:16:11,390
 既然说到这件事，
-Since this is going to come up,
 
 274
 00:16:12,420 --> 00:16:15,300
 我想列出几个我们会看到的状态，
-I just want a list out a couple of states that will be seeing,
 
 275
 00:16:16,370 --> 00:16:19,310
 这些是 xv6 管理的状态，
-and these are states that xv6 maintains,
 
 276
 00:16:19,310 --> 00:16:20,930
 有一种状态是 RUNNING ，
-there's a state called RUNNING,
 
 277
 00:16:20,930 --> 00:16:25,160
 意味着它正在某个 CPU 上运行，
-which means it's actually executing on some core, some CPU right now,
 
 278
 00:16:25,370 --> 00:16:31,650
 有 RUNNABLE ，意味着目前没有在任何地方运行，
-there's RUNNABLE, which means not currently executing anywhere,
 
 279
 00:16:31,650 --> 00:16:36,030
 但是有保存的状态，想要尽快运行，
-but just a saved state, but would like to run as soon as possible
 
 280
 00:16:36,360 --> 00:16:38,490
 然后还有一个状态，
-and then it turns out there's a state,
 
 281
 00:16:38,490 --> 00:16:41,580
 今天不会讲太多，但是下周会讲到，
-which won't come out much today, but will come up next week,
 
 282
 00:16:41,580 --> 00:16:45,270
 叫做 SLEEPING ，表示线程等待某个 IO 事件，
-called SLEEPING, just means the threads waiting for some IO event
 
 283
 00:16:45,480 --> 00:16:48,120
 只有在 IO 事件发生之后运行，
-and only wants to run after the IO event occurs,
 
 284
 00:16:48,300 --> 00:16:51,420
 所以今天我们关注的运行时和可运行线程，
-so today we're mostly concerned with running and runnable threads
 
 285
 00:16:51,420 --> 00:16:53,610
 这个抢先切换所做的，
-and what this preemptive switch does,
 
 286
 00:16:53,610 --> 00:16:55,650
 这个定时器中断和 yield 所做的是，
-what this timer interrupt does and the yield is
 
 287
 00:16:55,650 --> 00:16:57,660
 将一个运行时线程，
-basically convert a running thread
 
 288
 00:16:57,690 --> 00:16:59,640
 即被定时器中断的线程，
-whatever thread was interrupted by the timer
 
 289
 00:16:59,760 --> 00:17:01,800
 转换为一个可运行线程。
-into a runnable thread.
 
 290
 00:17:02,160 --> 00:17:02,760
 这是一个线程，
-That is a thread,
 
 291
 00:17:02,760 --> 00:17:06,180
 通过让出或转换为另一个线程，
-that's by yielding or converting that thread into a thread,
 
 292
 00:17:06,180 --> 00:17:07,140
 它现在没有运行，
-that's not running right now,
 
 293
 00:17:07,140 --> 00:17:08,910
 但很明显它将会运行，
-but would actually like to clearly,
 
 294
 00:17:08,910 --> 00:17:12,060
 因为它在计时器中断时运行。
-because it was running at the timer timer interrupt.
 
 295
 00:17:14,220 --> 00:17:14,940
 好的，那么，
-Okay so,
 
 296
 00:17:14,970 --> 00:17:21,180
 运行的线程的程序计数器寄存器在 CPU 中，
-running thread its program counter registers are actually in the CPU,
 
 297
 00:17:21,360 --> 00:17:24,420
 在执行它的 CPU 的硬件寄存器中，
-you know in the hardware registers of the CPU that's executing it,
 
 298
 00:17:24,690 --> 00:17:27,870
 可运行线程没有，
-a runnable thread though has no,
 
 299
 00:17:28,470 --> 00:17:30,840
 它现在没有关联的 CPU ，
-it's now doesn't have a CPU associated with it
 
 300
 00:17:31,620 --> 00:17:33,270
 所以，我们需要保存，
-and therefore we need to save,
 
 301
 00:17:33,270 --> 00:17:39,510
 对于可运行状态，我们需要保存所有 CPU 状态，
-for every runnable state, we need to save whatever CPU state,
 
 302
 00:17:39,510 --> 00:17:45,540
 任何线程运行时的 CPU 使用的状态，
-whatever state the CPU was keeping when that thread was running,
 
 303
 00:17:45,720 --> 00:17:47,730
 所以我们需要复制 CPU 的内容，
-so we need to copy the CPU contents,
 
 304
 00:17:47,730 --> 00:17:49,890
 不是 RAM ，只是寄存器，
-you know which is not RAM, but just registers really,
 
 305
 00:17:50,040 --> 00:17:54,180
 从 CPU 到内存中的某个地方以保存它们，
-from the CPU into memory somewhere to save them,
 
 306
 00:17:54,240 --> 00:17:56,550
 当我们将线程从运行时转为可运行的时候。
-when we turn to thread from running to runnable.
 
 307
 00:17:56,640 --> 00:18:01,380
 再说一次，我们必须明确保存的状态，
-And again this is the basically the state we have to explicitly save yours,
 
 308
 00:18:01,410 --> 00:18:04,650
 只有 CPU 的运行状态，
-just the state, the executing state of the CPU,
 
 309
 00:18:04,650 --> 00:18:10,910
 也就是程序计数器和 CPU 寄存器，
-which is the program counter and registers at CPU,
 
 310
 00:18:10,910 --> 00:18:12,170
 所以这些需要保存，
-so these need to be saved,
 
 311
 00:18:13,000 --> 00:18:14,980
 当将线程转换为可运行的。
-only convert a thread to runnable.
 
 312
 00:18:15,520 --> 00:18:19,480
 当某个调度器决定运行可运行线程时，
-When some scheduler finally decides to run a runnable thread,
 
 313
 00:18:19,690 --> 00:18:23,890
 那么，作为再次运行该线程的步骤一部分，
-then as part of the many steps in getting that thread going again and resuming it,
 
 314
 00:18:24,100 --> 00:18:27,010
 我们会看到程序计数器，
-we're going to see that the program counter,
 
 315
 00:18:27,010 --> 00:18:32,650
 保存的程序计数器寄存器被复制回 CPU ，
-the saved program counter registers are copied back into the CPUs,
 
 316
 00:18:32,980 --> 00:18:35,830
 到调度器决定运行线程的 CPU 的寄存器上。
-actual register on the CPU that the scheduler decides to run it on.
 
 317
 00:18:38,910 --> 00:18:42,960
 好的，关于这些术语有什么问题吗？
-Alright, any questions about these terminology?
 
 318
 00:18:49,880 --> 00:18:50,720
 好的，我要，
-Alright, I'm gonna,
 
 319
 00:18:50,750 --> 00:18:56,210
 现在讨论一下 xv6 的东西。
-now sort of talk about a sort of more xv6 [] view of things.
 
 320
 00:18:57,760 --> 00:19:00,010
 我要画两张图，
-I'm gonna draw two pictures,
 
 321
 00:19:00,010 --> 00:19:02,500
 关于线程和 xv6 ，
-really of threads and xv6
 
 322
 00:19:02,500 --> 00:19:05,320
 一张是简单图，一张是更详细的图。
-are kind of simplified picture and a more detailed picture.
 
 323
 00:19:05,470 --> 00:19:09,870
 像往常一样，用户的东西在上面，
-So as usually the user stuff up here
 
 324
 00:19:09,870 --> 00:19:11,460
 内核在下面。
-and the kernel down here.
 
 325
 00:19:14,040 --> 00:19:17,940
 我们可能在用户级别运行多个进程，
-We might be running multiple processes at user level,
 
 326
 00:19:17,940 --> 00:19:23,160
 也许是 C 编译器、 ls 和 shell ，
-maybe you know the C compiler and ls and shell,
 
 327
 00:19:23,520 --> 00:19:27,420
 它们可能同时或不同时运行，
-they may or may not be all wanting to run at the same time,
 
 328
 00:19:28,260 --> 00:19:37,180
 在用户级别，每个进程都有，
-at user level, each of these processes has,
 
 329
 00:19:38,400 --> 00:19:39,570
 它有内存，
-you know it has memory,
 
 330
 00:19:39,690 --> 00:19:42,840
 我们特别感兴趣的是，
-and of particular interest to us,
 
 331
 00:19:42,870 --> 00:19:45,510
 每个进程都有用户堆栈，
-each of these processes has a user stack,
 
 332
 00:19:46,840 --> 00:19:52,660
 当它运行时，它在 RISC-V 硬件中有寄存器，
-and while it's running it has registers in the RISC-V hardware,
 
 333
 00:19:52,660 --> 00:19:54,610
 PC 和寄存器。
-so PC plus registers.
 
 334
 00:19:55,590 --> 00:19:57,900
 好的，当程序运行时，
-Alright, so while programs running,
 
 335
 00:19:57,900 --> 00:20:01,920
 有一个在用户级别运行的控制线程，
-you know there's essentially a thread of control that's running at user level
 
 336
 00:20:02,760 --> 00:20:04,710
 我要说的是，
-and the way I'm going to talk about it is,
 
 337
 00:20:04,710 --> 00:20:07,830
 就像有一个用户线程，
-as if there's a user thread,
 
 338
 00:20:07,860 --> 00:20:13,290
 包含用户堆栈，用户内存，用户程序计数器，用户寄存器，
-that consists of the user stack, user memory, user program counter, user registers,
 
 339
 00:20:13,530 --> 00:20:15,360
 如果程序访问系统调用，
-if the program makes a system call,
 
 340
 00:20:15,360 --> 00:20:18,240
 中断并进入内核，
-interrupted and goes into the kernel,
 
 341
 00:20:19,020 --> 00:20:23,010
 然后这些东西保存在这个程序的 trapframe 中，
-then this stuff saved away in this program's trapframe
 
 342
 00:20:23,640 --> 00:20:30,570
 并且这个程序的内核线程被激活，
-and a kernel, the kernel thread for this program is activated
 
 343
 00:20:30,660 --> 00:20:35,760
 现在， trapframe 保存着用户的东西，
-and so now this is the trapframe hold saved user stuff
 
 344
 00:20:35,760 --> 00:20:38,700
 在我们保存了用户程序计数器寄存器之后，
-after we saved a way the user [] program counter registers,
 
 345
 00:20:38,850 --> 00:20:42,510
 然后，我们将 CPU 切换到使用内核堆栈。
-then we switch the CPU to using the kernel stack.
 
 346
 00:20:45,520 --> 00:20:47,590
 我们不需要恢复寄存器，
-And you know we don't need to restore registers,
 
 347
 00:20:47,590 --> 00:20:53,900
 因为，进程的内核线程并没有真正运行，
-because, through the the kernel thread for process isn't really running,
 
 348
 00:20:53,900 --> 00:20:58,960
 当用户线程运行时，它没有实际的保存状态，
-it has no real save state, when the user thread is running
 
 349
 00:20:58,990 --> 00:21:02,950
 相反的，内核线程在其堆栈上激活。
-instead it's sort of the kernel thread is kind of activated on its stack.
 
 350
 00:21:02,980 --> 00:21:08,800
 所以，第一次在 trampoline 和用户 trap 代码。
-So the first time in in the trampoline and a user trap code.
 
 351
 00:21:11,940 --> 00:21:13,710
 然后内核运行一段时间，
-And then the kernel runs for a while,
 
 352
 00:21:13,710 --> 00:21:16,320
 也许是系统调用或中断处理程序，
-maybe running a system call or interrupt handler,
 
 353
 00:21:16,320 --> 00:21:17,250
 不管是什么，
-whatever it maybe,
 
 354
 00:21:18,150 --> 00:21:22,740
 有时，系统调用只是简单地返回，
-and sometimes it is a system call particular will just simply return,
 
 355
 00:21:22,740 --> 00:21:25,140
 从这里到同一个进程，
-from this point back to the same process
 
 356
 00:21:25,140 --> 00:21:30,690
 返回到用户空间，或者恢复该程序的程序计数器寄存器，
-and return to user space or restore this program's program counter registers,
 
 357
 00:21:30,720 --> 00:21:34,320
 但也可能不是简单地返回，
-but it could also be that instead of simply returning,
 
 358
 00:21:34,890 --> 00:21:36,180
 而是因为这样或那样的原因，
-for one reason or another,
 
 359
 00:21:36,180 --> 00:21:37,590
 可能是因为定时器中断，
-maybe because it was a timer interrupt,
 
 360
 00:21:37,710 --> 00:21:39,900
 我们要切换到另一个进程，
-we're actually going to switch to another process
 
 361
 00:21:39,900 --> 00:21:42,270
 高层次的观点是，
-and the very high-level view of that is that
 
 362
 00:21:43,110 --> 00:21:48,930
 如果 xv6 调度器决定从这个进程切换到不同进程，
-if the xv6 scheduler decides switch from this process to a different process,
 
 363
 00:21:49,590 --> 00:21:51,480
 发生的第一件事是，
-what the first thing that really happens is
 
 364
 00:21:51,480 --> 00:21:54,540
 我们要切换内核线程，
-that we're going to switch kernel threads
 
 365
 00:21:54,570 --> 00:21:58,260
 从这个进程的内核线程到另一个进程的内核线程，
-from this processe's kernel thread to the other process's kernel thread,
 
 366
 00:21:58,350 --> 00:22:01,530
 然后其他进程的内核线程返回到用户空间。
-and then the other processes kernel thread will return back to user space.
 
 367
 00:22:01,530 --> 00:22:04,950
 所以，假设 C 编译器需要读取磁盘，
-So supposing that the C compiler [] needs to read the disk
 
 368
 00:22:05,070 --> 00:22:07,380
 所以它会让出 CPU ，
-and so it's going to yield the CPU
 
 369
 00:22:07,860 --> 00:22:10,230
 休眠并等待磁盘完成，
-while sleeping to wait for the disk to complete,
 
 370
 00:22:10,410 --> 00:22:13,710
 也许 ls 想要执行，并处于可运行状态，
-maybe ls wants to execute and is in runnable state,
 
 371
 00:22:14,610 --> 00:22:17,250
 xv6 调度器可能做的是，
-what the xv6 scheduler maybe they do is that,
 
 372
 00:22:17,400 --> 00:22:20,280
 如果 ls 处于可运行状态，
-well, if ls is in runnable state,
 
 373
 00:22:20,280 --> 00:22:22,080
 意味着它在某个地方停了下来，
-that means it left off somewhere
 
 374
 00:22:22,080 --> 00:22:25,740
 它的状态保存在一边，可能是因为定时器中断，
-and its state was saved away possibly by a timer interrupt
 
 375
 00:22:25,920 --> 00:22:28,890
 所以 ls 有一个保存的 traframe ，
-and so ls will actually have a saved trapframe
 
 376
 00:22:28,890 --> 00:22:32,880
 包含用户寄存器和它自己的内核堆栈，
-with user registers and its own kernel stack,
 
 377
 00:22:33,150 --> 00:22:40,910
 它保存了一些与内核线程有关的寄存器，
-and as it turns out save set of kernel registers associated with the kernel thread
 
 378
 00:22:40,940 --> 00:22:43,280
 这被称为上下文。
-which is going to be called the context.
 
 379
 00:22:43,520 --> 00:22:48,980
 所以，如果 xv6 从编译器内核线程切换到 ls 内核线程，
-So, if xv6 switches from the compiler kernel thread to ls's kernel thread,
 
 380
 00:22:49,500 --> 00:22:53,700
 xv6 将保存内核寄存器，
-xv6 will save away the kernel registers,
 
 381
 00:22:53,790 --> 00:23:01,500
 在 C 编译器内核线程切换到 ls 线程的上下文中，
-in a context with a C the compilers kernel thread switch to the ls thread,
 
 382
 00:23:02,730 --> 00:23:06,450
 这个复杂的方案，我稍后会描述，
-complex scheme which I'll describe a little bit later,
 
 383
 00:23:06,750 --> 00:23:11,560
 我们恢复 ls 的内核线程寄存器，
-we'll restore ls's kernel thread registers
 
 384
 00:23:11,560 --> 00:23:15,670
 从上一次停止的 ls 上下文中，
-from the previously save context from one ls last left off,
 
 385
 00:23:16,000 --> 00:23:19,510
 也许 ls 完成正在执行的系统调用，
-maybe ls will finish whatever system call was executing,
 
 386
 00:23:19,510 --> 00:23:23,800
 在 ls 的内核线程堆栈上，
-you know on the ls's kernel thread stack,
 
 387
 00:23:24,160 --> 00:23:26,620
 然后返回到 ls 系统调用，
-and then return back to ls system call,
 
 388
 00:23:26,620 --> 00:23:28,480
 在返回用户空间的路上，
-on the way to return to user space
 
 389
 00:23:28,480 --> 00:23:32,810
 它将为 ls 恢复以前保存的用户寄存器，
-that will restore these previously saved user registers for ls
 
 390
 00:23:33,440 --> 00:23:35,660
 然后继续执行 ls 。
-and then resume executing ls.
 
 391
 00:23:35,690 --> 00:23:39,980
 所以，这里有一堆我们将要讨论的细节，
-So, there's bunch of details here which we'll talk about,
 
 392
 00:23:39,980 --> 00:23:42,800
 但也许这里的重点是，
-but maybe the main point here is that
 
 393
 00:23:42,830 --> 00:23:47,930
 在 xv6 中，我们不会看到用户到用户的上下文切换，
-we never in xv6 see direct user to user context switches,
 
 394
 00:23:47,930 --> 00:23:50,330
 当我们从一个进程切换到另一个进程，
-when we're switching from one process to another,
 
 395
 00:23:50,330 --> 00:23:54,760
 总是一种策略，
-always the sort of strategy
 
 396
 00:23:54,760 --> 00:23:59,110
 xv6 从一个进程切换到另一个进程是，
-by which xv6 switches from executing one process to another process is
 
 397
 00:23:59,170 --> 00:24:01,570
 跳入内核，保存进程状态，
-you jump in the kernel, saves the process state,
 
 398
 00:24:01,570 --> 00:24:06,550
 从这个进程的内核线程切换到另一个进程的内核线程，
-run this process's kernel thread switch to the kernel thread of another process,
 
 399
 00:24:06,550 --> 00:24:07,720
 那个进程暂停了自己，
-that suspended itself
 
 400
 00:24:07,720 --> 00:24:10,000
 然后返回并恢复用户寄存器，
-and then return and restore user register,
 
 401
 00:24:10,000 --> 00:24:12,100
 所以一直是这种间接的策略，
-so it's always this indirect strategy,
 
 402
 00:24:12,430 --> 00:24:13,990
 实际上比这更间接的，
-actually even more indirect than this,
 
 403
 00:24:14,260 --> 00:24:15,790
 对于线程切换，
-to threads swhich,
 
 404
 00:24:15,910 --> 00:24:20,380
 实际结果是从一个用户进程切换到另一个用户进程。
-where the net effect is to switch from one user process to another user process.
 
 405
 00:24:23,310 --> 00:24:26,400
 关于这张图，有什么问题吗？
-Question about this diagram or anything?
 
 406
 00:24:29,260 --> 00:24:32,890
 切换，调度器，发生在这两个之间，对吗。
-Switched the scheduler, that happens in between those two, right.
 
 407
 00:24:33,220 --> 00:24:36,700
 是的，好的，让我来谈谈调度器，
-Yep, all right, let me talk about the scheduler,
 
 408
 00:24:36,700 --> 00:24:42,400
 实际图片要比这复杂得多。
-so the real picture is actually a significantly more complex than that.
 
 409
 00:24:43,070 --> 00:24:47,890
 这是更完整的图，
-This is a may or more, gonna be more full diagram,
 
 410
 00:24:47,890 --> 00:24:52,170
 假设我们有进程一 P1 正在运行，
-let's say we have process one which is executing,
 
 411
 00:24:52,170 --> 00:24:57,150
 而进程二 P2 是可运行的，但是现在没有运行，
-and process two which is runnable, but not currently running,
 
 412
 00:24:58,020 --> 00:24:59,550
 还有一些额外的细节，
-now the additional layer of details,
 
 413
 00:24:59,550 --> 00:25:02,730
 我们在 xv6 中有多个核心，
-we actually have multiple cores in xv6,
 
 414
 00:25:02,730 --> 00:25:04,050
 假设我们有两个核心，
-let's say we have two cores,
 
 415
 00:25:04,050 --> 00:25:06,960
 这意味着在硬件层面上，
-so that means that at the hardware level,
 
 416
 00:25:07,680 --> 00:25:12,360
 我们有 CPU0 ，它是其中一个核心，
-we have CPU0 which is one of the cores
 
 417
 00:25:12,660 --> 00:25:14,850
 还有 CPU1 。
-and let's say CPU1.
 
 418
 00:25:20,030 --> 00:25:21,710
 更完整的故事是
-And the more full story about
 
 419
 00:25:21,710 --> 00:25:27,340
 我们如何从执行用户空间到，
-how we get from executing user space to,
 
 420
 00:25:27,370 --> 00:25:29,920
 在用户空间中执行的一个进程，
-in one process executing in user space
 
 421
 00:25:29,920 --> 00:25:33,460
 到另一个可运行但没有运行的进程，
-in another runnable but not yet running process,
 
 422
 00:25:33,880 --> 00:25:36,910
 第一部分与我所说的相同，
-the first part is about the same as I talked about
 
 423
 00:25:37,060 --> 00:25:39,790
 定时器中断强制
-and may say a timer interrupt forces
 
 424
 00:25:40,390 --> 00:25:43,540
 将控制从用户进程转移到内核，
-transfer control from the user process into the kernel,
 
 425
 00:25:43,600 --> 00:25:49,480
 trampoline 代码保存进程一的用户寄存器和 trapframe ，
-the trampoline code saves the user registers and trapframe for process one,
 
 426
 00:25:51,530 --> 00:25:54,900
 然后执行 usertrap ，
-and then executes usertrap
 
 427
 00:25:54,900 --> 00:25:57,630
 它知道该怎么处理这个 trap 或中断，
-which figures out what to do with this trap or interrupt,
 
 428
 00:25:57,630 --> 00:25:59,940
 系统调用，比如，
-you know system call, let's say as a,
 
 429
 00:26:00,090 --> 00:26:04,440
 所以有段时间，我们执行普通的内核 C 代码，
-so for a little while, we're executing ordinary kernel C code,
 
 430
 00:26:04,560 --> 00:26:07,830
 在进程一的内核堆栈上。
-on the kernel stack of process one.
 
 431
 00:26:10,240 --> 00:26:15,250
 假设，进程一的内核代码决定让出 CPU ，
-Let's say process one, the kernel code process once decides it wants to yield the CPU,
 
 432
 00:26:16,120 --> 00:26:18,580
 它有一堆东西，我们可以看到细节，
-it has a bunch of things, which we'll see the details of,
 
 433
 00:26:18,610 --> 00:26:22,270
 最终调用这个例程切换，
-that end up in a call to this routine switch,
 
 434
 00:26:22,730 --> 00:26:26,060
 是这个故事中的一个中心例程，
-just sort of one of the central routines in this story,
 
 435
 00:26:26,150 --> 00:26:29,900
 switch 保存上下文，
-switch saves away this context,
 
 436
 00:26:29,900 --> 00:26:33,740
 在上下文一中运行的内核线程的寄存器，
-that registers for the kernel thread that's running in context one,
 
 437
 00:26:33,740 --> 00:26:35,450
 所以有两组用户寄存器，
-so there's two sets of registers,
 
 438
 00:26:35,450 --> 00:26:40,450
 用户寄存器， trapframe ，内核线程寄存器在上下文中。
-the user registers, the trapframe, the kernel thread registers in the context.
 
 439
 00:26:41,510 --> 00:26:43,580
 switch 不会，
-Switch doesn't actually,
 
 440
 00:26:43,580 --> 00:26:47,240
 switch 从一个线程切换到另一个，
-switch switches from one content from one thread to another,
 
 441
 00:26:47,240 --> 00:26:50,600
 但是实际上 xv6 的设计方式，
-but in fact the way xv6 is designed,
 
 442
 00:26:50,750 --> 00:26:54,890
 用户线程，
-the only place that a user thread,
 
 443
 00:26:54,920 --> 00:26:57,920
 抱歉，在 CPU 上运行的内核线程可以切换的唯一位置是，
-sorry, the kernel thread running on a CPU can switch to is
 
 444
 00:26:57,920 --> 00:27:00,710
 那个 CPU 的调度器线程。
-what's called the scheduler thread for that CPU.
 
 445
 00:27:02,910 --> 00:27:05,550
 所以我们甚至不能直接切换到另一个进程，
-So we can't even switch directly to another process,
 
 446
 00:27:05,790 --> 00:27:07,680
 只能切换到调度器线程，
-can only switch to the scheduler thread,
 
 447
 00:27:07,680 --> 00:27:09,150
 所以这里有一个，
-so there's a,
 
 448
 00:27:10,360 --> 00:27:16,510
 完整的线程装置专用于 CPU0 的调度器，
-the complete thread apparatus dedicated to the scheduler for CPU0,
 
 449
 00:27:16,540 --> 00:27:17,830
 因为我们使用的是 CPU ，
-since we're running on CPUs,
 
 450
 00:27:17,830 --> 00:27:25,390
 这个 switch 会切换到调度器线程的之前保存的寄存器，
-this switch is going to switch to the previously saved registers for the scheduler thread,
 
 451
 00:27:25,420 --> 00:27:27,340
 假设是调度器 0 。
-so let's say schedule zero.
 
 452
 00:27:29,650 --> 00:27:33,070
 在 CPU0 的调度器中，
-And in the scheduler for CPU0,
 
 453
 00:27:33,100 --> 00:27:36,100
 switch 会，通过恢复这些寄存器，
-switch will, by restoring these registers,
 
 454
 00:27:36,100 --> 00:27:38,440
 由于寄存器包括堆栈指针，
-since registers include the stack pointer,
 
 455
 00:27:38,440 --> 00:27:40,450
 正如我们看到的， switch 的返回，
-the return from switch as we see,
 
 456
 00:27:40,630 --> 00:27:53,650
 将会返回到 CPU0 上的调度器函数，
-will now actually return up to the scheduler function on CPU,
 
 457
 00:27:53,650 --> 00:27:56,410
 调度器函数会进行一些清理，
-and scheduler function will do some cleanup
 
 458
 00:27:56,410 --> 00:27:58,630
 使进程一进入休眠状态，
-to finish putting process one to sleep,
 
 459
 00:27:58,720 --> 00:28:02,020
 然后它在进程表中查找另一个进程，
-then it'll look in the process table for another process,
 
 460
 00:28:02,020 --> 00:28:03,400
 一个可运行进程，
-a runnable process,
 
 461
 00:28:03,640 --> 00:28:06,130
 如果它找到了一个，
-and if it finds one,
 
 462
 00:28:07,160 --> 00:28:10,550
 所以我们从这里下来，然后到调度器，
-and so we've sort of gone down here and up into the scheduler,
 
 463
 00:28:10,670 --> 00:28:12,620
 如果调度器找到另一个要运行的进程，
-if the scheduler finds another process to run
 
 464
 00:28:12,620 --> 00:28:16,430
 或者发现进程一是可运行的，并且仍然想要运行，
-or even finds process one is runnable and still wants to run,
 
 465
 00:28:16,430 --> 00:28:19,010
 找到进程一，没有别的进程想要运行，
-find process one nothing else nothing else wants to run,
 
 466
 00:28:19,850 --> 00:28:22,940
 但不管怎样，调度器会再次调用 switch ，
-but in any case, the scheduler will call switch again,
 
 467
 00:28:22,940 --> 00:28:27,020
 将上下文切换到进程二，
-to switch contexts to say process two,
 
 468
 00:28:27,960 --> 00:28:32,490
 在线程中， switch 再次保存自己的寄存器到自己的上下文中，
-in the process switch will save its own registers again in its own context,
 
 469
 00:28:33,020 --> 00:28:36,680
 它们也会是前序保存的上下文，
-they'll be a previously saved context too,
 
 470
 00:28:36,680 --> 00:28:38,720
 当进程而停止时，
-from whenever process two left off
 
 471
 00:28:38,900 --> 00:28:41,870
 这组寄存器将被恢复，
-that those this set of registers will be restored,
 
 472
 00:28:42,440 --> 00:28:44,870
 进程二将使用前序调用，
-process two will have made a previous call,
 
 473
 00:28:44,870 --> 00:28:50,560
 像进程一样，切换到调度器线程，
-to switch, to switch to the scheduler thread just like process one did
 
 474
 00:28:50,560 --> 00:28:51,550
 当它停下来的时候，
-when it left off,
 
 475
 00:28:51,730 --> 00:28:53,200
 它调用 switch 返回
-that called a switch return to,
 
 476
 00:28:53,200 --> 00:28:56,150
 无论系统调用还是中断，
-whatever system call or interrupt,
 
 477
 00:28:56,150 --> 00:28:58,910
 进程二结束，
-process two is end, when that's finished,
 
 478
 00:28:59,030 --> 00:29:02,510
 会有一个先前保存的进程二的 trapframe ，
-there will be a previously saved trapframe for process two,
 
 479
 00:29:02,720 --> 00:29:04,220
 它将包含用户寄存器，
-that will contain user registers,
 
 480
 00:29:04,220 --> 00:29:08,360
 也可以恢复或返回到用户空间。
-also be restored or return back up into user space.
 
 481
 00:29:09,050 --> 00:29:15,920
 每个 CPU 都有一个完整的、单独的调度器线程，
-And there's a complete, a separate scheduler thread for each CPU,
 
 482
 00:29:15,920 --> 00:29:18,950
 所以，它们也将被保存，
-so, they'll also be saved,
 
 483
 00:29:19,700 --> 00:29:22,940
 CPU1 的调度器线程的上下文，
-context for the scheduler thread for CPU,
 
 484
 00:29:23,210 --> 00:29:28,960
 以及在调度器一上运行的调度器循环，
-and a scheduler loop running on scheduler one
 
 485
 00:29:28,960 --> 00:29:32,950
 以及任何运行在 CPU1 上的进程，比如进程三或其他，
-and whatever process, you know process three or something is running on CPU one
 
 486
 00:29:32,950 --> 00:29:34,750
 当它决定让出 CPU 时，
-when it decides to give up the CPU,
 
 487
 00:29:34,750 --> 00:29:41,410
 它将切换到 CPU 为它的调度器线程。
-it'll switch into scheduler thread for it for its CPU.
 
 488
 00:29:43,800 --> 00:29:44,850
 好的，这里有一个问题，
-Alright, there's a question,
 
 489
 00:29:44,850 --> 00:29:46,980
 上下文存储在哪里，
-where the context stored,
 
 490
 00:29:47,310 --> 00:29:52,370
 对于这些我刚才说的操作，
-it turns out that for the operations I've been talking about,
 
 491
 00:29:52,550 --> 00:29:54,140
 保存的，
-the saved,
 
 492
 00:29:54,200 --> 00:30:00,190
 事实上，对于线程切换，
-in fact always the for a thread switch,
 
 493
 00:30:01,030 --> 00:30:04,450
 这些上下文，这些内核线程保存的寄存器
-these contexts, these saved register sets for kernel threads,
 
 494
 00:30:04,450 --> 00:30:05,860
 都在进程结构体中，
-all in the process structure,
 
 495
 00:30:06,190 --> 00:30:11,890
 所以，任何内核线程只能有一组保存的内核寄存器。
-so any given kernel thread can only have one set of saved kernel registers.
 
 496
 00:30:12,380 --> 00:30:15,680
 因为每个线程只在一个位置执行，
-Because each thread is only executing a single place
 
 497
 00:30:15,680 --> 00:30:20,690
 它的上下文在某种程度上反映了它执行的位置，
-and its context kind of reflects that place that it was executing on it left off
 
 498
 00:30:20,690 --> 00:30:23,420
 线程是单个控制线程，
-a thread is a single thread of control,
 
 499
 00:30:23,420 --> 00:30:27,350
 所以一个线程只需要一个寄存器的上下文，
-so a thread really only needs one context for registers,
 
 500
 00:30:27,380 --> 00:30:33,190
 所以，它在进程结构体的 p->context 。
-so it's in the process structures p arrow, p->context.
 
 501
 00:30:35,310 --> 00:30:38,670
 而且每个调度器线程都有自己的上下文，
-And the scheduler, each scheduler thread has its own context
 
 502
 00:30:38,670 --> 00:30:39,900
 不是在，
-which actually not in the,
 
 503
 00:30:40,230 --> 00:30:43,380
 没有与调度器线程关联的进程，
-there's no process associated with this scheduler thread,
 
 504
 00:30:43,620 --> 00:30:50,710
 调度器的上下文存储在核心的 CPU 结构体中。
-this is actually scheduler's context is stored in the struct CPU for that core.
 
 505
 00:30:51,480 --> 00:30:54,120
 有一组 CPU 结构体，每个核心一个，
-There's an array of these CPU's struct one per core,
 
 506
 00:30:54,120 --> 00:30:55,860
 每一个有一个上下文。
-each one has a context.
 
 507
 00:30:58,210 --> 00:31:02,200
 为什么我们不能将寄存器包括在进程的 trapframe 中，
-Question, why can't we include the registers in the trapframe for the process,
 
 508
 00:31:02,230 --> 00:31:08,890
 实际上，这些寄存器可以存储在 trapframe 中，
-that is, you know actually the those registers could be stored in the trapframe
 
 509
 00:31:08,890 --> 00:31:14,050
 因为只有一个内核线程寄存器的存储集，
-which may, because there's only one save set of kernel thread registers,
 
 510
 00:31:14,260 --> 00:31:17,050
 对于进程，我们可以将它们保存在任何数据结构中，
-for process, we could save them in any data structure
 
 511
 00:31:17,230 --> 00:31:22,030
 比如存在进程数据结构实例的一个元素，
-for which there's one element of instance of that data structure process,
 
 512
 00:31:22,270 --> 00:31:24,400
 只有一个进程结构，
-there's one struct process,
 
 513
 00:31:24,400 --> 00:31:26,380
 有一个用于进程的 trapframe 结构，
-there's one struct trapframe for process,
 
 514
 00:31:26,500 --> 00:31:28,450
 我们可以把寄存器保存在 trapframe 中。
-we could store the registers in the trapframe.
 
 515
 00:31:31,730 --> 00:31:33,140
 我是说，只是，
-I mean just sort of for,
 
 516
 00:31:33,720 --> 00:31:35,730
 可能是为了代码的简单性或清晰性，
-maybe simplicity or clarity of code,
 
 517
 00:31:35,730 --> 00:31:40,040
 trapframe 只包含数据，
-the trapframe I think, entirely consists of data,
 
 518
 00:31:40,040 --> 00:31:42,500
 进入和离开内核时需要的（数据）。
-that's needed when entering and leaving the kernel.
 
 519
 00:31:43,060 --> 00:31:47,920
 content 结构由需要保存和恢复的内容组成，
-And the struct context is consists of the stuff that needs to be saved and restored,
 
 520
 00:31:47,920 --> 00:31:52,540
 当内核线程和调度器线程之间切换时。
-when switching to and from between the kernel thread and the scheduler thread.
 
 521
 00:31:54,640 --> 00:31:55,360
 好的，问题是，
-Okay, question is,
 
 522
 00:31:55,360 --> 00:31:58,210
 yield 是有内核调用的，
-yield something that's called by the user of the kernel, called by the kernel,
 
 523
 00:31:59,060 --> 00:32:02,630
 所以在 xv6 中，用户线程没有真正直接的方式，
-so the user threads, there's not really a direct way in xv6
 
 524
 00:32:02,630 --> 00:32:08,240
 用户线程让出 CPU 或切换，
-for user threads to talk about, yielding the CPU or switching,
 
 525
 00:32:08,480 --> 00:32:12,320
 它是通过内核这种透明的完成，
-that it's done by the kernel kind of transparently,
 
 526
 00:32:13,210 --> 00:32:16,510
 它会在内核觉得有必要发生的时候出现，
-you know it points in time when the kernel feels that it needs to happen,
 
 527
 00:32:16,810 --> 00:32:17,920
 如果有线程，
-if there are threads,
 
 528
 00:32:18,460 --> 00:32:22,960
 有时候，你能猜到，
-there are sometimes when, you can sort of guess
 
 529
 00:32:22,960 --> 00:32:26,500
 一个系统调用可能让出，
-that probably a certain system call will result in yield,
 
 530
 00:32:26,500 --> 00:32:30,130
 比如，如果进程在管道上进行读取，
-like if a process does a read on a pipe,
 
 531
 00:32:30,130 --> 00:32:33,190
 它知道在管道中没有需要等待读取的东西，
-where it knows that really nothing is waiting to be read in that pipe,
 
 532
 00:32:33,400 --> 00:32:35,290
 那么读取就会阻塞，
-then the read will block,
 
 533
 00:32:35,870 --> 00:32:37,370
 你可以预测读取阻塞，
-you can predict the read block
 
 534
 00:32:37,370 --> 00:32:40,620
 内核将运行其他进程，
-and that the kernel will run some other process,
 
 535
 00:32:40,620 --> 00:32:42,930
 当我们等待数据出现在管道中时。
-while we're waiting for data to appear in the pipe.
 
 536
 00:32:44,800 --> 00:32:47,800
 所以，内核调用 yield 的时机，
-So the times when yield is called in the kernel,
 
 537
 00:32:47,800 --> 00:32:48,940
 有两个主要的时机，
-there's really two main times,
 
 538
 00:32:48,940 --> 00:32:53,650
 一种是如果计时器中断，内核总会让出，
-one is if a timer interrupt goes off, kernel always yields,
 
 539
 00:32:53,860 --> 00:32:56,760
 基于这样的理论，
-you know just on the theory that,
 
 540
 00:32:57,640 --> 00:33:02,500
 我们应该交错执行所有这些进程，
-we should interleave the execution of of all the process
 
 541
 00:33:02,500 --> 00:33:06,500
 想要定期在定时器中断时运行，
-that want to run on timer interrupt periods,
 
 542
 00:33:06,770 --> 00:33:09,020
 所处，定时器中断总是调用 yield ，
-so timer interrupt also always calls yield
 
 543
 00:33:09,410 --> 00:33:13,280
 当进程系统调用等待 IO 时，
-and whenever a process system calls waiting for IO,
 
 544
 00:33:13,370 --> 00:33:15,200
 等待你输入下一次按键，
-waiting for you know type the next keystroke,
 
 545
 00:33:15,200 --> 00:33:16,910
 读取控制台，
-does a read of the console
 
 546
 00:33:16,910 --> 00:33:18,110
 但是你没有按键，
-and you haven't typed key yet,
 
 547
 00:33:18,410 --> 00:33:24,070
 然后等待 IO 调用的机器调用 yield ，
-then the the machinery to wait for IO calls yields,
 
 548
 00:33:24,070 --> 00:33:26,650
 调用 sleep ，我们下周会谈到。
-called for sleep, something we'll talk about next week.
 
 549
 00:33:29,200 --> 00:33:29,800
 好的。
-Alright.
 
 550
 00:33:31,540 --> 00:33:32,950
 好的，那么。
-Okay, so.
 
 551
 00:33:32,950 --> 00:33:34,390
 我有一个问题。
-I have another question.
 
 552
 00:33:34,420 --> 00:33:35,020
 好的。
-Yes.
 
 553
 00:33:35,700 --> 00:33:37,530
 如果是 sleep ，
-Oh, if it is a sleep,
 
 554
 00:33:37,560 --> 00:33:40,020
 它是否会做大致相同的事，
-is it gonna do the same thing roughly,
 
 555
 00:33:40,080 --> 00:33:42,660
 比如会是系统调用，
-so it's gonna be some system call,
 
 556
 00:33:42,690 --> 00:33:44,520
 保存 trapframe ，
-there's gonna save the trapframe
 
 557
 00:33:44,790 --> 00:33:47,850
 然后是一样的[图片]，
-and then basically the same [picture],
 
 558
 00:33:47,850 --> 00:33:51,570
 但它只是，
-but it's just then the thing
 
 559
 00:33:51,570 --> 00:33:55,800
 使进程在没有定时器中断的情况下进入内核，
-that made the process go into the kernel without a timer interrupt,
 
 560
 00:33:55,800 --> 00:33:57,350
 但是，是进程自己决定的吗？
-but, the process's own decision?
 
 561
 00:33:57,900 --> 00:34:03,510
 是的，所以这个进程有一个读取系统调用，
-Yeah, so the process make there's a read system call
 
 562
 00:34:03,510 --> 00:34:04,710
 这就是为什么它在内核中，
-and that's why it's in the kernel,
 
 563
 00:34:05,330 --> 00:34:11,210
 而读取需要这个进程等待磁盘完成读取，
-and the read requires the process to wait for the disk to do to finish reading
 
 564
 00:34:11,210 --> 00:34:13,220
 或者等待数据出现在管道上，
-or to wait for data to appear on a pipe,
 
 565
 00:34:13,310 --> 00:34:16,310
 那么图跟这个是一样的，
-then actually the diagram is exactly the same as this,
 
 566
 00:34:18,510 --> 00:34:20,100
 内核中调用系统调用，
-and the kernel with a system call,
 
 567
 00:34:20,100 --> 00:34:22,200
 trapframe ，所有保存的用户寄存器，
-trapframe, all the saved user register,
 
 568
 00:34:22,200 --> 00:34:23,970
 执行系统调用，系统会[]，
-execute the system call, the system will [],
 
 569
 00:34:24,000 --> 00:34:26,550
 需要等待磁盘完成读取某些内容，
-need to wait for the disk to finish reading something,
 
 570
 00:34:27,480 --> 00:34:31,770
 系统调用调用 sleep ，包含 switch ，
-the system call code will call sleep which ends up coding switch,
 
 571
 00:34:32,180 --> 00:34:38,150
 保存进程上下文中的内核线程寄存器，
-which saves away the kernel thread registers in the process context
 
 572
 00:34:38,450 --> 00:34:41,090
 切换到该当前 CPU 调度器，
-switches to this current CPU scheduler,
 
 573
 00:34:41,090 --> 00:34:42,680
 让其他线程运行，
-to let some other thread run,
 
 574
 00:34:42,710 --> 00:34:45,980
 而这个线程等待磁盘读取完成。
-while this thread is waiting for the disk read to finish.
 
 575
 00:34:46,590 --> 00:34:48,690
 所以，我们现在谈论的一切，
-So everything we're going to talk about now,
 
 576
 00:34:48,720 --> 00:34:50,520
 除了定时器中断，
-except for the timer interrupt,
 
 577
 00:34:50,970 --> 00:34:53,100
 几乎都是一样的，
-is pretty much the same
 
 578
 00:34:53,100 --> 00:34:55,680
 如果发生的情况是我们使用系统调用，
-if what's going on is we're in a system called,
 
 579
 00:34:55,680 --> 00:34:58,470
 系统调用需要等待一些 IO ，
-the system call needs to wait for some for IO
 
 580
 00:34:58,680 --> 00:34:59,700
 并放弃 CPU 。
-and give up the CPU.
 
 581
 00:35:02,250 --> 00:35:04,230
 对于今天的讨论，
-For the purposes of today's discussion,
 
 582
 00:35:04,230 --> 00:35:06,090
 这两种情况几乎是一样的。
-the two situations are almost identical.
 
 583
 00:35:08,970 --> 00:35:12,090
 好的，问题是每个 CPU 调度器都有自己的堆栈吗。
-Okay, so the question does each per CPU scheduler has its own stack.
 
 584
 00:35:12,090 --> 00:35:13,020
 是的，
-Yes,
 
 585
 00:35:13,290 --> 00:35:15,030
 这里有一个堆栈，
-there's a stack,
 
 586
 00:35:18,600 --> 00:35:22,350
 而这个调度器有单独的堆栈，
-this scheduler stack for this separate stack,
 
 587
 00:35:23,730 --> 00:35:26,520
 对于 CPU1 的调度器。
-for scheduler for CPU one.
 
 588
 00:35:31,920 --> 00:35:35,010
 是的，这个调度器的堆栈也设置好了，
-Yeah, and indeed the stacks for this scheduler also setup,
 
 589
 00:35:36,300 --> 00:35:38,040
 实际上，所有这些东西，
-in fact, all this stuff
 
 590
 00:35:38,070 --> 00:35:41,910
 上下文，堆栈，调度器线程，
-you know the context and the stacks with a scheduler threads
 
 591
 00:35:41,910 --> 00:35:45,060
 设置与用户进程的设置方式不同。
-are set up in a different way than for user process's.
 
 592
 00:35:46,450 --> 00:35:48,130
 它们是在引导时设置的，
-They're set up at boot time,
 
 593
 00:35:48,280 --> 00:35:54,220
 如果查看 start.S 或 start.c ，
-if you poke around and start.S or start.c, start.S probably,
 
 594
 00:35:54,220 --> 00:35:59,020
 你会看到每个核心的调度器线程的设置，
-you'll see some of the setup for each core's scheduler thread,
 
 595
 00:35:59,020 --> 00:36:03,070
 堆栈在引导的汇编代码中非常早的位置，
-there's a place with stack very early in the assembly code during boot,
 
 596
 00:36:03,100 --> 00:36:06,220
 其中为每个 CPU 设置堆栈，
-where the stack is set up for each CPU
 
 597
 00:36:06,220 --> 00:36:07,300
 在那个堆栈上，
-and it's on that stack,
 
 598
 00:36:07,300 --> 00:36:09,460
 CPU 引导，
-that's a CPU boots on
 
 599
 00:36:09,640 --> 00:36:11,320
 然后运行它的调度器线程。
-and then runs its scheduler thread.
 
 600
 00:36:15,590 --> 00:36:16,880
 好的，嗯。
-Okay, um.
 
 601
 00:36:18,930 --> 00:36:20,430
 一条行话，
-One piece of jargon,
 
 602
 00:36:20,430 --> 00:36:23,700
 当人们谈论上下文切换时，
-when people talk about context switch,
 
 603
 00:36:24,840 --> 00:36:32,240
 他们谈论的通常是这种行为，
-they're talking about usually this act of
 
 604
 00:36:32,240 --> 00:36:34,070
 从一个线程切换到另一个，
-switching from one thread to another
 
 605
 00:36:34,070 --> 00:36:37,040
 保存旧线程的一组寄存器，
-by saving one set of register sets for the old thread
 
 606
 00:36:37,220 --> 00:36:40,730
 并且恢复要切换到的线程先前保存的寄存器，
-and restoring previously saved registers for the threads were switching to,
 
 607
 00:36:41,600 --> 00:36:43,070
 这就是上下文的意思，
-that's what's usually meant by context,
 
 608
 00:36:43,070 --> 00:36:47,700
 有时它也适用于完整的，
-which also sometimes it's applied to the complete done is
 
 609
 00:36:47,700 --> 00:36:50,280
 一个用户进程切换到另一个，
-that goes on when switching from one user process to another
 
 610
 00:36:50,280 --> 00:36:54,810
 偶尔会看到在用户和内核之间切换的上下文，
-and occasionally you'll see context which apply to switching between user and kernel,
 
 611
 00:36:54,930 --> 00:36:57,060
 但对我们来说，我们大多数的意思是，
-but for us we mostly mean it,
 
 612
 00:36:58,260 --> 00:37:03,670
 从一个内核线程切换到调度器线程。
-switching from one kernel thread typically to scheduler thread.
 
 613
 00:37:04,980 --> 00:37:08,130
 只是一些片段信息，
-Just some pieces of information,
 
 614
 00:37:10,100 --> 00:37:13,430
 要记住的[][]，
-the [] [] to keep in mind,
 
 615
 00:37:13,610 --> 00:37:16,580
 每个核心一次只做一件事，
-every core just does one thing at a time,
 
 616
 00:37:16,610 --> 00:37:21,320
 每个核心在任何时间只运行一个线程，
-each core you know is either is just running one thread at any given time,
 
 617
 00:37:21,320 --> 00:37:25,700
 它要么运行一些用户线程或一些内核线程，
-it's either running some processes user thread some process kernel thread
 
 618
 00:37:25,730 --> 00:37:27,890
 或核心的调度器线程，
-or that core's scheduler thread,
 
 619
 00:37:28,190 --> 00:37:30,830
 所以在任何时间，核心都不会做多件事，
-so at any given time the core is not doing multiple things,
 
 620
 00:37:30,830 --> 00:37:31,850
 它只是在做一件事，
-it's just doing one thing
 
 621
 00:37:31,850 --> 00:37:34,700
 正是这种切换在创造了一个假象，
-and it's this switching that sort of creates the illusion
 
 622
 00:37:34,700 --> 00:37:39,200
 多个线程在核心上不同时间运行，
-of multiple threads running at different times on that core,
 
 623
 00:37:39,620 --> 00:37:46,360
 类似地，每个线程运行在，
-similarly, each thread is running on,
 
 624
 00:37:46,870 --> 00:37:50,320
 要么在一个核心上运行，
-is either running on exactly one core
 
 625
 00:37:50,740 --> 00:37:54,130
 或它的状态已保存，
-or its state has been state has been saved
 
 626
 00:37:54,130 --> 00:37:55,570
 然后我们从它切换走。
-and we switched away from it.
 
 627
 00:37:56,280 --> 00:37:57,840
 所以，一个线程，
-So, so a thread,
 
 628
 00:37:57,840 --> 00:38:00,270
 线程不会在多个核心上运行，
-just to be clear, thread never runs on more than one core,
 
 629
 00:38:00,270 --> 00:38:02,160
 线程要么在一个核心上运行，
-thread is either running on just one core
 
 630
 00:38:02,190 --> 00:38:05,310
 要么根本没有运行，作为保存状态。
-or it's not running at all, as a saved state somewhere.
 
 631
 00:38:06,610 --> 00:38:10,690
 另一个关于 xv6 设置的有趣的事情是，
-Another interesting thing about the xv6 setup is that
 
 632
 00:38:10,780 --> 00:38:17,190
 这些上下文保存内核线程寄存器，
-these contexts that hold saved kernel thread registers,
 
 633
 00:38:17,430 --> 00:38:20,280
 它们总是由调用 swtch 产生，
-they're always produced by a call to switch
 
 634
 00:38:20,670 --> 00:38:27,210
 所以，这些上下文总是关联指线程的状态，
-and so these contexts basically always refer to the state of the thread
 
 635
 00:38:27,240 --> 00:38:30,420
 它在对 swtch 的调用中执行的。
-and it was executing inside a call to swtch.
 
 636
 00:38:33,240 --> 00:38:35,820
 我们会看到的方式是，
-And you know the way we'll see that come up is that
 
 637
 00:38:35,910 --> 00:38:38,610
 当我们从一个切换到另一个，
-when we switch from one to another
 
 638
 00:38:38,610 --> 00:38:40,950
 并恢复目标线程的上下文，
-and restore the target thread's context,
 
 639
 00:38:41,100 --> 00:38:45,240
 它要做的第一件事是从上一个调用返回到 swtch ，
-the first thing it will do is return from a previous call to swtch,
 
 640
 00:38:45,390 --> 00:38:47,700
 这些上下文总是保存状态，
-these contexts are always saved state,
 
 641
 00:38:48,270 --> 00:38:50,160
 就像它在 swtch 里一样。
-in as it is in swtch.
 
 642
 00:38:52,490 --> 00:38:53,180
 好的。
-Okay.
 
 643
 00:38:56,060 --> 00:39:00,320
 关于图表级别的情况，还有什么问题吗？
-Any more questions about the diagram level situation?
 
 644
 00:39:05,240 --> 00:39:06,470
 我有一个问题，
-I have a question,
 
 645
 00:39:06,740 --> 00:39:08,900
 你一直使用线程这个术语，
-you are using the term thread all the time,
 
 646
 00:39:08,900 --> 00:39:12,500
 但在我看来，我们对 xv6 的实现，
-but it seems to me, like our implementation for xv6,
 
 647
 00:39:12,860 --> 00:39:15,710
 一个进程只有一个线程，
-a process is if there's only one thread,
 
 648
 00:39:15,860 --> 00:39:19,460
 所以，有没有可能一个进程可以有多个线程，
-so it could it be possible that one process could have multiple threads
 
 649
 00:39:19,460 --> 00:39:21,050
 还是我说错了。
-or am I wrong here.
 
 650
 00:39:21,740 --> 00:39:24,630
 在 xv6 中，好的。
-In xv6, alright.
 
 651
 00:39:26,030 --> 00:39:29,870
 我们在这里的说法是有一些让人困惑的地方，
-There's definitely some confusing things about the way we use the words here,
 
 652
 00:39:29,900 --> 00:39:31,460
 在 xv6 中，
-in xv6,
 
 653
 00:39:32,260 --> 00:39:34,150
 一个进程，
-a process,
 
 654
 00:39:38,470 --> 00:39:43,930
 一个进程执行用户级别的指令，
-a process is either executing instructions user level
 
 655
 00:39:44,080 --> 00:39:49,000
 或者执行内核中的指令，
-or it's executing instructions in the kernel
 
 656
 00:39:49,780 --> 00:39:52,900
 或者根本不执行，
-or it's not executed at all
 
 657
 00:39:52,900 --> 00:39:59,440
 它的状态被保存到上下文和 trapframe 中。
-and its state has been saved away into this combination of context and trapframe.
 
 658
 00:40:02,300 --> 00:40:03,920
 所以这就是实际情况，
-So that's the actual situation,
 
 659
 00:40:03,980 --> 00:40:05,570
 你怎么叫它，
-which you want to call that,
 
 660
 00:40:09,060 --> 00:40:10,740
 你想怎么叫都行，
-you call it what you like,
 
 661
 00:40:10,800 --> 00:40:13,950
 我不知道对这个结构有什么简单的解释，
-I I don't know of a simple explanation for this structure,
 
 662
 00:40:14,160 --> 00:40:16,320
 我们一直这样叫它，
-we've been calling it I've been calling it,
 
 663
 00:40:16,590 --> 00:40:20,640
 我一直说每个进程有两个线程，
-I've been saying that each process has two threads,
 
 664
 00:40:21,100 --> 00:40:24,930
 一个用户级线程和一个内核级线程，
-a user level thread and a kernel level thread
 
 665
 00:40:25,080 --> 00:40:26,190
 这是一个进程，
-and that's a process,
 
 666
 00:40:26,190 --> 00:40:27,090
 有这样的限制，
-there's this restriction
 
 667
 00:40:27,090 --> 00:40:28,860
 进程只会执行，
-that a process is only execute,
 
 668
 00:40:28,860 --> 00:40:31,770
 或者在用户空间的内核中执行，
-either executing in the kernel in the user space
 
 669
 00:40:31,860 --> 00:40:35,070
 或者在内核中中断系统调用中，
-or executing in the kernel, inter- interrupt system call,
 
 670
 00:40:35,430 --> 00:40:36,240
 但不能两个同时。
-but never both.
 
 671
 00:40:38,680 --> 00:40:39,820
 理解了。
-That makes sense.
 
 672
 00:40:39,850 --> 00:40:43,780
 是的，我为这件事的复杂性道歉。
-Yeah, I apologize for the complexity of this.
 
 673
 00:40:47,540 --> 00:40:48,110
 好的。
-Okay.
 
 674
 00:40:48,710 --> 00:40:50,690
 好的，让我切换到代码，
-Okay, so let me switch to code,
 
 675
 00:40:50,690 --> 00:40:52,220
 看看 xv6 代码。
-looking at the xv6 code.
 
 676
 00:41:01,130 --> 00:41:04,250
 好的，首先，
-Alright, so first of all,
 
 677
 00:41:10,090 --> 00:41:15,520
 我展示一些我们一直在谈论的东西，
-I just wanna, just show some of the stuff we've been talking about,
 
 678
 00:41:15,520 --> 00:41:20,300
 我来看一下进程的结构。
-I'm going to look at the process structure.
 
 679
 00:41:20,970 --> 00:41:22,440
 我们可以在进程结构中看到，
-And we can see in the process structure,
 
 680
 00:41:22,440 --> 00:41:23,880
 很多东西我们已经讨论过，
-a lot of the things we've been talking about,
 
 681
 00:41:24,390 --> 00:41:26,250
 复习一下，
-just for review,
 
 682
 00:41:26,250 --> 00:41:34,980
 这是 trapframe ，保存了用户级别寄存器。保存用户级寄存器的陷阱帧。
-there's the trapframe, that saves the user level registers.
 
 683
 00:41:36,440 --> 00:41:43,810
 这里有一个上下文，它保存内核线程寄存器，
-There's a context here, that saves the kernel thread registers,
 
 684
 00:41:43,810 --> 00:41:46,000
 当切换到调度器线程。
-which switch to the scheduler thread.
 
 685
 00:41:46,580 --> 00:41:51,320
 有一个指向这个进程的指针是内核堆栈，
-There's a pointer to this process is kernel stack,
 
 686
 00:41:51,320 --> 00:41:53,810
 保存函数调用的位置，
-which is where function calls are saved,
 
 687
 00:41:53,960 --> 00:41:55,490
 当我门在内核中执行时。
-while we're executing in the kernel.
 
 688
 00:41:56,560 --> 00:41:58,780
 这是状态变量，
-There's the state variable,
 
 689
 00:41:58,780 --> 00:42:03,490
 它记录该进程是否正在运行或是否可运行，
-which records whether this process is running or runnable
 
 690
 00:42:03,490 --> 00:42:05,800
 或者处于休眠状态或根本没有分配。
-or sleeping or not allocated at all.
 
 691
 00:42:06,550 --> 00:42:13,500
 最后，这里有一个锁，保护我们看到的各种东西，
-And then finally, there's a lock that protects various things as we'll see,
 
 692
 00:42:15,710 --> 00:42:22,670
 目前，我们可以看到，至少保护了对状态变量的更改。
-for now, we can observe that at least protects changes to the state variable.
 
 693
 00:42:23,480 --> 00:42:26,360
 比如，两个调度器线程，
-So that for example two scheduler threads,
 
 694
 00:42:26,360 --> 00:42:29,720
 不会试图获取一个可运行的进程并同时运行它。
-don't try to grab a runnable process and run it at the same time.
 
 695
 00:42:30,300 --> 00:42:32,970
 这个锁做的事情之一就是防止这种情况发生。
-One of the many things this lock does is prevent that from happening.
 
 696
 00:42:35,280 --> 00:42:40,680
 我要为你们运行一个简单的演示程序 spin 程序。
-I'm gonna run a simple demo program for you, the spin program.
 
 697
 00:42:41,460 --> 00:42:44,760
 我要用它来推动，
-I'm using it mostly just to drive the
 
 698
 00:42:44,970 --> 00:42:47,220
 创造一种可预测的情况，
-sort of create a predictable situation
 
 699
 00:42:47,220 --> 00:42:49,710
 我们从一个线程切换到另一个线程，
-in which we switch from one thread to another,
 
 700
 00:42:49,890 --> 00:42:52,290
 但这就是这个程序，
-but this is this program,
 
 701
 00:42:52,290 --> 00:42:54,840
 spin 程序创建了两个进程，
-spin program creates two processes
 
 702
 00:42:54,840 --> 00:42:56,850
 而且这两个过程都是永远计算的，
-and the processes both compute forever,
 
 703
 00:42:57,320 --> 00:42:59,570
 在这里调用 fork，
-you know call fork here,
 
 704
 00:43:00,320 --> 00:43:02,330
 我创造了一个子程序，
-I make a child
 
 705
 00:43:02,420 --> 00:43:07,310
 然后两个子程序永远在这个循环里，
-and then forever, both children both children just sit in this loop
 
 706
 00:43:07,310 --> 00:43:08,990
 而每个进程打印一个字符，
-and everyone's while print a character,
 
 707
 00:43:08,990 --> 00:43:10,760
 所以，我们可以看到它们的进展，
-so we can see they're making progress,
 
 708
 00:43:11,000 --> 00:43:13,340
 但是它们不经常打印字符，
-but they don't print characters very often,
 
 709
 00:43:13,340 --> 00:43:17,570
 而且它们从来不会故意放弃 CPU 。
-and they never sort of intentionally give up the CPU.
 
 710
 00:43:17,600 --> 00:43:21,620
 所以我们这里有两个计算密集型进程，
-So what we have here is two, essentially two compute bound processes
 
 711
 00:43:21,740 --> 00:43:23,390
 为了让它们两个都跑起来，
-and in order for both of them to run,
 
 712
 00:43:23,390 --> 00:43:25,940
 我将在单个 CPU 上运行它们，
-I'm gonna run them on a single CPU,
 
 713
 00:43:26,780 --> 00:43:29,660
 只有一个核心的 xv6 ，
-xv6 that is only one core
 
 714
 00:43:29,720 --> 00:43:31,490
 所以，为了让它们两个都能执行，
-and so in order for both of them to execute,
 
 715
 00:43:31,610 --> 00:43:38,800
 有必要在这两个进程之间切换。
-you know it's going to be necessary to to switching between the two processes.
 
 716
 00:43:40,440 --> 00:43:45,600
 让我使用 gdb 把 spin 程序启动起来，
-Let me fire up spin program under gdb,
 
 717
 00:43:51,020 --> 00:43:53,180
 运行 spin 程序，你可以看到它在打印，
-run the spin program and you can see it's printing,
 
 718
 00:43:53,210 --> 00:43:56,720
 其中一个进程打印正斜杠，
-one of the two processes prints forward slash
 
 719
 00:43:56,720 --> 00:43:58,400
 另一个打印反斜杠，
-and the other prints backward slash
 
 720
 00:43:58,400 --> 00:44:00,500
 你可以看到，每隔一段时间，
-and you can see that every once in a while,
 
 721
 00:44:00,740 --> 00:44:03,170
 xv6 在它们之间切换，
-xv6 is switching between them
 
 722
 00:44:03,170 --> 00:44:05,270
 而且只有一个核心，就像我配置的那样，
-and only has one core the way I've configured it,
 
 723
 00:44:05,480 --> 00:44:08,960
 所以我们看到打印一堆正斜杠，
-so we see a bunch of forward slashes printing
 
 724
 00:44:08,960 --> 00:44:11,000
 然后很明显是计时器中断，
-and then apparently a timer interrupt,
 
 725
 00:44:11,000 --> 00:44:15,410
 将一个 CPU 切换到另一个进程，
-must go off switch the one CPU to the other process
 
 726
 00:44:15,410 --> 00:44:17,930
 然后打印一会另一种斜杠。
-and then prints the other kind of slash for a while.
 
 727
 00:44:17,990 --> 00:44:20,660
 所以，我想要观察的是计时器中断的运行，
-So what I want to observe is the timer interrupt going off,
 
 728
 00:44:20,810 --> 00:44:24,630
 所以我要在 trap 里放一个断点，
-so I'm gonna put a breakpoint in trap,
 
 729
 00:44:26,940 --> 00:44:30,360
 尤其是在 trap 中的第 207 行，
-and in particular at line 207 in trap,
 
 730
 00:44:35,060 --> 00:44:45,240
 trap 中的 devintr 代码，
-which is a code in trap in devintr,
 
 731
 00:44:45,240 --> 00:44:49,320
 表示我们在中断中，
-that recognizes that we're in interrupt
 
 732
 00:44:49,320 --> 00:44:52,050
 并且这是中断是由定时器中断引起的。
-and the interrupt was caused by a timer interrupt.
 
 733
 00:44:53,430 --> 00:44:56,040
 所以我在这里设置一个断点，
-So I put a breakpoint here,
 
 734
 00:44:56,040 --> 00:44:59,880
 在 trap.c 第 207 行，
-at trap.c 207
 
 735
 00:44:59,880 --> 00:45:04,080
 继续[]我刚才触发的 trap ，
-and continue [boom] the trap I triggers right away,
 
 736
 00:45:04,080 --> 00:45:05,850
 因为定时器中断相当频繁，
-because timer interrupt are pretty frequent
 
 737
 00:45:06,150 --> 00:45:06,900
 我们可以从得到，
-and we can tell from
 
 738
 00:45:06,900 --> 00:45:10,860
 用户 trap 调用 devintr 的地方，
-where that indeed when user trap and user trap has called devintr
 
 739
 00:45:11,400 --> 00:45:12,930
 来处理这个中断。
-to handle this interrupt.
 
 740
 00:45:13,480 --> 00:45:18,400
 我想离开 devintr ，回到用户 trap 中。
-I wanna take finish to get out of devintr back into user trap.
 
 741
 00:45:20,420 --> 00:45:21,230
 因为，事实上我们没有，
-Because, in fact we don't,
 
 742
 00:45:22,640 --> 00:45:25,250
 devintr 到定时器中断的代码没有什么东西。
-the code devintr into timer interrupt you know says almost nothing.
 
 743
 00:45:27,340 --> 00:45:34,810
 然而，一旦我们回到 usertrap ，
-However, once we're back at in usertrap,
 
 744
 00:45:36,200 --> 00:45:39,440
 我们可以从这一行看到，
-we can see that this line here,
 
 745
 00:45:39,440 --> 00:45:41,630
 我们刚从 devintr 返回。
-that we just returned from devintr.
 
 746
 00:45:47,860 --> 00:45:52,930
 有趣的是，
-And the interesting thing about this is that,
 
 747
 00:45:54,340 --> 00:45:56,020
 我们接下来要做的，
-what we're about to do,
 
 748
 00:45:56,530 --> 00:45:59,020
 期待我们在这一行，
-I'm looking forward we're currently at this line here
 
 749
 00:45:59,140 --> 00:46:03,010
 我们期待这里调用 yield ，
-and we're looking forward to this call the yield,
 
 750
 00:46:03,730 --> 00:46:07,300
 在这里你可以看到， devintr 返回了 2 ，
-when devintr return two, you can see from this,
 
 751
 00:46:07,450 --> 00:46:08,980
 返回的是 2 ，
-the return is two,
 
 752
 00:46:08,980 --> 00:46:11,140
 2 是设备号，
-two is basically the device number
 
 753
 00:46:11,320 --> 00:46:13,450
 我们很快就会看到这一点，
-and we're going to see that by and by,
 
 754
 00:46:13,480 --> 00:46:15,880
 因为哪个设备是 2 ，
-because which devices two,
 
 755
 00:46:16,480 --> 00:46:18,820
 usertrap 要 yield 的，
-usertrap going to call yield,
 
 756
 00:46:18,820 --> 00:46:22,320
 它获得 CPU 并允许运行进程，
-which go to CPU and allows [pushing] the process,
 
 757
 00:46:22,770 --> 00:46:23,700
 你很快就会看到这一点，
-you'll see that in a moment,
 
 758
 00:46:23,910 --> 00:46:27,960
 同时，让我们看看中断发生时正在执行的是什么。
-meantime let's look at what was currently executing when the interrupt happened.
 
 759
 00:46:28,140 --> 00:46:29,820
 我要打印 p ，
-I'm going to print p,
 
 760
 00:46:31,010 --> 00:46:35,960
 变量 p 保存着指向当前进程结构 proc 的指针。
-the variable p holds a pointer to the current processes struct proc.
 
 761
 00:46:38,890 --> 00:46:42,790
 好的，问题是什么让每个进程的内核线程不同。
-Okay, the question what makes each processes kernel thread different.
 
 762
 00:46:43,260 --> 00:46:47,310
 每个进程都有单独的内核线程，
-Every process has a separate kernel thread,
 
 763
 00:46:47,930 --> 00:46:52,490
 确实有两个不同的进程内核线程，
-there's really two things that differentiate different processes kernel thread,
 
 764
 00:46:52,490 --> 00:46:55,670
 因为多个可以在不同的核心上执行。
-because more than one could be executing on different cores.
 
 765
 00:46:57,650 --> 00:47:01,940
 一个是每个进程都有单独的内核堆栈，
-One is indeed that every process has a separate kernel stack
 
 766
 00:47:01,940 --> 00:47:05,990
 就是结构体 proc 的 kstack 所指向的，
-and that's what's pointed to by that kstack element of struct proc
 
 767
 00:47:06,470 --> 00:47:08,150
 另一个是，
-and the other is that,
 
 768
 00:47:13,490 --> 00:47:15,680
 早些时候，
-early in,
 
 769
 00:47:16,600 --> 00:47:19,600
 当 usertrap C 代码调用时，
-when usertrap which is you know the C code is called,
 
 770
 00:47:20,380 --> 00:47:22,720
 通过 trampoline ，当中断发生时。
-by trampoline, when interrupt occurs.
 
 771
 00:47:25,640 --> 00:47:29,630
 我们可以通过任何内核代码区分它们，
-We can tell by this call them by any, any kernel code,
 
 772
 00:47:29,630 --> 00:47:36,050
 可以通过调用 myproc 来判断当前 CPU 上正在运行哪些进程。
-can tell by calling myproc what the processes is running on the current CPU.
 
 773
 00:47:36,620 --> 00:47:39,290
 这是另一个不同的地方，
-And that's another thing that differentiates,
 
 774
 00:47:40,500 --> 00:47:43,500
 这允许内核代码区分，
-that allows each, that allows kernel code to tell
 
 775
 00:47:43,500 --> 00:47:47,850
 哪个进程内核线程正在执行，
-what process it's part of that is which processes kernel thread is executing
 
 776
 00:47:47,850 --> 00:47:50,640
 而 myproc 使用的是 tp 寄存器，
-and what myproc does basically use the tp register
 
 777
 00:47:50,640 --> 00:47:51,630
 你可能还记得，
-which you may recall,
 
 778
 00:47:52,080 --> 00:47:58,300
 设置为包含当前核心 hartid 或核心编号，
-is set up to contain the current cores hartid or core number,
 
 779
 00:47:58,360 --> 00:48:01,000
 使用它来索引到一个结构数组，
-it uses that to index into an array of structures,
 
 780
 00:48:01,000 --> 00:48:04,270
 也就是说，对于调度器设置的每个核心，
-that say for each core that the scheduler sets
 
 781
 00:48:04,300 --> 00:48:07,420
 每当它切换进程以指示每个核心，
-whenever it switches processes to indicate for each core
 
 782
 00:48:07,420 --> 00:48:09,490
 哪个进程在那个核心上运行。
-which process is running on that core.
 
 783
 00:48:10,660 --> 00:48:13,720
 这就是不同内核如何区分。
-And so that's how different kernels are differentiated.
 
 784
 00:48:15,730 --> 00:48:17,650
 好的，我要使用这个 p 的值，
-Okay, so I was going to use that p value,
 
 785
 00:48:17,710 --> 00:48:21,910
 名称和 p 值以确定哪个进程正在运行，
-the name and that p value to figure out what process is running,
 
 786
 00:48:21,910 --> 00:48:26,680
 xv6 记得名字就是 spin 进程，像预期的一样，
-xv6 remembers the name it's that spin process just exactly as expected,
 
 787
 00:48:26,920 --> 00:48:31,570
 有两个进程，我想进程 id 分别是 3 和 4 。
-there were two of them, I think with process ids three and four.
 
 788
 00:48:32,150 --> 00:48:32,780
 糟糕。
-Oops.
 
 789
 00:48:34,680 --> 00:48:37,260
 我们现在再次执行进程 3 ，
-We're currently executed again process id three,
 
 790
 00:48:37,440 --> 00:48:41,400
 所以在切换之后，我们应该在进程 4 中，
-so after the switch we'd expect to be in process id four,
 
 791
 00:48:41,430 --> 00:48:42,900
 另一个 spin 进程，
-the other spin process,
 
 792
 00:48:43,170 --> 00:48:48,390
 我们可以查看 trapframe 中保存的用户寄存器。
-and we we can look at the saved user registers in the trapframe.
 
 793
 00:48:54,600 --> 00:48:56,910
 这是 32 个寄存器，
-And these are the 32 registers
 
 794
 00:48:56,940 --> 00:49:01,890
 trampoline 代码保存用户状态，
-that a trampoline code saves a way to save the user state,
 
 795
 00:49:02,130 --> 00:49:08,130
 用户 ra 返回用户堆栈指针的地址，
-there's the user ra return address register user stack pointer,
 
 796
 00:49:08,520 --> 00:49:11,070
 用户寄存器是十六进制 62 。
-user program counter at hex 62.
 
 797
 00:49:12,050 --> 00:49:16,580
 这些都是我们在观察 trap 时熟悉的东西。
-These are familiar things from when we looked at traps.
 
 798
 00:49:17,290 --> 00:49:20,170
 你可能最感兴趣的是，
-And you may be the most interest is that,
 
 799
 00:49:23,290 --> 00:49:27,040
 trapframe 保存着用户程序计数器和值 62 ，
-the trapframe saves the user program counter and that value 62,
 
 800
 00:49:28,090 --> 00:49:35,620
 如果我们关心，可以查看 spin.c 的汇编代码。
-if we cared, we can look in the assembly code for spin.c.
 
 801
 00:49:36,540 --> 00:49:40,160
 糟糕，在 spin.asm 查找 62 ，
-Oops, spin.asm look for 62,
 
 802
 00:49:41,100 --> 00:49:44,190
 我们可以看到有一个中断定时器，
-now we can see that owes a interrupt timer,
 
 803
 00:49:44,190 --> 00:49:50,490
 中断发生在 spin 无限循环中的加法指令期间，
-interrupt occurred during this add instruction in that infinite loop in spin,
 
 804
 00:49:50,700 --> 00:49:51,900
 这并不令人惊讶。
-so it's not too surprising.
 
 805
 00:49:55,390 --> 00:50:01,630
 好的，回到刚才返回的 trap 代码，
-Okay, so back to a trap code [] just returned,
 
 806
 00:50:01,780 --> 00:50:06,700
 我要单步几次把我们带到，
-I'm going to take step a few times to get us to the,
 
 807
 00:50:09,130 --> 00:50:11,590
 到达执行 yield 。
-just being about to execute this yield.
 
 808
 00:50:12,260 --> 00:50:16,040
 而 yield 是进程中让出 CPU 的第一步，
-And yield is sort of the first step in the process of giving up the CPU
 
 809
 00:50:16,040 --> 00:50:17,090
 切换到调度器，
-switching to the scheduler,
 
 810
 00:50:17,090 --> 00:50:20,840
 让调度器选择进程中的另一个内核线程来运行。
-letting the scheduler choose another kernel thread in process to run.
 
 811
 00:50:24,240 --> 00:50:27,000
 好的，让我们单步进入 yield ，
-Alright, so let's actually step into yield,
 
 812
 00:50:27,480 --> 00:50:28,710
 现在我们在 yield ， yield 是。
-now we're in yield, yield's.
 
 813
 00:50:30,110 --> 00:50:30,980
 你有什么问题吗。
-If you have a question.
 
 814
 00:50:31,580 --> 00:50:31,910
 不是。
-No.
 
 815
 00:50:43,450 --> 00:50:46,840
 好的，我们在 yield 中，
-Okay, we're in yield,
 
 816
 00:50:47,500 --> 00:50:49,180
 yield 做了几件事，
-yield does a couple of things,
 
 817
 00:50:49,180 --> 00:50:54,370
 它获取这个进程的锁，
-it acquires the lock for this process,
 
 818
 00:50:54,400 --> 00:50:57,070
 因为它要对这个进程进行一系列的修改，
-because it's about to make a bunch of changes to this process,
 
 819
 00:50:57,070 --> 00:50:58,960
 而且它不希望有任何其他的，
-and it doesn't want any other
 
 820
 00:50:59,140 --> 00:51:01,540
 实际上，在它放弃锁之前，
-and in fact until it gives up the lock,
 
 821
 00:51:01,540 --> 00:51:04,450
 这个进程的状态会是一致的，
-the state of this process will be sort of in consistent
 
 822
 00:51:04,540 --> 00:51:09,460
 比如， yield 将进程的状态更改为可运行，
-like for example, it's about yield is about to change the state of the process to runnable,
 
 823
 00:51:09,460 --> 00:51:12,010
 这表明，
-which would you know indicates that,
 
 824
 00:51:12,420 --> 00:51:14,640
 这个进程没有在运行，但希望运行，
-the process is not running, but would like to,
 
 825
 00:51:14,940 --> 00:51:17,550
 但是这个进程是在运行的，
-but this process is running, right,
 
 826
 00:51:17,640 --> 00:51:19,290
 我是说，我们正在运行这个进程，
-I mean we're running the process right now,
 
 827
 00:51:19,290 --> 00:51:21,870
 就是正在执行的这个进程的内核线程，
-that's what's executing is the kernel thread for this process
 
 828
 00:51:22,020 --> 00:51:25,530
 所以，获取这个锁所做的事情之一是，
-and so the one of the many things that acquire this lock does is,
 
 829
 00:51:25,890 --> 00:51:29,070
 让它，尽管我们修改状态为可运行，
-makes it, so that even though we just changed the state runnable,
 
 830
 00:51:29,100 --> 00:51:33,430
 没有其他核心的调度线程会看到这个进程，
-no other core's scheduling thread will look at this process
 
 831
 00:51:33,580 --> 00:51:35,350
 因为使用了锁，
-and because of lock
 
 832
 00:51:35,560 --> 00:51:38,020
 （其他核心）看到它是可运行的，并试着运行它，
-and see that it's runnable and try to run it
 
 833
 00:51:38,290 --> 00:51:40,000
 当我们还在这个核心上运行它时，
-while we're still running it on this core,
 
 834
 00:51:40,030 --> 00:51:41,200
 将会是一场灾难，
-would be a disaster right,
 
 835
 00:51:41,200 --> 00:51:44,770
 在两个不同的核心上运行相同的进程，
-running the same process on two different cores,
 
 836
 00:51:44,800 --> 00:51:46,780
 你知道进程只有一个堆栈，
-you know process has only one stack,
 
 837
 00:51:47,050 --> 00:51:51,070
 这意味着两个不同的核心在同一个堆栈上调用[子例程]，
-so that means like two different cores are calling [subroutines] on the same stack,
 
 838
 00:51:51,070 --> 00:51:53,920
 这是一个灾难。
-which is just a [recipe] for disaster.
 
 839
 00:51:54,680 --> 00:51:56,750
 所以，我们使用了锁，
-So we take the lock out,
 
 840
 00:51:59,380 --> 00:52:03,430
 yield 把状态改为可运行。
-we, yield changes the state to runnable.
 
 841
 00:52:04,130 --> 00:52:05,300
 这意味着，
-And what this mean is that,
 
 842
 00:52:05,420 --> 00:52:08,290
 我们最终放弃了，
-you know we finally given up the,
 
 843
 00:52:11,960 --> 00:52:14,060
 当我们最终放弃 CPU ，
-when we finally yield the CPU and given it up
 
 844
 00:52:14,060 --> 00:52:15,470
 切换到调度器进程，
-and switch the scheduler process,
 
 845
 00:52:15,470 --> 00:52:17,450
 这个状态会保持在可运行状态，
-this state will be left in this runnable state,
 
 846
 00:52:17,450 --> 00:52:18,710
 这样它就可以再次运行，
-so that it will run again,
 
 847
 00:52:18,980 --> 00:52:20,750
 毕竟这是一个计时器中断，
-because after all this was a timer interrupt,
 
 848
 00:52:20,750 --> 00:52:22,970
 中断了正在运行的用户级进程，
-that interrupted a running user level process,
 
 849
 00:52:22,970 --> 00:52:24,590
 它希望继续运行。
-that would like to continue computing.
 
 850
 00:52:25,790 --> 00:52:27,140
 我们把状态设置为可运行，
-We're gonna leave state runnable,
 
 851
 00:52:27,140 --> 00:52:28,100
 让它可以再次运行，
-so that it will run again,
 
 852
 00:52:28,100 --> 00:52:30,440
 一旦调度器做了决定。
-as soon as the scheduler decides to.
 
 853
 00:52:33,290 --> 00:52:37,670
 然后，另一件事情是，
-And then, the only other thing that,
 
 854
 00:52:44,090 --> 00:52:46,610
 yield 调用了这个调度器函数。
-yield does is call this scheduler function.
 
 855
 00:52:48,580 --> 00:52:50,380
 所以，我要单步执行调度器函数。
-So I'm going to step into the scheduler function.
 
 856
 00:52:51,210 --> 00:52:53,190
 我会在这里展示整个过程。
-I'll show this whole thing here.
 
 857
 00:53:01,470 --> 00:53:04,590
 这个调度器几乎什么都不做，
-This scheduler is something does almost nothing,
 
 858
 00:53:04,590 --> 00:53:05,790
 它做了一些检查，
-it does a bunch of checks,
 
 859
 00:53:05,880 --> 00:53:09,360
 它做了一些可用性检查和 panic ，
-it does a whole bunch of sanity checks and panics
 
 860
 00:53:09,360 --> 00:53:11,220
 这个原因是，
-and the reason for that is actually that,
 
 861
 00:53:13,550 --> 00:53:15,710
 xv6 中的这段代码，
-this code in xv6,
 
 862
 00:53:15,710 --> 00:53:20,840
 在多年的时间中，一直是最容易出错的，
-over its many year lifetime had been among the most bug [prone]
 
 863
 00:53:20,960 --> 00:53:24,830
 有最多的意外，不愉快的意外，
-and have most surprises unhappy surprises,
 
 864
 00:53:24,830 --> 00:53:28,650
 所以这里有很多可用性检查和 panic ，
-so there's a lot of sanity checks and panics here,
 
 865
 00:53:28,650 --> 00:53:33,250
 因为经常会有与这些代码相关的 bug 。
-because, because there's often bugs associated with this code.
 
 866
 00:53:35,650 --> 00:53:40,540
 好的，我会跳过这些可用性检查，
-Alright, I'm gonna skip over these sanity checks
 
 867
 00:53:40,540 --> 00:53:47,720
 然后继续到调用 swtch ，
-and proceed to the call to swtch,
 
 868
 00:53:47,720 --> 00:53:49,670
 这个调用 swtch 是真正的操作发生的地方，
-this call to switch is where the real action happens,
 
 869
 00:53:49,670 --> 00:53:50,420
 这个调用 swtch ，
-this is call the switch
 
 870
 00:53:50,420 --> 00:53:57,330
 将保存目前的内核线程寄存器到 p-> context 中，
-is going to save away the current kernel threads registers in p->context,
 
 871
 00:53:57,330 --> 00:54:01,950
 是当前进程保存内核线程上下文，保存寄存器，
-which is the current process's saved kernel thread context, save set of registers,
 
 872
 00:54:02,640 --> 00:54:08,760
 c->context ， c 是指向核心 CPU 结构的指针，
-c->context, c is the pointer to this core's struct cpu,
 
 873
 00:54:09,090 --> 00:54:16,490
 CPU 结构体具有保存这个核心调度器线程的寄存器的上下文，
-struct cpu has context to save registers of this core's scheduler threads,
 
 874
 00:54:16,490 --> 00:54:18,140
 我们将从这个线程切换，
-we're going to be switching from this thread
 
 875
 00:54:18,140 --> 00:54:19,550
 保存这个线程的状态，
-and saving this thread state,
 
 876
 00:54:19,640 --> 00:54:24,140
 恢复核心调度器的线程状态，
-restoring the thread state of this core's scheduler
 
 877
 00:54:24,140 --> 00:54:29,990
 并继续运行这个核心的调度器线程。
-and continuing the execution of this core's core's scheduler thread.
 
 878
 00:54:32,760 --> 00:54:34,200
 好的，让我们看看是，
-Okay, so let's see what,
 
 879
 00:54:36,250 --> 00:54:40,990
 让我们快速看一下上下文，
-let's take a quick preview at the context
 
 880
 00:54:40,990 --> 00:54:42,550
 我们将切换到的，
-that we're going to be switching to
 
 881
 00:54:43,030 --> 00:54:44,680
 我可以得出，
-and I can get that turns out that,
 
 882
 00:54:45,860 --> 00:54:47,810
 我不能直接打印 c->context ，
-I can't actually print c->context,
 
 883
 00:54:47,810 --> 00:54:52,340
 但我知道 c 打印 cpus[0] ，
-but I happen to know that c prints to cpus zero,
 
 884
 00:54:52,430 --> 00:54:54,560
 因为我们在核心 0 上，
-just because we're on the zero with core,
 
 885
 00:54:54,560 --> 00:54:55,550
 只有一个核心，
-there's only one core,
 
 886
 00:54:55,820 --> 00:54:57,950
 我可以打印它的上下文。
-and I can print its context.
 
 887
 00:55:00,960 --> 00:55:08,610
 这就是这个核心的调度器线程中保存的寄存器。
-And so this is the saved registers from this core's, scheduler thread.
 
 888
 00:55:10,560 --> 00:55:12,510
 特别感兴趣的是 ra ，
-And of particular interest is the ra,
 
 889
 00:55:12,510 --> 00:55:19,150
 因为 ra 寄存器是当前函数调用要返回的地方，当前函数调用将返回到，
-because the ra register is where the current function call is going to return to,
 
 890
 00:55:19,150 --> 00:55:20,770
 所以我们要切换调度器线程，
-so we're going to switch the scheduler thread,
 
 891
 00:55:20,770 --> 00:55:24,070
 它会返回，并返回到 ra 。
-it's going to do return and return to that ra.
 
 892
 00:55:24,930 --> 00:55:28,330
 我们可以找到，
-And we can find out
 
 893
 00:55:28,330 --> 00:55:32,500
 通过查看 kernel.asm ，找到那个返回地址。
-where that where that return address by looking in kernel.asm.
 
 894
 00:55:35,000 --> 00:55:36,050
 实际上，那是。
-Actually that's.
 
 895
 00:55:43,800 --> 00:55:45,930
 你可以看到的，这个 x/i ，
-And as you can see this x/i,
 
 896
 00:55:45,930 --> 00:55:48,750
 打印某个地址的指令，
-you know prints instructions that at a certain address,
 
 897
 00:55:48,750 --> 00:55:53,460
 但它也会打印函数的名称标签，
-but it also prints the label of the name of the function
 
 898
 00:55:53,460 --> 00:55:54,600
 那些指令在这个函数里面，
-that those instructions are in it,
 
 899
 00:55:54,600 --> 00:55:58,140
 所以我们很快会回到调度器上，
-so we're going to be returning to scheduler by and by,
 
 900
 00:55:58,620 --> 00:56:01,350
 这正是你希望的。
-that's just you know as you might expect.
 
 901
 00:56:05,040 --> 00:56:05,460
 好的。
-Okay.
 
 902
 00:56:11,120 --> 00:56:13,550
 我想看看 swtch 做了什么，
-I want to look at what swtch actually does,
 
 903
 00:56:13,550 --> 00:56:14,720
 关于调用 swtch 。
-about to call swtch.
 
 904
 00:56:18,910 --> 00:56:20,140
 所以我在 swtch 上设置一个断点，
-So I put a breakpoint on swtch
 
 905
 00:56:20,140 --> 00:56:20,830
 设置断点，
-and putting a breakpoint,
 
 906
 00:56:20,830 --> 00:56:22,330
 因为这里有一堆设置代码，
-because there's a bunch of setup code
 
 907
 00:56:22,540 --> 00:56:26,710
 将上下文的值从这些结构中提取出来，
-that pulls the values of context out of those structures,
 
 908
 00:56:26,710 --> 00:56:27,580
 我会跳过它。
-I'll skip over it.
 
 909
 00:56:28,820 --> 00:56:30,920
 好的，现在，
-Okay, so now,
 
 910
 00:56:31,520 --> 00:56:32,870
 当到达 swtch 断点时，
-when a breakpoint at swtch,
 
 911
 00:56:33,230 --> 00:56:36,250
 GDB 不会给我们看指令，
-the gdb won't show us the instructions,
 
 912
 00:56:36,250 --> 00:56:38,140
 但是我们可以查看 switch.S ，
-but we can look at switch.S
 
 913
 00:56:38,620 --> 00:56:40,690
 来查看即将执行的指令。
-to look at the instructions we're about to execute.
 
 914
 00:56:41,350 --> 00:56:43,210
 正如你看到的，我们在第一条指令，
-So as you can see we're on the very first instruction,
 
 915
 00:56:43,210 --> 00:56:48,340
 将 ra 保存到 a0 指向的地址，
-the store of ra to the address pointed to by a0,
 
 916
 00:56:48,640 --> 00:56:50,890
 你可能还记得在调用 swtch 中，
-you may remember in the call to swtch,
 
 917
 00:56:50,890 --> 00:56:54,430
 第一个参数是当前线程的上下文，
-that the first argument was the current thread's context
 
 918
 00:56:54,430 --> 00:56:58,390
 第二个参数是我们要切换到的线程的上下文，
-and the second argument was the context of the thread we're switching to,
 
 919
 00:56:58,420 --> 00:57:00,610
 两个参数分别到 a0 和 a1 。
-the two arguments going a0 and a1.
 
 920
 00:57:01,000 --> 00:57:05,350
 所有保存都要通过寄存器 a0 的原因是，
-And so the reason why we see all these stores through register a0 is
 
 921
 00:57:05,350 --> 00:57:09,670
 是因为我们在 a0 指向的内存中保存了一堆寄存器，
-because we're storing away a bunch of registers in the memory that a0 points to
 
 922
 00:57:09,670 --> 00:57:13,000
 是我们切换的线程的上下文，
-that is in the context of the thread we're switching from
 
 923
 00:57:13,300 --> 00:57:15,850
 而加载从地址 a1 中加载，
-and the loads load from address a1,
 
 924
 00:57:15,850 --> 00:57:19,720
 因为这是指向我们要切换到的线程的上下文的指针。
-because that's a pointer to the context of the thread, we're switching to.
 
 925
 00:57:26,740 --> 00:57:34,870
 好的，线程， swtch 保存寄存器，加载寄存器，
-Okay, and so thread, you know, swtch saves registers, loads registers
 
 926
 00:57:34,870 --> 00:57:37,000
 从目标线程的上下文中，然后返回，
-from the target thread's context and then return
 
 927
 00:57:37,510 --> 00:57:39,550
 这就是为什么 ra 很有趣，
-and that's why the ra was interesting,
 
 928
 00:57:39,550 --> 00:57:43,180
 因为它返回 ra 指向的位置，即进入调度器。
-because it's going to return to the place that ra pointed to namely into scheduler.
 
 929
 00:57:44,290 --> 00:57:47,260
 好的，这里有一个问题，你可能会注意到，
-Alright, so one question is you may notice here
 
 930
 00:57:47,260 --> 00:57:51,040
 虽然 swtch 保存了 ra sp 和很多 s 寄存器，
-that while swtch saves ra sp and a bunch of s registers,
 
 931
 00:57:51,070 --> 00:57:53,860
 却没有保存程序计数器，
-one that does not save is the program counter,
 
 932
 00:57:54,360 --> 00:57:57,150
 这里没有提到程序计数器，
-there's no mention of the program counter here,
 
 933
 00:57:57,660 --> 00:57:58,710
 那是为什么。
-so why is that.
 
 934
 00:58:04,650 --> 00:58:10,380
 是不是因为程序计数器在函数任何时候调用时都是更新的。
-Is it because the program counter is updated with like the function calls anyway.
 
 935
 00:58:10,980 --> 00:58:15,840
 是的，程序计数器里没有实际的信息值，
-Yeah it's it's the program counter, there's no actual information value in the program counter,
 
 936
 00:58:15,840 --> 00:58:20,320
 我们知道正在执行的是 swtch 。
-we know that we're executing right now is in switch, right.
 
 937
 00:58:20,350 --> 00:58:22,780
 因此没有保存程序计数器，
-So there be no point in saving the program counter,
 
 938
 00:58:22,780 --> 00:58:27,040
 因为它有一个可预测的值，也就是这条指令，
-because it has an extremely predictable value namely this instruction,
 
 939
 00:58:27,040 --> 00:58:28,900
 swtch 指令的地址，
-the address of this instruction of swtch
 
 940
 00:58:29,890 --> 00:58:33,070
 我们真正关心的是我们从哪里被调用，
-what we really care about is where we we're called from,
 
 941
 00:58:33,370 --> 00:58:35,410
 因为当我们切换回这个线程时，
-because when we switch back to this thread,
 
 942
 00:58:35,980 --> 00:58:39,580
 我们希望继续从调用点执行，
-we want to continue executing out whatever points swhich was called from
 
 943
 00:58:39,730 --> 00:58:40,660
 它就是 ra ，
-and it's ra,
 
 944
 00:58:40,660 --> 00:58:44,740
 保存着调用 swtch 指令的地址。
-that holds the address of the instruction that swtch was called from.
 
 945
 00:58:45,320 --> 00:58:48,590
 所以是 ra 被保存在这里，
-So it's ra, that's being saved away here,
 
 946
 00:58:48,980 --> 00:58:55,140
 而 ra 是再次执行的点。
-and ra is the point at which will be executing out again.
 
 947
 00:58:55,790 --> 00:58:56,480
 让 swtch 返回，
-Let's swtch return,
 
 948
 00:58:56,480 --> 00:58:58,040
 我们甚至可以打印，
-so we even print that we can print,
 
 949
 00:58:58,930 --> 00:59:01,120
 ra ，糟糕。
-ra, oops.
 
 950
 00:59:03,740 --> 00:59:04,550
 我们可以打印 ra ，
-We can print ra
 
 951
 00:59:04,550 --> 00:59:06,680
 我们还没有切换线程，
-and you know we haven't actually switched threads yet,
 
 952
 00:59:06,770 --> 00:59:09,260
 还记得我们是从这个 sched 函数过来的，
-you remember we came here from this sched function,
 
 953
 00:59:09,710 --> 00:59:13,640
 所以，如你所想的， ra 指向 sched 函数。
-so ra as you might expect the pointer back into this sched function.
 
 954
 00:59:14,960 --> 00:59:15,620
 另一个问题是，
-Another question is,
 
 955
 00:59:15,620 --> 00:59:18,800
 为什么 swtch 只保存了 14 个寄存器，
-how come swtch only saves 14 registers,
 
 956
 00:59:18,800 --> 00:59:19,520
 我数了一下，
-I counted them,
 
 957
 00:59:19,550 --> 00:59:22,040
 它只保存和恢复 14 个寄存器，
-it only saves and restores 14 registers,
 
 958
 00:59:22,730 --> 00:59:25,520
 尽管 RISC-V 有 32 个寄存器，
-even though the RISC-V has 32 registers
 
 959
 00:59:25,520 --> 00:59:29,300
 可用于，代码可以使用。
-available for the or use it for code to use.
 
 960
 00:59:29,820 --> 00:59:33,390
 为什么只保存了一半的寄存器？
-Why, why only half the registers are saved?
 
 961
 00:59:33,780 --> 00:59:36,960
 当调用 swtch 时，它是作为正常函数调用的，
-Well, when swtch was called, it was called as a normal function,
 
 962
 00:59:36,960 --> 00:59:40,560
 所以，任何调用 swtch 都会假设 swtch 可能会修改这些，
-so whoever called swtch already assumed will swtch might modify those,
 
 963
 00:59:40,560 --> 00:59:44,490
 以便那个函数将其保存在它的堆栈中，
-so that that function already saved that on its stack,
 
 964
 00:59:44,520 --> 00:59:49,020
 这意味着当我们从一个跳到另一个的时候，
-meaning that like when we jump from one to the other,
 
 965
 00:59:49,020 --> 00:59:54,030
 它会自动恢复调用者保存寄存器。
-that one is gonna self restore its caller-saved registers.
 
 966
 00:59:54,090 --> 00:59:55,350
 完全正确，
-That's exactly right,
 
 967
 00:59:55,350 --> 00:59:58,110
 这个 swtch 是由 C 代码调用的，
-the swtch are called from C code,
 
 968
 00:59:58,170 --> 01:00:04,050
 我们知道 C 编译器保存在当前堆栈上，
-we know that the C compiler saves on the current stack,
 
 969
 01:00:04,140 --> 01:00:06,960
 任何调用者保存寄存器，
-any caller saved registers,
 
 970
 01:00:06,960 --> 01:00:10,020
 包含编译器之后需要的值。
-that have values in them that the compiler's going to need later.
 
 971
 01:00:10,590 --> 01:00:14,730
 而那些调用者保存寄存器包括，
-And those caller saved registers actually include,
 
 972
 01:00:15,030 --> 01:00:18,680
 我想有 18 个，
-I think there's 18,
 
 973
 01:00:19,010 --> 01:00:20,240
 取决于你如何计算它们，
-depending on how you count them,
 
 974
 01:00:20,240 --> 01:00:24,020
 有 15 到 18 个调用者保存寄存器，
-there's somewhere between fifteen and eighteen caller saved registers,
 
 975
 01:00:24,980 --> 01:00:29,750
 所以，我们在这里看到的寄存器是所有不是调用者保存的寄存器，
-so the registers we see here are all the registers that aren't caller saved
 
 976
 01:00:29,750 --> 01:00:32,150
 编译器没有保证保存，
-and that the compiler doesn't promise to save,
 
 977
 01:00:32,180 --> 01:00:37,640
 但是仍然可以保存调用函数所需的值，
-but nevertheless may hold values that are needed by the calling function,
 
 978
 01:00:37,670 --> 01:00:42,530
 所以当我们切换线程时，只需要保存被调用者保存的寄存器。
-so we all need to save the callee saved registers, when we're switching threads.
 
 979
 01:00:45,830 --> 01:00:47,150
 好的。
-Okay.
 
 980
 01:00:48,340 --> 01:00:50,830
 我想打印的最后一个东西是，
-Final thing I want to print is the,
 
 981
 01:00:50,890 --> 01:00:52,960
 我们保存和恢复了堆栈指针，
-we do save and restore the stack pointer,
 
 982
 01:00:53,080 --> 01:00:55,690
 当前堆栈指针，很难从这个值判断，
-the current stack pointer, it's like hard to tell from this value,
 
 983
 01:00:55,690 --> 01:00:59,350
 这意味着，它是当前进程的内核堆栈，
-what that means, that it's the kernel stack of the current process,
 
 984
 01:00:59,350 --> 01:01:01,660
 我不知道你是否记得，
-which I don't know if you recall,
 
 985
 01:01:01,660 --> 01:01:05,380
 但是是由虚拟内存系统在高内存映射的。
-but is allocated is mapped by the virtual memory system at high memory.
 
 986
 01:01:07,340 --> 01:01:15,200
 好的，我们要保存当前的寄存器，
-Okay, so, okay, so we're going to save away the current registers
 
 987
 01:01:15,200 --> 01:01:20,240
 从调度器线程的上下文中恢复寄存器，
-and restore registers from scheduler thread's context,
 
 988
 01:01:20,240 --> 01:01:23,660
 我不想执行每一个加载或保存，
-I don't want to execute every single one of these load or store,
 
 989
 01:01:23,660 --> 01:01:25,190
 所以我要跳过，
-so I'm gonna step over,
 
 990
 01:01:25,580 --> 01:01:29,360
 所有这 14 个保存和 14 个加载，
-all the 14 loads, the 14 stores and the 14 loads,
 
 991
 01:01:29,360 --> 01:01:32,900
 直接到返回指令。
-going to proceed directly to the return instructions.
 
 992
 01:01:32,900 --> 01:01:35,900
 好的，所以我们执行了 swtch 中的所有代码，除了返回，
-Okay, so we executed everything in swtch, except the return,
 
 993
 01:01:36,170 --> 01:01:38,690
 在我们返回之前，
-before we do the return,
 
 994
 01:01:38,690 --> 01:01:41,000
 我们再次打印感兴趣的寄存器，
-we'll just print the interesting registers again,
 
 995
 01:01:41,000 --> 01:01:41,750
 看看我们在哪里。
-to see where we are.
 
 996
 01:01:41,780 --> 01:01:46,610
 所以堆栈指针，现在它有一个不同的值，
-So stack pointer, now it has a different value,
 
 997
 01:01:46,820 --> 01:01:51,170
 堆栈指针现在指向内存中的堆栈零区域，
-stack pointer now points into this stack zero area in memory,
 
 998
 01:01:51,170 --> 01:01:55,580
 这是在引导序列中非常早的位置，
-and this is actually the place it very very early in the boot sequence
 
 999
 01:01:55,640 --> 01:01:58,610
 在 start.S 中放置堆栈，
-where start.S puts the stack,
 
 1000
 01:01:58,610 --> 01:02:01,310
 以便它可以调用第一个 C 函数，
-so it may call the very first C function,
 
 1001
 01:02:01,610 --> 01:02:04,520
 所以回到这个 CPU 的初始引导堆栈，
-so actually back on the original boot stack for this CPU
 
 1002
 01:02:04,520 --> 01:02:07,820
 它恰好就是调度器运行的地方。
-which just happens to be where the scheduler runs.
 
 1003
 01:02:10,500 --> 01:02:14,460
 好的，我们对程序计数器也很感兴趣，
-Okay, the program counter actually interesting,
 
 1004
 01:02:14,460 --> 01:02:16,260
 我们在 swtch 中，因为我们还没有返回，
-we're in swtch because we haven't returned yet
 
 1005
 01:02:16,350 --> 01:02:21,240
 并且现在 ra 寄存器指向调度器，
-and the ra register now points the scheduler,
 
 1006
 01:02:21,240 --> 01:02:22,290
 因为我们已经加载，
-because we've loaded,
 
 1007
 01:02:22,620 --> 01:02:27,450
 我们已经恢复了之前由调度器线程保存的寄存器集。
-we've restored the register set previously saved by the scheduler thread.
 
 1008
 01:02:28,990 --> 01:02:31,540
 实际上，我们现在在调度器线程中，
-And indeed, we're really now in the scheduler thread,
 
 1009
 01:02:31,540 --> 01:02:32,530
 如果我执行 where ，
-if I run on where,
 
 1010
 01:02:32,890 --> 01:02:35,680
 返回结果跟上次执行完全不一样了，
-the where now looks totally different from the last time we ran,
 
 1011
 01:02:35,680 --> 01:02:38,260
 它现在是调用 swtch ，
-it were now indeed a call to swtch,
 
 1012
 01:02:38,260 --> 01:02:40,420
 但是现在我们调用 swtch ，
-but now we're in a call from swtch
 
 1013
 01:02:40,420 --> 01:02:43,990
 要切换到过去某个时间调度器，
-to switch the scheduler may at some point in the past
 
 1014
 01:02:44,290 --> 01:02:46,750
 调度器很久以前就在引导期间运行了，
-and the scheduler was run long ago during boot
 
 1015
 01:02:46,990 --> 01:02:50,860
 是在引导过程中所调用的最后一件事。
-was called as the last thing that [] did during the boot process.
 
 1016
 01:02:53,310 --> 01:02:58,500
 所以，我要执行一条指令，从 swtch 返回到调度器。
-So I'm gonna ask you know one instruction to return from switch now into scheduler.
 
 1017
 01:02:59,890 --> 01:03:01,570
 现在我们在这个内核的调度器中，
-So now we're in this core's scheduler,
 
 1018
 01:03:02,110 --> 01:03:03,250
 看看完整的代码，
-look the full code,
 
 1019
 01:03:08,320 --> 01:03:10,810
 这是调度器代码，
-so this is the scheduler code,
 
 1020
 01:03:11,480 --> 01:03:12,710
 这个函数叫做 scheduler ，
-this function called scheduler,
 
 1021
 01:03:12,710 --> 01:03:15,950
 现在我们在 CPU 调度器线程中执行，
-now we're executing in the scheduler thread for the CPU,
 
 1022
 01:03:16,280 --> 01:03:18,050
 我们在，
-and we're just at the point,
 
 1023
 01:03:18,170 --> 01:03:23,060
 我们从之前的调用返回到 swtch ，
-we just returned from a previous call to swtch
 
 1024
 01:03:23,060 --> 01:03:24,920
 它是调度器在之前创建的，
-the scheduler made a while ago,
 
 1025
 01:03:25,250 --> 01:03:28,370
 当它决定开始运行这一进程时，
-when it decided it was going to start running that process,
 
 1026
 01:03:28,370 --> 01:03:32,180
 pid 3 ，它是被中断的 spin 进程，
-you know pid 3 which was the spin process that was interrupted,
 
 1027
 01:03:32,750 --> 01:03:37,070
 所以现在这个 swtch 进程 id 是 3 ，
-so now it's this swtch process id 3,
 
 1028
 01:03:37,070 --> 01:03:38,510
 是 spin 调用的 swtch ，
-that's spin called swtch,
 
 1029
 01:03:38,510 --> 01:03:40,550
 但这次返回的不是之前的 swtch ，
-but it's not swtch that swtch this returning
 
 1030
 01:03:40,550 --> 01:03:41,810
 之前的 swtch 还没有返回，
-last swtch hasn't returned yet
 
 1031
 01:03:42,080 --> 01:03:48,310
 仍保存在进程 id 3 堆栈和上下文中，
-is still saved away in process id three stack and context
 
 1032
 01:03:48,340 --> 01:03:50,770
 只是从先前的 swtch 返回。
-just return from this earlier called swtch.
 
 1033
 01:03:53,160 --> 01:03:55,530
 好的，在调度器中发生的事情，
-Alright, so the stuff that happens here in the scheduler,
 
 1034
 01:03:55,740 --> 01:03:59,820
 已停止运行这个进程，
-were stopped running this process
 
 1035
 01:03:59,820 --> 01:04:04,170
 所以你可以忘掉我们所做的各种事情，
-and so you want to forget about the various things we did,
 
 1036
 01:04:04,950 --> 01:04:06,630
 在运行这个进程的过程中，
-in the process of running this process,
 
 1037
 01:04:06,630 --> 01:04:09,600
 我们希望[忽略] c->proc 等于零，
-we want to [forget] the c->proc equals zero,
 
 1038
 01:04:09,660 --> 01:04:11,310
 意味着我们忘了这个。
-basically means that we're forgetting that.
 
 1039
 01:04:11,970 --> 01:04:14,310
 我们不再在这个核心中运行这个进程，
-We're no longer running this process in this core's,
 
 1040
 01:04:14,310 --> 01:04:17,670
 所以我们不想让任何人对此感到困惑，
-so we don't want to have anybody be confused about that,
 
 1041
 01:04:17,700 --> 01:04:23,480
 让我把每个核心进程指针设置为零，
-let me set this per core proc pointer to zero [] this process,
 
 1042
 01:04:23,900 --> 01:04:25,220
 接下来发生的事情是，
-the next thing that happens is that,
 
 1043
 01:04:25,340 --> 01:04:30,260
 你记得 yield ，获取这个进程的锁，
-you remember yield, acquired the lock for this process,
 
 1044
 01:04:30,320 --> 01:04:32,420
 因为它不想任何其他核心调度器
-because it didn't want any other core's scheduler
 
 1045
 01:04:32,420 --> 01:04:34,220
 看到这个进程并可能运行它，
-to look at this process and maybe run it
 
 1046
 01:04:34,760 --> 01:04:37,970
 直到这个进程完全进入休眠状态。
-until the process was completely put to sleep.
 
 1047
 01:04:39,290 --> 01:04:41,930
 我们现在已经完成了从这个进程的切换，
-We've now completed the switch away from this process,
 
 1048
 01:04:42,140 --> 01:04:45,710
 这样我们可以释放对刚刚让出的进程的锁，
-so we can release the lock on the process that just yield,
 
 1049
 01:04:46,880 --> 01:04:47,930
 这就是 release ，
-that's the release,
 
 1050
 01:04:48,740 --> 01:04:52,910
 在这一点上，我们还在调度器中，
-at this point, we're still in the scheduler,
 
 1051
 01:04:52,910 --> 01:04:54,170
 如果还有另一个核心，
-if there was another core,
 
 1052
 01:04:54,230 --> 01:04:58,730
 在这时，其他核心调度器可以找到这个进程，
-at this point, some other core's scheduler could find that process,
 
 1053
 01:04:58,730 --> 01:05:00,170
 因为它是可运行的，并运行它。
-because it's runnable and run it.
 
 1054
 01:05:00,700 --> 01:05:01,360
 不过，没关系，
-But that's okay,
 
 1055
 01:05:01,360 --> 01:05:04,210
 因为我们已经完全保存了它的寄存器，
-because we've completely saved its registers,
 
 1056
 01:05:04,240 --> 01:05:07,540
 不再在那个进程堆栈上执行，
-we're no longer executing on its that processes stack,
 
 1057
 01:05:07,540 --> 01:05:12,050
 因为现在在这个核心的调度器堆栈上执行，
-because now executing on the this core's scheduler stack,
 
 1058
 01:05:12,290 --> 01:05:15,830
 所以，如果其他核心决定运行这个进程，也没什么问题。
-so it's actually fine if some other core decides to run that process.
 
 1059
 01:05:16,840 --> 01:05:18,430
 好的，但是这里没有其他核心，
-Okay, but there's no other core,
 
 1060
 01:05:18,430 --> 01:05:21,040
 所以在这个演示中并没有发生。
-so that doesn't actually happen in this demonstration.
 
 1061
 01:05:26,440 --> 01:05:31,240
 实际上，我想花点时间再谈一下 p->lock ，
-Actually, I want to spend a moment talking about the p->lock a little bit more,
 
 1062
 01:05:31,510 --> 01:05:36,190
 p->lock 做了几件事，
-p->lock actually does a couple of things,
 
 1063
 01:05:39,120 --> 01:05:42,470
 从调度器的角度来看，它做了两件事，
-it does really two things from the point of view of scheduling,
 
 1064
 01:05:42,500 --> 01:05:45,290
 一个是让出 CPU ，
-one is that yielding the CPU,
 
 1065
 01:05:45,650 --> 01:05:47,420
 涉及多个步骤，
-involves multiple steps,
 
 1066
 01:05:47,420 --> 01:05:49,370
 我们必须设置状态为可运行的，
-we have to set the state to runnable,
 
 1067
 01:05:49,370 --> 01:05:50,930
 将状态从运行中改为可运行，
-change the state from running to runnable,
 
 1068
 01:05:51,080 --> 01:05:55,460
 我们将寄存器保存在让出进程的上下文中，
-we save the registers in the yielding processes context,
 
 1069
 01:05:55,550 --> 01:05:58,730
 现在我们必须停止使用让出进程的堆栈，
-now we have to stop using the yielding processes stack,
 
 1070
 01:05:58,760 --> 01:06:00,620
 至少有三个步骤，
-there's at least three steps,
 
 1071
 01:06:00,620 --> 01:06:07,640
 需要时间来做这些步骤让出 CPU ，
-which take time in order to do all the steps required to yield the CPU
 
 1072
 01:06:07,910 --> 01:06:10,100
 所以锁做的一件事是，
-and so one of the things that lock does
 
 1073
 01:06:10,130 --> 01:06:10,910
 正如我提到的，
-as I mentioned is
 
 1074
 01:06:10,910 --> 01:06:13,940
 阻止任何其他核心调度器看到我们的进程，
-prevent any other core scheduler from looking at our process
 
 1075
 01:06:13,940 --> 01:06:16,070
 直到所有三个步骤完成之前，
-until all three steps have completed,
 
 1076
 01:06:16,070 --> 01:06:19,580
 所以锁是把这些步骤变成原子性的，
-so the lock is basically making those steps atomic,
 
 1077
 01:06:19,860 --> 01:06:22,680
 从其他核心的角度来看，它们都发生，
-they either all happened from the point of view of other cores,
 
 1078
 01:06:22,800 --> 01:06:24,900
 或者它们都不发生。
-or none of them happened.
 
 1079
 01:06:26,160 --> 01:06:30,030
 当我们开始运行一个进程时，
-It's going to turn out also when we start running a process
 
 1080
 01:06:30,270 --> 01:06:35,490
 p->lock 也具有类似的保护功能，
-that the p->lock is going to have a similar protective function,
 
 1081
 01:06:36,750 --> 01:06:39,210
 我们将进程的状态设置为运行中，
-we're going to set the state of a process to running,
 
 1082
 01:06:39,210 --> 01:06:40,800
 当我们开始执行进程时，
-when we start executing a process
 
 1083
 01:06:40,800 --> 01:06:46,260
 我们把它的寄存器从它的进程上下文转移到 RISC-V 寄存器中，
-and we're going to move its registers from its process context into the RISC-V registers,
 
 1084
 01:06:46,320 --> 01:06:51,910
 但是，如果在进程中间发生中断，
-but, if an interrupt should happen in the middle of that process,
 
 1085
 01:06:51,910 --> 01:06:54,220
 中断会看到进程处于一种奇怪的状态，
-the interrupt going to see the process in a weird state
 
 1086
 01:06:54,220 --> 01:06:56,560
 比如状态标记为运行中，
-like maybe in the state of mark running,
 
 1087
 01:06:56,560 --> 01:07:01,960
 但是没有完成将寄存器从上下文移动到 RISC-V 寄存器，
-but hasn't yet finished moving its registers from the context into the RISC-V registers,
 
 1088
 01:07:02,170 --> 01:07:03,250
 那将是一场灾难，
-and that would be a disaster,
 
 1089
 01:07:03,250 --> 01:07:04,990
 如果发生定时器中断，
-if a timer interrupt happened in,
 
 1090
 01:07:04,990 --> 01:07:07,000
 因为我们可能会离开这个过程，
-because we might switch away from that process,
 
 1091
 01:07:07,210 --> 01:07:09,880
 在它恢复寄存器之前。
-before it had restored its registers.
 
 1092
 01:07:11,220 --> 01:07:12,690
 从这个进程中离开，
-And switching away from that process
 
 1093
 01:07:12,690 --> 01:07:18,690
 会保存未初始化的 RISC-V 寄存器到进程的上下文，
-would save now uninitialized RISC-V registers into the context process's context,
 
 1094
 01:07:18,780 --> 01:07:20,520
 覆盖它的真正的寄存器。
-overwriting its real registers.
 
 1095
 01:07:20,940 --> 01:07:25,620
 所以，实际上，我们也希望启动一个进程具有原子性，
-So indeed we want starting a process that also be effectively atomic,
 
 1096
 01:07:26,430 --> 01:07:28,530
 在这种情况下，持有一个锁，
-and in this case holding a lock,
 
 1097
 01:07:28,530 --> 01:07:32,070
 在切换到进程的过程中持有 p->lock ，
-holding p->lock across switching to a process
 
 1098
 01:07:32,790 --> 01:07:35,220
 为了防止其他核心看到这个进程，
-as well as preventing other cores from looking at that process
 
 1099
 01:07:35,220 --> 01:07:41,100
 还会在切换到那个线程的[]持续时间内关闭中断，
-also turns off interrupts for the duration of [firing] up of switching to that thread
 
 1100
 01:07:41,190 --> 01:07:43,920
 防止定时器中断看到，
-which prevents a timer interrupt from ever seeing
 
 1101
 01:07:43,920 --> 01:07:48,030
 只切换到一半的进程。
-a process that's only midway through being switched to.
 
 1102
 01:07:51,320 --> 01:07:51,800
 好的。
-Okay.
 
 1103
 01:07:53,670 --> 01:07:55,470
 所以我们在调度器中，
-So we're in the scheduler,
 
 1104
 01:07:55,770 --> 01:07:57,870
 我们在调度器的循环中执行，
-we're executing this loop in the scheduler's,
 
 1105
 01:07:57,870 --> 01:07:59,850
 调度器中的循环，依次查看所有进程，
-loop in the scheduler's that looks at all the process
 
 1106
 01:07:59,850 --> 01:08:01,500
 以找到一个要运行的进程，
-in turn to find one to run
 
 1107
 01:08:01,860 --> 01:08:04,590
 在这种情况下，我们知道还有另一个进程，
-and in this case, we know there's another process,
 
 1108
 01:08:04,590 --> 01:08:08,870
 因为，还有另一个我们 fork 的 spin 进程，
-because, there's that other spin process that we've forked,
 
 1109
 01:08:09,170 --> 01:08:13,070
 但是有很多东西要检查，
-but there's a lot of process lots to examine,
 
 1110
 01:08:13,460 --> 01:08:18,230
 我将跳过扫描进程表，
-I'm going to skip over the actual process scanning of the process table
 
 1111
 01:08:18,320 --> 01:08:22,390
 直接调到到调度器找到下一个进程的点，
-and go direct to the point of which, the scheduler finds the next process,
 
 1112
 01:08:22,390 --> 01:08:28,270
 所以我要把断点放在第 474 行，
-so I'm gonna put a breakpoint at line 474,
 
 1113
 01:08:28,270 --> 01:08:29,950
 在那里它找到了一个要运行的新进程。
-where it's actually found a new process to run.
 
 1114
 01:08:31,920 --> 01:08:36,180
 []在这里，调度器扫描进程表，
-[] here we are, the schedulers scan the process table
 
 1115
 01:08:36,180 --> 01:08:37,740
 并找到另一个要运行的进程。
-and found another process to run.
 
 1116
 01:08:38,840 --> 01:08:41,990
 它会调用那个进程运行，
-And it's going to call that process run,
 
 1117
 01:08:41,990 --> 01:08:43,670
 你可以看第 468 行，
-you can see a line 468,
 
 1118
 01:08:43,670 --> 01:08:45,800
 它获取了那个进程锁，
-it acquired that process's lock,
 
 1119
 01:08:45,830 --> 01:08:48,530
 所以现在它有权做不同的步骤，
-so now it's entitled to do the various steps
 
 1120
 01:08:48,530 --> 01:08:50,510
 切换到那个进程，
-were required to switch to that process,
 
 1121
 01:08:50,930 --> 01:08:54,860
 在第 473 行，它将进程状态设置为运行中，
-in line 473, it set the process of state to running,
 
 1122
 01:08:55,440 --> 01:08:56,550
 现在是第 474 行，
-it's now at 474,
 
 1123
 01:08:56,550 --> 01:09:01,680
 我们在 CPU 结构中记录 CPU 正在执行的进程，
-we're going to record in the CPU structure which process the CPU is executing
 
 1124
 01:09:02,730 --> 01:09:06,990
 然后调用 swtch 来保存调度器的寄存器，
-and then call swtch to save the scheduler's registers
 
 1125
 01:09:06,990 --> 01:09:10,440
 并恢复目标处理器的寄存器，
-and restore the target processor's registers,
 
 1126
 01:09:10,500 --> 01:09:12,030
 你可以看到找到了什么进程，
-so you can see what process is found
 
 1127
 01:09:12,030 --> 01:09:15,060
 通过查看新的进程名称，
-by looking at the new process name,
 
 1128
 01:09:15,150 --> 01:09:16,590
 当然它是 spin ，
-surprisingly its spin,
 
 1129
 01:09:17,590 --> 01:09:19,330
 它的进程 id 现在是 4 ，
-it's process id is now four,
 
 1130
 01:09:19,540 --> 01:09:21,670
 以前是 3 ，现在是 4 。
-used to be running three now running four.
 
 1131
 01:09:23,960 --> 01:09:25,580
 我们已经将状态设置为运行中，
-We've already set the state to running,
 
 1132
 01:09:25,580 --> 01:09:31,790
 所以状态是运行中。
-so just the states running.
 
 1133
 01:09:32,550 --> 01:09:35,400
 我们可以看到这个线程将切换到哪里，
-We can see where this thread is going to switch to
 
 1134
 01:09:35,430 --> 01:09:37,770
 在调用 swtch 的第 475 行，
-in the call to swtch line 475,
 
 1135
 01:09:39,020 --> 01:09:42,050
 打印上下文保存的寄存器，
-print this context the saved registers,
 
 1136
 01:09:42,470 --> 01:09:44,600
 那么 ra 在哪里，
-so where is the ra,
 
 1137
 01:09:45,140 --> 01:09:46,280
 我们要调用 swtch ，
-we're going to call swtch,
 
 1138
 01:09:46,280 --> 01:09:49,340
 但是正如我们知道的， swtch 返回，
-but switch as we know it returns,
 
 1139
 01:09:49,520 --> 01:09:52,430
 当它返回时，返回到恢复的 ra ，
-when it returns it returns to the restore ra,
 
 1140
 01:09:52,550 --> 01:09:57,080
 所以我们关心的是 ra 指向哪里，
-so we really care about is where is it that ra points to,
 
 1141
 01:09:57,080 --> 01:09:58,820
 我们可以通过以下方式找出。
-we can find that out by.
 
 1142
 01:10:00,740 --> 01:10:01,310
 糟糕。
-Oops.
 
 1143
 01:10:02,100 --> 01:10:04,290
 使用 x/i ，
-Using x/i,
 
 1144
 01:10:07,440 --> 01:10:10,500
 它返回 ra 指向某个点，
-it's going to return ra points to some point instead,
 
 1145
 01:10:10,530 --> 01:10:11,640
 这并不令人惊讶，
-that's not too surprising,
 
 1146
 01:10:11,640 --> 01:10:18,210
 假设另一个 spin 进程由于定时器中断而挂起，
-presumably that other spin process was suspended due to a timer interrupt,
 
 1147
 01:10:18,210 --> 01:10:21,930
 我们知道调用 sched ，调用 swtch 。
-which as we know called sched, what's called swtch.
 
 1148
 01:10:26,450 --> 01:10:29,750
 好了，现在要调用 swtch 了，
-Alright, so about to call swtch,
 
 1149
 01:10:29,750 --> 01:10:31,730
 让我再次打开 swtch 代码。
-let me just bring up the swtch code again.
 
 1150
 01:10:38,660 --> 01:10:40,790
 实际上在 swtch 中仍然，
-Actually enter swtch were still,
 
 1151
 01:10:41,390 --> 01:10:44,450
 仍然在调度器上下文中。
-where shows that were still in the scheduler's context.
 
 1152
 01:10:46,940 --> 01:10:50,240
 我要再次执行所有 swtch 的指令，
-I want to again execute all of the instructions of swtch,
 
 1153
 01:10:50,240 --> 01:10:53,660
 这次，从调度器切换到新进程。
-this time switching from the scheduler to the new process.
 
 1154
 01:10:54,400 --> 01:10:57,250
 我们跳过 28 个加载和保存。
-We skip over the 28 stores and loads.
 
 1155
 01:11:00,460 --> 01:11:04,300
 说服我们，要回到 sched 了，
-Just convince ourselves that we are actually about to return to sched,
 
 1156
 01:11:04,300 --> 01:11:07,270
 既然我们要返回 sched 而不是 scheduler ，
-so now since we're about to return to sched and not scheduler,
 
 1157
 01:11:07,390 --> 01:11:10,180
 我们现在必须在进程的内核线程中，
-we must now be in a process's kernel thread
 
 1158
 01:11:10,180 --> 01:11:13,940
 而不再是调度器线程，
-and no longer the scheduler of thread,
 
 1159
 01:11:13,940 --> 01:11:16,070
 事实上，如果我们查看 backtrace ，
-indeed if we look at the backtrace,
 
 1160
 01:11:16,190 --> 01:11:18,110
 我们有一个 usertrap 调用，
-we had a usertrap call,
 
 1161
 01:11:18,140 --> 01:11:19,790
 这一定是定时器中断，
-that must have been a timer interrupt,
 
 1162
 01:11:19,880 --> 01:11:21,860
 在过去的某个时候，
-from long you know sometime in the past,
 
 1163
 01:11:22,310 --> 01:11:24,860
 正如我们所看到的，调用 yield 和 sched ，
-that as we've seen called yield and sched,
 
 1164
 01:11:24,860 --> 01:11:27,470
 但它是定时器中断另一个进程，
-but it was the timer interrupted the other process now,
 
 1165
 01:11:27,860 --> 01:11:30,260
 不是在我们最初观察的进程中。
-not in the process that we originally looked at.
 
 1166
 01:11:35,600 --> 01:11:39,320
 好的，有什么问题吗，
-Okay, any questions about,
 
 1167
 01:11:39,380 --> 01:11:43,010
 我要停止一步步介绍代码了，
-I think I'm gonna leave off stepping through the code at this point,
 
 1168
 01:11:43,580 --> 01:11:47,330
 关于我们看过的任何材料，有什么问题吗。
-any questions about any of the material we've seen.
 
 1169
 01:11:49,790 --> 01:11:53,540
 不好意思，如果它是这样，比如这个[]，
-Oh, sorry if it was, for example this [],
 
 1170
 01:11:53,810 --> 01:11:59,300
 然后我们会看到 ra 会指向某个地方
-then we would see that ra would point somewhere to
 
 1171
 01:11:59,720 --> 01:12:02,780
 比如睡眠之类的，是吗？
-like sleep or something like that, right.
 
 1172
 01:12:03,360 --> 01:12:06,240
 嗯，是的。
-Um, yes.
 
 1173
 01:12:07,040 --> 01:12:10,470
 好的，我们在这里看到的 where ，
-Well, we see that the where at this point
 
 1174
 01:12:10,470 --> 01:12:13,950
 会包含一些系统调用实现函数，
-would include some system call implementation functions
 
 1175
 01:12:13,950 --> 01:12:14,880
 并且调用 sleep ，
-and a call to sleep,
 
 1176
 01:12:14,910 --> 01:12:17,890
 我想这是，
-as it happens I think this is,
 
 1177
 01:12:18,280 --> 01:12:20,230
 简单回答你的问题，是的，
-you're basically answering questions, yes,
 
 1178
 01:12:20,410 --> 01:12:24,850
 如果我们停止执行这个进程，
-if we had just left off executing this process
 
 1179
 01:12:24,850 --> 01:12:26,650
 因为不是定时器中断的原因，
-for some reason other than the timer interrupt,
 
 1180
 01:12:26,920 --> 01:12:32,680
 swtch 将返回到某些系统调用代码，而不是 sched ，
-swtch would be basically returning to some system call code instead of to sched,
 
 1181
 01:12:32,680 --> 01:12:35,320
 我认为 sleep 可能调用 sched ，所以。
-as it happens I think sleep may call sched, so.
 
 1182
 01:12:37,750 --> 01:12:38,950
 backtrace 看起来会不一样，
-The backtrace would look different,
 
 1183
 01:12:38,950 --> 01:12:40,840
 我想会包含 sched ，
-what just happened include sched, I guess,
 
 1184
 01:12:41,230 --> 01:12:42,940
 我只选择了一种方式，
-I've chosen just one way of,
 
 1185
 01:12:43,650 --> 01:12:47,980
 因为定时器中断而产生的进程切换。
-you know just one way of switching between processes due to timer interrupts.
 
 1186
 01:12:49,700 --> 01:12:52,340
 但是你也可以切换等待用户 IO ，
-But you also get switches to wait for user IO,
 
 1187
 01:12:52,370 --> 01:12:55,100
 等待其他进程执行比如写入管道的操作。
-wait for other processes to do things like write to pipe.
 
 1188
 01:12:58,380 --> 01:13:01,980
 好的，有一件事你可能会注意到，
-Okay, one thing to you probably noticed is that
 
 1189
 01:13:02,190 --> 01:13:04,410
 调度器调用 swtch ，
-scheduler call swtch,
 
 1190
 01:13:04,940 --> 01:13:07,460
 这里 swtch 返回的是什么，
-and what about to return from swtch here,
 
 1191
 01:13:07,730 --> 01:13:11,360
 但是我们是从一个不同的调用 swtch 返回，
-but we're returning really from a different call to swtch
 
 1192
 01:13:11,360 --> 01:13:12,830
 而不是调度器创建的，
-than them on the scheduler are made,
 
 1193
 01:13:12,950 --> 01:13:16,160
 我们是从这个进程很久以前调用 swtch 返回的。
-we're returning from a call to swtch that this process made a long time ago.
 
 1194
 01:13:18,110 --> 01:13:21,290
 所以，这可能有点令人困惑，
-So, you know, this is potentially a little bit confusing,
 
 1195
 01:13:21,290 --> 01:13:24,660
 但是，这就是线程切换[]的工作原理。
-but, you know, this is how the [] of a thread switch work.
 
 1196
 01:13:25,730 --> 01:13:27,320
 另一个需要注意的事情是，
-Another thing to notice is that,
 
 1197
 01:13:27,860 --> 01:13:29,000
 我们正在查看的代码，
-the code we're looking at,
 
 1198
 01:13:29,000 --> 01:13:32,990
 这个 swtch 代码，是线程切换的核心。
-this swtch code, this is really the heart of thread switching.
 
 1199
 01:13:33,600 --> 01:13:37,320
 你要切换线程所做的就是，
-And really all you have to do to switch switch threads is
 
 1200
 01:13:37,830 --> 01:13:40,470
 保存寄存器和恢复寄存器，
-save registers and restore registers,
 
 1201
 01:13:40,560 --> 01:13:42,900
 线程有比寄存器多的状态，
-threads have a lot more state than just registers,
 
 1202
 01:13:42,900 --> 01:13:45,540
 它们在堆里有变量和东西，
-they have variables and stuff in the heap
 
 1203
 01:13:45,540 --> 01:13:47,490
 无论什么，
-and who knows what,
 
 1204
 01:13:47,580 --> 01:13:50,580
 所有其他状态都在内存中，
-all that other state is in-memory
 
 1205
 01:13:50,760 --> 01:13:52,380
 不会受到干扰，
-and isn't going to be disturbed,
 
 1206
 01:13:52,380 --> 01:13:56,750
 我们没有做任何事情来干扰这些线程堆栈，
-we've done nothing to disturb any of these threads stacks,
 
 1207
 01:13:56,750 --> 01:13:59,240
 比如堆里的值，
-for example or heap values,
 
 1208
 01:14:00,320 --> 01:14:04,700
 所以微处理器的寄存器实际上是唯一一种易失性状态，
-so the registers in the microprocessor are really the only kind of volatile state,
 
 1209
 01:14:04,730 --> 01:14:07,730
 需要保存和恢复才能进行线程切换，
-that actually needs to be saved and restored to do a thread switch,
 
 1210
 01:14:07,760 --> 01:14:10,280
 内存堆栈中的所有内容，
-all the stuffs in memory stack, for example,
 
 1211
 01:14:10,280 --> 01:14:12,800
 仍会在内存中原封不动，
-will still be in memory on undisturbed
 
 1212
 01:14:12,890 --> 01:14:15,620
 所以，它不需要显式地保存和恢复。
-and so it doesn't have to be explicitly saved and restored.
 
 1213
 01:14:16,380 --> 01:14:19,830
 我们只保存和恢复微处理器 CPU 寄存器，
-Now we're only saving and restoring this microprocessor, the CPU registers,
 
 1214
 01:14:19,980 --> 01:14:24,330
 因为我们想为新线程重新使用这些寄存器，
-because we want to reuse those [] registers in the CPU for the new thread
 
 1215
 01:14:24,330 --> 01:14:26,490
 覆盖它们包含的任何值。
-and overwrite whatever values they have.
 
 1216
 01:14:26,850 --> 01:14:31,800
 所以，这就是为什么我们必须保存旧线程的寄存器。
-So, register, that's why we have to save the old thread's registers.
 
 1217
 01:14:32,970 --> 01:14:35,820
 那么，其他处理器的状态呢，
-What about, other processors state,
 
 1218
 01:14:35,850 --> 01:14:39,870
 我不知道我们使用的 RISC-V 处理器有没有其他标志，
-so I don't know the RISC-V processor that we're using has other flags,
 
 1219
 01:14:39,870 --> 01:14:44,970
 但我知道有些 x86 英特尔芯片有浮点单元状态
-but I know like some x86 Intel chips have like like the floating point unit state
 
 1220
 01:14:44,970 --> 01:14:46,620
 或类似的东西，
-and like things like that,
 
 1221
 01:14:46,620 --> 01:14:48,990
 在 RISC-V 中有没有这个？
-do we do we just not have that in RISC-V?
 
 1222
 01:14:50,620 --> 01:14:54,550
 你的观点在其他微处理器如 x86 上得到了很好的[理解]，
-Your point's very well taken on other microprocessors like x86,
 
 1223
 01:14:54,550 --> 01:14:58,960
 切换的细节略有不同，
-the details switching are a bit different,
 
 1224
 01:14:58,960 --> 01:15:01,690
 因为它们在不同的状态有不同的寄存器，
-because they have different registers in different state
 
 1225
 01:15:02,830 --> 01:15:06,370
 所以这是非常依赖于 RISC-V 的代码，
-and so the code this is very very RISC-V dependent code
 
 1226
 01:15:06,370 --> 01:15:12,050
 对于其他处理器，切换程序可能看起来不同，
-and the switch routine for some other processor might look quite different,
 
 1227
 01:15:12,050 --> 01:15:15,050
 比如可能必须保存浮点寄存器，
-like indeed might have to save floating point registers,
 
 1228
 01:15:15,260 --> 01:15:19,090
 RISC-V 使用的是通用寄存器。
-you know RISC-V actually uses the general purpose registers.
 
 1229
 01:15:20,220 --> 01:15:22,860
 实际上，我不确定它对浮点数有什么作用，
-Actually, I'm not sure what it does for floating point,
 
 1230
 01:15:22,950 --> 01:15:25,020
 但是内核不使用浮点，
-but the kernel doesn't use floating point,
 
 1231
 01:15:25,020 --> 01:15:26,100
 所以不用担心它，
-so you don't have to worry about it,
 
 1232
 01:15:27,300 --> 01:15:29,550
 但是，是的，这完全依赖于微处理器。
-but yeah this is totally microprocessor dependent.
 
 1233
 01:15:31,710 --> 01:15:33,870
 一个关于定时器中断的问题。
-A question about the timer interrupts.
 
 1234
 01:15:34,680 --> 01:15:40,010
 所以听起来像是所有调度工作的核心是，
-So it sounds like the the core of all of this scheduling working is that
 
 1235
 01:15:40,010 --> 01:15:41,390
 有一个定时器中断，
-there will be a timer interrupt,
 
 1236
 01:15:41,750 --> 01:15:45,020
 如果它出现故障会发生什么？
-what happens in cases where that malfunctions.
 
 1237
 01:15:45,260 --> 01:15:47,300
 这里会有一个定时器中断。
-There is going to be a timer interrupt.
 
 1238
 01:15:49,070 --> 01:15:55,150
 所以，我知道，
-So the, I know so,
 
 1239
 01:15:55,180 --> 01:16:02,010
 好的，用户进程的抢占式调度能起作用的原因是，
-okay, so the reasoning for how come preemptive scheduling of user process's works is
 
 1240
 01:16:02,010 --> 01:16:07,510
 用户进程总是在打开中断的情况下执行，
-that user processes execute with interrupts turned on always,
 
 1241
 01:16:07,570 --> 01:16:13,000
 xv6 确保在返回用户空间之前启用中断，
-xv6 just ensures that interrupts are enabled before returning to user space
 
 1242
 01:16:13,000 --> 01:16:16,810
 这意味着如果在用户空间中执行，可以发生定时器中断，
-and that means that a timer interrupt can happen if you're executing in user space,
 
 1243
 01:16:17,200 --> 01:16:19,840
 所以用户进程不可能，
-so there's nothing a user process,
 
 1244
 01:16:20,170 --> 01:16:22,240
 如果在用户空间，定时器中断就会发生，
-if on user space that timer interrupt just will happen,
 
 1245
 01:16:22,820 --> 01:16:24,020
 当时间到来的时候。
-when the time comes.
 
 1246
 01:16:24,200 --> 01:16:25,520
 所以，在内核中有一点微妙之处，
-So a little trickier in the kernel,
 
 1247
 01:16:25,610 --> 01:16:27,320
 内核有时会关闭中断，
-the kernel sometimes turns off interrupts,
 
 1248
 01:16:27,320 --> 01:16:28,850
 比如，当你获取锁的时候，
-like when you acquire a lock,
 
 1249
 01:16:28,970 --> 01:16:30,170
 中断将被关闭，
-the interrupts are going to be turned off,
 
 1250
 01:16:30,170 --> 01:16:31,010
 直到你释放它。
-until you release it.
 
 1251
 01:16:31,370 --> 01:16:31,910
 所以。
-So.
 
 1252
 01:16:34,600 --> 01:16:38,110
 所以，如果内核中有一些 bug ，
-So if there were some bugs in the kernel,
 
 1253
 01:16:39,040 --> 01:16:40,570
 如果内核关闭中断，
-if the kernel turned off interrupts
 
 1254
 01:16:40,570 --> 01:16:42,340
 没有再打开它们，
-and never turn them back on
 
 1255
 01:16:42,760 --> 01:16:45,910
 内核中的代码不会放弃 CPU ，
-and the code in the kernel never gave up the CPU
 
 1256
 01:16:45,970 --> 01:16:47,290
 从来没有调用 sleep ，
-never called sleep,
 
 1257
 01:16:47,290 --> 01:16:49,030
 或者因为任何其他原因放弃 CPU ，
-gave up the CPU for any other reason,
 
 1258
 01:16:49,510 --> 01:16:53,050
 那么会发生计时器中断，
-then indeed timer interrupt would occur
 
 1259
 01:16:53,050 --> 01:16:54,310
 这意味着，
-and that would mean that,
 
 1260
 01:16:55,470 --> 01:17:00,300
 这个内核代码，可能永远不会放弃 CPU ，
-this kernel code, may you know, would never give the CPU,
 
 1261
 01:17:00,300 --> 01:17:05,330
 但是，据我们所知， xv6 []，
-but in fact, as far as we know xv6 [] xv6,
 
 1262
 01:17:05,330 --> 01:17:08,150
 所以它总是重新打开中断，
-so that it always turns interrupts back on,
 
 1263
 01:17:08,150 --> 01:17:12,510
 或者，如果在 xv6 中有关闭中断的代码，
-or you know, if there's code in xv6, it turns off interrupts,
 
 1264
 01:17:12,600 --> 01:17:14,250
 它必须重新打开中断，
-it has to turns them back on
 
 1265
 01:17:14,280 --> 01:17:18,070
 所以定时器中断可以在内核中发生，
-and so timer interrupt can then occur in the kernel,
 
 1266
 01:17:18,070 --> 01:17:20,020
 我们可以从这个内核线程切换，
-and we can switch away from this kernel thread
 
 1267
 01:17:20,170 --> 01:17:23,350
 或者代码返回到用户空间，
-or the code returns back to user space,
 
 1268
 01:17:23,380 --> 01:17:25,150
 内核代码返回到用户空间，
-kernel code turns back to user space,
 
 1269
 01:17:25,180 --> 01:17:27,250
 我们相信不会出现这种情况，
-we believe there's never a situation
 
 1270
 01:17:27,250 --> 01:17:31,900
 内核代码在中断关闭的情况下永远循环。
-in which kernel code will simply like loop with interrupts turned off forever.
 
 1271
 01:17:33,990 --> 01:17:36,090
 我知道了，我的问题更多的是关于，
-I got, my question was more about like,
 
 1272
 01:17:36,120 --> 01:17:39,090
 所以我假设中断来自某个硬件，
-so I assume the interrupts are actually coming from some piece of hardware,
 
 1273
 01:17:39,330 --> 01:17:41,490
 如果那个硬件出现故障。
-what if that piece of hardware malfunctions.
 
 1274
 01:17:41,520 --> 01:17:41,970
 不。
-No.
 
 1275
 01:17:45,330 --> 01:17:47,790
 没关系，那是你的电脑坏了，你应该买一台新的。
-It's all right, then your computer is broken, you should buy a new one.
 
 1276
 01:17:50,560 --> 01:17:50,920
 好的。
-Okay.
 
 1277
 01:17:51,010 --> 01:17:53,380
 我是说，这是一个合理的问题，
-I mean that's a valid question for,
 
 1278
 01:17:53,410 --> 01:17:56,740
 你的计算机里有 100 亿个晶体管，
-there's you know 10 billion transistors in your computer,
 
 1279
 01:17:56,740 --> 01:18:01,050
 的确，有时硬件会有 bug ，
-and indeed sometimes the hardware just like has bugs in it,
 
 1280
 01:18:01,050 --> 01:18:04,290
 但这超出了我们的范围。
-but that's beyond our reach for.
 
 1281
 01:18:05,220 --> 01:18:08,340
 我是说，如果你计算 1+1 ，而电脑给出 3，
-I mean, if you add 1 and 1 and the computer says 3,
 
 1282
 01:18:08,340 --> 01:18:12,160
 那么你遇到深层次的问题，
-then you just have deep problems,
 
 1283
 01:18:12,160 --> 01:18:14,110
 xv6 不能帮你解决。
-that xv6 can't help you with.
 
 1284
 01:18:16,710 --> 01:18:18,900
 所以，我们假设计算机是可以工作的。
-So we're assuming that the computer works.
 
 1285
 01:18:20,370 --> 01:18:24,350
 唯一一次，软件可以，
-The only time when that when software,
 
 1286
 01:18:24,470 --> 01:18:28,100
 我是说，有时软件会试图弥补硬件错误，
-I mean, there are times when software tries to compensate for hardware level errors,
 
 1287
 01:18:28,100 --> 01:18:30,740
 比如，如果你通过网络发送数据包，
-like if you're sending packets across the network,
 
 1288
 01:18:31,100 --> 01:18:32,720
 总是发送校验和，
-you always send a checksum,
 
 1289
 01:18:33,240 --> 01:18:36,420
 如果网络硬件翻转了一个位，
-so that if the network hardware flips a bit,
 
 1290
 01:18:36,720 --> 01:18:38,220
 出现故障翻转了一个位，
-malfunctions flips a bit,
 
 1291
 01:18:38,220 --> 01:18:39,720
 那么你可以纠正这个，
-then you can correct that,
 
 1292
 01:18:39,720 --> 01:18:41,340
 但是对于计算机里的东西，
-but for stuff inside the computer,
 
 1293
 01:18:42,100 --> 01:18:43,180
 人们往往不会，
-people tend not to,
 
 1294
 01:18:43,360 --> 01:18:43,840
 它只是，
-it's just,
 
 1295
 01:18:45,740 --> 01:18:50,290
 人们不会试图让软件来弥补硬件错误。
-people basically don't try to make the software compensate for hardware errors.
 
 1296
 01:18:54,170 --> 01:18:55,340
 我有个问题，
-Oh, I have a question,
 
 1297
 01:18:55,340 --> 01:18:59,720
 为什么在 trampoline. ，在 swtch 中，
-why so like in trampoline dot, actually in swtch,
 
 1298
 01:18:59,780 --> 01:19:02,570
 我们用汇编语言编写代码，
-we write the code in assembly,
 
 1299
 01:19:02,570 --> 01:19:03,350
 这是因为，
-is that why,
 
 1300
 01:19:03,380 --> 01:19:08,450
 是不是因为我们要确保这件事的发生，
-is that because we want to make sure that exactly this thing happen,
 
 1301
 01:19:08,630 --> 01:19:11,140
 所以我们不能用 C 写，
-so we cannot, you cann't write in C,
 
 1302
 01:19:11,140 --> 01:19:12,880
 因为我们需要，
-because we just need,
 
 1303
 01:19:13,440 --> 01:19:16,500
 [感觉]这些事情发生。
-it feels like those exact things to happen basically.
 
 1304
 01:19:19,530 --> 01:19:21,540
 是的，是的。
-Yeah yeah.
 
 1305
 01:19:22,800 --> 01:19:26,460
 是的，我们当然希望这个确切的顺序发生，
-Yes, certainly we want this exact sequence to happen,
 
 1306
 01:19:26,460 --> 01:19:33,430
 C 很难访问像 ra 或 sp 这样的东西，
-and C it it's very hard to talk about things like ra in C or sp
 
 1307
 01:19:34,120 --> 01:19:36,700
 当然，在 C 语言中，也没有办法
-certainly there's no way within the C language
 
 1308
 01:19:36,700 --> 01:19:42,130
 使用 ra 寄存器访问修改堆栈指针，
-to talk about changing the stack pointer with ra register,
 
 1309
 01:19:42,660 --> 01:19:48,760
 这些东西不能在普通的 C 中看到，
-so these are things that, just can't be you can't see it in ordinary C,
 
 1310
 01:19:49,270 --> 01:19:51,430
 你能在 C 中看到它的唯一方式是，
-the only way you can see it in C is
 
 1311
 01:19:51,460 --> 01:19:56,920
 在 C 代码中嵌入汇编语言指令，
-there, there is possible in C to sort of embed assembly instructions in C code,
 
 1312
 01:19:57,340 --> 01:20:00,760
 所以我们可以把这些汇编指令嵌入到 C 函数中，
-so we could have just embedded these assembly instructions in the C function,
 
 1313
 01:20:00,760 --> 01:20:02,750
 但是，这就等同于一件事了。
-but, would amount to the same thing.
 
 1314
 01:20:03,510 --> 01:20:07,920
 我们是在低于 C 的级别下操作的，
-We're basically we're operating at a level below below C,
 
 1315
 01:20:07,920 --> 01:20:11,080
 所以我们不能在这里使用 C 。
-so we can't really can't really use C here.
 
 1316
 01:20:13,950 --> 01:20:14,700
 我有个问题，
-I have a question,
 
 1317
 01:20:14,700 --> 01:20:17,280
 关于当线程完成执行，
-about when a thread finishes executing
 
 1318
 01:20:17,280 --> 01:20:19,290
 假设发生在用户空间，
-and assuming that happens in the user space
 
 1319
 01:20:19,290 --> 01:20:23,600
 当我们调用 exec 系统调用，
-when we call the exec, I'm sorry, [exec] system call
 
 1320
 01:20:24,230 --> 01:20:27,620
 它也结束了进程，
-and that also ends the process,
 
 1321
 01:20:27,980 --> 01:20:30,110
 在内核空间的线程，
-the thread assuming in the kernel space,
 
 1322
 01:20:30,200 --> 01:20:36,110
 但是如果线程在新的定时器中断发生之前结束，
-but if the thread ends within before a new timer interrupt happens,
 
 1323
 01:20:36,170 --> 01:20:38,540
 它是否还是，
-does it still look like,
 
 1324
 01:20:39,570 --> 01:20:42,720
 比如 CPU 还在被那个线程获取，
-is this like the CPU still acquire by that thread
 
 1325
 01:20:42,720 --> 01:20:45,060
 或者结束那个线程并开始一个新的，
-or do we end that thread and start a new one
 
 1326
 01:20:45,060 --> 01:20:46,380
 在新的定时器中断之前。
-before the new timer interrupt.
 
 1327
 01:20:46,560 --> 01:20:47,460
 是的,
-Oh yeah,
 
 1328
 01:20:49,460 --> 01:20:53,930
 线程让出 CPU ，
-the thread, the thread yields the CPU,
 
 1329
 01:20:54,820 --> 01:20:57,160
 exec 让出 CPU ，
-there's the exec exec yields the CPU,
 
 1330
 01:20:57,190 --> 01:20:58,690
 所以实际上有很多点，
-so there's actually many points,
 
 1331
 01:20:58,690 --> 01:21:01,960
 尽管我一直在用定时器中断来讨论，
-that even though I've been driving this discussion with a timer interrupt,
 
 1332
 01:21:01,960 --> 01:21:06,070
 事实上，在几乎所有的情况下，
-in fact, in almost almost all cases
 
 1333
 01:21:06,070 --> 01:21:08,200
 xv6 在线程之间切换，
-where xv6 switches between threads,
 
 1334
 01:21:08,200 --> 01:21:09,670
 不是由于定时器中断，
-it's not due to timer interrupts,
 
 1335
 01:21:09,760 --> 01:21:13,960
 因为有些系统调用在等待某些东西，
-it's because some system calls waiting for something
 
 1336
 01:21:13,960 --> 01:21:17,740
 决定需要放弃 CPU ，
-or decides that it needs to give up the CPU
 
 1337
 01:21:17,770 --> 01:21:20,950
 比如， exec 执行各种操作，
-and so for example exec does various things
 
 1338
 01:21:20,950 --> 01:21:23,590
 然后调用 yield 并放弃 CPU ，
-and then calls yield to give up the CPU
 
 1339
 01:21:23,590 --> 01:21:26,240
 它就是这么做的，
-and it does that, there's really nothing,
 
 1340
 01:21:26,240 --> 01:21:28,940
 独立去做，与定时器中断无关。
-does that independently of whether there's timer interrupt.
 
 1341
 01:21:31,730 --> 01:21:32,300
 是的。
-Yes.
 
 1342
 01:21:37,740 --> 01:21:40,890
 好了，这节课的时间到了，
-All right, the time is up for this lecture,
 
 1343
 01:21:40,890 --> 01:21:44,190
 我想下周我会继续讨论这个问题，
-I think I'll continue some of this discussion next week,
 
 1344
 01:21:44,190 --> 01:21:47,370
 但是我现在很乐意回答更多的问题，
-but I'm happy to take more questions right now,
 
 1345
 01:21:47,550 --> 01:21:48,210
 如果人们有问题的话。
-if people have them.
 
 1346
 01:21:52,150 --> 01:21:54,160
 那么，让我们说操作系统，
-So let's say the operating system,
 
 1347
 01:21:54,160 --> 01:21:58,870
 实际上，我采用了线程实现，
-actually I takes on a the thread implementation,
 
 1348
 01:21:58,900 --> 01:22:05,560
 比如，你希望在多个 CPU 上运行一个进程的多个线程，
-so so for example you want to run multiple threads of a process on multiple CPUs,
 
 1349
 01:22:05,560 --> 01:22:07,480
 这必须由操作系统来处理，
-like that has to be handled by the OS,
 
 1350
 01:22:07,480 --> 01:22:09,940
 不能在用户空间中处理，是吗？
-that cannot just be handled in user space, right?
 
 1351
 01:22:10,360 --> 01:22:11,950
 这种切换是怎么工作的，
-How does that kind of switching work
 
 1352
 01:22:11,950 --> 01:22:15,130
 是每个线程都变成了一个进程，
-is each, each thread now becomes the same as a process,
 
 1353
 01:22:15,130 --> 01:22:18,280
 比如，在所有现有线程中循环，
-like is always going to loop through all existing threads
 
 1354
 01:22:18,400 --> 01:22:22,630
 或者，因为每个 CPU 仍然会切换，
-or you know because like each CPU will still switch between,
 
 1355
 01:22:22,630 --> 01:22:24,610
 即使一个进程提供八个核心，
-even if one process give eight cores,
 
 1356
 01:22:24,610 --> 01:22:28,330
 它还会在这些 CPU 之间切换，
-like it's still gonna switch switch each of the CPUs between those
 
 1357
 01:22:28,330 --> 01:22:30,070
 以及其他一些进程，
-and a couple of other processes
 
 1358
 01:22:30,550 --> 01:22:32,020
 而且我们也不想，在同一个 CPU 上的切换一个线程和另一个线程，
-and also we don't want to really
 
 1359
-01:22:32,020 --> 01:22:35,770
-switch between one and the other thread on the same CPU
-
-1360
 01:22:36,130 --> 01:22:37,540
 或者我们希望，我不知道。
-or do we, I don't know.
 
-1361
+1360
 01:22:38,640 --> 01:22:39,660
 等等，我能不能。
-Wait, can I.
 
-1362
+1361
 01:22:41,300 --> 01:22:43,280
 我不确定问题是什么。
-I'm not sure what the question is.
 
-1363
+1362
 01:22:43,880 --> 01:22:44,930
 是的，我想，
-Yeah, I guess I guess,
 
-1364
+1363
 01:22:44,930 --> 01:22:47,780
 你能解释一下这是怎么发生的吗？
-can you just explain more like how does that happen.
 
-1365
+1364
 01:22:48,380 --> 01:22:49,610
 抱歉，什么是怎么发生的。
-Sorry, how does what happened.
 
-1366
+1365
 01:22:50,270 --> 01:22:53,750
 假设每个进程有多个线程，
-Let's say we have multiple threads per process,
 
-1367
+1366
 01:22:53,750 --> 01:22:56,540
 它们可以在不同的 CPU 上运行，
-so that they can and they can run on different CPUs,
 
-1368
+1367
 01:22:56,660 --> 01:22:58,880
 我们如何处理这些。
-like how do we go, how do you go about there.
 
-1369
+1368
 01:22:59,480 --> 01:23:03,650
 比如， Linux 支持每个进程多个线程，
-So Linux, for example supports multiple threads per process
 
-1370
+1369
 01:23:03,650 --> 01:23:09,000
 在 Linux 中，是一个很复杂的实现，
-and in Linux, the implementation, it's a complex implementation,
 
-1371
+1370
 01:23:09,000 --> 01:23:11,430
 也许最简单的解释是，
-but maybe the simplest way to explain it is that,
 
-1372
+1371
 01:23:11,910 --> 01:23:18,230
 几乎 Linux 中的每个线程都是一个完整的进程，
-each, it's almost as if each thread in Linux is a complete process,
 
-1373
+1372
 01:23:19,200 --> 01:23:22,170
 给定进程的线程，
-and the the threads of a given,
 
-1374
+1373
 01:23:22,380 --> 01:23:25,050
 我们称之为特定进程的线程，
-what we would call the threads of a particular process
 
-1375
+1374
 01:23:25,080 --> 01:23:29,310
 本质上是共享内存的独立进程，
-are essentially separate processes that share the same memory,
 
-1376
+1375
 01:23:30,040 --> 01:23:35,530
 所以 Linux 在某种程度上将执行线程的概念从地址空间中分离出来，
-so Linux has sort of separated out the notion of thread of execution from address space
 
-1377
+1376
 01:23:35,530 --> 01:23:39,140
 你可以把它们独立起来，
-and you know you can have them separately,
 
-1378
+1377
 01:23:39,140 --> 01:23:41,150
 如果在一个进程中有两个线程，
-and if you make two threads in one process,
 
-1379
+1378
 01:23:41,150 --> 01:23:44,360
 它基本上是两个进程共享一个地址空间，
-it basically makes two processes that share one address space,
 
-1380
+1379
 01:23:44,690 --> 01:23:45,710
 从那时起，
-and then from then on,
 
-1381
+1380
 01:23:45,710 --> 01:23:51,320
 调度与 xv6 对各个进程所做的没有什么不同。
-the scheduling is not unlike what xv6 does for individual processes.
 
-1382
+1381
 01:23:51,740 --> 01:23:54,530
 我明白了，然后，有没有什么东西，
-I see and then is there anything,
 
-1383
+1382
 01:23:54,530 --> 01:23:56,570
 比如用户必须指定，
-like does the user have to specify,
 
-1384
+1383
 01:23:56,570 --> 01:23:59,510
 每个线程要固定到一个 CPU 上，
-like okay pin each thread to a CPU
 
-1385
+1384
 01:23:59,810 --> 01:24:02,990
 或者操作系统如何确保
-or how does the OS make sure
 
-1386
+1385
 01:24:02,990 --> 01:24:05,570
 同一进程的不同线程不会在同一核心上运行，
-that different threads of the same process don't run on the same core,
 
-1387
+1386
 01:24:05,570 --> 01:24:07,400
 因为这是不是违反了目的，
-because that's kind of defeating the purpose,
 
-1388
+1387
 01:24:07,430 --> 01:24:08,690
 或者不是，我猜的，我不知道。
-or not, I guess, I don't know.
 
-1389
+1388
 01:24:09,160 --> 01:24:14,050
 这个其实跟 xv6 很像，就是，
-The the, it's actually just like it's much like xv6, namely the,
 
-1390
+1389
 01:24:15,820 --> 01:24:17,200
 这里有四个核心，
-you know there's four cores
 
-1391
+1390
 01:24:17,200 --> 01:24:21,610
 Linux 只会为这四个核心中找到四个东西，
-and Linux will just find four things for one of those four cores,
 
-1392
+1391
 01:24:22,000 --> 01:24:25,810
 如果没有太多的事情发生，
-they maybe, you know if there's not much going on,
 
-1393
+1392
 01:24:25,810 --> 01:24:28,780
 那么可能会是同一进程的四个线程，
-then maybe they'll be four threads of the same process,
 
-1394
+1393
 01:24:29,370 --> 01:24:32,430
 或者如果有一百个用户登录到 Athena 机器，
-or if there's a hundred users logged in on Athena machine,
 
-1395
+1394
 01:24:32,430 --> 01:24:36,930
 也许是每个线程来自多个不同的进程，
-maybe it's one thread each from multiple different processes,
 
-1396
+1395
 01:24:36,930 --> 01:24:40,650
 没有一个固定答案，
-you know, there's not any one answer
 
-1397
+1396
 01:24:40,710 --> 01:24:43,890
 或者内核为每个核心找到要做的事情，
-or the kernel basically find something for each core to do
 
-1398
+1397
 01:24:43,890 --> 01:24:45,330
 然后那个核心做那件事。
-and then that core does that thing.
 
-1399
+1398
 01:24:46,500 --> 01:24:47,580
 好的，理解了。
-Okay, that makes sense.
 
-1400
+1399
 01:24:48,520 --> 01:24:52,120
 如果你想仔细测量，
-You can, you know if you're if you want to do careful measurements,
 
-1401
+1400
 01:24:52,120 --> 01:24:53,980
 有一种方法可以将线程固定在核心上，
-there is a way to pin threads to cores,
 
-1402
+1401
 01:24:53,980 --> 01:24:57,490
 但是人们只有在做一些奇怪的事情时才会这么做。
-but people only do it when they're up to something strange.
 
-1403
+1402
 01:25:00,540 --> 01:25:02,910
 所以是共享虚拟表。
-So you share the virtual table.
 
-1404
+1403
 01:25:03,930 --> 01:25:04,380
 你能再说一遍吗？
-Can you say it again.
 
-1405
+1404
 01:25:04,380 --> 01:25:05,280
 虚拟内存。
-Virtual memory.
 
-1406
+1405
 01:25:05,490 --> 01:25:10,020
 所以说哪些线程有相同的页表。
-So they say they have the same page table, those threads.
 
-1407
+1406
 01:25:10,140 --> 01:25:15,510
 是的，如果你在 Linux 上，在一个进程中创建两个线程，
-Yeah yeah, if you're on Linux, if you create two threads in one process,
 
-1408
+1407
 01:25:15,510 --> 01:25:16,680
 然后你就有了两个线程。
-then you have these two threads.
 
-1409
+1408
 01:25:19,080 --> 01:25:23,760
 我不知道它们是否共享完全相同的页表，
-I don't know if they like literally share the exact same page table
 
-1410
+1409
 01:25:23,760 --> 01:25:26,100
 或者它们的页表是相同的，
-or whether their page tables are identical,
 
-1411
+1410
 01:25:26,520 --> 01:25:27,330
 两个中的一个。
-one or the other.
 
-1412
+1411
 01:25:28,620 --> 01:25:31,860
 有没有原因让它们分开，
-Is there a reason why they would have to be separate, ever,
 
-1413
+1412
 01:25:32,220 --> 01:25:34,740
 如果你手动映射内存，或者。
-if you manually map memory, or.
 
-1414
+1413
 01:25:36,540 --> 01:25:41,640
 我不知道 Linux 是哪种。
-I I don't know enough to know whether which which Linux does.
 
-1415
+1414
 01:25:44,320 --> 01:25:47,860
 好的，我还有一个关于一个小细节的问题，
-Okay, I have another question about a small detail,
 
-1416
+1415
 01:25:48,130 --> 01:25:52,030
 根据我的理解，当你调用 swtch 时，
-so basically like from my understanding when you call swtch,
 
-1417
+1416
 01:25:52,450 --> 01:25:56,050
 从一个调用切换到另一个，
-you switch from one call to switch to another,
 
-1418
+1417
 01:25:56,080 --> 01:25:57,640
 所以当你第一次调用 swtch 时，
-so the first time you call swtch,
 
-1419
+1418
 01:25:57,670 --> 01:26:03,310
 必须人为地创建返回的端点，是吧。
-you have to like kind of artificially create other endpoint to come back to, right.
 
-1420
+1419
 01:26:03,430 --> 01:26:04,060
 是的。
-Yes.
 
-1421
+1420
 01:26:04,510 --> 01:26:07,030
 因为你不能随便跳到任何代码。
-Because you can't just randomly jump in to [] any code.
 
-1422
+1421
 01:26:07,300 --> 01:26:13,360
 是的，你想知道那个伪造在哪里，
-Yes, you want to know where that, where that fake,
 
-1423
+1422
 01:26:14,930 --> 01:26:16,790
 那个上下文是在哪里创造的。
-where that context was cooked up.
 
-1424
+1423
 01:26:17,750 --> 01:26:21,290
 我猜可能是在进程创建的地方，
-Probably somewhere where the process is created, I guess,
 
-1425
+1424
 01:26:21,290 --> 01:26:21,560
 我不知道。
-I don't know.
 
-1426
+1425
 01:26:21,560 --> 01:26:24,170
 是的，可能是 userinit ，
-Yeah yeah, maybe userinit,
 
-1427
+1426
 01:26:24,820 --> 01:26:27,760
 没有使用 allocproc 。
-or not using allocproc.
 
-1428
+1427
 01:26:31,030 --> 01:26:32,560
 我也不知道。
-I don't know.
 
-1429
+1428
 01:26:32,920 --> 01:26:35,680
 有一个叫做 fork trap 的东西。
-There's something called fork trap or something.
 
-1430
+1429
 01:26:35,680 --> 01:26:39,250
 是的，看这个，有 forkret ，
-Yeah, look at this, yeah we got forkret,
 
-1431
+1430
 01:26:39,250 --> 01:26:40,630
 好的，所以 allocproc ，
-okay so an allocproc
 
-1432
+1431
 01:26:40,630 --> 01:26:45,790
 在引导时的第一个进程或 fork 时调用，
-which is called both for the very first process at boot time and by fork,
 
-1433
+1432
 01:26:46,000 --> 01:26:52,720
 allocproc 为新进程设置上下文的关键元素，
-allocproc sets up the critical elements of the context for the new processes,
 
-1434
+1433
 01:26:53,770 --> 01:26:56,320
 它设置了新进程的上下文，
-it, it sets up the new process's context,
 
-1435
+1434
 01:26:56,380 --> 01:26:59,230
 大多数寄存器是什么并不重要，
-it actually doesn't matter what most of the registers are,
 
-1436
+1435
 01:26:59,260 --> 01:27:00,820
 但重要的是 ra 是什么，
-but it does matter what ra is,
 
-1437
+1436
 01:27:00,820 --> 01:27:03,550
 因为第一个 swtch ，
-because that's where the swtch the very first swtch
 
-1438
+1437
 01:27:03,550 --> 01:27:05,710
 那个进程会返回到 ra ，
-and that process is going to return to ra,
 
-1439
+1438
 01:27:07,450 --> 01:27:10,120
 那个进程需要使用自己的堆栈，
-And that process is going to need to use its own stack,
 
-1440
+1439
 01:27:10,150 --> 01:27:14,100
 所以 ra 和 sp 设置，是伪造的，
-so ra and sp setup, faked essentially,
 
-1441
+1440
 01:27:14,370 --> 01:27:17,430
 所以，第一个 swtch 或进程可以正常工作。
-so the very first swtch or process works.
 
-1442
+1441
 01:27:18,130 --> 01:27:20,410
 所以，如果我理解正确的话，
-So, so if I understand this correctly,
 
-1443
+1442
 01:27:20,410 --> 01:27:21,670
 当这个 swtch 发生时，
-when this swtch will happen,
 
-1444
+1443
 01:27:21,670 --> 01:27:27,490
 它会开始执行 forkret 内部的第一条指令，
-then it'll basically just start executing the first instruction inside of the forkret,
 
-1445
+1444
 01:27:27,550 --> 01:27:30,460
 forkret 调用 swtch ，再返回。
-as if forkret just called swtch and return from.
 
-1446
+1445
 01:27:30,910 --> 01:27:36,370
 是的，从 swtch 返回跳到 forkret 的开头。
-Yeah yeah, the return from switch is gonna be jump to the beginning of forkret.
 
-1447
+1446
 01:27:37,330 --> 01:27:39,800
 好的，有意思，
-Alright, interesting,
 
-1448
+1447
 01:27:40,370 --> 01:27:43,880
 我们有没有调用 forkret ，还是总是这样，
-do we ever call forkret or is it always happens,
 
-1449
+1448
 01:27:44,060 --> 01:27:45,650
 我想总是这样发生的。
-I think it always happens like this.
 
-1450
+1449
 01:27:45,860 --> 01:27:48,710
 我不认为有什么东西调用了 forkret ，
-I don't think anything ever calls forkret for [],
 
-1451
+1450
 01:27:48,860 --> 01:27:51,600
 因为，
-because just,
 
-1452
+1451
 01:27:51,660 --> 01:27:57,300
 是的，它只在第一个进程运行时以这种奇怪的方式执行。
-yeah it's only executed in this weird way from first [] process is run.
 
-1453
+1452
 01:27:58,510 --> 01:28:04,180
 它的工作实际上是释放调度器占用的锁，
-It is really its job is to release the lock the scheduler took
 
-1454
+1453
 01:28:04,330 --> 01:28:05,500
 然后返回，
-and then return
 
-1455
+1454
 01:28:05,530 --> 01:28:08,890
 然后这个 usertrapret ，当然，也是伪造的。
-and then this usertrapret, of course, is also fake.
 
-1456
+1455
 01:28:09,500 --> 01:28:11,610
 它是，
-That it's, it's,
 
-1457
+1456
 01:28:11,610 --> 01:28:14,610
 就像是从 trap 返回，
-yeah it's like it's as if returning from a trap,
 
-1458
+1457
 01:28:14,610 --> 01:28:17,340
 trapframe 也是伪造的，
-except the trapframe is faked also,
 
-1459
+1458
 01:28:17,760 --> 01:28:23,490
 调到用户代码的第一个指令。
-to to have like jump to the first instruction in the user code.
 
-1460
+1459
 01:28:24,760 --> 01:28:26,080
 但是 trapframe ，
-Oh, but the trapframe,
 
-1461
+1460
 01:28:26,110 --> 01:28:29,110
 它又是一样，不需要初始化任何寄存器，
-it's again the same like you don't need to initialize any registers,
 
-1462
+1461
 01:28:29,110 --> 01:28:31,930
 因为就像我们要从头开始，
-because it's like well we're going to the beginning,
 
-1463
+1462
 01:28:31,930 --> 01:28:33,970
 所以你不需要假设任何事。
-so you don't need to assume anything.
 
-1464
+1463
 01:28:34,330 --> 01:28:36,220
 是的，程序计数器我认为是。
-Yeah, the program counter I think is.
 
-1465
+1464
 01:28:37,400 --> 01:28:37,670
 是的。
-Yeah.
 
-1466
+1465
 01:28:37,670 --> 01:28:39,920
 它需要初始化为零，
-It needs to be initialized to zero,
 
-1467
+1466
 01:28:40,340 --> 01:28:41,510
 我不知道还有什么，
-I don't know what else,
 
-1468
+1467
 01:28:42,320 --> 01:28:43,700
 也许就是它。
-you maybe maybe it.
 
-1469
+1468
 01:28:46,440 --> 01:28:48,870
 它们可能，如果我们调用它们不正确，
-They probably if we call them it doesn't right,
 
-1470
+1469
 01:28:48,990 --> 01:28:50,730
 因为如果我们已经进行了调用，
-because if we already do the call,
 
-1471
+1470
 01:28:50,730 --> 01:28:52,590
 那么就会设置程序计数器。
-then that's going to set the program counter.
 
-1472
+1471
 01:28:52,770 --> 01:28:54,840
 是的，只会在这里发生，
-Yeah, so here's this only happens,
 
-1473
+1472
 01:28:54,840 --> 01:28:58,290
 是因为 fork 复制了程序计数器，
-because fork copies, fork copies the program counter,
 
-1474
+1473
 01:28:58,840 --> 01:29:00,160
 用户程序计数器，
-the user program counter
 
-1475
+1474
 01:29:00,580 --> 01:29:02,590
 所以我们唯一不做 fork 的是，
-and so the only time when we're not doing fork is
 
-1476
+1475
 01:29:02,590 --> 01:29:03,670
 对于第一个进程，
-for the very first process
 
-1477
+1476
 01:29:03,670 --> 01:29:05,830
 在那里它明显的欺骗性的。
-where it's like explicitly deceptive.
 
-1478
+1477
 01:29:05,830 --> 01:29:06,490
 噢。
-Oh.
 
-1479
+1478
 01:29:07,310 --> 01:29:08,030
 而且堆栈指针。
-And stack pointer.
 
-1480
+1479
 01:29:08,030 --> 01:29:08,480
 哦，是的。
-Oh yeah.
 
-1481
+1480
 01:29:08,510 --> 01:29:09,560
 也需要设置。
-Also needs to be set up.
 
-1482
+1481
 01:29:11,130 --> 01:29:14,100
 是的，因为它是 EPC 不是 PC ，
-Oh yeah, because it's that EPC that's not PC,
 
-1483
+1482
 01:29:14,100 --> 01:29:17,370
 就是那个要被 trampoline 换掉的。
-that's the one that's gonna get swapped by the trap trampoline.
 
-1484
+1483
 01:29:17,610 --> 01:29:18,330
 是的。
-Yes.
 
-1485
+1484
 01:29:19,660 --> 01:29:20,620
 哦，我明白了。
-Oh, I see.
 
-1486
+1485
 01:29:21,820 --> 01:29:25,540
 因为真正的程序计数器会在 trampoline 中，
-Because the real PC is actually gonna be in trap like inside trampoline,
 
-1487
+1486
 01:29:26,020 --> 01:29:28,180
 但是我们要把它切换，跳到那里。
-but then we're gonna switch it to jump to there.
 
-1488
+1487
 01:29:29,220 --> 01:29:30,480
 是的。
-Yeah.
 
-1489
+1488
 01:29:32,870 --> 01:29:33,950
 我能不能问一下，
-Can I just ask,
 
-1490
+1489
 01:29:33,950 --> 01:29:36,590
 你能不能回到 allocproc 。
-like can you go back to the allocproc.
 
-1491
+1490
 01:29:42,940 --> 01:29:45,370
 我觉得这里，
-I think there's,
 
-1492
+1491
 01:29:45,960 --> 01:29:47,730
 哦，不是，抱歉，是 forkret ，
-oh no sorry, forkret
 
-1493
+1492
 01:29:48,000 --> 01:29:52,920
 那里有一些东西我想只发生在第一个进程。
-there is something there, that happens I think for the first process only.
 
-1494
+1493
 01:29:53,960 --> 01:29:58,970
 对于第一个调用，我不太确定发生了什么事。
-What's this for a first call, I wasn't really sure what happened.
 
-1495
+1494
 01:29:59,090 --> 01:29:59,390
 我们看看，
-Let's see,
 
-1496
+1495
 01:29:59,390 --> 01:30:03,620
 文件系统需要初始化，
-the file system, the file system needs to be initialized
 
-1497
+1496
 01:30:03,620 --> 01:30:07,070
 特别是一些内容需要从磁盘上读取，
-and in particular some stuff needs to be read off the disk
 
-1498
+1497
 01:30:07,190 --> 01:30:08,960
 为了使文件系统运行，
-in order to get the file system going,
 
-1499
+1498
 01:30:09,520 --> 01:30:12,940
 比如有一种叫做超级块，
-like there's this thing called the super block,
 
-1500
+1499
 01:30:12,940 --> 01:30:15,280
 用来描述文件系统有多大，
-which describes how big the file system are,
 
-1501
+1500
 01:30:15,280 --> 01:30:17,560
 以及文件系统中各种内容的位置，
-and where the various things are in the file system
 
-1502
+1501
 01:30:17,620 --> 01:30:19,900
 还有一个崩溃恢复日志，
-and there's also a crash recovery log,
 
-1503
+1502
 01:30:19,900 --> 01:30:22,130
 需要重播，
-that needs to be replayed
 
-1504
+1503
 01:30:22,250 --> 01:30:26,000
 以便从之前的崩溃中恢复过来，
-in order to recover from a previous crash,
 
-1505
+1504
 01:30:26,000 --> 01:30:26,600
 如果有的话。
-if there was one.
 
-1506
+1505
 01:30:27,770 --> 01:30:31,040
 但是为了在文件系统中执行任何操作，
-But in order to do anything in the file system,
 
-1507
+1506
 01:30:31,040 --> 01:30:35,060
 你需要等待磁盘操作完成，
-you need to be able to wait for disk operations to complete,
 
-1508
+1507
 01:30:35,060 --> 01:30:36,770
 但是 xv6 的工作方式，
-but the way xv6 works,
 
-1509
+1508
 01:30:37,010 --> 01:30:41,420
 你只能在进程的上下文中执行文件系统代码，
-you really can only execute the file system code in the context of process,
 
-1510
+1509
 01:30:42,110 --> 01:30:44,930
 为了比如等待 IO ，
-in order to like wait for IO
 
-1511
+1510
 01:30:45,320 --> 01:30:49,340
 所以文件系统的初始化必须推迟，
-and so therefore the initialization of the file system has to be deferred
 
-1512
+1511
 01:30:49,340 --> 01:30:51,650
 直到我们有一个进程在运行。
-until the first time we have a process running.
 
-1513
+1512
 01:30:53,140 --> 01:30:56,800
 这发生在 forkret 的第一个进程中。
-And that occurs in the very first process in forkret.
 
-1514
+1513
 01:31:00,350 --> 01:31:01,070
 我明白了。
-I see.
 
-1515
+1514
 01:31:01,640 --> 01:31:04,550
 我猜我们稍后会对此有更多了解。
-And I'm guessing we'll learn more about this later.
 
-1516
+1515
 01:31:05,320 --> 01:31:07,450
 是的，不是关于这个烂摊子，
-Yeah, not about this horrible mess,
 
-1517
+1516
 01:31:07,450 --> 01:31:10,390
 而是关于文件系统是如何工作的。
-but about how file systems work.
 
-1518
+1517
 01:31:11,050 --> 01:31:13,030
 好的，谢谢，
-All right okay well, thank you,
 
-1519
+1518
 01:31:13,030 --> 01:31:15,100
 抱歉占用您时间了。
-I'm sorry for holding on so long.
 
-1520
+1519
 01:31:16,920 --> 01:31:18,900
 谢谢你的回答。
-Thanks for all the answers.
 
-1521
+1520
 01:31:21,840 --> 01:31:23,910
 抱歉，是不是在初始化个进程，
-Sorry, it that init that process,
 
-1522
+1521
 01:31:23,910 --> 01:31:26,400
 当这个东西被执行的时候……
-when this thing is executed ...
 

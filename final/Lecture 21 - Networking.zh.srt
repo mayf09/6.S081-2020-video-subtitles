@@ -1,7625 +1,6100 @@
 1
 00:00:06,110 --> 00:00:11,710
 好的，大家好，欢迎从感恩节回来。
-Alright, hello everyone, welcome back from Thanksgiving.
 
 2
 00:00:12,590 --> 00:00:14,150
 有人能听到我说话吗？
-Can anyone hear me?
 
 3
 00:00:15,390 --> 00:00:16,200
 是的。
-Yep good.
 
 4
 00:00:16,530 --> 00:00:20,100
 好的，今天我想谈谈网络，
-Good, alright, today I want to talk about networking
 
 5
 00:00:20,370 --> 00:00:22,380
 以及它与操作系统的关系。
-and how it relates to operating systems.
 
 6
 00:00:23,840 --> 00:00:31,770
 这节课大部分是为最后一个实验的准备，
-And a lot of this is a geared towards lab, last lab,
 
 7
 00:00:31,800 --> 00:00:37,780
 你可以构建一个网络接口驱动程序，
-which you actually build some network interface driver,
 
 8
 00:00:37,810 --> 00:00:40,790
 其中一些考虑的是
-some of this care for general understanding of
 
 9
 00:00:40,790 --> 00:00:45,920
 网络软件如何在操作系统中设置，
-how the network software typically setup in operating systems
 
 10
 00:00:46,220 --> 00:00:49,730
 然后我们将讨论今天的关于活锁的论文，
-and then we're going to talk about the today's paper on live lock
 
 11
 00:00:49,760 --> 00:00:55,990
 它描述了一个在网络堆栈设计中的有趣的危险。
-which illustrates a interesting danger in network stack design.
 
 12
 00:00:56,460 --> 00:01:03,210
 所以，首先让我画几张关于网络的图，
-So, first let me set the general scene by drawing a few network pictures,
 
 13
 00:01:05,060 --> 00:01:07,160
 网络可以连接不同的主机，
-network of course connects different hosts,
 
 14
 00:01:07,730 --> 00:01:15,640
 可以通过两种方式查看连接是否正在发生。
-at there's kind of two ways in which you can view the connections is occurring.
 
 15
 00:01:15,670 --> 00:01:19,180
 第一，对于附近的主机，
-One is that in for nearby hosts,
 
 16
 00:01:19,180 --> 00:01:23,740
 它们通常连接到相同的网络。
-they are often connected to what you what's essentially a same network.
 
 17
 00:01:23,770 --> 00:01:25,930
 可能是一个以太网，
-So there may be a single Ethernet,
 
 18
 00:01:27,030 --> 00:01:29,160
 或者一个交换机或电缆，
-and maybe this is a switch or a cable
 
 19
 00:01:29,340 --> 00:01:33,060
 可能有一堆主机连接到这个以太网，
-and you might have a bunch of hosts connected to this, this Ethernet,
 
 20
 00:01:34,400 --> 00:01:38,900
 主机可能是笔记本或服务器，
-where hosts are maybe laptops or servers
 
 21
 00:01:39,680 --> 00:01:41,840
 或者是路由器，
-or as it will run routers,
 
 22
 00:01:42,470 --> 00:01:49,000
 网络软件的设计方式是，
-and the way network software designed is
 
 23
 00:01:49,030 --> 00:01:52,360
 为了尽可能地忽略
-to kind of try to ignore as much as possible
 
 24
 00:01:52,360 --> 00:01:56,200
 网络连接主机的具体细节，
-the details of exactly what this network is that directly attaches hosts,
 
 25
 00:01:56,200 --> 00:01:58,060
 可能是一根电缆，
-might be a single cable,
 
 26
 00:01:58,060 --> 00:02:03,100
 可能在今天的论文发表的时候就是这样的，
-which is probably the case at the time today's paper was written,
 
 27
 00:02:03,280 --> 00:02:04,900
 这也可能是以太网交换机，
-this might be an Ethernet switch,
 
 28
 00:02:05,020 --> 00:02:07,990
 或者可能是 WiFi 无线局域网，
-this might be some sort of WiFi wireless Lan,
 
 29
 00:02:07,990 --> 00:02:11,920
 这些甚至根本不是线，而是无线链路。
-and these these things aren't wires at all, but rather radio links.
 
 30
 00:02:12,010 --> 00:02:14,630
 但是，在很大程度上，
-but, for the most part
 
 31
 00:02:14,630 --> 00:02:19,220
 这些本地连接的差异是，
-these these differences in sort of exactly what the local connectivity is
 
 32
 00:02:19,250 --> 00:02:24,470
 在网络堆栈中，一种在很低的级别。
-a kind of totally papered over at pretty low level, in the networking stack.
 
 33
 00:02:26,620 --> 00:02:28,360
 在这些主机上，
-And so on each of these hosts,
 
 34
 00:02:28,360 --> 00:02:30,100
 可能有不同的应用程序，
-there may be different applications,
 
 35
 00:02:30,100 --> 00:02:32,890
 可能这里有一个网络浏览器，
-maybe there's a web browser here
 
 36
 00:02:32,890 --> 00:02:37,040
 这里有一个 http 服务器，
-and you know http server over here
 
 37
 00:02:37,040 --> 00:02:40,490
 它们通过这个网络进行交互。
-and they need to talk to each other across this network.
 
 38
 00:02:41,160 --> 00:02:46,560
 你可以建立一个局域网的规模是有限制的，
-You know there's a limit to how big you can build a single local area network,
 
 39
 00:02:46,590 --> 00:02:52,330
 它的缩写是 LAN 局域网，
-so, you know for which the abbreviation is usually LAN local area network
 
 40
 00:02:53,260 --> 00:02:55,690
 考虑这个问题的方法是，
-and the way to think about it maybe is
 
 41
 00:02:55,690 --> 00:02:58,570
 一个局域网可以大到，
-that a local area network can be as large as
 
 42
 00:02:58,630 --> 00:03:01,150
 在网络中的所有主机，
-a network in which it makes sense for all the host
 
 43
 00:03:01,150 --> 00:03:03,400
 能够收到彼此的数据包，
-to be able to see all of each other's packets,
 
 44
 00:03:03,580 --> 00:03:10,450
 有时主机想要向所有本地主机广播，
-that is sometimes hosts need to want to broadcast to all of the local hosts,
 
 45
 00:03:10,690 --> 00:03:14,920
 这对十几个、二十个、五十个甚至一百个主机都很有效，
-you know that works fine with a dozen or twenty or fifty or maybe even a hundred hosts,
 
 46
 00:03:14,920 --> 00:03:19,150
 但是你不能简单地建立一个网络，
-but you can't really easily build single networks
 
 47
 00:03:19,150 --> 00:03:21,490
 在那里所有的主机都可以直接交互，
-where all the hosts can more or less directly talk to each other,
 
 48
 00:03:21,910 --> 00:03:25,240
 比如说超过几百个主机。
-with more than, say a few hundred hosts.
 
 49
 00:03:26,890 --> 00:03:31,390
 所以，更大的互联网的构建方式是，
-And so to deal with the way the larger Internet is constructed is
 
 50
 00:03:31,390 --> 00:03:35,710
 有很多这样的局域网，
-that there's a number of these individual LANs,
 
 51
 00:03:36,070 --> 00:03:37,750
 可能是在麻省理工，
-may be one of MIT,
 
 52
 00:03:38,270 --> 00:03:40,520
 也可能在哈佛，
-you know, maybe one at Harvard,
 
 53
 00:03:40,910 --> 00:03:46,100
 也可能是在遥远的斯坦福。
-maybe one faraway at Stanford.
 
 54
 00:03:46,880 --> 00:03:50,870
 在它们之间有某种连接，
-And, there's some sort of connectivity between them
 
 55
 00:03:50,870 --> 00:03:52,670
 你可以把它想象成路由器，
-which you can think of as routers,
 
 56
 00:03:52,670 --> 00:03:53,960
 所以这里可能有一台路由器，
-so there might be a router,
 
 57
 00:03:54,020 --> 00:03:57,230
 在麻省理工的局域网里，
-that's plugged into the MIT local area network,
 
 58
 00:03:57,230 --> 00:04:05,260
 也可能有一个长的连接到哈佛的网络，
-and also has perhaps a longer link to the to the Harvard network
 
 59
 00:04:05,320 --> 00:04:07,060
 实际上，有一个由路由器组成的网络，
-and in fact there's a network of routers,
 
 60
 00:04:07,060 --> 00:04:09,160
 它是互联网的主干，
-which is essentially the backbone of the Internet
 
 61
 00:04:09,550 --> 00:04:13,000
 包括远程路由器到路由器的链路，
-including long-distance router to router links,
 
 62
 00:04:13,090 --> 00:04:15,250
 在全国范围内可能会有更长的链路，
-so there might be a longer link across the country
 
 63
 00:04:15,250 --> 00:04:20,900
 可能这台路由器在斯坦福的某个局域网，
-and maybe this router is plugged into the some local area network at Stanford
 
 64
 00:04:20,990 --> 00:04:26,370
 我们的主机有更精细的任务，
-and then we have host which have this sort of more elaborate task
 
 65
 00:04:26,370 --> 00:04:27,990
 我们希望麻省理工的主机，
-in which we want to host at MIT
 
 66
 00:04:27,990 --> 00:04:32,370
 能够与斯坦福主机的路由器交互，
-to be able to talk to a sequence of routers to a host of Stanford
 
 67
 00:04:32,370 --> 00:04:33,750
 这就是所谓的路由，
-and this is called routing,
 
 68
 00:04:33,750 --> 00:04:36,720
 所以麻省理工的主机需要一种方法
-so we need to have a way for host at MIT
 
 69
 00:04:36,870 --> 00:04:40,530
 寻址斯坦福的主机，
-to address to name individual host Stanford
 
 70
 00:04:40,770 --> 00:04:42,120
 我们需要一些方法，
-and we need some way to,
 
 71
 00:04:42,360 --> 00:04:48,390
 麻省理工附近的路由器可以查看麻省理工发出的数据包，
-so that routers near MIT can look at a packet sent by MIT
 
 72
 00:04:48,390 --> 00:04:51,510
 找出这是发往哈佛的数据包，
-and say oh that's a packet for for Harvard,
 
 73
 00:04:51,510 --> 00:04:52,620
 或是发往斯坦福的包，
-a packet for Stanford,
 
 74
 00:04:52,620 --> 00:04:55,110
 或者是发往日本某个地方的包，
-a packet that needs to go somewhere in Japan
 
 75
 00:04:55,110 --> 00:04:55,980
 或者其他什么地方。
-or who knows what.
 
 76
 00:04:57,480 --> 00:05:01,050
 那么从网络协议的角度来讲，
-So, from the point of view of network protocols,
 
 77
 00:05:01,080 --> 00:05:09,500
 这个本地通信是由以太网协议负责，
-this local, this local communication is taken care of by Ethernet protocols,
 
 78
 00:05:09,650 --> 00:05:13,520
 而这种远程通信在上层的，
-and this long-distance communication is sort of layered on top of that
 
 79
 00:05:13,520 --> 00:05:17,300
 由 IP 或互联网协议来负责，
-and taken care of by IP or Internet protocols,
 
 80
 00:05:17,330 --> 00:05:21,600
 它知道如何路由到远程主机。
-that know how to route over long distances to distant hosts.
 
 81
 00:05:23,560 --> 00:05:26,290
 好的，这就是网络大概的样子，
-Okay, this is what network looks like in a nutshell.
 
 82
 00:05:26,620 --> 00:05:33,450
 现在我想讨论一下数据包里的东西，
-I'm would now want to talk about the what's inside packets,
 
 83
 00:05:33,450 --> 00:05:36,990
 它在以太网上移动或在更大的互联网上移动，
-that move across an Ethernet or move across the larger Internet,
 
 84
 00:05:37,050 --> 00:05:43,150
 着眼于最终讨论主机中的软件，
-with an eye to eventually talking about the software that in hosts,
 
 85
 00:05:43,150 --> 00:05:47,500
 主机和路由器必须处理这些包。
-that has to process hosts and routers has to process those packets.
 
 86
 00:05:48,220 --> 00:05:49,810
 所以，让我从最底层开始，
-So let me start with the lowest level
 
 87
 00:05:50,050 --> 00:05:53,710
 讨论以太网数据包中的内容。
-and talk about what's inside an Ethernet packet.
 
 88
 00:05:54,160 --> 00:05:55,570
 所以，当两台主机，
-So, when two hosts,
 
 89
 00:05:55,570 --> 00:05:59,830
 它们连接到同一电缆、同一 WiFi 网络或同一以太网，
-that are quite nearby attached to the same cable or same WiFi network or same Ethernet
 
 90
 00:05:59,890 --> 00:06:01,150
 想要相互通信，
-want to talk to each other,
 
 91
 00:06:02,760 --> 00:06:05,250
 一种最底层的协议，
-the sort of lowest level protocol,
 
 92
 00:06:06,090 --> 00:06:10,320
 允许同一个局域网上两台主机相互通信的是以太网协议，
-which allows two hosts on the same LAN to talk to each other is the Ethernet protocol
 
 93
 00:06:10,380 --> 00:06:13,920
 你可以想象一台主机，
-and you can think of one host,
 
 94
 00:06:14,280 --> 00:06:22,060
 主机 1 通过以太网发送一个帧到主机 2 ，
-host 1 sending a frame over the over the Ethernet to host 2,
 
 95
 00:06:22,700 --> 00:06:23,720
 即所谓的以太网帧，
-what's called an Ethernet frame,
 
 96
 00:06:23,720 --> 00:06:25,760
 它是在以太网工作的数据包，
-which is the Ethernet work for packet
 
 97
 00:06:25,760 --> 00:06:28,280
 它是一串字节，
-and it's a series of bytes
 
 98
 00:06:28,280 --> 00:06:33,010
 通过以太网从一台主机发送到另一台主机，
-that are sent over the Ethernet from one host to another
 
 99
 00:06:33,010 --> 00:06:35,080
 而以太网协议所做的是
-and what the ethernet protocol does is
 
 100
 00:06:35,080 --> 00:06:37,330
 在其中包含足够的信息
-have just enough information in it
 
 101
 00:06:37,600 --> 00:06:43,180
 让两个主机知道在与谁交互，
-to allow the two hosts to realize who's talking to each other
 
 102
 00:06:43,180 --> 00:06:47,950
 并且使主机能够识别寻址到它们的数据包。
-and cause the host to be able to recognize packets that are addressed to them.
 
 103
 00:06:48,550 --> 00:06:50,140
 所以以太网报头看起来是什么样子，
-And so what an Ethernet header looks,
 
 104
 00:06:50,140 --> 00:06:52,660
 以太网处理这个问题的方式是，
-so the way that Ethernet deals with this is
 
 105
 00:06:52,660 --> 00:06:58,140
 每个以太网数据包的开头都有一个报头，
-that every Ethernet packet has at the beginning a header,
 
 106
 00:06:59,030 --> 00:07:03,930
 它有三个字段，以及一些以太网有效载荷，
-that has three fields, followed by some Ethernet payload,
 
 107
 00:07:06,790 --> 00:07:11,830
 报头有两个以太网地址，
-and what's in the header is two Ethernet addresses,
 
 108
 00:07:11,830 --> 00:07:15,190
 我们称它们为目的地址和源地址，
-we'll call them the destination address and the source address
 
 109
 00:07:15,280 --> 00:07:17,680
 还有数据包的类型，
-and also the type of the packet,
 
 110
 00:07:17,920 --> 00:07:21,070
 每个地址只是一个 48 位的数字，
-each of these addresses is just a 48 bit number,
 
 111
 00:07:21,550 --> 00:07:25,840
 唯一地标识特定的网卡，
-that uniquely identifies a particular network interface card really,
 
 112
 00:07:26,770 --> 00:07:30,520
 这个类型字段向接收主机表示应该如何处理这个包，
-and this type field is going to indicate to the recipient host
 
 113
 00:07:30,550 --> 00:07:32,200
 它如何处理数据包，
-what it's supposed to do with that packet
 
 114
 00:07:32,200 --> 00:07:33,220
 它的实际意义是，
-and what that really means is
 
 115
 00:07:33,220 --> 00:07:40,210
 以哪种更高级别的协议检查和处理这个以太网数据包的有效载荷。
-what higher level protocol should examine and process the payload of that Ethernet packet.
 
 116
 00:07:41,220 --> 00:07:48,480
 这些位通常被设置为分块通过线路，
-So, these, these are bits that go are typically set to go over the wire, piece,
 
 117
 00:07:49,110 --> 00:07:51,480
 48 加 48 加 16 位报头，
-48 plus 48 plus 16 bits of header
 
 118
 00:07:51,600 --> 00:07:53,280
 然后是有效载荷，
-and then however much payload
 
 119
 00:07:53,910 --> 00:07:56,040
 并且对于软件来说是不可见的，
-and not really visible to the software,
 
 120
 00:07:56,040 --> 00:07:59,160
 但是在包的开头会有一些东西，
-but there's going to be something at the beginning of the packet,
 
 121
 00:07:59,340 --> 00:08:02,250
 由硬件在非常低的级别上识别，
-that's recognized at a very low level by the hardware
 
 122
 00:08:02,250 --> 00:08:04,050
 表示数据包的开始，
-that signifies the start of a packet
 
 123
 00:08:05,070 --> 00:08:07,470
 而接收主机需要知道包结束，
-and the receiving host needs to know the packet ends,
 
 124
 00:08:07,470 --> 00:08:11,850
 所以在结束会有另一个特殊的位模式，
-so there's going to be another special bit pattern at the end,
 
 125
 00:08:11,850 --> 00:08:13,290
 表示数据包的结束。
-that signifies the end of the packet.
 
 126
 00:08:14,250 --> 00:08:17,730
 这两个开始和结束标志永远不会被软件看到，
-These two begin and end flags are never seen by the software,
 
 127
 00:08:17,730 --> 00:08:21,790
 但是剩下的以太网帧
-but the rest, the rest of this Ethernet frame
 
 128
 00:08:22,000 --> 00:08:26,440
 到 H2 的网卡是由软件完成的。
-is delivered by the network interface card that Nic at H2 by the software.
 
 129
 00:08:27,160 --> 00:08:32,020
 如果你看这门课的最后的实验，
-If you've looked at the final lab for the course,
 
 130
 00:08:32,710 --> 00:08:35,770
 你会看到我们给你的软件包含了一些新文件，
-you'll see that the software we give you includes a bunch of new files,
 
 131
 00:08:35,770 --> 00:08:38,140
 包括 kernel/net.h ，
-including kernel/net.h
 
 132
 00:08:38,170 --> 00:08:45,730
 包含了用于不同网络协议的报头的一整套定义，
-which contains a whole bunch of definitions of packet headers for different network protocols,
 
 133
 00:08:46,270 --> 00:08:50,170
 这是直接取自我们给你的 net.h 文件的内容，
-and so this is just text taken directly from net.h file we give you
 
 134
 00:08:50,440 --> 00:08:57,120
 它包括对以太网报头的布局的描述，
-and it includes description of the layout of the Ethernet header,
 
 135
 00:08:57,180 --> 00:09:01,530
 我们给你的软件使用这个结构体定义，
-and this this software we give you actually uses literally uses this struct definition,
 
 136
 00:09:01,650 --> 00:09:04,860
 用来解析传入的以太网数据包，
-in order to parse incoming Ethernet packets
 
 137
 00:09:05,130 --> 00:09:09,840
 从报头中获取目的地址和类型字段，
-is to pick apart the head to get the destination and type,
 
 138
 00:09:09,870 --> 00:09:12,570
 然后也使用这个结构体来格式化包。
-then also uses this structure to format packets.
 
 139
 00:09:12,870 --> 00:09:14,490
 所以，主机实际上负责
-So the host is really in charge of
 
 140
 00:09:14,980 --> 00:09:20,080
 设置和解析以太网使用的报头。
-sort of setting up and parsing this header, that's used by Ethernet.
 
 141
 00:09:22,360 --> 00:09:26,100
 关于以太网数据包有什么问题吗？
-Any questions about Ethernet packets?
 
 142
 00:09:32,070 --> 00:09:33,540
 是的，我有个问题。
-Yeah, I have a question.
 
 143
 00:09:33,570 --> 00:09:34,110
 请。
-Please.
 
 144
 00:09:34,140 --> 00:09:37,360
 您提到的位模式，
-Is is the bit pattern you mentioned
 
 145
 00:09:37,360 --> 00:09:41,020
 硬件使用它来确定数据包的开始和结束，
-that the hardware uses to determine the start and end of a packet
 
 146
 00:09:41,020 --> 00:09:44,980
 类似于实验中的 eop ，
-similar to the eop in the lab,
 
 147
 00:09:46,850 --> 00:09:48,770
 也就是数据包的结束。
-which is a end of packet.
 
 148
 00:09:49,740 --> 00:09:56,130
 不， eop 是一个独立机制，
-No, no, the eop is a separate mechanism
 
 149
 00:09:56,130 --> 00:10:00,300
 在驱动程序和网卡之间，以帮助它们进行通信。
-between the driver and the NIC to help them communicate.
 
 150
 00:10:00,770 --> 00:10:04,100
 有一些电路方案，
-This is, there's some electrical schemes,
 
 151
 00:10:04,100 --> 00:10:07,580
 一些底层的电或光信号方案
-some low level electrical or optical signaling scheme
 
 152
 00:10:07,580 --> 00:10:11,240
 用于在以太网电缆上传输位，
-to transmit bits over Ethernet cables,
 
 153
 00:10:11,420 --> 00:10:14,000
 这些标志必须，
-and these flags have to do with the,
 
 154
 00:10:14,640 --> 00:10:21,470
 通常，这种电信号模式在数据包中是非法的，
-typically, electrical patterns that would not be legal inside a packet
 
 155
 00:10:22,310 --> 00:10:25,220
 所以，一种方案是，
-and so you know one scheme is to
 
 156
 00:10:25,220 --> 00:10:28,040
 除了在线路上只发送 0 或 1 的位，
-instead of just sending zero one bits over the wire,
 
 157
 00:10:28,160 --> 00:10:33,670
 你可以发送两个信号序列，
-you can send you could send sequences of two signals,
 
 158
 00:10:33,910 --> 00:10:36,340
 所以有四种不同的符号，
-so there's four different symbols possible
 
 159
 00:10:36,550 --> 00:10:43,030
 有两个不同的电压水平的序列或别的什么，
-with sequences of two different electrical voltage levels or something
 
 160
 00:10:43,030 --> 00:10:47,350
 四种信号中的两种表示 0 或 1 位，
-and have two of the four possible symbols indicate 0 or 1 bits
 
 161
 00:10:47,350 --> 00:10:48,490
 在数据包的主体中，
-in the body of the packet
 
 162
 00:10:48,610 --> 00:10:52,030
 而使用其余的两种来表示开始和结束。
-and have the remaining two indicate begin and end.
 
 163
 00:10:52,440 --> 00:10:54,660
 实际上，这就是几年前用过的方案，
-That was in fact a scheme that was used years ago,
 
 164
 00:10:54,720 --> 00:10:56,820
 几年前以太网就使用过类似的方案，
-scheme much like that was used years ago Ethernet,
 
 165
 00:10:56,910 --> 00:10:58,590
 我不知道它现在是怎么工作的。
-I don't actually know how it works now.
 
 166
 00:11:02,010 --> 00:11:07,460
 好的，关于这些地址需要知道的是
-Okay, something to know about these addresses is that
 
 167
 00:11:07,490 --> 00:11:09,620
 这些 48 位地址是什么，
-what these are 48 bit addresses,
 
 168
 00:11:09,680 --> 00:11:11,900
 48 位的原因是，
-the reason for the 48 bits is that
 
 169
 00:11:11,900 --> 00:11:14,690
 想要确保有足够的位，
-they wanted to make sure that there was enough bits
 
 170
 00:11:14,720 --> 00:11:20,260
 能够为曾经制造的每个不同的网卡提供唯一的地址，
-to be able to give a unique address to every different NIC ever manufactured.
 
 171
 00:11:20,710 --> 00:11:23,020
 所以有大量的地址，
-So there's a vast number of possible addresses,
 
 172
 00:11:23,170 --> 00:11:26,170
 这 48 位地址的内部结构是
-the internal structure of these 48 bit addresses is that
 
 173
 00:11:26,170 --> 00:11:31,150
 前半部分的 24 位是制造商编号，
-the first half, the first 24 bits is a manufacturer number
 
 174
 00:11:31,180 --> 00:11:37,090
 每个网卡制造商都有自己的制造商编号，
-and there's every manufacturer network interface cards NICs has its own manufacturer number,
 
 175
 00:11:37,090 --> 00:11:38,620
 这就是前 24 位，
-so that's the first 24 bits,
 
 176
 00:11:38,860 --> 00:11:40,300
 第二部分 24 位是
-and the second 24 bits is
 
 177
 00:11:40,300 --> 00:11:44,740
 由制造商分配的任意唯一数字，
-just any number can be any unique number assigned by the manufacturers,
 
 178
 00:11:44,740 --> 00:11:47,680
 制造商通常按升序分配它们，
-manufacturers typically assign them in just ascending orders,
 
 179
 00:11:47,680 --> 00:11:51,280
 如果你购买 6 个网卡，
-if you buy you know half a dozen network interface cards,
 
 180
 00:11:51,640 --> 00:11:56,650
 每个网卡已经编程为自己的地址，
-the network interface card, each network interface card has programmed into its own address,
 
 181
 00:11:56,770 --> 00:11:58,120
 如果你看一下地址，
-and if you look at the address,
 
 182
 00:11:58,120 --> 00:12:00,220
 你会发现它们高位是相同的，
-you'll see that the high bits are the same
 
 183
 00:12:00,220 --> 00:12:02,980
 这些你从同一制造商购买的 6 个网卡，
-for these six cards you bought from the same manufacturer,
 
 184
 00:12:03,010 --> 00:12:08,440
 而低 24 位可能是 6 个连续的编号。
-but the low 24 bits are probably six sequential numbers.
 
 185
 00:12:09,060 --> 00:12:12,360
 所以这些地址是唯一的，
-So these addresses are unique,
 
 186
 00:12:12,810 --> 00:12:17,850
 但他们没有帮助定位目的主机，
-but what they're not helpful in is locating the destination host,
 
 187
 00:12:17,880 --> 00:12:21,030
 所以，如果你知道正在交互的主机位于同一局域网上，
-so if you know the host you're talking about is on the same local area network,
 
 188
 00:12:21,030 --> 00:12:24,650
 你可以使用以太网地址，
-as you you can use Ethernet address
 
 189
 00:12:24,650 --> 00:12:26,900
 并且它位于相同的局域网上。
-and it's on the same local area network.
 
 190
 00:12:26,900 --> 00:12:29,300
 所以我们会监听它自己地址的包，
-So we'll be listening for packet with his own address,
 
 191
 00:12:29,840 --> 00:12:32,450
 但如果主机想与国家另一边的交互，
-but if the hosts are trying to talk to on the other side of the country,
 
 192
 00:12:32,570 --> 00:12:33,890
 你必须使用不同的方案，
-you have to use a different scheme,
 
 193
 00:12:33,890 --> 00:12:35,510
 这就是 IP 的相关内容，
-and that's what's IP is all about,
 
 194
 00:12:35,780 --> 00:12:36,650
 我稍后会谈到。
-I'll talk about in a bit.
 
 195
 00:12:38,970 --> 00:12:42,810
 好的，这就是这些包的样子，
-Okay, so this is what these packets look like,
 
 196
 00:12:42,840 --> 00:12:49,650
 你可以使用 tcpdump 查看运行中的以太网包，
-you can actually look at Ethernet packets in action using the tcpdump program
 
 197
 00:12:49,650 --> 00:12:51,510
 我们鼓励你这样做，
-and you're encouraged to do this,
 
 198
 00:12:51,510 --> 00:12:53,550
 你可能需要在实验中用到。
-you probably need to do this as part of the lab.
 
 199
 00:12:53,580 --> 00:13:01,370
 这是来自实验的 tcpdump 的输出，
-And this is actually the output of tcpdump from the lab,
 
 200
 00:13:01,640 --> 00:13:06,110
 tcpdump 在这里告诉我们一系列事情，
-and what tcpdump is telling us here was telling us a whole bunch of things,
 
 201
 00:13:06,110 --> 00:13:09,710
 第一部分是数据包到达的时间。
-this first part is the time at which the packet arrived,
 
 202
 00:13:10,600 --> 00:13:12,820
 如果你愿意，可以在你的笔记本电脑上试一下，
-if you like you can try this on your laptops,
 
 203
 00:13:12,820 --> 00:13:14,080
 如果安装了 tcpdump ，
-if you install tcpdump,
 
 204
 00:13:14,350 --> 00:13:22,080
 第一行的其余部分是一种人类可读的说明，
-and the rest of the first line is a sort of human readable interpretation
 
 205
 00:13:22,080 --> 00:13:23,610
 说明这是一种什么样的数据包，
-of what kind of packet that is
 
 206
 00:13:23,880 --> 00:13:28,440
 然后接下来的三行或这里的部分是
-and then these next three lines or the part here is
 
 207
 00:13:28,500 --> 00:13:33,030
 接收到的数据包的十六进制，
-a hex dump of the of the received packet
 
 208
 00:13:33,180 --> 00:13:34,830
 你可以看到，
-and you can see,
 
 209
 00:13:34,890 --> 00:13:38,730
 我们可以跟随以太网报头，
-we can actually follow along with the Ethernet header,
 
 210
 00:13:38,820 --> 00:13:46,050
 前 48 位或 6 个字节是广播地址，全是 f ，
-there's these first 48 bits or six bytes is a broadcast address, all fs
 
 211
 00:13:46,080 --> 00:13:50,490
 全是 f 的以太网地址是广播到本地网络上的所有主机（的地址）。
-and all fs Ethernet address is broadcast to all the hosts on the local network.
 
 212
 00:13:51,240 --> 00:13:57,060
 接下来的 48 位是发送主机的以太网地址，
-The next 48 bits is the sending hosts Ethernet address
 
 213
 00:13:57,060 --> 00:14:04,400
 我们不能告诉你高位的含义，
-which you know we can't necessarily tell anything about although the high bits mean,
 
 214
 00:14:04,550 --> 00:14:08,300
 实际上，这是我们在 QEMU 中由 xv6 生成的，
-in fact, this was generated by xv6 we're under QEMU,
 
 215
 00:14:08,300 --> 00:14:10,010
 所以没有真正的网卡，
-so no real NIC was involved,
 
 216
 00:14:10,070 --> 00:14:14,900
 所以它实际上不是一个制造商编号，而是 QEMU 编造的。
-so it's not actually a manufacturer number appears something that QEMU makes up.
 
 217
 00:14:15,650 --> 00:14:20,510
 然后接下来的 16 位，接下来的 2 个字节是类型，
-And then the next 16 bits, the next two bytes is the type,
 
 218
 00:14:21,060 --> 00:14:22,530
 它是数据包的以太网类型，
-it's the Ethernet type of the packet,
 
 219
 00:14:22,530 --> 00:14:27,360
 在这种情况下，它是 0806 ，是一个叫做 ARP 的协议，
-in this case, it's 0806 which is a protocol called ARP,
 
 220
 00:14:27,720 --> 00:14:29,070
 我稍后会谈到这一点。
-which I'll talk about in a moment.
 
 221
 00:14:30,790 --> 00:14:37,180
 其余的东西就是一个 ARP 包的有效载荷，
-And the rest of this stuff is, is the payload of an ARP packet,
 
 222
 00:14:37,840 --> 00:14:38,710
 我们也会讲到。
-we shall also talk about.
 
 223
 00:14:39,660 --> 00:14:42,300
 关于我们在这里看到的，有没有什么问题？
-Any questions about what were we're looking at here?
 
 224
 00:14:44,740 --> 00:14:46,780
 这很值得在你的计算机上试一下，
-This well worth trying out on your own computer,
 
 225
 00:14:46,840 --> 00:14:47,980
 如果你想了解网络。
-if you care about networks.
 
 226
 00:14:50,000 --> 00:14:55,130
 好的，下一个与实验相关的协议，
-Okay, so the next protocol that's of relevance to the lab
 
 227
 00:14:55,130 --> 00:14:58,010
 通过以太网通信的称为 ARP 。
-and communication over Ethernet is called arp.
 
 228
 00:14:59,500 --> 00:15:00,610
 所以，在以太网级别，
-So at the Ethernet level,
 
 229
 00:15:00,610 --> 00:15:03,010
 每台主机都有一个 48 位以太网地址，
-every host has a 48 Ethernet address,
 
 230
 00:15:03,550 --> 00:15:05,710
 但要在互联网上通信，
-but for communicating over the Internet,
 
 231
 00:15:05,710 --> 00:15:09,580
 你需要使用 32 位互联网地址，
-it turns out you need to use a 32 bit Internet address
 
 232
 00:15:09,580 --> 00:15:12,580
 互联网地址不同的原因是，
-and the reason why Internet addresses are different is that
 
 233
 00:15:13,000 --> 00:15:17,110
 互联网地址的内部结构有 32 位，
-Internet addresses have internal structure in a 32 bit,
 
 234
 00:15:17,500 --> 00:15:19,690
 主机 32 位互联网地址，
-the hosts 32 bit Internet address,
 
 235
 00:15:19,870 --> 00:15:22,870
 高位都是各种线索，
-the high bits are full of all kinds of hints
 
 236
 00:15:22,900 --> 00:15:27,040
 这个数据包需要去互联网的哪里。
-about where in the entire Internet this packet needs to go.
 
 237
 00:15:27,380 --> 00:15:31,130
 所以你可以认为互联网地址是一个高位的网络号，
-And so you can think of an Internet address as having a high bits a network number,
 
 238
 00:15:31,490 --> 00:15:32,810
 实际上要比这复杂一点，
-it's actually a little more complex than that,
 
 239
 00:15:32,810 --> 00:15:34,070
 但它本质上是一个网络编号，
-but it's essentially a network number,
 
 240
 00:15:34,070 --> 00:15:36,800
 互联网中的每个网络都有一个不同的编号，
-every network in the Internet has a distinct number
 
 241
 00:15:36,800 --> 00:15:40,340
 路由器查看这些高位和互联网地址，
-and routers look at these the high bits and the Internet address
 
 242
 00:15:40,370 --> 00:15:44,450
 用来确定需要将数据包转发到哪个路由器或互联网，
-to decide which router and the Internet this packet needs to be forwarded to
 
 243
 00:15:44,900 --> 00:15:50,870
 然后互联网地址 IP 地址中的 32 个低位是，
-and then the low bits in a 32 bit Internet Internet address IP address are
 
 244
 00:15:50,900 --> 00:15:56,540
 我们想要在本地网络中交互的主机编号。我们想通过它的本地网络与之交谈。
-the number of that of the host we want to talk to on its local network.
 
 245
 00:15:57,900 --> 00:16:01,290
 但是当数据包最终到达时，
-But when a packet finally arrives,
 
 246
 00:16:01,990 --> 00:16:05,140
 当互联网数据包到达以太网时，
-and when the Internet packet arrives at Ethernet,
 
 247
 00:16:05,230 --> 00:16:09,040
 我们需要方法在给出的 32 位 IP 地址上，
-we need some way to give in on 32 bit IP address,
 
 248
 00:16:09,190 --> 00:16:13,270
 找出那个主机的 48 位以太网地址。
-figure out the 48 bit Ethernet address of that host.
 
 249
 00:16:14,510 --> 00:16:20,540
 互联网这样做的方法是使用动态解析协议，
-And the way the Internet chooses to do that is to have a dynamic resolution protocol,
 
 250
 00:16:20,750 --> 00:16:25,670
 一种称为 ARP 的请求响应协议，用于地址解析协议，
-kind of request response protocol called ARP, for address resolution protocol
 
 251
 00:16:25,820 --> 00:16:27,200
 考虑这一点的方法是，
-and the way to think about it is that
 
 252
 00:16:27,590 --> 00:16:30,980
 当 IP 数据包到达路由器时，
-when a IP packet arrives at a router
 
 253
 00:16:30,980 --> 00:16:33,460
 或者它需要由主机发送，
-or its needs to be sent by a host
 
 254
 00:16:33,520 --> 00:16:37,180
 发往同一局域网上的主机，
-to a host that's known to be on the same LAN local area network,
 
 255
 00:16:37,360 --> 00:16:42,820
 发送者首先在局域网上广播一个 ARP 数据包，
-the sender first broadcasts on that LAN, an ARP packet,
 
 256
 00:16:42,940 --> 00:16:47,320
 请求谁拥有这个 IP 地址，
-that's a request that says whoever has whoever owns this IP address,
 
 257
 00:16:47,410 --> 00:16:50,530
 请回复你的 48 位以太网地址，
-please respond with your 48 Ethernet address
 
 258
 00:16:50,590 --> 00:16:53,170
 如果主机存在并打开，
-and assuming that host exists is turned on,
 
 259
 00:16:53,710 --> 00:16:56,800
 它将使用 ARP 响应数据包进行响应。
-it will respond with an ARP response packet.
 
 260
 00:16:57,510 --> 00:17:01,320
 这是 ARP 数据包的格式，
-And this is the format of the packet of an ARP packet,
 
 261
 00:17:01,500 --> 00:17:05,370
 它实际显示的方式是在以太网数据包内部，
-the way it actually shows up is inside an Ethernet packet
 
 262
 00:17:05,580 --> 00:17:07,920
 所以你实际上会看到的是，
-and so what you would actually see
 
 263
 00:17:08,220 --> 00:17:10,890
 网络首先是 48 位以太网报头，
-and the network is first the Ethernet header,
 
 264
 00:17:11,250 --> 00:17:13,800
 有 48 位源地址，
-which has the 48 bit source field,
 
 265
 00:17:13,800 --> 00:17:15,810
 48 位目的地址，
-48 bit destination field,
 
 266
 00:17:16,240 --> 00:17:18,190
 它的目的源类型，
-its destination source type,
 
 267
 00:17:18,370 --> 00:17:19,720
 这就是以太网报头。
-so this is the Ethernet header.
 
 268
 00:17:20,850 --> 00:17:24,390
 然后，从以太网的角度来看，
-And then, from the Ethernet point of view,
 
 269
 00:17:24,630 --> 00:17:26,280
 其余的是有效载荷，
-the rest is payload,
 
 270
 00:17:26,280 --> 00:17:29,790
 但其实以太网有效载荷是 ARP 数据包，
-but actually in the Ethernet payload is ARP packet,
 
 271
 00:17:29,820 --> 00:17:32,460
 它具有这些字段，
-which has these fields,
 
 272
 00:17:33,630 --> 00:17:37,190
 紧跟在以太网报头之后。
-boom boom boom right after the Ethernet header.
 
 273
 00:17:37,340 --> 00:17:40,040
 而接收主机知道数据包的方式是，
-And the way the receiving host knows on our packet is
 
 274
 00:17:40,040 --> 00:17:41,600
 通过查看这个类型字段，
-by looking at this type field,
 
 275
 00:17:41,690 --> 00:17:43,700
 如果是 0806 ，
-and if it's 0806,
 
 276
 00:17:43,970 --> 00:17:47,990
 那就是 ARP 的以太网协议编号，
-that's the agreed on Ethernet protocol number for ARP
 
 277
 00:17:48,200 --> 00:17:49,880
 然后接收主机软件知道，
-and then the receiving host software would know
 
 278
 00:17:49,880 --> 00:17:54,930
 将这个包交给 ARP 协议处理代码。
-to hand this packet to its ARP protocol processing code.
 
 279
 00:17:55,960 --> 00:17:57,700
 这些包里有什么，
-What's in these packets
 
 280
 00:17:57,790 --> 00:17:59,080
 这里有一些东西，
-and there's a bunch of junk here
 
 281
 00:17:59,080 --> 00:18:03,760
 表示我有一个互联网地址，
-that basically amounts to saying I have an Internet address,
 
 282
 00:18:04,280 --> 00:18:06,530
 我想把它变成以太网地址，
-I want to turn it into an Ethernet address,
 
 283
 00:18:06,560 --> 00:18:09,320
 如果你拥有这个互联网地址，请回复，
-please respond if you own this Internet address,
 
 284
 00:18:09,740 --> 00:18:19,780
 然后，这些字段保存互联网和以太网地址，
-and then, these fields hold the Internet and Ethernet addresses,
 
 285
 00:18:19,960 --> 00:18:22,090
 由这个 ARP 数据包的主机发送的，
-of whatever host is sending this ARP packet
 
 286
 00:18:22,090 --> 00:18:26,230
 这可以计算出[]用来构建动态列表，
-and that's enough to figure out the [] whose to build dynamically tables,
 
 287
 00:18:27,280 --> 00:18:30,940
 告诉它们以太网和 IP 地址之间的对应关系。
-that tell them the correspondence between Ethernet and IP addresses.
 
 288
 00:18:32,600 --> 00:18:39,350
 同样，我们可以使用 tcpdump 来查看这些数据包经过，
-Again, we can use tcpdump in order to see these packets go by,
 
 289
 00:18:41,420 --> 00:18:43,700
 如果你运行 tcpdump ，很可能会看到它们，
-highly likely to see them if you run tcpdump,
 
 290
 00:18:43,910 --> 00:18:50,570
 这又是一个来自实验的 tcpdump ，
-here's again a tcpdump that taken from the lab,
 
 291
 00:18:51,170 --> 00:18:53,120
 在实验里，
-it turns out that in the lab,
 
 292
 00:18:53,120 --> 00:19:01,040
 xv6 最终会与模拟的以太网协议交互，
-you know your xv6 will end up talking a simulated to, but talking Ethernet protocol
 
 293
 00:19:01,310 --> 00:19:05,900
 通过模拟以太网协议发送 IP 数据包，
-and sending IP packets through Ethernet through a simulated Ethernet protocol,
 
 294
 00:19:05,960 --> 00:19:08,660
 在你运行 QEMU 的任何主机上运行。
-with whatever host you're running QEMU on.
 
 295
 00:19:09,390 --> 00:19:13,620
 所以，你可以看到这些 ARP 报文，
-And so when you want you'll actually be able to see these ARP exchanges,
 
 296
 00:19:13,620 --> 00:19:16,440
 在 xv6 和你们的主机之间，
-between xv6 and your host
 
 297
 00:19:16,590 --> 00:19:18,750
 我们在这里看到的是
-and so what we're seeing here is
 
 298
 00:19:19,380 --> 00:19:25,290
 我的主机想知道我的 xv6 的 IP 地址，
-my host wants knows the IP address of my xv6
 
 299
 00:19:25,410 --> 00:19:31,140
 想要知道它在 QEMU 模拟的局域网中的以太网地址。
-and wants to wants to figure out its Ethernet address on the LAN that QEMU simulates.
 
 300
 00:19:31,260 --> 00:19:35,350
 第二个包是我的 xv6 ，
-And this second packet is my xv6
 
 301
 00:19:35,560 --> 00:19:39,820
 你可以看到生成的代码是我的 xv6 看到了这个请求，
-and you can see the code that generates is my xv6 has seen this request,
 
 302
 00:19:40,030 --> 00:19:43,660
 意识到它是请求中 IP 地址的所有者，
-realize that it's the owner of the IP address in the request
 
 303
 00:19:43,810 --> 00:19:45,340
 并且正在发回响应，
-and is sending back the response,
 
 304
 00:19:45,820 --> 00:19:49,300
 tcpdump 可以很好地解析出 ARP 数据包中的字段，
-tcpdump is nicely parsed out the fields in the ARP packet
 
 305
 00:19:49,300 --> 00:19:50,290
 并打印在这里，
-and printed them here,
 
 306
 00:19:52,020 --> 00:19:56,250
 我想这是发送者的 IP 地址，
-and I think this is the sender's IP address,
 
 307
 00:19:56,760 --> 00:19:58,470
 这是，
-and this is the,
 
 308
 00:19:58,530 --> 00:20:02,020
 抱歉，这是发送者的 IP 地址，
-sorry, this is the sender's IP address,
 
 309
 00:20:02,020 --> 00:20:06,010
 这是发送者感兴趣的 IP 地址，
-this is the IP address that the sender is interested in
 
 310
 00:20:06,400 --> 00:20:09,460
 这些东西大概会放在这里和这里，
-and those would presumably going here and here
 
 311
 00:20:09,520 --> 00:20:13,570
 这是一个响应，
-and this is a response
 
 312
 00:20:15,430 --> 00:20:21,620
 是具有这个 IP 地址的所有者的以太网地址，
-with the Ethernet address of the owner of this IP address,
 
 313
 00:20:21,620 --> 00:20:28,310
 并且这个以太网地址可能最终在这个字段中，
-and this Ethernet address probably end up being in this field,
 
 314
 00:20:28,430 --> 00:20:29,450
 如果我们足够聪明，
-and if we're clever enough,
 
 315
 00:20:29,450 --> 00:20:32,210
 我们可以把这些数据包拆开，看看其中的一些字段，
-we can pick apart these packets and see some of these fields,
 
 316
 00:20:32,420 --> 00:20:39,510
 如我们所知，这个部分是以太网报头，
-as we know, this part is the Ethernet header,
 
 317
 00:20:39,540 --> 00:20:46,300
 目的以太网地址，源以太网地址和数据包类型 0806 ，
-destination Ethernet address, source Ethernet address and packet type 0806,
 
 318
 00:20:47,020 --> 00:20:48,430
 向后看，
-working backwards,
 
 319
 00:20:49,300 --> 00:20:52,840
 这是 tip 字段，
-this is the tip field,
 
 320
 00:20:52,840 --> 00:20:56,800
 它是发送者想要查找以太网地址的 IP 地址，
-which is the IP address that the sender wants to find the Ethernet address for
 
 321
 00:20:56,860 --> 00:20:59,320
 如果你把这个拆开，
-and if you pick this apart,
 
 322
 00:20:59,320 --> 00:21:04,940
 这里有一个字节，每个 IP 地址有四个字段，
-there's one byte, for each of the four fields of the IP address,
 
 323
 00:21:04,970 --> 00:21:08,540
 抱歉，它是在找 10.0.2.15 ，
-sorry, it's really looking for 10.0.2.15,
 
 324
 00:21:08,570 --> 00:21:12,590
 这是十六进制 10 ，十六进制 0 ，十六进制 2 ，十六进制 15 ，
-this is 10 hex, 0 hex, 2 hex, 15 hex
 
 325
 00:21:13,970 --> 00:21:19,310
 然后是目标以太网地址，它是未知的，
-and then there's the targets Ethernet address which is not known
 
 326
 00:21:19,520 --> 00:21:22,820
 然后是发送者的 IP 地址 10.0.2.2 ，
-and then the sender's IP address 10.0.2.2
 
 327
 00:21:22,940 --> 00:21:25,790
 发送者的以太网地址，
-and the senders Ethernet address
 
 328
 00:21:25,790 --> 00:21:27,890
 这里还有一堆东西在说，
-and a bunch of other junk here saying that
 
 329
 00:21:28,600 --> 00:21:31,750
 我们对以太网和 IP 地址格式感兴趣。
-we're interested in Ethernet and IP address formats.
 
 330
 00:21:33,220 --> 00:21:36,160
 并且这是请求，这是回应，
-And there's this request, this response,
 
 331
 00:21:36,850 --> 00:21:38,050
 关于 ARP ，有什么问题吗？
-any questions about ARP?
 
 332
 00:21:39,440 --> 00:21:43,160
 嗯，是的，有个问题，
-Um, yeah question,
 
 333
 00:21:43,370 --> 00:21:48,800
 为什么发送者需要包括它的 IP 地址，
-why is it necessary for the sender to include its IP address,
 
 334
 00:21:48,800 --> 00:21:53,810
 如果它已经包含在数据包中的以太网地址，
-if it if it's Ethernet addresses already included in the packet,
 
 335
 00:21:53,810 --> 00:21:55,430
 想要响应它，
-like to respond to it,
 
 336
 00:21:55,430 --> 00:21:59,660
 那么接收者是不是只需要使用那个地址？
-wouldn't it wouldn't the receiver only need using that address.
 
 337
 00:22:00,320 --> 00:22:02,330
 是的，我不知道为什么里面会有这些东西，
-Yeah, I don't know why that all this stuff's in there,
 
 338
 00:22:02,480 --> 00:22:03,980
 我想如果你想的话，
-I think if you wanted to,
 
 339
 00:22:03,980 --> 00:22:05,600
 你可以把这件事做得更简单，
-you could strip this down quite a bit,
 
 340
 00:22:05,630 --> 00:22:08,900
 比如，发送，
-you know like that, sent,
 
 341
 00:22:08,900 --> 00:22:11,330
 好吧，也许答案是，
-well, okay, maybe the answer is that
 
 342
 00:22:11,360 --> 00:22:17,840
 这个协议被设计成在网络上使用而不是在以太网，
-this protocol was designed to be usable on networks other than Ethernet
 
 343
 00:22:17,900 --> 00:22:20,990
 所以它被设计成相当独立的，
-and so it was designed to be fairly self-contained,
 
 344
 00:22:21,630 --> 00:22:26,970
 所以它不依赖于其他任何东西，
-so that it didn't depend on anything in the, didn't depend on anything else
 
 345
 00:22:27,060 --> 00:22:31,200
 所以， ARP 报头具有以太网地址的复制，
-and therefore the ARP header has a copy of the Ethernet addresses,
 
 346
 00:22:31,290 --> 00:22:34,110
 事实上，如果你通过以太网发送 ARP ，
-that in fact if you know you're sending ARP over Ethernet,
 
 347
 00:22:34,170 --> 00:22:36,960
 以太网数据包还要包含所有的以太网地址，
-the Ethernet packet also has all the Ethernet address,
 
 348
 00:22:36,960 --> 00:22:37,950
 正如你在这里看到的，
-as you can see here,
 
 349
 00:22:38,220 --> 00:22:43,210
 所以，在以太网上运行 ARP 是多余的，
-so, it's redundant to be running ARP over Ethernet,
 
 350
 00:22:43,420 --> 00:22:46,720
 但如果你在其他地方运行 ARP ，
-but maybe if you are running ARP over something else,
 
 351
 00:22:47,110 --> 00:22:48,160
 你需要这些字段，
-you'll need these fields,
 
 352
 00:22:48,160 --> 00:22:49,900
 因为可能还有其他数据包格式，
-because maybe something else packet format,
 
 353
 00:22:49,900 --> 00:22:53,140
 没有包括这些地址。
-doesn't have the, doesn't already include these addresses.
 
 354
 00:22:53,350 --> 00:22:54,970
 我明白了，好的，谢谢。
-I see, okay, thank you.
 
 355
 00:22:57,020 --> 00:23:00,650
 哦，抱歉，右边那部分是什么？
-Oh, sorry, what is that part on the right versions, are you.
 
 356
 00:23:01,310 --> 00:23:03,170
 好的，这个，这不是很有趣，
-Okay, this, this is not interesting yet,
 
 357
 00:23:03,170 --> 00:23:07,910
 但这是这些字节的 ASCII 码解释，
-but this is ASCII interpretation of these bytes,
 
 358
 00:23:08,650 --> 00:23:18,590
 这个点对应没有 ASCII 码的字节，
-so, well, the dot here corresponds to you know a byte that has no ASCII equivalent,
 
 359
 00:23:18,740 --> 00:23:23,210
 我猜这个可能是 52 或 55 ，
-and this I guess somewhere in here, 52 or 55 probably,
 
 360
 00:23:23,480 --> 00:23:28,670
 在 ASCII 码中， 52 可能是 R ， 55 可能是 U ，
-52 probably R and 55 is probably U in ASCII,
 
 361
 00:23:28,910 --> 00:23:30,050
 所以，这会更有趣，
-so this would be more interesting
 
 362
 00:23:30,050 --> 00:23:33,650
 当我们开始发送包含 ASCII 文本的数据包时，
-when we start sending packets that have actual ASCII text in them,
 
 363
 00:23:33,650 --> 00:23:36,350
 而不是二进制字段。
-rather than binary fields.
 
 364
 00:23:36,380 --> 00:23:38,390
 好的，我明白了，谢谢。
-Okay I see, thank you.
 
 365
 00:23:38,750 --> 00:23:39,260
 好的。
-Yes.
 
 366
 00:23:40,970 --> 00:23:42,020
 好的，我给你看这个，
-Okay, and I'm showing you this,
 
 367
 00:23:42,020 --> 00:23:43,910
 因为你会在实验里看到这些包。
-because you'll see these packets in the lab.
 
 368
 00:23:47,830 --> 00:23:52,980
 好吧，有件事我想。
-Okay, actually, there's something I wanted to.
 
 369
 00:23:57,100 --> 00:24:02,260
 好的，我有件事想确认一下，
-Well, there's something I want to make sure,
 
 370
 00:24:02,260 --> 00:24:04,600
 你能从这个讨论中获得，
-that you are caught in this discussion
 
 371
 00:24:04,600 --> 00:24:13,870
 这是嵌套协议和嵌套报头的格式化数据包的[习惯]，
-and that's the [habit] in formatting packets of nesting protocols and nesting headers,
 
 372
 00:24:13,870 --> 00:24:20,770
 所以我们刚才看到一个数据包，以太网报头和以太网有效载荷，
-so so, what we just saw was a packet that Ethernet header and Ethernet payload,
 
 373
 00:24:20,770 --> 00:24:24,490
 以太网有效负载的第一部分是 ARP 报头，
-the first part of the Ethernet payload was you know an ARP header,
 
 374
 00:24:25,040 --> 00:24:27,290
 剩下的部分是 ARP 有效载荷，
-and as it happens ARP you know remaining payload,
 
 375
 00:24:27,680 --> 00:24:29,150
 但是还有其他的，
-but there are other,
 
 376
 00:24:29,210 --> 00:24:31,850
 我们稍后会看到更复杂的结构，
-what we'll see in a moment is much more complicated structures,
 
 377
 00:24:31,850 --> 00:24:34,910
 在以太网数据包中包含 IP 数据包，
-which in Ethernet packet that contains an IP packet
 
 378
 00:24:35,120 --> 00:24:38,300
 在 IP 包内部是 UDP 包，
-and inside the IP packet is a UDP packet
 
 379
 00:24:38,300 --> 00:24:42,080
 UDP 是另一种可以在 IP 上运行的协议，
-and so UDP is another protocol that you can run over IP,
 
 380
 00:24:42,140 --> 00:24:44,090
 所以这里有一个 UDP 报头，
-so there's a UDP header,
 
 381
 00:24:44,390 --> 00:24:45,110
 它也是，
-it also,
 
 382
 00:24:48,220 --> 00:24:50,830
 不一定要理解这些首字母缩写，
-you know not necessarily have to understand these acronyms yet,
 
 383
 00:24:50,830 --> 00:24:52,660
 但作为 UDP 报头，
-but as UDP header,
 
 384
 00:24:52,690 --> 00:24:55,900
 UDP 数据包也包含报头和有效载荷，
-a UDP packet also has a header and a payload
 
 385
 00:24:56,050 --> 00:25:00,190
 有时会在 UDP 中携带另一个协议，
-and there's times when used to carry another protocol inside UDP,
 
 386
 00:25:00,190 --> 00:25:02,800
 比如域名系统，
-so for example the domain name system,
 
 387
 00:25:03,280 --> 00:25:07,510
 包含另一种适合在 UDP 内部的数据包格式定义，
-has yet another format of packet define that fits inside UDP,
 
 388
 00:25:07,510 --> 00:25:08,470
 所以你看到的是，
-so what you see is
 
 389
 00:25:08,470 --> 00:25:12,790
 主机发送数据包将构建一个数据包，
-that hosts are sending packets will build up a packet,
 
 390
 00:25:12,880 --> 00:25:16,150
 DNS 软件会说我想通过 UDP 发送数据包，
-the DNS software will say I want to send a packet over UDP,
 
 391
 00:25:16,650 --> 00:25:19,230
 UDP 软件会准备 UDP 报头，
-the UDP software will prepare the UDP header,
 
 392
 00:25:19,350 --> 00:25:20,820
 我们通过 IP 发送，
-we send that over IP,
 
 393
 00:25:20,820 --> 00:25:23,700
 IP 软件会添加 IP 报头，
-the IP software will prepend an IP header,
 
 394
 00:25:23,790 --> 00:25:26,430
 以太网软件会添加以太网报头，
-the Ethernet software will prepend Ethernet header,
 
 395
 00:25:26,430 --> 00:25:30,900
 并在发送时逐渐在软件中建立数据包。
-and gradually build up packets in in that software when it's sending.
 
 396
 00:25:30,900 --> 00:25:33,720
 类似地，当系统接收到数据包时，
-And similarly when system receives packets,
 
 397
 00:25:33,960 --> 00:25:35,220
 它首先获得整个数据包，
-it first gets the whole packet,
 
 398
 00:25:35,220 --> 00:25:38,550
 检查第一个报头，注意到是以太网，
-inspects the first header and notice Ethernet,
 
 399
 00:25:38,550 --> 00:25:40,410
 因为它从以太网卡接收数据，
-because it receives it from Ethernet NIC,
 
 400
 00:25:40,980 --> 00:25:43,260
 校验有效性，去除这个报头，
-checksum validity, strips off this header
 
 401
 00:25:43,350 --> 00:25:44,520
 查看下一个报头，
-to look at the next header,
 
 402
 00:25:44,820 --> 00:25:48,870
 这里总有一个类型，
-there will be a type this you always a type field
 
 403
 00:25:48,870 --> 00:25:51,150
 或者在这种情况下，有一个协议字段，
-or in this case, the protocol field,
 
 404
 00:25:52,210 --> 00:25:56,140
 告诉软件在以太网报头之后希望发生什么。
-that tells the software what to expect after the Ethernet header.
 
 405
 00:25:56,730 --> 00:25:59,880
 所以，有一个类型字段表示 IP 或 ARP ，
-So there's a type field that indicates IP versus ARP,
 
 406
 00:26:00,120 --> 00:26:03,630
 所以，软件将查看每个报头，
-so this the software will look at each header,
 
 407
 00:26:03,780 --> 00:26:07,890
 验证它，剥离它，获取下一个报头，
-validate it, strip it off, revealing the next header,
 
 408
 00:26:08,360 --> 00:26:12,120
 检查报头，解释它，理解它，再把它去掉，
-you know check that header, interpret it, figure out what it means, strip it off,
 
 409
 00:26:12,150 --> 00:26:14,790
 暴露出下一层，并将其传递给下一层软件。
-revealing the next and hand it on to the next layer of software.
 
 410
 00:26:15,480 --> 00:26:17,700
 我会更多地讨论这一点，
-I'll talk a bit more about this,
 
 411
 00:26:17,700 --> 00:26:26,140
 但这是一种看待嵌套数据报头的通用方式。
-but this is a sort of universal way of looking at nested packet headers.
 
 412
 00:26:31,370 --> 00:26:33,860
 好的，以太网数据包，以太网报头，
-Alright, so the Ethernet packet, the Ethernet header,
 
 413
 00:26:34,100 --> 00:26:42,640
 足以将数据包发送到局域网上的主机，
-is enough to get packet to a host on local area network,
 
 414
 00:26:42,640 --> 00:26:46,120
 特别是当你想在本地发送 IP 数据包时，
-when especially when and if you want to send an IP packet locally,
 
 415
 00:26:46,450 --> 00:26:47,920
 你可以使用 ARP ，
-you can use ARP,
 
 416
 00:26:47,920 --> 00:26:50,530
 但 IP 是更通用的，
-but IP is used much more generally,
 
 417
 00:26:50,530 --> 00:26:53,830
 IP 是一种协议层，
-IP that a sort of layer of the protocol,
 
 418
 00:26:53,830 --> 00:26:56,650
 帮助你将数据包传送到互联网的任何位置，
-that helps you deliver a packet anywhere in the Internet,
 
 419
 00:26:56,650 --> 00:26:58,210
 基于 IP 地址。
-based on IP addresses.
 
 420
 00:26:59,150 --> 00:27:02,900
 所以，这是 IP 数据包的格式，
-And so this is the format of an IP packet,
 
 421
 00:27:02,900 --> 00:27:07,040
 再次，你可以在我们给你的 net.h 源码中找到它，
-again taken you can find it in net.h at the source we give you
 
 422
 00:27:07,370 --> 00:27:09,830
 通过以太网[]，
-and over Ethernet [],
 
 423
 00:27:09,890 --> 00:27:11,600
 你可以看到，这是，
-the way you see, this is,
 
 424
 00:27:12,700 --> 00:27:19,210
 在以太网数据包中，有目的地址、源地址和类型，
-in an Ethernet packet with a destination source and type of,
 
 425
 00:27:20,720 --> 00:27:23,900
 以太网类型等于 0800 ，
-Ethernet type equals 0800
 
 426
 00:27:24,140 --> 00:27:28,700
 然后是 IP 报头，以及 IP 有效载荷，
-and then the IP header, and then IP payload,
 
 427
 00:27:33,280 --> 00:27:36,550
 当你将数据包发送到远程网络时，
-when you send a packet to a distant network,
 
 428
 00:27:36,550 --> 00:27:38,020
 在世界的另一边的网络，
-you know on the other side of the world,
 
 429
 00:27:38,050 --> 00:27:40,360
 IP 报头传递，
-the IP header gets passed along,
 
 430
 00:27:41,290 --> 00:27:46,120
 在离开本地以太网后，以太网报头被剥离，
-this Ethernet header gets stripped off after you leave the local Ethernet,
 
 431
 00:27:46,150 --> 00:27:50,930
 也许在路由数据包的每一跳上都会放上一个新的，
-maybe a new one gets put on it for each hop that your packet is routed,
 
 432
 00:27:50,990 --> 00:27:53,450
 但是 IP 报头保持不变，
-but the IP header stays basically the same,
 
 433
 00:27:53,780 --> 00:27:58,370
 从你的计算机上的原始源主机，
-the whole way from the [] the original source host in your computer,
 
 434
 00:27:58,580 --> 00:28:00,290
 一直到目的主机，
-all the way to the destination host,
 
 435
 00:28:00,290 --> 00:28:03,360
 这个报头具有全局意义，
-this header has global significance,
 
 436
 00:28:03,360 --> 00:28:09,860
 而以太网报头仅用于单个局域网，
-where as the Ethernet header is really only used for each, for a single local area network,
 
 437
 00:28:10,040 --> 00:28:11,450
 所以，这里必须有足够的信息
-so there has to be enough information here
 
 438
 00:28:11,450 --> 00:28:14,600
 将数据包一路传送到互联网的另一端。
-to carry a packet all the way to the far side of the Internet.
 
 439
 00:28:14,870 --> 00:28:18,950
 对于我们的目的来说，关键字段是，
-And the critical fields for our purposes
 
 440
 00:28:18,950 --> 00:28:24,390
 这个数据包格式中的三个非常有趣的字段，
-really three very interesting fields in this packet format,
 
 441
 00:28:25,610 --> 00:28:30,740
 目的地址字段，是主机的 32 位 IP 地址，
-the destination field, which is the 32 bit IP address of the host,
 
 442
 00:28:31,040 --> 00:28:32,210
 我们将数据包发送到，
-that we want to send the packet to,
 
 443
 00:28:32,210 --> 00:28:33,650
 特别是在它的高位，
-in particular in its high bits,
 
 444
 00:28:33,650 --> 00:28:37,070
 其中包含网络编号，用于帮助路由器，
-it's going to have network numbers in it that'll help routers
 
 445
 00:28:37,340 --> 00:28:38,660
 当数据包被递送时，
-and when the packet is delivered,
 
 446
 00:28:38,660 --> 00:28:44,270
 这个 p 协议字段告诉目的地主机如何处理数据包，
-this p protocol field will tell the destination host what to do with the packet,
 
 447
 00:28:44,540 --> 00:28:47,750
 在它剥离 IP 报头之后下一步该如何处理。
-you know what to do with it next after it strips off the IP header.
 
 448
 00:28:51,590 --> 00:28:56,240
 如果你见过麻省理工的 IP 地址，
-If you ever seen a MIT IP address,
 
 449
 00:28:57,350 --> 00:29:00,470
 你会看到有几个不同的，
-you'll see, well there's a couple different ones,
 
 450
 00:29:00,470 --> 00:29:07,060
 但是如果你看到互联网地址以 18 开头，
-but for example if you see Internet address starting with 18,
 
 451
 00:29:07,270 --> 00:29:11,690
 在过去的几年里，事情发生了变化，
-this the things have actually changed in the last couple years,
 
 452
 00:29:11,690 --> 00:29:17,570
 但在很长一段时间里，这是麻省理工的网络编号，
-but this for a long time was the network number of MIT
 
 453
 00:29:17,570 --> 00:29:22,460
 所以，大多数托管麻省理工的 IP 地址的高位字节是 18 ，
-and so most hosted MIT would have IP addresses whose high byte was 18
 
 454
 00:29:22,670 --> 00:29:24,950
 世界各地的路由器都会有一张表，
-and routers all over the world would have some table,
 
 455
 00:29:24,950 --> 00:29:25,850
 它们会查到 18 ，
-they'd look up 18
 
 456
 00:29:25,850 --> 00:29:29,630
 然后说，我知道如何路由这个数据包到麻省理工又近一步。
-and say aha I know how to route this packet one step closer to MIT.
 
 457
 00:29:34,490 --> 00:29:39,650
 所以，让我再次展示 tcpdump 的输出，
-So let me, let me show you again tcpdump output,
 
 458
 00:29:40,350 --> 00:29:48,120
 同样取自实验，其中包括 IP 报头。
-again actually taken from the lab, that includes IP header.
 
 459
 00:29:49,710 --> 00:29:53,930
 好的，我们可以解析这个数据包，
-Okay, so we can parse this packet,
 
 460
 00:29:54,350 --> 00:29:56,810
 因为它是通过以太网发送的，
-because it was sent over the Ethernet,
 
 461
 00:29:56,810 --> 00:29:58,610
 它以以太网报头开始。
-it starts with an Ethernet header.
 
 462
 00:30:06,240 --> 00:30:07,770
 它是一，
-It actually one,
 
 463
 00:30:08,720 --> 00:30:10,790
 我认为这些 tcpdump 是有问题的，
-I think it's kind of wrong with these tcpdump
 
 464
 00:30:10,880 --> 00:30:12,980
 这些生成的包，
-with these packets that are generated and,
 
 465
 00:30:14,870 --> 00:30:17,300
 现在我看它，我不确定问题出在哪里，
-now that I'm seeing it, I'm not sure what the problem is,
 
 466
 00:30:17,450 --> 00:30:20,060
 它们不应该开头，
-they should not start with all,
 
 467
 00:30:20,060 --> 00:30:22,460
 以太网报头不应该以全部 f 开始，
-these Ethernet headers shouldn't start with all fs,
 
 468
 00:30:23,500 --> 00:30:24,730
 因为它是广播地址，
-because it's broadcast address,
 
 469
 00:30:24,940 --> 00:30:26,920
 这会导致数据包到达每台主机，
-that cause the packet to go to every host
 
 470
 00:30:27,220 --> 00:30:30,790
 你不会看到在两台单独的主机之间发送的数据包，
-and you would not see that for a packet sent between two individual hosts
 
 471
 00:30:30,790 --> 00:30:32,560
 因为这台主机位于真实网络上，
-as this one is on a real network,
 
 472
 00:30:32,740 --> 00:30:37,540
 在 QEMU 的网络实验中我的解决方案中有些东西有点滑稽，
-there's something funny going on with my solution to the network lab with QEMU,
 
 473
 00:30:37,840 --> 00:30:43,230
 不管怎样，我们有以太网目的地址、以太网源地址，
-anyway we have the Ethernet destination address, Ethernet source address
 
 474
 00:30:43,470 --> 00:30:46,080
 而以太网类型是 0800 ，
-and the Ethernet type is 0800
 
 475
 00:30:46,080 --> 00:30:50,700
 表示剩余的字节是 IP 数据包，
-is means that the remaining bytes are IP packet,
 
 476
 00:30:52,360 --> 00:30:57,050
 IP 数据包报头长度我认为是 20 字节，
-the IP packet header length I think it's 20 bytes,
 
 477
 00:30:58,320 --> 00:31:00,690
 找到结尾，
-[] find the end,
 
 478
 00:31:01,480 --> 00:31:02,890
 二，十五，
-two fifteen,
 
 479
 00:31:05,670 --> 00:31:08,280
 所以这一定是 IP 报头的结尾。
-so this must be the end of the IP header.
 
 480
 00:31:12,420 --> 00:31:15,360
 往回看一下，因为这些是我们真正关心的字段，
-And working backwards, because these are the fields, we really care about,
 
 481
 00:31:15,660 --> 00:31:21,810
 目的 IP 字段是， a 是 10 ， 10.0.2.2 ，
-the destination IP field is a is 10, 10.0.2.2,
 
 482
 00:31:23,970 --> 00:31:25,380
 我认为，
-which is I think the,
 
 483
 00:31:25,680 --> 00:31:28,470
 在 QEMU 中，有趣的模拟网络是
-in QEMU's funny simulated network is
 
 484
 00:31:28,470 --> 00:31:32,940
 我运行 QEMU 的真实计算机的地址，
-the address of the real computer I'm running QEMU on,
 
 485
 00:31:32,940 --> 00:31:39,270
 在这之前是 IP 源地址，是 10.0.2.15，
-and then before that is this IP source address, which is 10.0.2.15,
 
 486
 00:31:41,130 --> 00:31:44,100
 是发送方，是 QEMU 的地址，
-which is the sender, which is QEMU's address
 
 487
 00:31:44,100 --> 00:31:47,570
 是 QEMU 内运行的 xv6 的地址，
-for the, for xv6 basically running inside QEMU
 
 488
 00:31:47,840 --> 00:31:51,650
 然后在这之前的这些东西，
-and then this stuff before this, all this other stuff,
 
 489
 00:31:51,650 --> 00:31:53,750
 有一个 16 位的校验和，
-there's a sixteen bit checksum,
 
 490
 00:31:54,380 --> 00:31:56,630
 你的软件应该检查它，
-which your software is supposed to check
 
 491
 00:31:56,750 --> 00:31:59,690
 意识到数据包已经损坏，应该丢弃，
-to realize that a packet has been corrupted and should be discarded,
 
 492
 00:31:59,900 --> 00:32:01,610
 这就是校验和，
-that's this checksum,
 
 493
 00:32:01,730 --> 00:32:02,930
 这里有一个字节，
-theres one byte,
 
 494
 00:32:04,000 --> 00:32:05,560
 好的，这里的东西乱了。
-alright, mess something up here.
 
 495
 00:32:07,670 --> 00:32:11,660
 哦，抱歉，这是 16 位校验和，
-Oh, this is, this is 16, sorry, this is 16 bit checksum,
 
 496
 00:32:11,900 --> 00:32:17,330
 这个 11 是协议号，这一点特别重要，
-this 11 is the protocol number, which is particularly important,
 
 497
 00:32:17,390 --> 00:32:20,150
 十六进制 11 是 16 加 1 或者 17 ，
-11 hex is 16 plus 1 or 17,
 
 498
 00:32:20,820 --> 00:32:23,340
 意味着这是一个 UDP 数据包，
-so that means that this is a UDP packet,
 
 499
 00:32:24,200 --> 00:32:26,750
 基于协议字段。
-based on that protocol field.
 
 500
 00:32:28,160 --> 00:32:29,840
 然后所有这些东西，我们并不关心，
-And then all this other stuff we don't really care about,
 
 501
 00:32:29,840 --> 00:32:31,580
 比如数据包的长度。
-as things like the length of the packet.
 
 502
 00:32:35,020 --> 00:32:37,780
 关于 IP 报头，有什么问题吗？
-Any questions about IP headers?
 
 503
 00:32:43,560 --> 00:32:46,700
 好的，再说一遍，这里的关键是，
-Alright, again the critical stuff is
 
 504
 00:32:46,700 --> 00:32:51,110
 IP 报头具有 IP 地址的源地址和目的地址，
-the IP header has the IP address of the source and destination,
 
 505
 00:32:51,200 --> 00:32:56,570
 而这个协议字段告诉目的主机网络堆栈，
-and this protocol field is going to tell the destination host's networking stack,
 
 506
 00:32:56,570 --> 00:33:00,020
 这个分组应该由 UDP 软件处理，
-that this packet should be processed by UDP software,
 
 507
 00:33:01,390 --> 00:33:03,920
 我现在会谈到这一点。
-which I'll talk about right now.
 
 508
 00:33:05,040 --> 00:33:08,310
 好的，这个 IP 报头，
-Okay, the, this this IP header,
 
 509
 00:33:09,420 --> 00:33:12,870
 它足以将数据包发送到互联网上的任何主机，
-it's enough to get a packet to any host on the Internet,
 
 510
 00:33:13,650 --> 00:33:15,150
 但我们想做得更好，
-but we want to do better than that,
 
 511
 00:33:15,150 --> 00:33:18,900
 每台主机都在运行很多需要使用网络的不同程序，
-every host was running lots and lots of different programs that need to use the network,
 
 512
 00:33:18,900 --> 00:33:21,720
 它们需要在网络中发送和接收数据包，
-they need to send and receive packets in the network
 
 513
 00:33:21,720 --> 00:33:26,340
 所以我们需要一种不在 IP 字段中的方法，
-and so we need a way that's not in the, it's not included in the IP field,
 
 514
 00:33:26,400 --> 00:33:30,990
 为了决定哪个应用程序需要，
-in order to decide which application needs to,
 
 515
 00:33:31,110 --> 00:33:35,130
 应该将包移交给目标主机上的哪个应用程序。
-which application on the target host its package ought to be handed off to.
 
 516
 00:33:36,830 --> 00:33:41,540
 有几个协议可以完成这项工作，
-And there's a couple of protocols that do that job,
 
 517
 00:33:41,540 --> 00:33:45,500
 一个是相当复杂的 TCP ，
-one of them is TCP quite complex,
 
 518
 00:33:46,630 --> 00:33:48,190
 还有其他是 UDP 。
-and other is UDP.
 
 519
 00:33:48,220 --> 00:33:51,160
 TCP 主要用于 web 之类的东西，
-TCP is actually what's used mostly for things like the web
 
 520
 00:33:51,190 --> 00:33:53,290
 TCP 是一种非常复杂的协议，
-and TCP is a very complex protocol,
 
 521
 00:33:53,290 --> 00:33:57,270
 它不仅帮助将数据包传送到正确的应用程序，
-that not only helps your packet be delivered to the right application,
 
 522
 00:33:57,300 --> 00:34:00,390
 还有许多东西，比如序列号，
-but also has a lot of things, like sequence numbers,
 
 523
 00:34:00,390 --> 00:34:04,410
 为了检测丢失的包并重新发送它们，
-in order to detect lost packets and re-transmit them,
 
 524
 00:34:04,440 --> 00:34:08,610
 确保包或数据按顺序而且不间断地传送，
-make sure packets or data is delivered in order and without gaps,
 
 525
 00:34:08,610 --> 00:34:10,380
 防止出现什么问题。
-if in case anything goes wrong.
 
 526
 00:34:10,680 --> 00:34:12,780
 UDP 是一种简单得多的协议，
-UDP is a much simpler protocol,
 
 527
 00:34:12,900 --> 00:34:15,240
 它只是传递，
-that just delivers,
 
 528
 00:34:15,420 --> 00:34:19,020
 尽力而为的传递包到特定应用，
-sort of best effort delivery of a packet to a particular application,
 
 529
 00:34:19,020 --> 00:34:22,440
 但是，没有任何纠错，
-but without any error correction
 
 530
 00:34:22,440 --> 00:34:27,220
 或者没有任何其他东西，
-or basically without anything else,
 
 531
 00:34:27,280 --> 00:34:31,420
 对我们来说，关键字段是这两个端口号，
-for us, the critical fields are these two port numbers
 
 532
 00:34:31,570 --> 00:34:32,830
 这里的游戏是，
-and the game here is that,
 
 533
 00:34:32,860 --> 00:34:37,270
 当你的应用程序想要发送或接收数据包时，
-when your application wants to send or receive packets,
 
 534
 00:34:37,330 --> 00:34:40,120
 它使用所谓的套接字 API ，
-it uses the what's called the sockets API,
 
 535
 00:34:43,280 --> 00:34:44,600
 在 Unix 上，
-on Unix at any way,
 
 536
 00:34:45,370 --> 00:34:47,110
 这是一组系统调用，
-and this is a set of system calls
 
 537
 00:34:47,140 --> 00:34:49,060
 其中进程说，
-where by a process can say,
 
 538
 00:34:49,060 --> 00:34:52,660
 我对寻址到特定端口的数据包感兴趣，
-look I'm interested in packets addressed to a particular port
 
 539
 00:34:52,660 --> 00:34:55,870
 它会说感兴趣的端口号，
-and it'll say what port numbers interested,
 
 540
 00:34:55,870 --> 00:34:58,150
 抱歉，特定的包，
-sorry, packets with particular,
 
 541
 00:34:58,150 --> 00:35:01,090
 我要接收具有特定目的端口的数据包，
-I want to receive packets with a particular destination port
 
 542
 00:35:01,300 --> 00:35:03,610
 操作系统进行系统调用，
-and the operating system make a system call,
 
 543
 00:35:03,610 --> 00:35:08,200
 它在操作系统中设置，返回一个文件描述符，
-it set this up in the operating system, will return a file descriptor,
 
 544
 00:35:08,380 --> 00:35:13,090
 每次数据包到达应用程序请求的端口，
-and every time a packet arrives with the port the application asks for,
 
 545
 00:35:13,420 --> 00:35:16,510
 这个数据包将出现在文件描述符上，
-that packet will appear on the file descriptor
 
 546
 00:35:16,510 --> 00:35:17,950
 应用程序就可以读取它。
-and the application can read it.
 
 547
 00:35:18,920 --> 00:35:24,770
 这两个端口实际上是两种端口，
-And the these ports are really two kinds of ports,
 
 548
 00:35:24,770 --> 00:35:27,500
 一些是知名端口号，
-some are well-known port numbers,
 
 549
 00:35:27,500 --> 00:35:37,610
 比如端口号 53 是 DNS 名称服务器的官方知名普遍同意的端口号，
-like I think port 53 is the official well-known universally agreed port number for a DNS name server,
 
 550
 00:35:37,610 --> 00:35:40,160
 所以，如果你要向 DNS 名称服务器发送请求，
-so if you want to send a request to a DNS name server,
 
 551
 00:35:40,280 --> 00:35:44,030
 你可以通过 dport 53 发送 UDP 包，
-you can send into UDP packet addressed dport 53,
 
 552
 00:35:44,450 --> 00:35:47,430
 还有许多其他知名的端口，
-there's a bunch of other well-known ports
 
 553
 00:35:47,430 --> 00:35:52,770
 可以提供普遍可用的服务，使用普遍同意的编号，
-for commonly available services with universally agreed on numbers
 
 554
 00:35:52,770 --> 00:35:58,260
 然后剩余的 16 位端口号空间，
-and then the remainings remain of the 16 bit port number space,
 
 555
 00:35:58,380 --> 00:36:03,060
 用于匿名客户端支持，
-is used for the sort of anonymous client ends support,
 
 556
 00:36:03,060 --> 00:36:07,420
 所以，如果我想要向 DNS 服务器发送数据包，
-so if I want to send a packet to a DNS server,
 
 557
 00:36:07,750 --> 00:36:09,670
 它的 dport 是 53 ，
-it's dport will be 53, right,
 
 558
 00:36:09,670 --> 00:36:14,350
 但它的 sport 是我这边随机选择的数字，
-but its sport will be a more or less randomly chosen number for my end,
 
 559
 00:36:14,560 --> 00:36:19,750
 所以，它与我的应用程序的套接字相关联，
-so that when that will be associated with my application's socket,
 
 560
 00:36:19,810 --> 00:36:21,820
 所以，当 DNS 服务器发送回复时，
-so that when the DNS server sends a reply,
 
 561
 00:36:21,940 --> 00:36:22,990
 将对其进行寻址，
-it will be addressed,
 
 562
 00:36:23,230 --> 00:36:30,100
 DNS 服务器会将请求源端口复制到回复的目的端口字段中，
-the DNS server will copy the request source port into the destination port field of the reply,
 
 563
 00:36:30,100 --> 00:36:31,690
 并将其发回我的机器，
-sent it back to my machine
 
 564
 00:36:31,930 --> 00:36:33,820
 我的机器将使用这个端口号
-and my machine will use this port number
 
 565
 00:36:33,820 --> 00:36:38,910
 来确定哪个应用程序应该得到响应。
-to figure out which application should get the reply.
 
 566
 00:36:41,270 --> 00:36:44,900
 好的，这里的主要功能是拥有这两个端口号，
-Okay, so the main function here is to have these two port numbers,
 
 567
 00:36:44,960 --> 00:36:48,200
 为了分发，
-in order to handout,
 
 568
 00:36:48,200 --> 00:36:53,810
 可以在这台机器上分发各个应用程序的数据包。
-be able to handout packets individual applications on this machine.
 
 569
 00:36:55,900 --> 00:36:57,520
 所以，请随意提问。
-So, feel free to ask questions.
 
 570
 00:36:58,630 --> 00:37:04,410
 我也有 UDP 的 tcpdump 输出，
-I have tcpdump output for UDP also,
 
 571
 00:37:05,070 --> 00:37:07,470
 也是从实验里拿来的。
-again taken from the lab.
 
 572
 00:37:08,160 --> 00:37:12,340
 同样，我们有一个以太网报头，
-So again we have a Ethernet header,
 
 573
 00:37:12,880 --> 00:37:18,190
 20 字节的 IP 报头可能在这里结束，
-and 20 bytes IP header which probably ends here,
 
 574
 00:37:18,460 --> 00:37:23,710
 11 是 IP 协议号 17 ，也就是 UDP ，
-11 is IP protocol 17 which is UDP,
 
 575
 00:37:23,710 --> 00:37:29,000
 所以接收主机知道用 UDP 软件来处理它，
-so the receiving host will know to process it with its UDP software,
 
 576
 00:37:29,840 --> 00:37:38,900
 接下来的 8 个字节是这里显示的 UDP 报头。
-the next 8 bytes are the UDP header which is shown right here.
 
 577
 00:37:39,740 --> 00:37:43,200
 那么谁知道这些端口号是什么？
-And so who knows what these port numbers are?
 
 578
 00:37:45,170 --> 00:37:45,440
 我是说，
-I mean,
 
 579
 00:37:45,440 --> 00:37:51,290
 这是一个由实验软件生成的数据包，
-you know this, this is unfortunately a packet is generated by the lab software
 
 580
 00:37:51,290 --> 00:37:56,050
 任何特殊的号码，
-without any, any special numbers
 
 581
 00:37:56,050 --> 00:37:58,270
 这是恰巧选择的端口号，
-and so this is the port numbers that happened to choose,
 
 582
 00:37:58,930 --> 00:38:00,520
 这一定是包的长度，
-this must be the length of the packet,
 
 583
 00:38:00,520 --> 00:38:02,950
 1b 是二十多，
-1b is twenty something
 
 584
 00:38:03,280 --> 00:38:06,130
 这是我的，这是我们的软件，
-and this is my, this our software for,
 
 585
 00:38:07,000 --> 00:38:08,740
 xv6 中的 UDP 还很差劲，
-UDP in xv6 is so lame,
 
 586
 00:38:08,740 --> 00:38:11,470
 它没有填写校验和字段，
-that it doesn't fill in the checksum field,
 
 587
 00:38:11,770 --> 00:38:12,790
 这就是报头。
-but this is the header.
 
 588
 00:38:13,610 --> 00:38:17,480
 然后在 UDP 报头之后是 UDP 包的有效载荷，
-And then after the UDP header is the payload of the UDP packet
 
 589
 00:38:17,630 --> 00:38:21,020
 在这种情况下，应用程序正在发送 ASCII 文本，
-and in this case, the application is sending ASCII text
 
 590
 00:38:21,050 --> 00:38:22,940
 而 ASCII 文本就在这里。
-and that ASCII text is right here.
 
 591
 00:38:26,890 --> 00:38:29,980
 所以，这是在 UDP 数据包中 ASCII 文本，
-So this is ASCII text place inside UDP packet,
 
 592
 00:38:29,980 --> 00:38:31,600
 在 IP 数据包中，
-place inside an IP packet,
 
 593
 00:38:31,600 --> 00:38:33,010
 又在以太网数据包中，
-place inside an Ethernet packet,
 
 594
 00:38:35,390 --> 00:38:37,190
 通过模拟以太网发送。
-sent over simulated Ethernet.
 
 595
 00:38:42,260 --> 00:38:44,240
 抱歉，我有个问题，
-Sorry, I just had a question,
 
 596
 00:38:44,240 --> 00:38:47,810
 当你说给某人寄数据包的时候，
-so when when you when you said when you send a packet to someone,
 
 597
 00:38:47,840 --> 00:38:52,130
 你不知道它们的以太网地址，
-you don't know their Ethernet like address,
 
 598
 00:38:52,160 --> 00:38:54,500
 那么是否只是将它发送到你的路由器，
-so do you just send it to your router,
 
 599
 00:38:54,620 --> 00:38:57,140
 然后路由器通过计算得出。
-then the router figures out from.
 
 600
 00:38:57,920 --> 00:39:03,420
 对于大多数在互联网上发送到其他地方的数据包，
-If if for most packets sent somewhere else on the Internet,
 
 601
 00:39:03,810 --> 00:39:04,620
 让我们看看，
-let's see,
 
 602
 00:39:07,070 --> 00:39:10,340
 如果你将数据包发送到特定的 IP 地址，
-your host if you send a packet to a particular IP address,
 
 603
 00:39:10,430 --> 00:39:13,280
 你的主机软件将查看目标地址，
-your host software will look at the destination address
 
 604
 00:39:13,310 --> 00:39:18,410
 确定目标主机是否与你在同一局域网上，
-to figure out if the target host is on the same local area network as you are,
 
 605
 00:39:18,530 --> 00:39:24,010
 如果是，它将使用 ARP 将 IP 地址转换为以太网地址，
-and if it is, it'll use ARP to translate the IP address into an Ethernet address,
 
 606
 00:39:24,010 --> 00:39:27,220
 然后通过以太网将数据包发送到目标主机，
-and then send the packet over the Ethernet to the target host,
 
 607
 00:39:28,080 --> 00:39:30,030
 所以在这种情况下，
-so that's what happens in the special case
 
 608
 00:39:30,030 --> 00:39:32,280
 目标主机在同一网络中。
-in which the target host is on the same network.
 
 609
 00:39:32,550 --> 00:39:33,510
 在更一般的情况下，
-In the more general case,
 
 610
 00:39:33,510 --> 00:39:37,050
 我们将数据包发送到全国各地的互联网上的其他地方，
-we're sending the packet to somewhere else on the Internet across the country,
 
 611
 00:39:37,980 --> 00:39:43,500
 你将把数据包发送到同一局域网上的路由器，
-you'll send the packet to a router on the same local area network,
 
 612
 00:39:43,500 --> 00:39:47,690
 那个路由器将查看目的 IP 地址，
-that router will look at the destination IP address
 
 613
 00:39:47,840 --> 00:39:49,190
 选择下一台路由器，
-to pick the next router
 
 614
 00:39:49,220 --> 00:39:52,700
 以确定对于数据包连接到哪台路由器，
-to decide which router it's attached to it for the packet to
 
 615
 00:39:52,700 --> 00:39:55,370
 数据包的逐跳通过路由器，
-and packet go hop by hop through routers,
 
 616
 00:39:55,640 --> 00:39:57,200
 离目标越来越近。
-getting closer and closer to the target.
 
 617
 00:39:58,150 --> 00:39:59,080
 这回答了你的问题吗？
-Does that answer your question?
 
 618
 00:39:59,720 --> 00:40:00,320
 好的，我明白了，
-OK, I see,
 
 619
 00:40:00,320 --> 00:40:01,670
 是的，非常感谢。
-yes, thank you so much.
 
 620
 00:40:01,730 --> 00:40:03,980
 有人问数据的长度是否有限制，
-Someone asked if there's a limit to the length of the packet,
 
 621
 00:40:04,160 --> 00:40:05,150
 答案是肯定的，
-and the answer is yes,
 
 622
 00:40:05,150 --> 00:40:06,830
 有几个不同的限制，
-there's a couple of different limits,
 
 623
 00:40:07,550 --> 00:40:10,280
 每个底层网络技术，
-every network every underlying network technology,
 
 624
 00:40:10,280 --> 00:40:12,590
 比如以太网，但还有其他东西，
-like Ethernet, there are other things,
 
 625
 00:40:12,590 --> 00:40:17,450
 比如以太网，有它自己的最大数据包长度，
-that are like Ethernet has its own maximum packet length,
 
 626
 00:40:17,450 --> 00:40:19,760
 所以，当今天的论文写的时候，
-so, when today's paper was written,
 
 627
 00:40:19,760 --> 00:40:23,090
 以太网上的最大数据包长度是 1500 字节，
-the maximum packet length was on Ethernet was 1500 bytes,
 
 628
 00:40:23,540 --> 00:40:29,450
 我认为现代以太网允许 9000 或 10000 字节的数据包，
-I think modern Ethernet's allow packets up to around 9000 or 10 000 bytes,
 
 629
 00:40:30,320 --> 00:40:33,560
 但这是我听说过的最大数据包大小。
-but that's about the highest maximum packet size, I've heard of.
 
 630
 00:40:33,560 --> 00:40:35,150
 这个原因，
-And the reason,
 
 631
 00:40:35,150 --> 00:40:40,310
 你不希望无限长的单个包有几个原因，
-there's a couple reasons why you wouldn't want sort of infinitely long single packets,
 
 632
 00:40:40,340 --> 00:40:41,270
 其中之一是，
-one of them is that
 
 633
 00:40:41,630 --> 00:40:45,590
 你通过线路发送这些数据包，
-the packets are you sending these packets over wires,
 
 634
 00:40:45,590 --> 00:40:49,100
 可能会相当长，而且会受到噪音和干扰的影响，
-that could be quite long and subject to noise and interference
 
 635
 00:40:50,180 --> 00:40:54,200
 所以，当你发送数据包时，可能会出现位损坏，
-and so you do get corruption of bits when you're sending packets,
 
 636
 00:40:54,710 --> 00:40:58,880
 基本上，每种网络技术都是某种校验和或纠错码，
-basically, every network technology is some kind of checksum or error correcting code
 
 637
 00:40:58,880 --> 00:41:00,290
 伴随着每个数据包，
-that goes along with every packet,
 
 638
 00:41:00,320 --> 00:41:03,560
 但是校验和和纠错码仅能
-but checksums and error correcting codes are only capable
 
 639
 00:41:03,560 --> 00:41:07,940
 可靠地检测一定数量的位上的错误，
-of reliably detecting errors over a certain number of bits,
 
 640
 00:41:07,940 --> 00:41:10,220
 随着位数的增加，
-which and so as you increase the number of bits,
 
 641
 00:41:10,220 --> 00:41:13,880
 出现不常见错误的概率会越来越高，
-the probability of an uncommon error goes up and up
 
 642
 00:41:14,240 --> 00:41:15,710
 所以，这限制了，
-and so that limits the,
 
 643
 00:41:15,740 --> 00:41:18,890
 对于合理大小的校验和，比如 16 位或 32 位，
-for reasonable size checksum like 16 or 32 bits,
 
 644
 00:41:18,890 --> 00:41:21,590
 它限制了数据包的最大大小。
-that limits the maximum size of a packet.
 
 645
 00:41:22,980 --> 00:41:24,450
 另一个限制是，
-And the other limitation is that,
 
 646
 00:41:25,380 --> 00:41:27,120
 如果你发送巨大的数据包，
-if you send huge packets,
 
 647
 00:41:27,120 --> 00:41:32,780
 这意味着主机中的所有路由器都必须有巨大的数据包缓冲区，
-that means that all the routers in host of all have to have huge packet buffers
 
 648
 00:41:32,780 --> 00:41:34,970
 才能准备好接收巨大的数据包，
-to be prepared to receive huge packets
 
 649
 00:41:35,540 --> 00:41:40,220
 这开始变得非常昂贵，
-and that starts to get an really expensive,
 
 650
 00:41:40,250 --> 00:41:44,280
 因为很难有可变长度的缓冲区，
-because it's difficult to have variable length buffers,
 
 651
 00:41:44,280 --> 00:41:46,830
 所以最方便的是只有单一长度的缓冲区，
-is most convenient to have just a single length of buffer
 
 652
 00:41:48,300 --> 00:41:49,230
 这样效果最好，
-and that works best,
 
 653
 00:41:49,230 --> 00:41:52,020
 如果最大数据包长度不是太大。
-if the maximum packet length isn't too enormous.
 
 654
 00:41:52,860 --> 00:41:55,170
 不管怎样，对于你来说，
-Anyway, so for you think for,
 
 655
 00:41:55,820 --> 00:42:01,190
 所以以太网有 1500 , 9000 字节限制，
-so Ethernet has 1500 9000 bytes limit,
 
 656
 00:42:01,310 --> 00:42:06,350
 此外，对于所有 IP 协议都具有 16 位的长度字段，
-in addition you know for all these IP protocols have length fields which are 16 bits,
 
 657
 00:42:06,350 --> 00:42:09,440
 所以，即使你愿意让以太网有更大的数据包大小，
-so even if you are willing to have Ethernet have larger packet size,
 
 658
 00:42:09,440 --> 00:42:15,430
 IP 本身也有最大数据包大小 64 千字节。
-IP itself has a kind of [] in maximum packet size is 64 kilobytes.
 
 659
 00:42:19,250 --> 00:42:20,750
 好的。
-Okay.
 
 660
 00:42:25,310 --> 00:42:27,620
 好的，对 UDP 来说挺多了。
-Okay, good, so much for UDP.
 
 661
 00:42:28,410 --> 00:42:30,390
 希望当你完成实验后，
-And hopefully when you finish the lab,
 
 662
 00:42:30,390 --> 00:42:33,180
 你会看到非常类似的输出，
-you'll see output very much like this,
 
 663
 00:42:34,750 --> 00:42:36,910
 具体地说，来自 xv6 的消息，
-in particular, the message from xv6
 
 664
 00:42:37,150 --> 00:42:42,520
 以及来自你正在运行的 QEMU 的主机的消息。
-and a message of reply back from the host that you're running running QEMU.
 
 665
 00:42:44,800 --> 00:42:46,480
 事实上，在实验的最后，
-In fact, actually at the end of the lab,
 
 666
 00:42:46,510 --> 00:42:48,220
 你将使用，
-you'll use,
 
 667
 00:42:48,850 --> 00:42:50,620
 你将运行我们提供的软件，
-you'll run software which we provide
 
 668
 00:42:50,620 --> 00:42:54,550
 软件将向 Google 的 DNS 服务器发送 DNS 查询，
-which will actually send a DNS query to Google's DNS servers
 
 669
 00:42:55,180 --> 00:42:58,330
 把回应拿回我们的软件，并打印响应，
-and get the response back our software, print response,
 
 670
 00:42:58,330 --> 00:43:04,680
 你的软件将完成以太网级设备驱动程序交互。
-your software will done the sort of Ethernet level device driver interactions.
 
 671
 00:43:07,750 --> 00:43:12,640
 好的，这就是关于网络上的数据包报头和协议的事。
-Alright, so that's story for packet headers and protocols on the wire.
 
 672
 00:43:13,300 --> 00:43:18,850
 所以，与这些数据包格式对应的是，
-So corresponding to these packet formats is,
 
 673
 00:43:18,880 --> 00:43:22,930
 让我们查看在主机上运行的网络软件堆栈，
-let's call the stack of a network software that runs on the host,
 
 674
 00:43:22,960 --> 00:43:27,020
 所以，如果你想一想主机里有什么，
-so, if you think about what's sitting inside the host
 
 675
 00:43:28,070 --> 00:43:30,230
 从现在开始，
-and you know from now on,
 
 676
 00:43:30,230 --> 00:43:33,620
 我要说的主要是一些典型的软件安排，
-I'm talking I mostly talk about sort of typical software arrangements,
 
 677
 00:43:33,620 --> 00:43:36,470
 人们构建网络软件有不同的方法，
-there's all kinds of different ways people structured network software,
 
 678
 00:43:36,800 --> 00:43:41,780
 和我要说的有点不同，
-and it's somewhat quite different from what I'm gonna talk about,
 
 679
 00:43:41,900 --> 00:43:43,220
 我要讨论一下，
-I'm going to talk about kind of,
 
 680
 00:43:44,870 --> 00:43:47,930
 我认为至少是一种标准的方法。
-what I think is at least as a sort of standard approach.
 
 681
 00:43:47,930 --> 00:43:50,900
 让我们假设运行的是 Linux 或者是 xv6 ，
-So let's assume we're running Linux, or maybe xv6,
 
 682
 00:43:51,110 --> 00:43:53,360
 现在我们有一堆应用程序，
-now we have a bunch of applications,
 
 683
 00:43:53,360 --> 00:43:55,370
 可能是网络浏览器，
-maybe a web browser,
 
 684
 00:43:56,070 --> 00:44:00,450
 也可能是 DNS 服务器，
-it maybe a DNS server,
 
 685
 00:44:01,940 --> 00:44:03,800
 谁知道是什么样的应用程序，
-who knows what bunch of applications,
 
 686
 00:44:04,070 --> 00:44:07,100
 它们都使用套接字 API ，
-they all use the sockets API
 
 687
 00:44:07,100 --> 00:44:10,550
 来打开套接字层中的文件描述符，
-to open up file descriptors in the sockets layer,
 
 688
 00:44:10,580 --> 00:44:13,490
 所以在内核里会有这样的东西，
-so there's going to be this, inside the kernel,
 
 689
 00:44:16,700 --> 00:44:18,650
 称为套接字层的软件层，
-a layer of software called the sockets layer
 
 690
 00:44:18,800 --> 00:44:21,350
 它记住表，
-that remember has tables,
 
 691
 00:44:21,350 --> 00:44:24,230
 它记住对应的文件描述符，
-that remembers the correspondence between file descriptors,
 
 692
 00:44:24,260 --> 00:44:25,790
 应用程序用来读取，
-which the applications read or write
 
 693
 00:44:25,790 --> 00:44:30,080
 UDP 端口号或 TCP 端口号，
-and UDP port numbers or TCP port numbers
 
 694
 00:44:30,080 --> 00:44:36,820
 是这些文件描述符引用的端点，
-which is for the, the sort of endpoints of conversations that these file descriptors refer to,
 
 695
 00:44:36,850 --> 00:44:41,110
 所以，套接字层有关于端口号的文件描述符表，
-so the socket layer has these tables of file descriptors on port numbers
 
 696
 00:44:41,110 --> 00:44:46,490
 并且它通常还具有已到达的数据包队列，
-and it also typically has a queue of packets that have arrived
 
 697
 00:44:46,490 --> 00:44:50,630
 并等待每个套接字或文件描述符读取。
-and are waiting to be read by each socket or file descriptor.
 
 698
 00:44:54,580 --> 00:44:59,350
 我们提供的软件是一个非常原始的套接字层，
-And the software we provide you as a very primitive sockets layer,
 
 699
 00:45:00,200 --> 00:45:09,920
 在它下面是 UDP 和 TCP 协议层。
-underneath that are gonna be the UDP and TCP protocol layers.
 
 700
 00:45:12,210 --> 00:45:15,420
 UDP 几乎什么都没发生，
-UDP has almost nothing going on,
 
 701
 00:45:15,420 --> 00:45:17,160
 它查看传入的数据包，
-it basically looks at incoming packets,
 
 702
 00:45:17,160 --> 00:45:18,810
 提取目的端口号，
-extracts the destination port number
 
 703
 00:45:18,810 --> 00:45:20,940
 并将数据包传递给套接字层，
-and hands the packet off to the socket layer to,
 
 704
 00:45:21,210 --> 00:45:25,740
 所以有效载荷在正确的文件描述符入站队列上排队。
-so that payload is queued on the correct file descriptors incoming queue.
 
 705
 00:45:27,060 --> 00:45:29,190
 TCP 实际上要复杂得多，
-TCP actually is much more complex,
 
 706
 00:45:29,190 --> 00:45:31,620
 它保持每个 TCP 连接状态，
-it keeps state for each TCP connection,
 
 707
 00:45:31,620 --> 00:45:34,440
 它会记住所有序列号和数据包，
-and it remembers all kinds of sequence numbers and packets
 
 708
 00:45:34,440 --> 00:45:37,350
 那些没有确认和需要重发的，
-that haven't been acknowledged and need to be retransmitted
 
 709
 00:45:37,590 --> 00:45:42,610
 以及 TCP 的大量状态和所谓的协议控制块，
-to the huge amount of state and what's called protocol control block of TCP
 
 710
 00:45:43,060 --> 00:45:46,270
 而在 UDP 层中没有状态。
-and virtually no state in the UDP layer.
 
 711
 00:45:46,800 --> 00:45:49,650
 这些通常称为传输层， UDP 和 TCP ，
-These are often called transport layers, UDP and TCP
 
 712
 00:45:51,030 --> 00:45:53,280
 我们为你提供一个简单的 UDP 层，
-and we provide you with a simple UDP layer,
 
 713
 00:45:53,280 --> 00:45:56,220
 而不是 TCP 层，
-but not a TCP layer,
 
 714
 00:45:56,760 --> 00:46:03,050
 在 TCP 和 UDP 下面是 IP 层，
-underneath TCP and UDP is IP layer,
 
 715
 00:46:04,520 --> 00:46:09,560
 这是相当简单的，
-which is often fairly simple,
 
 716
 00:46:09,560 --> 00:46:11,570
 与 IP 层并行，
-and kind of in parallel with the IP layer,
 
 717
 00:46:11,570 --> 00:46:15,140
 我不确定否应该画在同一层面或下一层面，
-I'm not sure whether I should draw on the same level or underneath it,
 
 718
 00:46:15,820 --> 00:46:17,110
 那就是 ARP 层，
-is the ARP layer,
 
 719
 00:46:17,940 --> 00:46:21,090
 在它们下面，我们可以认为是以太网层，
-under them both, we can think of as an Ethernet layer,
 
 720
 00:46:21,090 --> 00:46:24,360
 但实际上不会有单独的以太网层，
-but it's really there's not typically a separate Ethernet layer,
 
 721
 00:46:24,390 --> 00:46:31,440
 通常在最低层有一个或多个网卡驱动程序，
-typically there's one or more NIC drivers at the lowest layer
 
 722
 00:46:31,440 --> 00:46:37,770
 并且这些设备与实际的网络接口硬件通信，
-and these talk to the actual NIC network interface hardware,
 
 723
 00:46:37,800 --> 00:46:42,600
 它本身有与局域网的连接，
-which itself has a connection of to the local area network,
 
 724
 00:46:42,600 --> 00:46:46,610
 或任何连接的网络，
-or whatever kind of network attached,
 
 725
 00:46:47,710 --> 00:46:49,720
 在这个层面上，
-and sort of at this level,
 
 726
 00:46:49,720 --> 00:46:52,990
 发生的情况是数据包到达网络，
-what happens is the packet arrives of the network,
 
 727
 00:46:52,990 --> 00:46:55,900
 网卡会把它从网络上拉下来，
-the NIC you know pulls it off the network,
 
 728
 00:46:56,890 --> 00:46:58,480
 把它交给驱动，
-hands it off to the driver
 
 729
 00:46:58,480 --> 00:47:03,160
 并且驱动将数据包向上推送到网络堆栈，
-and the driver essentially pushes the network the packet up the networking stack,
 
 730
 00:47:03,310 --> 00:47:05,230
 在堆栈中的每一层，
-at each layer in the stack,
 
 731
 00:47:05,230 --> 00:47:07,540
 这一层的报头，
-the you know that layer's header,
 
 732
 00:47:08,140 --> 00:47:10,570
 IP 层会查看 IP 报头，
-you know the IP layer will look the IP header,
 
 733
 00:47:11,200 --> 00:47:14,050
 验证报头，从报头剥离出 UDP ，
-verify the headers, stripped off header UDP,
 
 734
 00:47:14,290 --> 00:47:16,990
 UDP 将找出文件描述符，
-UDP will figure out what file descriptor,
 
 735
 00:47:17,410 --> 00:47:20,320
 找出数据并放到队列中，
-queue the data on and add it to that queue,
 
 736
 00:47:20,320 --> 00:47:21,970
 数据包进入并解析，
-so packets come in and are parsed
 
 737
 00:47:21,970 --> 00:47:23,560
 报头在向上的过程中被剥离。
-and headers are stripped on the way up.
 
 738
 00:47:23,770 --> 00:47:25,930
 当应用程序发送数据包时，
-And when an application sends a packet,
 
 739
 00:47:26,020 --> 00:47:27,250
 会发生相反的事情，
-the reverse thing happens,
 
 740
 00:47:27,250 --> 00:47:29,380
 随着分组在各层中向下移动，
-as the packet moves down through the layers,
 
 741
 00:47:29,440 --> 00:47:31,600
 越来越多的报头被添加上，
-more and more headers are added on,
 
 742
 00:47:31,600 --> 00:47:32,860
 直到你到达最底层，
-until you get to the bottom layer
 
 743
 00:47:32,860 --> 00:47:36,160
 然后数据包交给网卡进行传输。
-and then the packets handed the NIC for transmission.
 
 744
 00:47:41,910 --> 00:47:44,960
 所以，当然软件，
-So, of course the software,
 
 745
 00:47:45,170 --> 00:47:47,960
 人们思考和设计网络软件的方式，
-the way people think about and design network software
 
 746
 00:47:47,960 --> 00:47:53,990
 内核通常由数局包内协议的嵌套来驱动。
-and the kernel is typically driven by the nesting of the protocols inside the packets.
 
 747
 00:47:56,060 --> 00:47:57,560
 对这个结构，有什么问题吗？
-Any questions about this structure?
 
 748
 00:48:03,420 --> 00:48:04,890
 实际上，有一个重要的事情，
-It's actually one important thing
 
 749
 00:48:04,890 --> 00:48:07,350
 我留在这里，它在旁边，
-that I kind of left out here, that sits on the side,
 
 750
 00:48:07,500 --> 00:48:13,100
 这里有缓冲区，所有都通过这里，
-there's buffers, there's packet buffers all through this,
 
 751
 00:48:13,100 --> 00:48:17,090
 当一个包到达时，它被复制到包缓冲器中，
-when a packet arrives, it's copied into a packet buffer
 
 752
 00:48:17,390 --> 00:48:20,840
 数据包缓冲器在堆栈中上下发送，
-and the packet buffers are sent up and down the stack
 
 753
 00:48:20,840 --> 00:48:22,760
 而且通常有相当多的数据包缓冲器，
-and there's often quite a few packet buffers,
 
 754
 00:48:22,940 --> 00:48:24,800
 这些层之间经常有队列，
-there's often queues between these layers,
 
 755
 00:48:24,800 --> 00:48:26,090
 这里肯定有队列，
-there's certainly a queue here,
 
 756
 00:48:26,360 --> 00:48:29,780
 数据包等待应用程序处理，
-packets waiting to be processed by applications,
 
 757
 00:48:30,020 --> 00:48:33,560
 这里是链表缓冲区，
-and this will be a linked list of buffers,
 
 758
 00:48:33,650 --> 00:48:35,690
 所以这里有一个缓冲区分配器，
-and so there's a buffer allocator,
 
 759
 00:48:35,690 --> 00:48:38,840
 这是一个缓冲区方案和一个缓冲区分配器，
-that's a buffer scheme and a buffer allocator,
 
 760
 00:48:38,840 --> 00:48:40,640
 在整个堆栈中使用，
-that's used throughout the stack,
 
 761
 00:48:40,910 --> 00:48:46,580
 在软件中，我们给出了一个缓冲区方案，叫做 MBUF ，
-and in the software, we give you a buffer scheme is called, MBUFs,
 
 762
 00:48:47,010 --> 00:48:52,980
 它是一种 MBUF 方案，
-so it's kind of MBUF scheme,
 
 763
 00:48:52,980 --> 00:48:56,220
 这不是一个层，而是所有这些层都在使用。
-that's not a layer, but is used all throughout these layers.
 
 764
 00:48:59,400 --> 00:49:03,900
 好的，这是典型的网络堆栈分层图。
-Okay, this is the layering diagram of typical network stack.
 
 765
 00:49:04,490 --> 00:49:09,800
 对于论文来说，理解控制流是如何工作的很重要，
-For this paper, it's actually important to understand how the control flow works,
 
 766
 00:49:09,800 --> 00:49:13,700
 这可能与图中的有所不同。
-which is maybe a little bit different from what's in that diagram.
 
 767
 00:49:16,550 --> 00:49:19,190
 关于网络堆栈，需要了解的一件事是，
-One thing to know about networks stacks,
 
 768
 00:49:19,190 --> 00:49:22,430
 通常有多个独立的参与者，
-there's typically multiple independent actors,
 
 769
 00:49:22,460 --> 00:49:24,470
 处理数据包并接受输入，
-that process packets and take input,
 
 770
 00:49:24,590 --> 00:49:26,900
 考虑这些数据包并产生输出，
-think about those packets and produce output
 
 771
 00:49:26,990 --> 00:49:31,880
 由于各种原因，这些不同的参与者是分离的，
-and for various reasons, these different actors are decoupled,
 
 772
 00:49:31,880 --> 00:49:35,570
 所以它们可以并发运行，并具有连接它们的数据包队列。
-so they can run concurrently and have packet queues connecting them.
 
 773
 00:49:36,180 --> 00:49:39,480
 所以从论文的角度来看，这是非常重要的，
-So that's extremely important from the point of view this paper,
 
 774
 00:49:39,600 --> 00:49:41,340
 所以在内核中，
-so within the kernel,
 
 775
 00:49:41,930 --> 00:49:44,840
 同样，我们有一个网卡，
-so again, we have a network interface card,
 
 776
 00:49:45,170 --> 00:49:46,400
 然后我们有内核，
-and then we have the kernel,
 
 777
 00:49:48,190 --> 00:49:57,130
 经典安排是让网卡以某种方式获取数据包，
-the classic arrangement here is for the NIC to somehow get packets,
 
 778
 00:49:58,090 --> 00:50:01,270
 对于网卡，当它接收到数据包时会生成中断，
-for the NIC when it receives a packet to generate an interrupt
 
 779
 00:50:02,080 --> 00:50:06,660
 这里有一个中断例程，
-and there's this interrupt routine,
 
 780
 00:50:07,020 --> 00:50:08,820
 当中断来时就会触发，
-that gets triggered whenever there's an interrupt
 
 781
 00:50:08,820 --> 00:50:13,230
 中断例程的任务是从网卡中获取数据包。
-and the job of the interrupt routine is to get the packet from the NIC.
 
 782
 00:50:14,990 --> 00:50:17,270
 因为我们不想专门拿出 CPU 时间
-And because we don't want to dedicate CPU time
 
 783
 00:50:17,270 --> 00:50:19,970
 用于完成数据包的处理，
-to completing the processing of the packet now,
 
 784
 00:50:20,840 --> 00:50:26,450
 中断例程通常仅将数据包附加到队列，
-the interrupt routine typically just appends the packet to a queue of packets,
 
 785
 00:50:26,600 --> 00:50:29,720
 以便稍后处理，然后返回，
-for later processing, and then return,
 
 786
 00:50:29,750 --> 00:50:34,420
 所以，所需的最少工作是
-so does the minimum work required
 
 787
 00:50:34,420 --> 00:50:36,610
 从网卡获取数据包并将其放入队列中，
-to get the packet from the NIC and put it in a queue
 
 788
 00:50:36,700 --> 00:50:41,380
 我们要转移到传统的网络堆栈中的原因，
-and the reason why we want to transfer in the sort of traditional network stack,
 
 789
 00:50:41,500 --> 00:50:45,580
 我们希望快速将数据包从网卡中移出并移入这个软件队列，
-we want to quickly move the packet out of the NIC and into this software queue
 
 790
 00:50:45,580 --> 00:50:49,300
 因为网卡通常只有非常有限的用于数据包队列的内存，
-is the NIC typically have a very limited amount of memory for queue in packets,
 
 791
 00:50:49,330 --> 00:50:52,030
 而在主内存，计算机的 RAM 中，
-whereas in the main memory, the RAM of the computer,
 
 792
 00:50:52,030 --> 00:50:53,560
 我们可能有千兆字节的内存，
-we might have gigabytes of memory,
 
 793
 00:50:53,800 --> 00:50:55,090
 所以这里有大得多的空间，
-so far more space here,
 
 794
 00:50:55,300 --> 00:50:56,440
 所以，网卡，
-so the NIC,
 
 795
 00:50:56,740 --> 00:50:58,150
 所以，如果出现数据包突发，
-so if there's a burst of packets
 
 796
 00:50:58,150 --> 00:51:00,460
 网卡可能没有空间对它们进行排队，
-and NIC may actually run out of space to queue them,
 
 797
 00:51:00,970 --> 00:51:02,800
 所以，我们将它们复制到这里的队列，
-so we copy them this queue here
 
 798
 00:51:02,800 --> 00:51:05,340
 以避免网卡空间不足。
-to avoid the NIC running out of space.
 
 799
 00:51:06,720 --> 00:51:09,420
 然后可能在单独的线程中，
-And then separately perhaps in a separate thread,
 
 800
 00:51:09,450 --> 00:51:17,080
 这里有我所说的 IP 处理线程，
-there's what I call the IP processing thread,
 
 801
 00:51:18,700 --> 00:51:20,110
 有时它不是一个线程，
-and sometimes it's not a thread,
 
 802
 00:51:20,110 --> 00:51:22,390
 有时它是一种不同的实体，
-sometimes it's sort of different kind of entity,
 
 803
 00:51:22,420 --> 00:51:28,090
 但它的基本工作是读取这些传入队列的数据包，
-but its basic job is to read packets of these incoming queues
 
 804
 00:51:28,090 --> 00:51:30,010
 而且可能有多个网卡，
-and there may be multiple NICs,
 
 805
 00:51:30,220 --> 00:51:32,470
 将数据包追加到这些队列，
-you know appending packet to these queues,
 
 806
 00:51:32,620 --> 00:51:33,910
 所以 IP 线程运行，
-so IP thread runs,
 
 807
 00:51:33,910 --> 00:51:36,940
 它会查看在这里排队的数据包，
-it looks at packets that are queued here
 
 808
 00:51:36,940 --> 00:51:38,590
 并决定如何处理它们。
-and decides what to do with them.
 
 809
 00:51:38,650 --> 00:51:46,870
 一种可能是通过 UDP 将它们向上发送到套接字层，
-One possibility is to send them up through UDP into the sockets layer
 
 810
 00:51:46,870 --> 00:51:49,300
 排队等待某个应用程序，
-to be queued waiting for some application
 
 811
 00:51:49,450 --> 00:51:52,510
 通常在这里只是一个函数调用，
-and typically this will just be a function calls here
 
 812
 00:51:52,510 --> 00:51:54,550
 在这个线程的上下文中。
-within the context of this thread.
 
 813
 00:51:56,880 --> 00:51:57,870
 另一种可能，
-Another possibility,
 
 814
 00:51:57,870 --> 00:52:00,390
 这也是论文关心的可能性是，
-and this is the possibility the paper cares most about is that
 
 815
 00:52:00,480 --> 00:52:02,040
 这个主机是一台路由器，
-this host is actually a router
 
 816
 00:52:02,220 --> 00:52:04,530
 它的数据包从一个网卡进入，
-and it's packets are coming in one NIC
 
 817
 00:52:04,530 --> 00:52:06,660
 然后从一个或多个其他网卡路由出去，
-and routed out one or more other NICs,
 
 818
 00:52:06,780 --> 00:52:12,740
 因为在普通操作系统上构建路由器是很常见的，比如 Linux ，
-because it's very common to build routers out of ordinary operating systems, like Linux,
 
 819
 00:52:12,740 --> 00:52:16,400
 如果你购买 WiFi 盒子或有线调制解调路由器或其他设备，
-if you buy a WiFi box now or a cable modem router or something,
 
 820
 00:52:17,000 --> 00:52:20,270
 它很有可能在内部运行 Linux ，
-it's extremely likely to be running Linux internally
 
 821
 00:52:20,330 --> 00:52:22,220
 并使用标准 Linux 堆栈，
-and to use the standard Linux stack,
 
 822
 00:52:22,220 --> 00:52:25,250
 它有完整的路由实现，
-which has a complete router implementation,
 
 823
 00:52:25,250 --> 00:52:30,860
 它很可能使用标准 Linux 堆栈来进行路由。
-it's highly likely to be using that standard Linux stack in order to do its routing.
 
 824
 00:52:31,590 --> 00:52:34,500
 所以，如果 IP 线程查看目标 IP 地址，
-So if the IP thread looks at the destination IP address
 
 825
 00:52:34,500 --> 00:52:36,360
 决定我应该把这个发送出去，
-and decides I should send this out,
 
 826
 00:52:36,570 --> 00:52:40,890
 我应该把这个包从另一个网络接口转发出去，
-I should forward this packet out you know out another network interface,
 
 827
 00:52:42,900 --> 00:52:48,000
 它会将数据包添加到这个传出接口的传出数据包队列中，
-it'll add the packet to a queue of outgoing packets for this outgoing interface
 
 828
 00:52:48,060 --> 00:52:49,830
 几乎可以肯定的是，
-and there's almost certainly,
 
 829
 00:52:49,830 --> 00:52:53,500
 这是一个接收中断， RX 表示接收，
-so this is a receive interrupt, RX for receive,
 
 830
 00:52:53,950 --> 00:53:03,720
 传出网卡通常有某种传输中断方案，
-there's usually some sort of transmit interrupt scheme for the outgoing NIC,
 
 831
 00:53:04,770 --> 00:53:07,320
 网卡将会中断，
-that and NIC will interrupt,
 
 832
 00:53:07,320 --> 00:53:09,300
 每当发送完一个数据包，
-whenever it's finished sending one packet
 
 833
 00:53:09,300 --> 00:53:11,580
 并准备好接收更多数据包时，
-and is ready to be handed more packets,
 
 834
 00:53:12,810 --> 00:53:15,210
 这些传出中断也很重要。
-these outgoing interrupts may also be important.
 
 835
 00:53:16,390 --> 00:53:20,050
 这里的重点是，
-And the point here is that,
 
 836
 00:53:20,050 --> 00:53:22,450
 这里有一堆并发的实体，
-there's a bunch of concurrent entities,
 
 837
 00:53:22,480 --> 00:53:26,350
 有各种不同方式的独立调度，
-there's sort of separately scheduled in various different ways,
 
 838
 00:53:26,410 --> 00:53:28,510
 这些中断由网卡触发，
-these interrupts are triggered by the NICs
 
 839
 00:53:28,540 --> 00:53:31,660
 当数据包到达或发送是，发生中断，
-asking for interrupts when packets arrive or when packets have been sent,
 
 840
 00:53:31,930 --> 00:53:37,670
 这个线程可能是我们在 xv6 中拥有的内核线程，
-this thread maybe a kernel thread like we have in xv6,
 
 841
 00:53:37,700 --> 00:53:39,650
 在单个处理器中，
-in a uniq processor,
 
 842
 00:53:39,650 --> 00:53:42,170
 比如在今天论文中的情况，
-as was the case with today's paper,
 
 843
 00:53:42,470 --> 00:53:44,480
 这个线程不能同时运行，
-this thread can't run at the same time,
 
 844
 00:53:44,480 --> 00:53:46,640
 中断有绝对优先级，
-as interrupt, interrupt absolute priority,
 
 845
 00:53:46,670 --> 00:53:50,060
 在多核计算机上，可能会有更多的并行性，
-on a multi-core machine, there may be more parallelism
 
 846
 00:53:50,270 --> 00:53:53,510
 然后，重要的是应用程序要能够读取数据包，
-and then it's important that applications to be able to read the packets,
 
 847
 00:53:53,720 --> 00:53:58,220
 应用程序是另一个独立调度的实体，
-the applications are yet another independently scheduled entities,
 
 848
 00:53:59,660 --> 00:54:04,220
 我们希望得到机会在 CPU 上执行。
-that we'd like to get the chance executing on the CPU.
 
 849
 00:54:06,240 --> 00:54:14,280
 所以这些是在调度游戏中的所有玩家。
-So these are all the players in the, and that's in the scheduling game essentially.
 
 850
 00:54:17,970 --> 00:54:23,000
 有一件经常出现的事是缓冲区，
-One thing that comes up a lot is buffering,
 
 851
 00:54:23,030 --> 00:54:25,940
 所以这里有三个队列，
-so there's a three queues here,
 
 852
 00:54:25,970 --> 00:54:27,410
 通过缓冲，我指的是，
-by buffering, I mean,
 
 853
 00:54:27,560 --> 00:54:32,510
 这些结构附加输入数据包，
-these structures in which one append, it appends input packets
 
 854
 00:54:32,510 --> 00:54:36,470
 并且一些其他实体轮询队列前面的数据包，
-and some other entity polls packets of the front of the queue,
 
 855
 00:54:36,830 --> 00:54:39,740
 这些队列在网络系统中无处不在。
-these queues are pervasive in networking systems.
 
 856
 00:54:41,490 --> 00:54:43,500
 其中一个原因是
-One reason for them is
 
 857
 00:54:43,500 --> 00:54:46,620
 为了应对临时性的突发，
-to allow temporary to cope temporary bursts,
 
 858
 00:54:46,740 --> 00:54:50,520
 这个 IP 线程可能只能以每秒多少的速度处理数据包，
-this IP thread maybe can only process packets at however any per second,
 
 859
 00:54:50,760 --> 00:54:54,420
 但是网卡可能能够更快地传送数据包，
-but the NIC may be able to deliver packets much more quickly
 
 860
 00:54:54,600 --> 00:54:57,660
 所以这里可能会有一些临时的数据包突发，
-and so there may be a little sort of temporary burst of packets,
 
 861
 00:54:57,690 --> 00:54:59,340
 我们希望有一个地方存放它们，
-we'd like to have somewhere to put them
 
 862
 00:54:59,670 --> 00:55:03,240
 等待 IP 线程开始处理，
-waiting for the IP thread to get around to processing
 
 863
 00:55:03,330 --> 00:55:05,460
 这是队列的一种用途，
-and so that's one use of queues,
 
 864
 00:55:06,160 --> 00:55:07,900
 在输出端，
-on the output side,
 
 865
 00:55:08,260 --> 00:55:10,330
 我们希望使用队列的另一种方式，
-another use of queues as we'd like to,
 
 866
 00:55:10,840 --> 00:55:12,640
 特别是如果数据包突发，
-especially if packets are bursting,
 
 867
 00:55:12,640 --> 00:55:15,550
 我们希望能够在这里存放一些数据包，
-we'd like to be able to stack up a bunch of packets here,
 
 868
 00:55:15,700 --> 00:55:17,020
 准备网卡发送，
-ready for the NIC to send,
 
 869
 00:55:17,020 --> 00:55:19,810
 保持输出网卡忙，
-to keep the NIC to output NIC busy,
 
 870
 00:55:20,020 --> 00:55:22,480
 因为根据速度的不同，
-because depending on the speed of things,
 
 871
 00:55:22,480 --> 00:55:23,410
 它很重要，
-it may be quite important
 
 872
 00:55:23,410 --> 00:55:28,150
 能够在这里以 100% 利用网络。
-to be able to hunt to utilize 100% of the network here.
 
 873
 00:55:30,840 --> 00:55:31,980
 另一个原因是，
-And the other reason for it,
 
 874
 00:55:33,120 --> 00:55:36,120
 也许与排队的原因不同，
-maybe the same reason stated differently for having queues is
 
 875
 00:55:36,120 --> 00:55:41,340
 能够将软件组织成单独调度的独立部分，
-to be able to structure software into independent parts that are scheduled separately,
 
 876
 00:55:41,910 --> 00:55:45,570
 不需要 IP 线程或应用程序
-wouldn't necessarily want to have our IP thread or the application
 
 877
 00:55:45,660 --> 00:55:48,180
 知道必须进行的其他事情，
-know about the other things that have to go on,
 
 878
 00:55:48,180 --> 00:55:49,380
 比如中断处理，
-like interrupt processing,
 
 879
 00:55:49,620 --> 00:55:54,300
 所以 IP 线程是一种传统的网络系统，
-so the IP thread is sort of a traditional networking system,
 
 880
 00:55:54,600 --> 00:56:01,900
 它不需要知道中断何时发生或应用程序何时运行，
-it doesn't necessarily know when interrupts happen or when applications run,
 
 881
 00:56:01,900 --> 00:56:03,880
 虽然我们将在这篇论文中看到，
-although we'll see in this paper,
 
 882
 00:56:03,880 --> 00:56:06,910
 在那里有一点了解可能是有好处的。
-that there may be advantages to having a little bit of knowledge there.
 
 883
 00:56:11,260 --> 00:56:14,680
 对于这个调度控制图，有什么问题吗？
-Questions about this scheduling control diagram?
 
 884
 00:56:19,620 --> 00:56:21,270
 哦，我有个问题，
-Oh, I have a question,
 
 885
 00:56:21,300 --> 00:56:26,580
 同一个网卡能不能同时用于发送和接收？
-so can the same NIC now be used for both transmitting and receiving?
 
 886
 00:56:28,650 --> 00:56:31,170
 它可以，实际上我的笔记本电脑只有一个网卡，
-It can,so my laptop really only has one interface
 
 887
 00:56:31,170 --> 00:56:33,600
 它连接到 WiFi ，
-and it connected to WiFi,
 
 888
 00:56:33,630 --> 00:56:34,680
 当它收到一个数据包，
-when it receives a packet,
 
 889
 00:56:34,680 --> 00:56:36,030
 在我的笔记本电脑上，
-this on my laptop,
 
 890
 00:56:36,030 --> 00:56:39,310
 这个网卡是一个 WiFi 无线电接口，
-this NIC is actually a WiFi radio interface,
 
 891
 00:56:39,460 --> 00:56:42,550
 数据包在同一网卡上到达和传出。
-packets arrive and go out on the same NIC.
 
 892
 00:56:42,940 --> 00:56:47,850
 两个网卡的情况用于路由器，
-The two NIC situation is certainly used for routers,
 
 893
 00:56:48,150 --> 00:56:51,420
 所以你家里的 WiFi ，
-so your home WiFi,
 
 894
 00:56:51,420 --> 00:56:53,820
 我不知道，也许我有 WiFi 和有线，
-I don't know, maybe I have WiFi and cable
 
 895
 00:56:53,820 --> 00:56:57,780
 还有一个路由器盒子，它有两个网卡，
-and there's a router box, that has two NICs,
 
 896
 00:56:57,810 --> 00:57:01,500
 一个连接到我的电缆调制解调器，
-one is the its connection to my cable modem,
 
 897
 00:57:01,500 --> 00:57:02,760
 剩下的是互联网，
-which leaves the rest of the Internet
 
 898
 00:57:02,760 --> 00:57:06,770
 还有一个是我的 WiFi 接口，
-and the other one is my WiFi Interface,
 
 899
 00:57:06,980 --> 00:57:08,120
 所以这个小盒子，
-so that the little box,
 
 900
 00:57:08,120 --> 00:57:11,180
 电缆调制解调器发送，
-that the cable modem cable [] sent me
 
 901
 00:57:11,180 --> 00:57:13,460
 作为一个路由器有两个网络接口。
-as a router with two network interfaces.
 
 902
 00:57:15,350 --> 00:57:19,340
 实际上很多服务器也有多个接口，
-And there's actually a lot of servers have multiple interfaces also,
 
 903
 00:57:20,360 --> 00:57:22,070
 尤其是那些 web 服务器，
-especially ones that are web servers,
 
 904
 00:57:22,070 --> 00:57:24,560
 你想要与外部世界交互，
-that you want to talk to the outside world,
 
 905
 00:57:25,270 --> 00:57:30,670
 一个接口发送到你的私有敏感数据库机器或其他什么，
-well, one interface sent your private sensitive database machine or something
 
 906
 00:57:31,030 --> 00:57:34,720
 在具有另一个网络接口的完全独立的网络上，
-on a totally separate network with another network interface,
 
 907
 00:57:35,110 --> 00:57:36,790
 这种安排是相当常见的。
-this arrangement is pretty common.
 
 908
 00:57:37,330 --> 00:57:39,370
 所以，有多个网卡的原则是
-So the criteria for having multiple NICs is
 
 909
 00:57:39,370 --> 00:57:42,190
 想与不同的网络通信。
-just wanting to talk to different networks then.
 
 910
 00:57:42,880 --> 00:57:45,820
 是的，如果你想与不同的网络通信，
-Yeah, if you want to talk to different networks,
 
 911
 00:57:45,910 --> 00:57:47,440
 那么你有多个网卡，是的。
-then you have multiple NICs, yes.
 
 912
 00:57:52,070 --> 00:57:53,840
 好的，像我所说的，
-Alright, I wanna as I said,
 
 913
 00:57:53,840 --> 00:57:57,230
 多谈一点关于网卡的事情，
-talk a little bit more about NICs,
 
 914
 00:57:57,230 --> 00:57:58,910
 网卡在数据包到达时如何处理它们，
-what NICs do with packets when they arrive,
 
 915
 00:57:58,910 --> 00:58:02,750
 这与实验有关系。
-and this is a special relevance to the lab.
 
 916
 00:58:02,900 --> 00:58:09,350
 网卡内部是什么样子，
-You you know what NIC looks like internally,
 
 917
 00:58:11,330 --> 00:58:16,790
 它有一根电缆或无线电从外面的世界通向那里，
-you know it's got a cable leading or a radio leading to the from the outside world,
 
 918
 00:58:16,940 --> 00:58:20,150
 当电子进来的时候，它查看它们，
-you know it looks at electrons as they come in
 
 919
 00:58:20,150 --> 00:58:22,430
 把它们变成数据包。
-and sort of turns them into packets.
 
 920
 00:58:23,020 --> 00:58:25,480
 然后这里是主机，
-And then there's the host,
 
 921
 00:58:25,510 --> 00:58:28,630
 主机里面有某种驱动软件，
-and there's the host some sort of driver software in it,
 
 922
 00:58:29,110 --> 00:58:31,180
 不管怎样，
-and one way or another,
 
 923
 00:58:31,270 --> 00:58:36,730
 我们需要将在网卡中解码的数据包放入内存，
-you know we need to get a packet that's decoded in the NIC into memory
 
 924
 00:58:36,730 --> 00:58:40,960
 其中 IP 软件和主机可以解析这个数据包，
-where the IP software and the host can parse that packet
 
 925
 00:58:41,680 --> 00:58:44,680
 所以这些年来设计了很多不同的方案，
-and so there's a lot of different schemes been designed over the years,
 
 926
 00:58:44,710 --> 00:58:49,760
 论文的方案是网卡具有很多内存，
-the paper scheme is that the NIC has a lot of internal memory,
 
 927
 00:58:49,760 --> 00:58:51,140
 当数据包到达时，
-and as packets arrive,
 
 928
 00:58:51,440 --> 00:58:54,270
 唯一立即发生的事情是
-the only, the only immediate thing that happens is
 
 929
 00:58:54,270 --> 00:58:57,510
 网卡将数据包放入自己的缓冲存储器中，
-that NIC puts you know lays down the packets in its own buffer memory,
 
 930
 00:58:58,090 --> 00:58:58,690
 就是这样。
-that's it.
 
 931
 00:58:59,880 --> 00:59:03,670
 并且中断主机，
-And interrupts the host the host
 
 932
 00:59:03,700 --> 00:59:07,930
 网卡有一个内部的数据包队列和一堆内存，
-and said that the NIC has an internal queue of packets and a bunch of memory
 
 933
 00:59:07,990 --> 00:59:11,620
 然后在中断，在主机驱动程序中，
-and then in the interrupt in the host driver,
 
 934
 00:59:11,710 --> 00:59:13,150
 主机驱动中有一个循环，
-the host driver has a loop in it,
 
 935
 00:59:13,180 --> 00:59:14,410
 主机驱动程序会与它们交互，
-the host driver will talk to them,
 
 936
 00:59:14,410 --> 00:59:16,360
 它们可以说任何缓冲的数据包，
-they can say you know any packets buffered,
 
 937
 00:59:16,480 --> 00:59:17,440
 如果是这样，
-and if it does,
 
 938
 00:59:17,740 --> 00:59:19,270
 主机有一个循环，
-now the host has a loop,
 
 939
 00:59:19,270 --> 00:59:21,850
 它会逐个字节或逐个字地复制，
-that will just copy you know by byte or word by word,
 
 940
 00:59:22,260 --> 00:59:26,250
 将这个数据包复制到主机的内存中，
-copy this packet into the memory of the host
 
 941
 00:59:26,250 --> 00:59:29,400
 并附加到主机内部的队列中，
-and appended to a queue inside the host,
 
 942
 00:59:29,610 --> 00:59:32,790
 所以这就是论文中网卡的运作方式，
-so that's how the paper's NIC works,
 
 943
 00:59:33,180 --> 00:59:38,330
 驱动程序负责执行从网卡内存复制到主机内存。
-the drivers is responsible for doing the copy from NIC memory to host memory.
 
 944
 00:59:39,880 --> 00:59:42,340
 这在 30 年前很有意义，
-That made a lot of sense 30 years ago,
 
 945
 00:59:42,880 --> 00:59:46,900
 今天，在 CPU 中复制的循环
-today though it turns out that loops in the CPU that copy,
 
 946
 00:59:47,080 --> 00:59:52,570
 与外部硬件或在总线上的硬件交互非常非常慢，
-that you know talk to external hardware or hardware sitting on buses are very very slow,
 
 947
 00:59:52,570 --> 00:59:58,240
 在微处理器设计的宏观方案中，
-this sort of you know in the grand scheme of microprocessor design,
 
 948
 00:59:58,270 --> 01:00:04,150
 CPU 和外部设备之间的距离，
-this distance here between the CPU and an external device,
 
 949
 01:00:04,180 --> 01:00:06,810
 即使它在同一台计算机上，
-even if it's on the same computer,
 
 950
 01:00:07,050 --> 01:00:08,130
 这是一段非常远的距离，
-this is a very long distance
 
 951
 01:00:08,130 --> 01:00:11,580
 今天的每一次交互都需要很长的时间，
-and each conversation today takes a long time
 
 952
 01:00:11,610 --> 01:00:13,230
 互相交互，
-to reach back for chit chat
 
 953
 01:00:13,230 --> 01:00:17,300
 所以你不想有太多的字节交互，
-and so you don't want to have a lot of byte interaction,
 
 954
 01:00:17,780 --> 01:00:21,800
 所以人们不再设计这样的高速接口了。
-so people don't design high-speed interfaces like this anymore.
 
 955
 01:00:24,420 --> 01:00:28,650
 所以一个更现代的安排看起来是这样的，
-So a much more modern arrangement looks like this,
 
 956
 01:00:28,740 --> 01:00:31,740
 所以，现在我要讨论一种安排，
-so now I'm gonna talk about an arrangement
 
 957
 01:00:31,740 --> 01:00:36,530
 在 E1000 网卡上的一种安排，
-which shows up in the E1000 NIC,
 
 958
 01:00:38,230 --> 01:00:42,760
 你将在实验中使用或模拟它。
-which you'll use in the lab or simulation of it.
 
 959
 01:00:42,760 --> 01:00:45,860
 所以， E1000 网卡的工作方式，
-So, you know the way the E1000 NIC works,
 
 960
 01:00:47,110 --> 01:00:49,240
 有这根电线，它查着电子，
-so has this wire and it's looking at the electrons,
 
 961
 01:00:49,240 --> 01:00:51,580
 但当数据包到达时，
-but as the packets arrive,
 
 962
 01:00:51,610 --> 01:00:54,340
 网卡写入它们，
-the NIC writes them,
 
 963
 01:00:54,790 --> 01:00:58,610
 网卡没有显著的内部缓冲，
-NIC doesn't really have significant internal buffering,
 
 964
 01:00:58,610 --> 01:00:59,480
 尽管它有一点，
-although it has a little bit,
 
 965
 01:01:00,440 --> 01:01:02,990
 它将数据包直接复制到主机内存中，
-it actually copies the packets directly into host memory
 
 966
 01:01:02,990 --> 01:01:05,120
 在那里，它们在主机内存中，
-where they'll be sitting there in host memory,
 
 967
 01:01:05,150 --> 01:01:09,050
 等待驱动把已经复制好的它们取走，
-waiting for the driver to pick them up sort of already copied,
 
 968
 01:01:09,140 --> 01:01:12,980
 但这意味着网卡必须知道它应该将每个数据包放在哪里，
-but that means that NIC has to know where memory it should put each packet,
 
 969
 01:01:13,070 --> 01:01:19,130
 所以， E1000 网卡的工作方式是
-so, the way that E1000 NIC works is
 
 970
 01:01:19,130 --> 01:01:24,260
 主机软件格式化所谓的环，
-that the host software formats up what's called rings,
 
 971
 01:01:24,260 --> 01:01:27,370
 DMA 环，一个数据包指针，
-DMA rings, a packet pointers,
 
 972
 01:01:27,400 --> 01:01:38,180
 所以 DMA 环是指向数据包缓冲区的指针数组。
-so DMA ring is just an array of pointers to packet buffers.
 
 973
 01:01:40,120 --> 01:01:43,190
 所以，当主机驱动程序初始化时，
-So the host host driver when it's initialized,
 
 974
 01:01:43,190 --> 01:01:48,290
 网卡分配比如 16 1500 字节数据包缓冲区，
-the card will allocate however many say 16 1500 byte packet buffers
 
 975
 01:01:48,350 --> 01:01:52,100
 创建一个由 15 个或 16 个指针组成的数组，
-will create an array of 15 pointers or 16 pointers
 
 976
 01:01:52,100 --> 01:01:54,560
 并使这些指针指向那里，
-and make these pointers point to there
 
 977
 01:01:54,560 --> 01:01:57,740
 然后它会在配置时告诉网卡，
-and then it'll tell the NIC in configuration time,
 
 978
 01:01:57,770 --> 01:02:02,020
 看，这是环，
-look, here's the ring,
 
 979
 01:02:02,230 --> 01:02:04,000
 所以这叫 DMA 环，
-so this is called DMA ring,
 
 980
 01:02:04,330 --> 01:02:07,830
 因为在你走出终点之后，
-because after you've gone off the end,
 
 981
 01:02:07,830 --> 01:02:09,030
 你又回到了起点。
-you start back at the beginning.
 
 982
 01:02:10,170 --> 01:02:11,820
 驱动程序软件会告诉网卡，
-The drivers software will tell the NIC,
 
 983
 01:02:11,820 --> 01:02:16,470
 这里有一个指针指向 RAM 中的地址， DMA 环，
-here's a pointer the address in my RAM of the ring, DMA ring,
 
 984
 01:02:16,590 --> 01:02:19,380
 你可以用来寄存进来的数据包，
-you're supposed to use the deposit incoming packets,
 
 985
 01:02:19,380 --> 01:02:20,460
 当数据包到达时，
-when a packet arrives,
 
 986
 01:02:20,520 --> 01:02:25,890
 网卡会记住下一个环条目，
-the NIC actually remember which ring entry is the next one,
 
 987
 01:02:27,960 --> 01:02:30,040
 这是一个指针到这里，
-it is a little pointer here,
 
 988
 01:02:30,040 --> 01:02:32,680
 这允许它记住下一个条目，
-that allows it to remember the next entry,
 
 989
 01:02:32,680 --> 01:02:33,400
 它[应该] DMA ，
-that it [should] DMA,
 
 990
 01:02:33,400 --> 01:02:35,140
 当数据包到达时，
-packet into when a packet arrives,
 
 991
 01:02:35,230 --> 01:02:37,360
 网卡从这里提取指针，
-the NIC will fetch the pointer out of this,
 
 992
 01:02:38,020 --> 01:02:40,750
 从主机 RAM 中获取缓冲区指针，
-fetch this buffer pointer out of the host RAM,
 
 993
 01:02:41,590 --> 01:02:44,740
 将数据包字节复制到这个缓冲区中，
-copy the packet bytes into this buffer
 
 994
 01:02:44,950 --> 01:02:49,020
 然后推进其内部索引到这里，
-and then advance its internal index here,
 
 995
 01:02:49,020 --> 01:02:50,910
 指向下一个环的槽，
-to point to the next ring slot,
 
 996
 01:02:50,970 --> 01:02:52,350
 我们将在下一个包中使用它。
-which we'll use for the next packet.
 
 997
 01:02:53,510 --> 01:02:55,520
 还有一个类似的，
-And there's a similar,
 
 998
 01:02:55,790 --> 01:02:57,530
 所以这是 RX 环，
-so this will be RX ring,
 
 999
 01:02:58,120 --> 01:02:58,870
 为了接收，
-to receive,
 
 1000
 01:02:58,900 --> 01:03:02,050
 驱动程序设置了一个类似的环，
-there's a similar ring that the driver sets up
 
 1001
 01:03:03,120 --> 01:03:06,220
 驱动程序可以放入数据包，
-in which the driver puts packets,
 
 1002
 01:03:06,770 --> 01:03:09,140
 它想让网卡发送，
-that it wants the NIC to send,
 
 1003
 01:03:09,140 --> 01:03:12,080
 所以，网卡还有一个指向 TX 环的指针。
-so the NIC also has a pointer to the TX ring.
 
 1004
 01:03:14,090 --> 01:03:16,130
 所以你会学到，你在实验的工作是
-So you'll learn, your job in the lab is
 
 1005
 01:03:16,130 --> 01:03:20,570
 编写处理这些环的驱动软件。
-basically to write the driver software that handle these rings.
 
 1006
 01:03:22,560 --> 01:03:23,880
 对于这个安排，有什么问题吗？
-Any questions about this arrangement?
 
 1007
 01:03:29,040 --> 01:03:35,900
 是的， E1000 与生产级别的网卡相比，
-Yeah, how does the E1000 compare with production level NICs
 
 1008
 01:03:35,900 --> 01:03:38,330
 可能在高性能环境中使用的。
-that may be used in high performance environments.
 
 1009
 01:03:38,360 --> 01:03:40,130
 当 E1000 出现时，
-Well when the E1000 came out,
 
 1010
 01:03:40,160 --> 01:03:43,940
 它绝对是最好的网卡，
-it was the absolute best NIC available
 
 1011
 01:03:44,540 --> 01:03:49,900
 它是在生产环境中使用的网卡，
-and it was the NIC that was used in serious production environments,
 
 1012
 01:03:49,930 --> 01:03:51,400
 但那是很多年前的事了，
-but that was many years ago,
 
 1013
 01:03:51,460 --> 01:03:55,600
 现代网卡更聪明，
-modern NICs are quite a bit clever,
 
 1014
 01:03:55,960 --> 01:04:01,380
 变化不大的是这个 DMA 环结构，
-the what hasn't changed that much is this DMA ring structure,
 
 1015
 01:04:01,770 --> 01:04:05,580
 你仍会发现网卡使用 DMA 传输数据包，
-you're still find that NICs to use DMA to deliver packets
 
 1016
 01:04:05,580 --> 01:04:08,010
 它们找到递送数据包的地方的方式，
-and the way they find the place to deliver the packets
 
 1017
 01:04:08,010 --> 01:04:11,580
 通过缓冲区指针环。
-by these rings of buffer pointers.
 
 1018
 01:04:11,760 --> 01:04:17,290
 有几件事是现代网卡更聪明的，
-The main there's a couple things that are that modern NICs more clever about,
 
 1019
 01:04:17,410 --> 01:04:18,910
 一个是现代的网卡，
-one is that modern NICs,
 
 1020
 01:04:18,910 --> 01:04:21,430
 你可以给它们设置很多很多的队列，
-you can set them up with many many queues,
 
 1021
 01:04:22,090 --> 01:04:24,400
 我认为 E1000 只有单个接收队列，
-the E1000 I think just as a single receive queue,
 
 1022
 01:04:24,520 --> 01:04:26,110
 但是你可以告诉现代网卡，
-but you can tell a modern NIC,
 
 1023
 01:04:26,110 --> 01:04:32,020
 我想让你把我的数据包分成 32 个不同的传入队列，
-look, you know I I want you to split my packets up into 32 different incoming queues
 
 1024
 01:04:32,050 --> 01:04:34,480
 这里是如何为每个数据包做出决定，
-and here's how to decide for each packet,
 
 1025
 01:04:34,600 --> 01:04:35,620
 查看这个字段，
-look at this field
 
 1026
 01:04:35,620 --> 01:04:40,480
 并使用这个字段选择数据包 DMA 环，
-and use that to choose which ring DMA the packet to,
 
 1027
 01:04:40,990 --> 01:04:45,220
 有很多聪明的方式让人们使用这种能力，
-and there's a whole bunch of clever ways that people use that capability
 
 1028
 01:04:45,220 --> 01:04:47,290
 比如，如果你有多个虚拟机，
-like if you have multiple virtual machines,
 
 1029
 01:04:47,290 --> 01:04:50,860
 你的亚马逊，并且你正在运行多个客户虚拟机，
-your Amazon and you're running many guest virtual machines,
 
 1030
 01:04:50,980 --> 01:04:52,570
 你可以使用这个能力，
-you may use that capability
 
 1031
 01:04:52,570 --> 01:04:57,940
 将每个数据包定向到与虚拟机对应的队列，
-to sort of direct each packet to the queue corresponding to the virtual machine,
 
 1032
 01:04:58,240 --> 01:04:59,800
 那个数据包应该被读（的虚拟机）。
-that that packet should be read by.
 
 1033
 01:05:01,210 --> 01:05:03,160
 另一种现代网卡更聪明的方式，
-Another way in which modern NICs more clever
 
 1034
 01:05:03,160 --> 01:05:07,300
 它们在网卡上执行一些 TCP 处理，
-as they'll do some of the TCP processing on the NIC,
 
 1035
 01:05:07,330 --> 01:05:12,660
 我想最多的可能是通常的校验和计算。
-like maybe typically checksum calculations the most I think.
 
 1036
 01:05:13,620 --> 01:05:14,280
 无论如何，是的，
-Anyway, yeah,
 
 1037
 01:05:14,460 --> 01:05:18,290
 现代网卡类似 E1000 ，但是更多。
-so, modern NICs like the E1000 but more.
 
 1038
 01:05:20,340 --> 01:05:21,090
 好的，谢谢。
-Okay, thanks.
 
 1039
 01:05:23,320 --> 01:05:24,700
 哦，抱歉，好的。
-Oh, sorry good.
 
 1040
 01:05:25,090 --> 01:05:26,440
 哦，是的，我想问一下，
-Oh, yeah, I just wanted to ask,
 
 1041
 01:05:26,440 --> 01:05:28,300
 在我们实验的方案中，
-so in our scheme in the lab,
 
 1042
 01:05:28,390 --> 01:05:35,300
 在 IP 层和驱动之间没有队列，是吗？
-there, there is no queue between the IP layer and the driver, right?
 
 1043
 01:05:35,600 --> 01:05:41,630
 是的，实验网络堆栈被精简到绝对最小，
-Yeah the lab network stack is stripped down to the absolute minimum,
 
 1044
 01:05:41,810 --> 01:05:44,990
 结构比真正的网络堆栈更简单。
-simpler in structure than a real networks stack.
 
 1045
 01:05:45,720 --> 01:05:49,710
 但就性能而言，这是否更糟糕？
-But this is worse in terms of performance?
 
 1046
 01:05:49,800 --> 01:05:52,980
 哦，我不知道，我从来没有在现实生活中运行过它，
-Oh, I don't know, I've never run it in real life,
 
 1047
 01:05:52,980 --> 01:05:57,930
 我敢肯定，我们肯定没有注意性能，
-I'm sure they've certainly we paid zero attention to performance,
 
 1048
 01:05:58,200 --> 01:05:59,760
 当编写网络实验时，
-when writing lab networks,
 
 1049
 01:05:59,760 --> 01:06:01,920
 所以如果有高性能是令人惊讶的，
-so it would be surprising if this performance,
 
 1050
 01:06:02,730 --> 01:06:05,040
 但大多数情况下，这不是性能限制的问题，
-but mostly it's not a question of performances limitations,
 
 1051
 01:06:05,040 --> 01:06:08,730
 它不能达到你需要的 95% 的网络堆栈，
-it doesn't do 95% of what you need network stack to do,
 
 1052
 01:06:08,760 --> 01:06:14,220
 比如处理多个网卡或使用 TCP 。
-like handle multiple NICs or have TCP.
 
 1053
 01:06:15,320 --> 01:06:16,280
 对，对，
-Right, right,
 
 1054
 01:06:16,400 --> 01:06:17,870
 好的，我明白了，谢谢。
-okay I see, thank you.
 
 1055
 01:06:21,220 --> 01:06:29,940
 嗯，抱歉，对于整个系统有没有硬件变动，
-Um, sorry, so, were there any like hardware changes to the overall system,
 
 1056
 01:06:29,940 --> 01:06:34,800
 需要让网卡可以直接访问内存，
-that were needed to enable like NICs to have direct memory access,
 
 1057
 01:06:34,830 --> 01:06:37,110
 像上一张图那样，
-like in the previous picture,
 
 1058
 01:06:37,380 --> 01:06:39,450
 是否所有内容都通过 CPU ，
-was everything needed through the CPU
 
 1059
 01:06:39,450 --> 01:06:42,930
 或者网卡是否也可以直接到达内存。
-or could NICs also reached the that memory directly.
 
 1060
 01:06:43,170 --> 01:06:44,610
 在我之前展示的那张图片中，
-In that picture I showed before,
 
 1061
 01:06:44,610 --> 01:06:48,690
 网卡访问不到内存。
-you know the NIC doesn't reach the memory at all, the.
 
 1062
 01:06:48,720 --> 01:06:49,260
 好的。
-Okay.
 
 1063
 01:06:49,860 --> 01:06:52,680
 我实际上不知道，
-I actually don't know,
 
 1064
 01:06:52,680 --> 01:06:54,150
 我的意思是，
-I mean the the,
 
 1065
 01:06:54,180 --> 01:06:56,310
 也许最重要的问题是，
-maybe the most important question is
 
 1066
 01:06:56,310 --> 01:07:00,720
 虚拟内存转换是否以及如何工作，
-how virtual memory whether and how virtual memory translation works,
 
 1067
 01:07:00,750 --> 01:07:04,290
 当网卡要使用引用主机内存的地址时，
-when NIC wants to use an address that refers to host memory
 
 1068
 01:07:04,380 --> 01:07:07,230
 我不知道它是怎么工作的，
-and I don't actually know how that works,
 
 1069
 01:07:07,290 --> 01:07:08,430
 我不知道它是怎么工作的，
-I don't know how that works,
 
 1070
 01:07:09,120 --> 01:07:12,800
 我猜这里有一个转换，
-I I suspect there's a translation,
 
 1071
 01:07:12,950 --> 01:07:15,770
 网卡实际在总线上，
-you know NIC is really sitting on a bus,
 
 1072
 01:07:15,830 --> 01:07:17,120
 它连接到，
-that's connected with,
 
 1073
 01:07:18,390 --> 01:07:22,890
 通过一些智能的硅连接到 DRAM 系统，
-you know through some fairly intelligent silicon to the to the DRAM system
 
 1074
 01:07:23,040 --> 01:07:24,450
 我相信在现代机器中，
-and I believe in modern machines,
 
 1075
 01:07:24,450 --> 01:07:26,700
 你可以在网卡内设置转换表，
-you can setup translation tables within NIC,
 
 1076
 01:07:27,720 --> 01:07:29,850
 可以使用虚拟地址，
-could use virtual addresses
 
 1077
 01:07:29,850 --> 01:07:35,660
 或者由这个位于它和 RAM 之间的硬件转换的地址，
-or addresses that are translated by this hardware that sits between it and RAM,
 
 1078
 01:07:35,660 --> 01:07:37,970
 在某些情况下，这可能是非常有价值的。
-and that could be very valuable for some situations.
 
 1079
 01:07:38,590 --> 01:07:40,810
 另一件事，
-The other thing,
 
 1080
 01:07:41,780 --> 01:07:44,630
 我是说，我意识到的另一件事是，
-I mean another thing that I'm aware of is that,
 
 1081
 01:07:46,340 --> 01:07:48,950
 如果网卡要写入一些内存或读取一些内存，
-if the NIC is going to write some memory or read some memory
 
 1082
 01:07:48,950 --> 01:07:52,460
 并且内存被高速缓存在 CPU 上，
-and the memory is cached on the CPU,
 
 1083
 01:07:53,880 --> 01:07:56,010
 你想让网卡读取，
-you, you know you want the NIC to read,
 
 1084
 01:07:56,010 --> 01:07:59,250
 如果软件只是写入一个数据包缓冲区，
-if, if the software just wrote a packet buffer,
 
 1085
 01:07:59,250 --> 01:08:01,350
 但是 CPU 没有，
-but the CPU hasn't,
 
 1086
 01:08:01,990 --> 01:08:05,260
 CPU 只是缓存了写，
-the CPU is merely cached the write,
 
 1087
 01:08:05,260 --> 01:08:08,650
 因为在之后，所有内存被写回，
-because after all, most memories write back,
 
 1088
 01:08:08,890 --> 01:08:12,730
 这意味着内存的最新版本
-that means that the real latest version of that memory
 
 1089
 01:08:12,730 --> 01:08:14,530
 位于 CPU 缓存中，而不是在 RAM 中，
-is sitting in the CPU cache not in RAM
 
 1090
 01:08:14,530 --> 01:08:15,250
 在这种情况下，
-and in that case,
 
 1091
 01:08:15,370 --> 01:08:19,030
 我们希望它读取 CPU 缓存，而不是 RAM ，
-we'd like the NIC to be reading the CPU cache, not the RAM,
 
 1092
 01:08:19,030 --> 01:08:20,080
 如果它执行 DMA ，
-if it does DMA
 
 1093
 01:08:20,590 --> 01:08:24,220
 当然，在英特尔的机器上，也可能在其他机器上，
-and certainly on Intel machines and probably on others,
 
 1094
 01:08:24,310 --> 01:08:26,170
 有一些相当复杂的机制，
-there's some fairly elaborate machinery,
 
 1095
 01:08:26,170 --> 01:08:28,510
 如果网卡读取一些内存，
-so that if the NIC read some memory,
 
 1096
 01:08:28,510 --> 01:08:31,750
 但是内存的最新副本位于 CPU 缓存中，
-but the latest copy that memories in the CPU cache,
 
 1097
 01:08:31,750 --> 01:08:35,080
 CPU 缓存将产生数据，而不是 RAM 。
-it's the CPU cache that will produce the data and not RAM.
 
 1098
 01:08:37,150 --> 01:08:37,870
 好的。
-Okay.
 
 1099
 01:08:38,260 --> 01:08:39,610
 是的，那实际上是一种设施，
-Yeah, that's actually a facility,
 
 1100
 01:08:39,610 --> 01:08:43,990
 一些聪明的软件来获得高性能，
-you can some clever software uses to get high performance,
 
 1101
 01:08:44,470 --> 01:08:48,070
 也就是说，对于写入也会发生这种情况，
-that is to have the effect of having this happens for writes also,
 
 1102
 01:08:48,190 --> 01:08:51,520
 网卡直接在高速缓存中写入高速缓存线，
-that the NIC will essentially directly write cache lines in the cache,
 
 1103
 01:08:51,940 --> 01:08:54,670
 CPU 可以非常快速地获取数据。
-where it's the CPU can get at the data very quickly.
 
 1104
 01:08:57,220 --> 01:08:58,630
 谢谢。
-Thank you.
 
 1105
 01:08:58,630 --> 01:09:02,290
 简单，但它们在现实生活却相当复杂。
-Simple, but their real life it's pretty involved.
 
 1106
 01:09:03,940 --> 01:09:08,460
 还有别的问题吗？
-Other questions about, about anything?
 
 1107
 01:09:12,190 --> 01:09:17,890
 好的，我现在想换个话题看今天的论文。
-Okay, I'd like to switch gears now to today's paper.
 
 1108
 01:09:19,390 --> 01:09:20,830
 我只想说，
-And I'm just gonna like,
 
 1109
 01:09:20,830 --> 01:09:25,150
 因为我们已经讨论了很多这篇论文的背景，
-because we've already talked about the sort of a lot of the background of this paper,
 
 1110
 01:09:25,150 --> 01:09:29,170
 我要直接转到论文中的第一个图，
-I'm just going to go directly to the first graph paper
 
 1111
 01:09:31,720 --> 01:09:36,340
 为了推动对论文图表的讨论，
-and essentially to drive the discussion of of the paper's graphs
 
 1112
 01:09:37,030 --> 01:09:40,570
 我们现在看到的是路由器的性能图，
-and so what we're looking at here is the performance graph for router,
 
 1113
 01:09:41,140 --> 01:09:42,790
 在 x 轴上，
-on on the x axis,
 
 1114
 01:09:42,790 --> 01:09:44,110
 这里有一个带有两个网卡的路由器，
-there's a router with two NICs,
 
 1115
 01:09:44,110 --> 01:09:46,120
 它的工作从一个网卡接口数据包，
-its job is to packet receive in one NIC
 
 1116
 01:09:46,120 --> 01:09:48,610
 并把它们从另一个网卡发送出去。
-and it's supposed to just send them out the other NIC.
 
 1117
 01:09:48,670 --> 01:09:51,940
 x 轴是到达率，
-The x axis is the arrival rate,
 
 1118
 01:09:51,970 --> 01:09:54,160
 数据包到达输入网卡，
-which packets arrive at the input NIC,
 
 1119
 01:09:55,150 --> 01:09:57,070
 y 轴输出率，
-and the y axis is the output rate
 
 1120
 01:09:57,070 --> 01:10:00,280
 观察到数据包离开输出网卡，
-at which packets are observed to leave the output NIC
 
 1121
 01:10:01,510 --> 01:10:04,930
 我们关心的线是，
-and the line we care about is
 
 1122
 01:10:04,990 --> 01:10:11,110
 是填充的圆，向上然后向下。
-is the filled circles which goes up then down.
 
 1123
 01:10:12,180 --> 01:10:16,770
 所以即使对这里发生的事情一无所知，
-So even without knowing anything about what's going on here,
 
 1124
 01:10:16,770 --> 01:10:17,640
 我们可以看看这张图，
-we can look at this graph
 
 1125
 01:10:17,640 --> 01:10:18,480
 我们可以问问自己，
-and we can ask ourselves,
 
 1126
 01:10:18,480 --> 01:10:22,000
 为什么它上升，为什么它下降，
-gosh, why does it go up, why does it go down,
 
 1127
 01:10:22,180 --> 01:10:26,110
 这一点有什么特别之处，这是一个拐点，
-you know what's special about this point, that's an inflection,
 
 1128
 01:10:26,620 --> 01:10:30,430
 是什么决定了它上升的速度或者下降的速度。
-you know what is it that governs how fast it goes up or how fast it goes down.
 
 1129
 01:10:32,760 --> 01:10:33,930
 所以即使是零知识，
-So even with zero knowledge,
 
 1130
 01:10:33,930 --> 01:10:36,780
 我们也有很好的线索知道该问什么问题，
-we kind of have a good clue about what questions to ask,
 
 1131
 01:10:37,080 --> 01:10:38,100
 那么为什么它会上升，
-so why does it go up,
 
 1132
 01:10:41,540 --> 01:10:42,500
 为什么它会上升？
-why does it go up?
 
 1133
 01:10:48,510 --> 01:10:49,590
 这不是一个很深奥的问题。
-It's not a very deep question.
 
 1134
 01:10:54,170 --> 01:10:55,970
 它们上去，对不起，请继续。
-They go up, sorry, go ahead.
 
 1135
 01:10:56,300 --> 01:11:00,420
 哦，我想直到它饱和时，
-Oh, I guess when they're like, until it gets saturated,
 
 1136
 01:11:00,750 --> 01:11:06,180
 你可以处理更多的输入包并生成更多的输出包。
-you can process more input packets and produce more output packets.
 
 1137
 01:11:06,330 --> 01:11:09,210
 当然，在事情开始出错之前，
-Absolutely, until something starts to go wrong,
 
 1138
 01:11:10,170 --> 01:11:12,750
 对于进入的每个包，路由器只是将它转发出去，
-for every packet that comes in, the router just forwards it out,
 
 1139
 01:11:12,810 --> 01:11:14,970
 所以，直到事情出了问题，
-so you know until things go wrong,
 
 1140
 01:11:14,970 --> 01:11:17,370
 如果数据包以每秒 2000 个的速度到达，
-if packets arrive at 2000 packets a second,
 
 1141
 01:11:17,370 --> 01:11:19,530
 它只是将每个输入数据包复制到输出，
-well, it just copies every input packet to the output
 
 1142
 01:11:19,530 --> 01:11:22,740
 这意味着输出速率正好等于输入速率，
-and that means that the output rate is just equal to the input rate,
 
 1143
 01:11:23,180 --> 01:11:25,160
 所以这是为什么 y 等于 x ，
-so this is why y equals x,
 
 1144
 01:11:25,890 --> 01:11:27,810
 因为每个输入包都被发送出去，
-because every input packet gets sent out,
 
 1145
 01:11:27,810 --> 01:11:29,430
 所以有一段时间 y 等于 x 。
-so it's y equals x for a while.
 
 1146
 01:11:30,130 --> 01:11:31,960
 那么为什么它停止上升？
-And so why does it stop going up?
 
 1147
 01:11:39,620 --> 01:11:43,190
 这是不是他们在论文上提到的一件事，
-Isn't this the one thing they mentioned in the paper about,
 
 1148
 01:11:44,480 --> 01:11:52,520
 它们无法以需要的速率处理中断。
-the they're being interrupts that can't be processed at the necessary rate.
 
 1149
 01:11:52,940 --> 01:11:56,390
 这是它为什么会下降的问题的答案。
-That's the answer to the question, why does it go down.
 
 1150
 01:11:58,600 --> 01:12:02,290
 我的问题是，为什么它停止上升，是什么，
-My question is why does it stop going up, what is it,
 
 1151
 01:12:02,290 --> 01:12:04,420
 这个线在设计良好的系统中，
-that could this line in a well designed system,
 
 1152
 01:12:04,450 --> 01:12:07,560
 如果他们没有搞乱设计的话，
-supposing that they hadn't messed up the design, right,
 
 1153
 01:12:07,590 --> 01:12:10,890
 你和我会设计一个没有问题的系统，
-you and I would design a system that didn't have problems, right,
 
 1154
 01:12:11,040 --> 01:12:14,010
 我们的系统会不会跟上这条线，继续往上走。
-would our system with the line, just keep going up.
 
 1155
 01:12:18,720 --> 01:12:19,980
 我想不会，
-I guess not,
 
 1156
 01:12:19,980 --> 01:12:26,760
 因为在某一时刻，数据包到达的速率将会，
-because at some point the rate at which packets come will,
 
 1157
 01:12:28,980 --> 01:12:32,670
 如果你可以足够快地处理数据包，
-if you can process packets fast enough,
 
 1158
 01:12:32,670 --> 01:12:34,770
 那么在某一点上，
-then at some point,
 
 1159
 01:12:35,160 --> 01:12:39,300
 瓶颈将是数据包到达的速率。
-the bottleneck will be the rate at which packets arrived.
 
 1160
 01:12:39,930 --> 01:12:44,520
 对，我们现在说的这个系统是有一些限制，
-That's right, this system we're talking about has has some sort of limits,
 
 1161
 01:12:44,520 --> 01:12:46,830
 你知道 CPU 不是无限快的，
-you know the CPU is not infinitely fast,
 
 1162
 01:12:46,830 --> 01:12:50,370
 无论 CPU 每秒执行多少条指令，不会更多，
-CPU executes, however many instructions per second and no more,
 
 1163
 01:12:50,640 --> 01:12:53,220
 所以通常这些数据包必须被处理，
-so usually these packets has to be processed,
 
 1164
 01:12:53,220 --> 01:12:56,820
 IP 软件必须查看报头并检查校验值，
-the IP software has to look at the header and check the checksum
 
 1165
 01:12:56,820 --> 01:13:00,030
 并查找目地的址和它使用的表，
-and look up the destination addresses and table whatever it takes,
 
 1166
 01:13:00,060 --> 01:13:03,060
 每个数据包需要数百或数千个 CPU 周期。
-hundreds or thousands of CPU cycles per packet.
 
 1167
 01:13:04,810 --> 01:13:07,900
 所以我们不能指望这个线永远会上升，
-And so we can never never expect these lines to go up
 
 1168
 01:13:07,900 --> 01:13:11,050
 它肯定会在某个地方停下来，
-and definitely it must stop somewhere, right
 
 1169
 01:13:11,440 --> 01:13:13,450
 我们可以确定，
-and we can sort of tell what,
 
 1170
 01:13:13,690 --> 01:13:14,980
 我们可以猜测，
-we can make some guesses,
 
 1171
 01:13:14,980 --> 01:13:17,470
 这个系统最高可达 5000 ，但不会更多，
-on this system that goes up to 5000 and no more,
 
 1172
 01:13:17,800 --> 01:13:21,640
 这向我们表明，
-and what that basically suggests to us is that
 
 1173
 01:13:21,640 --> 01:13:26,540
 在这台计算机上处理每个数据包大约需要 200 微秒，
-it takes about 200 microseconds on this computer to process each packet, right,
 
 1174
 01:13:26,540 --> 01:13:28,220
 这就是这一点，
-that's what this point,
 
 1175
 01:13:28,220 --> 01:13:30,530
 拐点在这里意味着
-the fact that the inflection point is here means
 
 1176
 01:13:30,530 --> 01:13:35,960
 处理包的总成本大约是 200 微秒的 CPU 时间。
-suggests that the total cost of processing package is around 200 microseconds CPU time.
 
 1177
 01:13:37,510 --> 01:13:38,170
 这是个猜测，
-It's a guess,
 
 1178
 01:13:38,170 --> 01:13:40,630
 但很可能接近正确，
-but it's likely to be close to correct
 
 1179
 01:13:40,720 --> 01:13:42,220
 所以我们不可能得到，
-and so there's no way we could get,
 
 1180
 01:13:42,280 --> 01:13:44,470
 也许我们可以把软件做得更有效率一些，
-you know maybe we could make the software a little more efficiently,
 
 1181
 01:13:44,470 --> 01:13:48,370
 我们可以将其降低到每个包 150 微秒，
-we could reduce that to 150 microseconds per packet or something,
 
 1182
 01:13:48,370 --> 01:13:51,040
 所以也许我们可以把拐点往上移一点，
-and so maybe we could move the inflection point up a bit,
 
 1183
 01:13:51,070 --> 01:13:54,410
 但是我们确实面临着一些点，
-but we're certainly faced with some point,
 
 1184
 01:13:54,410 --> 01:13:58,670
 就是这个系统可以处理的数据包的数量。
-at which well that's just how many packets of this system can process.
 
 1185
 01:14:00,760 --> 01:14:05,670
 这并不一定是这里正在发生的事情，
-You know, that's not necessarily what's going on here,
 
 1186
 01:14:05,700 --> 01:14:07,200
 这是这里会发生的事情，
-it happens to be what's going on here,
 
 1187
 01:14:07,200 --> 01:14:09,300
 但它不是写在[]上，
-but it's not written in [],
 
 1188
 01:14:10,140 --> 01:14:14,680
 事实上，还有其他瓶颈可能是限制，
-in fact the, there's other bottlenecks that could be the limit,
 
 1189
 01:14:14,740 --> 01:14:16,450
 除了 CPU 时间，
-other than CPU time,
 
 1190
 01:14:16,450 --> 01:14:20,020
 值得考虑的最明显的是网速，
-which are worth considering the most obvious is the speed of the network,
 
 1191
 01:14:20,020 --> 01:14:22,810
 它们使用的网络仅以每秒 10 兆比特的速度运行，
-the network they were using ran at only ten megabits per second,
 
 1192
 01:14:22,810 --> 01:14:29,400
 这就是低级网络硬件发送比特的速度，
-that's just how fast the low level networking hardware sent bits
 
 1193
 01:14:29,640 --> 01:14:35,050
 所以，每秒传输的位永远不会超过一万，一千万位。
-and so can never transmit more than ten thousand ten million bits per second.
 
 1194
 01:14:35,730 --> 01:14:37,830
 所以，这也可能构成一个限制，
-And so that may also constitute a limit
 
 1195
 01:14:37,890 --> 01:14:38,760
 所以我们考虑，
-and so we're thinking about
 
 1196
 01:14:38,760 --> 01:14:41,880
 这是否真的是决定这个 5000 的原因。
-whether maybe that's actually what's determining this 5000.
 
 1197
 01:14:45,590 --> 01:14:47,840
 我不知道，论文上说的不够，
-I don't, the paper doesn't quite say enough
 
 1198
 01:14:47,840 --> 01:14:52,370
 知道是 CPU 还是网卡是这里的限制因素，
-to know whether it's, whether it's CPU or the NIC is the limiting factor here,
 
 1199
 01:14:52,910 --> 01:14:56,510
 但事实是，它们的 10 兆网络，
-but the fact is with with their ten megabit network,
 
 1200
 01:14:57,170 --> 01:14:59,840
 如果你发送小数据包，
-if you send small packets,
 
 1201
 01:14:59,840 --> 01:15:02,930
 那就是 10 兆比特转换成某些东西，
-it's the ten megabits translates into something,
 
 1202
 01:15:02,930 --> 01:15:05,210
 比如每秒 10000 或 15000 个数据包，
-like ten or 15 000 packets per second,
 
 1203
 01:15:05,780 --> 01:15:12,050
 这是网线对输入速率的限制，
-that's the limit that the networking cable puts on the input rate
 
 1204
 01:15:12,110 --> 01:15:17,210
 所以，这远远低于网络所能达到的每秒 10000 或 15000 个数据包，
-and so this is well under the ten or 15 000 packets per second,
 
 1205
 01:15:17,210 --> 01:15:18,500
 这个网络的能力，
-that the network is capable of,
 
 1206
 01:15:18,500 --> 01:15:19,280
 所以，几乎可以肯定的是，
-so almost certainly,
 
 1207
 01:15:19,280 --> 01:15:22,160
 限制与 CPU 或内存或其他因素有关，
-the limit has to do with CPU or memory or something
 
 1208
 01:15:22,160 --> 01:15:24,860
 而不是网络本身。
-and not the, not the network itself.
 
 1209
 01:15:26,400 --> 01:15:26,970
 好的。
-Okay.
 
 1210
 01:15:30,050 --> 01:15:33,560
 我们希望在一个设计良好的路由器中看到的是，
-What we'd love to see, in a well designed router is that
 
 1211
 01:15:34,790 --> 01:15:37,670
 它需要 200 微秒，
-it can actually you know it takes 200 microseconds
 
 1212
 01:15:37,670 --> 01:15:39,590
 来转发数据包，处理数据包，
-to forward the packet to process a packet,
 
 1213
 01:15:39,620 --> 01:15:40,700
 我们希望看到的是，
-what we'd like to see is
 
 1214
 01:15:40,700 --> 01:15:44,960
 无论如何，路由器实际上每秒可以转发 5000 个数据包，
-that the thing the router can actually forward 5000 packets per second, no matter what,
 
 1215
 01:15:44,960 --> 01:15:46,070
 即使负荷很高，
-even if the load is high,
 
 1216
 01:15:46,220 --> 01:15:50,270
 所以我们想要的是这条线。
-so what we'd like to succeed is this line here.
 
 1217
 01:15:51,240 --> 01:15:54,750
 这里有一个输出速率与输入速率相匹配，
-There's a output rate matches the input rate
 
 1218
 01:15:54,750 --> 01:15:57,450
 直到你达到系统的容量，
-until you get up to the capacity of the system,
 
 1219
 01:15:58,080 --> 01:15:59,670
 每秒 5000 个数据包，
-you know 5000 packets per second
 
 1220
 01:15:59,670 --> 01:16:02,850
 然后它继续以每秒 5000 个数据包的速度转发，
-and then it just continues to forward 5000 packets per second
 
 1221
 01:16:02,850 --> 01:16:05,550
 很可能丢弃其他的。
-and presumably drops discards the rest.
 
 1222
 01:16:08,540 --> 01:16:10,790
 这就是我们想要设计的东西，
-So this is what we'd like to design,
 
 1223
 01:16:10,790 --> 01:16:12,710
 但实际发生的情况远比这更糟糕，
-but what actually happened is much worse than that,
 
 1224
 01:16:13,040 --> 01:16:16,340
 当你将速率提高到 5000 以上时，
-as you increase the rate beyond 5000,
 
 1225
 01:16:16,340 --> 01:16:19,040
 转发的数据包数量将降至 0 。
-the number of packets that [] the forward goes down towards 0.
 
 1226
 01:16:20,790 --> 01:16:22,080
 那么为什么这条线往下走，
-So why is this line go down,
 
 1227
 01:16:22,350 --> 01:16:23,610
 之前有人提到过。
-somebody mentioned this before.
 
 1228
 01:16:35,220 --> 01:16:41,530
 好的，作者想出了一个原因，
-Well, the, there's a reason that the authors figured out is that
 
 1229
 01:16:41,590 --> 01:16:43,330
 当你提高输入速率时，
-as you increase the input rate,
 
 1230
 01:16:43,330 --> 01:16:46,150
 每个输入数据包都会生成中断，
-each of these input packets generates an interrupt,
 
 1231
 01:16:47,300 --> 01:16:49,160
 而中断使用时间，
-and the interrupts take time,
 
 1232
 01:16:49,160 --> 01:16:51,080
 实际上在它们的系统上，中断是相当昂贵的，
-actually on their system interrupts are quite expensive,
 
 1233
 01:16:51,080 --> 01:16:52,100
 因为它们涉及
-because they involve
 
 1234
 01:16:52,460 --> 01:16:56,630
 将数据包从网卡复制到主内存中，
-copying a packet off of the network interface card and into main memory
 
 1235
 01:16:56,630 --> 01:16:57,650
 这花了很长时间，
-which took a long time,
 
 1236
 01:16:57,650 --> 01:16:58,790
 因为 CPU 正在做，
-because the CPU was doing,
 
 1237
 01:16:59,420 --> 01:17:03,560
 所以我们知道数据包以每秒 10000 个的速度到达，
-so each, so we know with packets arriving at 10 000 per second,
 
 1238
 01:17:03,560 --> 01:17:05,630
 我们当然不能转发 10000 个，
-we certainly can't forward 10,000,
 
 1239
 01:17:05,810 --> 01:17:08,570
 这意味着我们最多只能希望转发 5000 ，
-and that means the best we can hope for is to forward 5000,
 
 1240
 01:17:08,570 --> 01:17:11,330
 然后简单地丢弃剩下的 5000 ，
-and simply discard the other 5000,
 
 1241
 01:17:11,330 --> 01:17:14,690
 但实际上额外的 5000 个包，
-but in fact the extra 5000 packets,
 
 1242
 01:17:14,690 --> 01:17:17,000
 每个包都会产生非常昂贵的中断，
-each generated very expensive interrupt,
 
 1243
 01:17:17,690 --> 01:17:20,930
 所以，对于每秒 5000 个以上的额外数据包，
-so for each additional packet over 5000 per second,
 
 1244
 01:17:21,440 --> 01:17:24,200
 我们产生了越来越昂贵的中断，
-we're generating more and more expensive interrupts,
 
 1245
 01:17:24,200 --> 01:17:25,430
 它们有优先权，
-which have priority,
 
 1246
 01:17:25,460 --> 01:17:27,170
 中断不管你在做什么，
-like interrupts boy whatever you're doing,
 
 1247
 01:17:27,350 --> 01:17:29,630
 它会停止机器，接受中断，
-it stops the machine, takes the interrupt,
 
 1248
 01:17:32,170 --> 01:17:35,380
 因为机器优先考虑这些中断，
-because the machine is essentially giving priority these interrupts,
 
 1249
 01:17:35,410 --> 01:17:37,720
 这意味着每秒每个额外的数据包
-that means every additional packet per second
 
 1250
 01:17:37,810 --> 01:17:42,340
 占用转发代码的 CPU 时间，
-is taking CPU time away from the forwarding code,
 
 1251
 01:17:43,890 --> 01:17:47,880
 直到最终 100% 的 CPU 时间在输入中断例程中用完，
-until finally 100% of the CPU time is used up in the input interrupt routine
 
 1252
 01:17:47,970 --> 01:17:54,010
 并且没有 CPU 时间可以用在转发数据的线程上。
-and no CPU time is used in the thread that forwards packets.
 
 1253
 01:17:56,730 --> 01:17:58,470
 大家对这个解释满意吗？
-Is everyone happy with this explanation?
 
 1254
 01:18:02,690 --> 01:18:09,580
 这个下降，就是所谓的中断活锁。
-And this going down, it's called interrupt live lock.
 
 1255
 01:18:11,660 --> 01:18:14,780
 这条线下降，而不是直线，
-The fact that this line goes down instead of saying string [],
 
 1256
 01:18:14,780 --> 01:18:17,570
 人们所说的中断活锁，
-what people mean by interrupt live lock
 
 1257
 01:18:18,620 --> 01:18:24,620
 这是一个在许多系统中都会发生的现象，
-and it's actually a phenomenon that occurs in many systems,
 
 1258
 01:18:25,010 --> 01:18:27,410
 我的意思是驱动它的东西是，
-I mean the sort of thing that's driving it is
 
 1259
 01:18:27,410 --> 01:18:29,420
 这里有两个不同的任务，
-that there's two separate tasks,
 
 1260
 01:18:29,630 --> 01:18:32,660
 比如输入中断任务和转发任务，
-like the input interrupt task and the forwarding task,
 
 1261
 01:18:32,690 --> 01:18:35,510
 并且由于调度问题，
-and because of a scheduling problem,
 
 1262
 01:18:37,230 --> 01:18:40,140
 优先考虑输入任务，
-essentially priority is given to the input task,
 
 1263
 01:18:40,140 --> 01:18:43,800
 会使包处理任务饥饿，
-which can starve packet processing task,
 
 1264
 01:18:44,070 --> 01:18:49,200
 在几乎任何具有多个独立任务
-in pretty much any system that has multiple independent tasks
 
 1265
 01:18:49,320 --> 01:18:51,390
 或一系列独立任务的系统中，
-or sort of sequence of independent tasks,
 
 1266
 01:18:51,390 --> 01:18:52,950
 这需要对每个输入完成操作，
-that need to be done to each input
 
 1267
 01:18:53,070 --> 01:18:56,310
 而输入率不一定是可控的，
-and in which the input rate can't necessarily be controlled,
 
 1268
 01:18:56,800 --> 01:18:59,740
 许多这样的系统都会显示活锁，
-many systems like that will exhibit exhibit live lock,
 
 1269
 01:18:59,740 --> 01:19:00,940
 如果太过用力。
-if you push them too hard.
 
 1270
 01:19:03,220 --> 01:19:07,240
 你会遇到活锁，可能因为多种资源，不仅是使用 CPU，
-And you can get live lock due to many resources not just CPU,
 
 1271
 01:19:07,240 --> 01:19:09,130
 它可能是网卡，
-but it could be that the NIC,
 
 1272
 01:19:09,130 --> 01:19:14,650
 网卡 DMA 耗尽了 RAM 周期来执行 DMA ，
-you know NIC DMAs uses up RAM cycles to do the DMAs
 
 1273
 01:19:14,740 --> 01:19:16,720
 如果网卡正在使用 RAM ，
-and if the NIC is using the RAM,
 
 1274
 01:19:16,750 --> 01:19:18,100
 CPU 就不能使用 RAM ，
-the CPU can't use the RAM,
 
 1275
 01:19:18,160 --> 01:19:19,930
 所以另一种获得活锁的方法，
-so another way to get live lock,
 
 1276
 01:19:20,020 --> 01:19:21,880
 即使你有很多 CPU 时间，
-even if you have lots of CPU time,
 
 1277
 01:19:22,180 --> 01:19:24,670
 一些其他的设计，你也可能会得到活锁，
-you know some other design, you might live lock,
 
 1278
 01:19:24,670 --> 01:19:32,030
 由于网卡正在耗尽 RAM 资源，
-because the NIC is using up RAM resources, RAM performance resources,
 
 1279
 01:19:32,030 --> 01:19:34,640
 所以 CPU 使用 RAM 的能力变差。
-so the CPU was less able to use the RAM.
 
 1280
 01:19:36,110 --> 01:19:39,590
 不管怎样，这条线下降就是他们所说的活锁。
-Anyway, this line going down is what they mean by live lock.
 
 1281
 01:19:40,310 --> 01:19:43,910
 你可能会问，多余的数据包会发生什么情况，
-You may ask what happens to the extra packets
 
 1282
 01:19:44,150 --> 01:19:48,680
 如果你回想一下他们的软件结构，
-and if you recall the structure of their software,
 
 1283
 01:19:48,680 --> 01:19:53,420
 它们有网卡，处理接收中断，
-was that they had been NIC that basically feeds the receive interrupt,
 
 1284
 01:19:54,000 --> 01:19:57,840
 接收中断软件复制每个数据包到一个队列，
-received interrupt software copies each packet into a queue,
 
 1285
 01:19:58,610 --> 01:20:02,090
 然后有某个网络线程，
-and then there's some sort of network thread,
 
 1286
 01:20:04,220 --> 01:20:05,660
 将数据包从队列中拉出，
-that pulls packets off the queue,
 
 1287
 01:20:06,350 --> 01:20:10,880
 数据包丢失的确切位置就在这里。
-the exact place where packets are lost are right here.
 
 1288
 01:20:11,410 --> 01:20:14,590
 接下来会发生的是中断例程，
-What's going to happen is that the interrupt routine,
 
 1289
 01:20:14,980 --> 01:20:19,330
 一旦因为活锁，下降到这里，
-once we get down here with serious live lock,
 
 1290
 01:20:19,780 --> 01:20:21,430
 中断例程将填充这个队列，
-the interrupt routine is going to fill this queue,
 
 1291
 01:20:21,430 --> 01:20:23,260
 这里会有最大队列长度，
-there's going to be some maximum queue length here,
 
 1292
 01:20:23,260 --> 01:20:26,410
 至少所有的内存，但可能要少得多。
-you know, at least all the RAM, but probably much less.
 
 1293
 01:20:27,550 --> 01:20:30,310
 中断例程从网卡上拉出一个数据包，
-And the interrupt routine is going to pull a packet off the NIC
 
 1294
 01:20:30,310 --> 01:20:34,330
 看到这个队列已经达到了允许的长度，
-and see that this queue is already as long as it's allowed to be
 
 1295
 01:20:34,330 --> 01:20:36,520
 中断例程将丢弃数据包，
-and the interrupt routine will discard the packet,
 
 1296
 01:20:36,850 --> 01:20:38,680
 当然在那之后，
-but then of course immediately after that,
 
 1297
 01:20:38,680 --> 01:20:39,850
 还会有另一次中断，
-there'll be another interrupt,
 
 1298
 01:20:42,220 --> 01:20:44,260
 中断例程将再次丢弃下一个数据包，
-the interrupt routine will again discard the next packet,
 
 1299
 01:20:44,260 --> 01:20:49,330
 因为网络线程总是被中断，并且永远不允许运行。
-because the network thread is always interrupted and never allowed to run.
 
 1300
 01:20:52,040 --> 01:20:53,360
 关于这张图，有什么问题吗？
-Questions about this diagram?
 
 1301
 01:20:57,840 --> 01:21:00,720
 这是论文中最重要的图。
-This is the most important diagram in the paper.
 
 1302
 01:21:05,100 --> 01:21:08,490
 好的，我们快没时间了，
-Alright, well we've basically run out of time,
 
 1303
 01:21:08,490 --> 01:21:12,930
 所以我会试着把这个问题的答案压缩到一分钟内，
-so I'll try to compress the answer to this problem into a minute,
 
 1304
 01:21:15,100 --> 01:21:16,570
 作者提出了一个解决方案，
-the authors proposed a solution,
 
 1305
 01:21:17,120 --> 01:21:19,400
 关于这个解决方案最直接的好消息是，
-the most immediately good news about the solution is
 
 1306
 01:21:19,400 --> 01:21:21,560
 这是他们的解决方案的性能，
-that this is the performance of their solution,
 
 1307
 01:21:21,680 --> 01:21:25,190
 也就是说，输入率上升到 5000 ，
-that is the input rate goes up to the 5000,
 
 1308
 01:21:25,190 --> 01:21:27,980
 然后是平坦的 5000 ，无论输入率是多少。
-and then its flat 5000 regardless of input rate.
 
 1309
 01:21:30,050 --> 01:21:35,070
 所以这是一条完美的非活锁性能线，
-So this is sort of a perfect non live lock performance line,
 
 1310
 01:21:35,650 --> 01:21:36,790
 当然会是平坦的，
-of course it's going to be flat,
 
 1311
 01:21:36,790 --> 01:21:40,570
 因为你每秒只能处理 5000 个数据包，
-because you can only process 5000 packets per second,
 
 1312
 01:21:41,350 --> 01:21:42,490
 CPU 的速度，
-the speed of the CPU
 
 1313
 01:21:43,120 --> 01:21:44,710
 他们得到这个的方式，
-and the way they get this,
 
 1314
 01:21:44,740 --> 01:21:46,630
 他们仍然有这个网络线程，
-they still have this network thread,
 
 1315
 01:21:49,460 --> 01:21:51,440
 而且他们仍然有一个中断例程。
-and they still have an interrupt routine.
 
 1316
 01:21:55,940 --> 01:22:00,620
 所以，当第一次网卡中断时，运行中断例程，
-So the very first time the NIC interrupts run the interrupt routine,
 
 1317
 01:22:00,620 --> 01:22:03,530
 但是中断例程不从网卡复制数据包，
-but the interrupt routine does not copy packets off the NIC,
 
 1318
 01:22:03,590 --> 01:22:05,480
 它唤醒网络线程，
-it wakes up the network thread
 
 1319
 01:22:05,660 --> 01:22:09,200
 然后使网卡上的中断处于禁用状态，
-and then leaves interrupts on the NIC disabled,
 
 1320
 01:22:09,200 --> 01:22:11,690
 所以我们不会再被中断，
-so we'll get no more interrupts,
 
 1321
 01:22:11,930 --> 01:22:15,230
 唤醒网络线程，然后中断例程返回，
-wake up the networking thread and then the interrupt routine will return,
 
 1322
 01:22:15,230 --> 01:22:17,390
 所以现在这个网卡中断关闭，
-so now interrupts of this NIC turned off,
 
 1323
 01:22:17,960 --> 01:22:19,910
 网络线程有一个循环，
-the network thread basically has a loop,
 
 1324
 01:22:23,780 --> 01:22:26,690
 它检查网卡，
-that you know check the NIC,
 
 1325
 01:22:26,690 --> 01:22:31,430
 从网卡中提取几个数据包，
-you know pull a few packets from the NIC,
 
 1326
 01:22:34,040 --> 01:22:36,020
 5 个，我想这是他们最终使用的，
-5, I think is what they ended up using
 
 1327
 01:22:36,110 --> 01:22:38,030
 然后处理这些数据包。
-and then process those packets.
 
 1328
 01:22:40,240 --> 01:22:43,510
 如果没有的话，
-And then if there were none,
 
 1329
 01:22:43,900 --> 01:22:45,790
 如果这个检查，
-if this you know check,
 
 1330
 01:22:45,790 --> 01:22:49,090
 这个网络线程从网卡读取数据包，
-then it's this network thread you know that reads packets off the NIC,
 
 1331
 01:22:49,120 --> 01:22:49,930
 而不是中断例程，
-not the interrupt routine,
 
 1332
 01:22:50,380 --> 01:22:52,690
 如果没有等待的数据包，
-if there none, no packets waiting,
 
 1333
 01:22:53,280 --> 01:23:01,370
 它会启用中断，然后进入休眠状态，
-it enables interrupts, and then goes to sleep,
 
 1334
 01:23:03,630 --> 01:23:05,370
 因为它启用了中断，
-because it's enabled interrupts,
 
 1335
 01:23:05,790 --> 01:23:08,010
 下次数据包到达时，
-next time packet arrives,
 
 1336
 01:23:08,010 --> 01:23:09,960
 中断例程将唤醒这个线程，
-interrupt routine will wake up this thread
 
 1337
 01:23:10,200 --> 01:23:12,510
 从睡眠中醒来，回到循环的开端。
-and come out of sleep and go back to the top of loop.
 
 1338
 01:23:12,630 --> 01:23:15,090
 这就是他们解决方案的结构，
-So this is, this is the structure of their solution
 
 1339
 01:23:15,630 --> 01:23:18,200
 看待这个的一种方式是，
-and one way to view this is,
 
 1340
 01:23:18,200 --> 01:23:21,980
 他们将中断方案转变为轮询方案，
-that they turn an interrupt scheme into a polling scheme,
 
 1341
 01:23:22,220 --> 01:23:23,690
 在高负荷的情况下，
-that is under high load,
 
 1342
 01:23:24,280 --> 01:23:25,660
 它们只是在这个循环里，
-they just sit in this loop,
 
 1343
 01:23:26,300 --> 01:23:30,590
 它们在中断关闭的情况下读取包并处理，读取包并处理，
-and they read packet process, read packet process, with interrupts turned off,
 
 1344
 01:23:30,620 --> 01:23:34,780
 因为中断是关闭的，
-so they since interrupts are turned off,
 
 1345
 01:23:34,780 --> 01:23:35,920
 所以永远不会有这个效果，
-they never get this effect,
 
 1346
 01:23:35,920 --> 01:23:38,290
 中断从主线程窃取时间，
-where the interrupts steal time from the main thread,
 
 1347
 01:23:38,560 --> 01:23:41,320
 而在低负载下，它们启用中断，
-whereas under low load, they enable interrupts,
 
 1348
 01:23:41,840 --> 01:23:44,210
 在数据包到达之前可能需要一段时间，
-and may be a while until packets arrive,
 
 1349
 01:23:44,270 --> 01:23:46,790
 但是，它们会立即被中断例程唤醒，
-but they'll be woken up by the interrupt routine immediately
 
 1350
 01:23:46,790 --> 01:23:47,690
 如果一个数据包到达。
-if a packet does arrive.
 
 1351
 01:23:50,440 --> 01:23:51,550
 这就是我要说的全部。
-And that's all I have to say.
 
 1352
 01:23:53,370 --> 01:23:54,300
 有什么问题吗？
-Any questions?
 
 1353
 01:23:56,220 --> 01:23:58,380
 我有个问题，
-I have a question,
 
 1354
 01:23:59,200 --> 01:24:02,740
 这个循环是查看所有设备，
-is that loop looking at all of the devices
 
 1355
 01:24:02,740 --> 01:24:05,530
 还是只查看生成中断的设备？
-or only the one that generated the interrupt?
 
 1356
 01:24:07,420 --> 01:24:09,250
 如果有多个网卡，
-If there's multiple NICs,
 
 1357
 01:24:10,250 --> 01:24:13,680
 这是一个好问题，
-so that's a good question,
 
 1358
 01:24:14,460 --> 01:24:17,130
 如果有多个网卡，这个循环，
-if there's multiple NICs, the loop,
 
 1359
 01:24:17,460 --> 01:24:19,500
 我其实不知道循环是如何工作的，
-I don't actually know how the how the loop works,
 
 1360
 01:24:20,580 --> 01:24:25,290
 一个非常合理的设计是让这个网络线程跟踪，
-a very reasonable design is for this network thread to keep track of,
 
 1361
 01:24:26,370 --> 01:24:30,900
 对于每个网卡，无论是中断模式还是轮询模式，
-for every NIC whether it's an interrupting mode or polling mode,
 
 1362
 01:24:33,410 --> 01:24:35,600
 然后它只会，
-and then it will only,
 
 1363
 01:24:36,530 --> 01:24:42,350
 实际上，因为中断例程不再从网卡读取数据包，
-actually, because the interrupt routines no longer read packet from the NIC,
 
 1364
 01:24:42,410 --> 01:24:45,710
 这意味着在这一点上循环可能会检查每个网卡，
-that means the loop probably checks every interface at this point,
 
 1365
 01:24:46,200 --> 01:24:49,120
 在这一点上，可能检查每个网卡，
-every probably checks every NIC at this point,
 
 1366
 01:24:49,120 --> 01:24:50,400
 然后拉出，
-then pulls up,
 
 1367
 01:24:50,460 --> 01:24:53,270
 对于每个网卡，它都有几个数据包，
-for every NIC, it has a few packets,
 
 1368
 01:24:53,270 --> 01:24:55,670
 如果网卡有数据包在等待，
-packet if that NIC has packets waiting,
 
 1369
 01:24:56,330 --> 01:24:58,910
 循环将从网卡中取出几个并对其进行处理，
-loop will pull a few out of the NIC and process them
 
 1370
 01:24:59,420 --> 01:25:02,840
 如果所有的网卡都没有，
-and then if none of the NICs had anything,
 
 1371
 01:25:04,170 --> 01:25:05,280
 如果你检查了所有网卡，
-if you checked all the NICs
 
 1372
 01:25:05,280 --> 01:25:06,990
 但没有任何数据包在等待，
-and none of them at any packets waiting,
 
 1373
 01:25:07,600 --> 01:25:11,110
 这个循环将在所有网卡上启用中断，然后休眠，
-the loop will enable interrupts on all the NICs and sleep,
 
 1374
 01:25:11,560 --> 01:25:13,420
 任何网卡中断都会唤醒它，
-and any NIC interrupts will wake it up,
 
 1375
 01:25:14,940 --> 01:25:15,810
 这是我的猜测。
-that's my guess.
 
 1376
 01:25:16,510 --> 01:25:19,270
 好的，听起来很合理。
-Okay, yeah, sounds reasonable.
 
 1377
 01:25:21,500 --> 01:25:22,940
 我有一个简短的问题，
-I had a quick question then,
 
 1378
 01:25:22,940 --> 01:25:26,660
 当循环运行时，
-so how did the, so while the loop is running,
 
 1379
 01:25:26,660 --> 01:25:31,640
 数据包是如何进入要拉取的队列的，
-how do packets actually get into the queues to be pulled,
 
 1380
 01:25:31,730 --> 01:25:34,400
 我觉得一次只有一个。
-I felt like there would only be one at a time.
 
 1381
 01:25:35,550 --> 01:25:41,960
 数据包最初在网卡内部的私有内存中排队，
-Initially the, initially the packets are queued inside the NIC in its own private memory,
 
 1382
 01:25:43,500 --> 01:25:44,700
 然后这个循环，
-then this loop,
 
 1383
 01:25:44,910 --> 01:25:47,370
 当它回到循环的开端时，
-you know when it when it goes back to the top of the loop,
 
 1384
 01:25:47,430 --> 01:25:49,230
 它查看每个网卡，
-it'll look at each NIC,
 
 1385
 01:25:50,120 --> 01:25:52,340
 并与网卡硬件通信，
-and actually talk to the NIC hardware
 
 1386
 01:25:52,400 --> 01:25:55,340
 询问内存里有没有什么输入包在等待，
-and asked do you have any input packets waiting in your memory,
 
 1387
 01:25:55,730 --> 01:25:56,330
 如果是这样，
-and if it does,
 
 1388
 01:25:56,330 --> 01:26:00,520
 那么这个循环将在 RAM 中分配一个数据包缓冲区，
-then this loop will, will you know allocate a packet buffer in RAM
 
 1389
 01:26:01,090 --> 01:26:06,840
 并将数据包中的字节从网卡复制到数据包缓冲区，
-and copy the bytes of the packet out of the NIC to the packet buffer
 
 1390
 01:26:06,840 --> 01:26:08,370
 然后处理那个数据缓冲区。
-and then process that packet buffer.
 
 1391
 01:26:08,800 --> 01:26:10,930
 所以，它可以复制多个数据包。
-So it can copy more than one packet.
 
 1392
 01:26:10,990 --> 01:26:14,170
 是的，我想它们是以 5 个一组的，
-Yeah, I think they do it in groups of 5,
 
 1393
 01:26:14,170 --> 01:26:14,830
 为了，
-in order to,
 
 1394
 01:26:15,400 --> 01:26:17,200
 即使这里有一百个包在等待，
-even if there's a hundred packets waiting here,
 
 1395
 01:26:17,200 --> 01:26:18,820
 它只处理接下来的 5 个，
-it would just process the next 5,
 
 1396
 01:26:18,820 --> 01:26:23,060
 以便在输入网卡之间保持公平，从而避免饥饿。
-in order to be fair among input NICs to avoid starving.
 
 1397
 01:26:23,990 --> 01:26:28,190
 但这可能可能需要增加网卡的内存容量，是吗？
-But this requires increasing the memory capacity of the NIC, right, possibly?
 
 1398
 01:26:28,970 --> 01:26:33,950
 嗯，我不知道，
-Well, I don't know,
 
 1399
 01:26:34,550 --> 01:26:35,690
 我不知道多少，
-I don't know how much,
 
 1400
 01:26:36,490 --> 01:26:38,530
 网卡可能有相当数量的，
-the NIC might have had a reasonable amount of,
 
 1401
 01:26:40,180 --> 01:26:42,970
 这个中断的问题是，
-the thing is this interrupt,
 
 1402
 01:26:43,000 --> 01:26:48,160
 这个活锁现象，在这个点以下，可能是在中断，
-you know this live lock phenomenon below this point where probably interrupting,
 
 1403
 01:26:50,300 --> 01:26:53,340
 如果数据包到达，
-and, if a packet arrives,
 
 1404
 01:26:53,520 --> 01:26:55,980
 网络线程将立即被唤醒，
-the network thread will almost immediately be woken up
 
 1405
 01:26:55,980 --> 01:26:57,810
 并将数据包拉出，
-and pull the packet out,
 
 1406
 01:26:57,810 --> 01:26:59,010
 在这里，在这个机器中，
-over here in this machine,
 
 1407
 01:26:59,010 --> 01:27:00,600
 有太多的数据包到达，
-where too many packets are arriving,
 
 1408
 01:27:01,420 --> 01:27:04,570
 这个循环在轮询，而不是中断，
-and this loop is polling instead of interrupting,
 
 1409
 01:27:06,240 --> 01:27:08,160
 数据包会丢失，我们知道，
-packets are gonna be lost, we just know that,
 
 1410
 01:27:08,160 --> 01:27:09,480
 因为不同，
-because the difference,
 
 1411
 01:27:09,570 --> 01:27:16,470
 这个输入率和输出率之间的差别，
-you know this difference between the the input rate and the output rate,
 
 1412
 01:27:16,680 --> 01:27:18,780
 这都是丢弃的数据包，
-this is all dropped packets,
 
 1413
 01:27:22,740 --> 01:27:26,650
 增加，我不认为增加，
-adding, I don't think adding,
 
 1414
 01:27:26,650 --> 01:27:28,870
 因为这些数据包无论如何都会被丢弃，
-because these packets are going to be dropped anyway,
 
 1415
 01:27:29,230 --> 01:27:32,050
 增加网卡缓冲区可能不会有太大帮助。
-adding buffering to the NIC doesn't probably doesn't help very much.
 
 1416
 01:27:32,680 --> 01:27:35,170
 我不，我不认为网卡，
-I I don't I don't think it's a NIC,
 
 1417
 01:27:37,920 --> 01:27:41,740
 目前还不清楚网卡需要更多的缓冲区。
-it's not clear that NIC needs more than small amount of buffering.
 
 1418
 01:27:42,800 --> 01:27:44,240
 是的，有道理，
-Yeah, that makes sense,
 
 1419
 01:27:44,270 --> 01:27:47,960
 是的，你只需要达到饱和所需的量就行了。
-yeah, you only need as much as it would need to take to get saturated.
 
 1420
 01:27:49,530 --> 01:27:50,670
 所以，我想在他们的设计中，
-So you know I think in their design,
 
 1421
 01:27:50,670 --> 01:27:51,840
 它们会拉出 5 个包，
-they would pull 5 packets,
 
 1422
 01:27:51,840 --> 01:27:53,640
 配额是 5 个包，
-of the quota was 5 packets
 
 1423
 01:27:53,640 --> 01:27:55,890
 所以网卡需要 5 个数据包缓冲，
-and so the NICs centainly needs 5 packets of buffering,
 
 1424
 01:27:56,460 --> 01:27:57,900
 这是有道理的，但是可能，
-that makes sense, but probably,
 
 1425
 01:27:58,620 --> 01:28:01,800
 无论如何，还不清楚比这更多是否会更好。
-anyway, it's not clear that more than that would be very beneficial.
 
 1426
 01:28:02,780 --> 01:28:08,380
 实际上，缓冲区的目的是吸收瞬时突发，
-Really, the purpose of buffering is to absorb transient bursts,
 
 1427
 01:28:09,150 --> 01:28:13,590
 整个数据包足够长让软件可以继续读取，
-whole packets is long enough that the software can get along to reading,
 
 1428
 01:28:13,590 --> 01:28:16,530
 但在这种情况下，我们不谈论瞬变现象，
-but we're not talking about transient anything in this situation,
 
 1429
 01:28:16,530 --> 01:28:18,390
 我们谈论的是持续性超载。
-we're talking about persistent overload.
 
 1430
 01:28:18,990 --> 01:28:19,980
 所以就是这样，
-So there's that,
 
 1431
 01:28:20,630 --> 01:28:23,390
 这就意味着来提供大量的缓冲没有更多功能。
-so that means there's not really much function for a lot of buffering.
 
 1432
 01:28:24,790 --> 01:28:25,420
 是的，理解了。
-Yeah make sense.
 
 1433
 01:28:28,300 --> 01:28:30,730
 我想我的问题与此有关，
-I think my question is related to that,
 
 1434
 01:28:30,730 --> 01:28:37,050
 如果这里打开中断和关闭中断之间的区别是，
-it's, so if the difference between interrupts on and interrupts off here is that,
 
 1435
 01:28:37,740 --> 01:28:38,490
 它会是一样的，
-it's going to be the same,
 
 1436
 01:28:38,490 --> 01:28:41,640
 但它仍然会把东西放在队列上，
-but like it's still going to be putting things on the queue,
 
 1437
 01:28:41,640 --> 01:28:42,840
 如果它能做到的话，
-if it's able to,
 
 1438
 01:28:42,840 --> 01:28:46,120
 但它不会发出中断，
-but it will just not issue an interrupt,
 
 1439
 01:28:46,120 --> 01:28:48,250
 但如果队列上没有位置，
-but if there's no place on the queue,
 
 1440
 01:28:48,250 --> 01:28:50,340
 那么它就会丢弃。
-then it will just drop.
 
 1441
 01:28:50,670 --> 01:28:55,680
 这个新方案中的中断例程从不查看数据包。
-The interrupt, the interrupt routine in this new scheme never looks at packets.
 
 1442
 01:28:56,270 --> 01:28:56,930
 哦，是的，
-Oh yes,
 
 1443
 01:28:56,930 --> 01:28:58,760
 我是说，你说过，
-I mean like, you said,
 
 1444
 01:28:59,420 --> 01:29:02,960
 你关闭了网卡的中断，对吧。
-you turn off the interrupts for the NIC, right.
 
 1445
 01:29:03,640 --> 01:29:06,100
 是的，这里中断处理程序中发生的事情是，
-Yeah, so this what happens in the interrupt handler is,
 
 1446
 01:29:06,100 --> 01:29:12,220
 它禁用这个网卡上的中断，
-it disables interrupts on this NIC
 
 1447
 01:29:12,640 --> 01:29:14,980
 然后唤醒网络线程，
-and then wakes up the network thread,
 
 1448
 01:29:16,000 --> 01:29:19,270
 这就是它所做的一切，然后返回。
-that's all it does, then returns.
 
 1449
 01:29:19,860 --> 01:29:23,070
 好的，我想我的问题是当中断禁用时，
-Right, I guess my question is when the interrupt here disabled,
 
 1450
 01:29:23,070 --> 01:29:27,000
 网卡是否仍然可以将数据包放在自己的缓冲区中？
-can the NICs still put packets on its own buffer?
 
 1451
 01:29:27,030 --> 01:29:28,710
 是的，网卡是独立的，
-Yes, the NIC is self-contained,
 
 1452
 01:29:29,760 --> 01:29:31,530
 所以它有内部缓冲，
-so it has internal buffering,
 
 1453
 01:29:31,800 --> 01:29:35,250
 无论是否启用或禁用中断，
-whether or not, regardless of whether interrupts are enabled or disabled,
 
 1454
 01:29:35,610 --> 01:29:38,280
 当数据包到达时，唯一发生的事情是，
-the only, all that happens when a packet arrives is
 
 1455
 01:29:38,280 --> 01:29:44,230
 网卡将数据包附加到它的数据包队列上，
-the NIC adds appends the packet to its queue of packets
 
 1456
 01:29:44,230 --> 01:29:45,730
 在它自己的内部内存中，
-in its own internal memory,
 
 1457
 01:29:45,760 --> 01:29:47,830
 这就是数据包到达时发生的所有事情。
-that's all that ever happens when a packet arrives.
 
 1458
 01:29:48,720 --> 01:29:51,900
 所以当网卡，在本论文的网卡中，
-So whenever the NIC, in this paper's NIC,
 
 1459
 01:29:51,900 --> 01:29:53,490
 不同的设计是非常不同的，
-different designs are very different,
 
 1460
 01:29:53,490 --> 01:29:54,720
 但对于这个论文，
-but for this paper,
 
 1461
 01:29:54,720 --> 01:29:57,000
 他们的网卡从未进行过 DMA ，
-their NIC never did DMA,
 
 1462
 01:29:57,000 --> 01:29:59,790
 也从未接触过主机内存，
-never reached out and touched host memory ever,
 
 1463
 01:30:01,170 --> 01:30:03,660
 它在自己的内存中保留了一个内部队列，
-it kept an internal queue in its own memory
 
 1464
 01:30:03,660 --> 01:30:05,700
 如果主机愿意，可以读出数据包。
-and the hosts could read packets out if it wanted to.
 
 1465
 01:30:07,140 --> 01:30:08,220
 好的，我明白了，
-Okay, I see,
 
 1466
 01:30:08,310 --> 01:30:10,410
 如果没有内存的话，那么。
-and if there's no memory, then.
 
 1467
 01:30:10,470 --> 01:30:11,310
 丢弃。
-Drop.
 
 1468
 01:30:11,700 --> 01:30:12,030
 好的。
-Okay.
 
 1469
 01:30:12,030 --> 01:30:13,830
 所以在这个设计中，
-So in this design,
 
 1470
 01:30:14,220 --> 01:30:16,530
 如果数据包是这些多余的数据包，
-if packets are these extra packets,
 
 1471
 01:30:16,650 --> 01:30:20,310
 它们被丢弃的位置是在网卡内，
-the place they're dropped is is inside the NIC,
 
 1472
 01:30:20,310 --> 01:30:22,290
 发生的是数据包或[]，
-what'll happen is a packet or [],
 
 1473
 01:30:23,630 --> 01:30:25,190
 如果我们处于过载状态，
-if we're an overload situation,
 
 1474
 01:30:25,310 --> 01:30:28,940
 那么网卡队列将总是或几乎总是满的，
-then the NICs queue will be full always or almost always,
 
 1475
 01:30:28,940 --> 01:30:29,990
 所以，当数据包到达时，
-and so when a packet arrives,
 
 1476
 01:30:29,990 --> 01:30:31,550
 网卡队列将是满的，
-the NICs queue will typically be full,
 
 1477
 01:30:31,610 --> 01:30:32,240
 它将丢弃，
-it will drop,
 
 1478
 01:30:32,240 --> 01:30:33,590
 网卡将丢弃数据包，
-the NIC will drop the packet
 
 1479
 01:30:33,680 --> 01:30:36,680
 而不会浪费机器上的任何 CPU 时间。
-without wasting any CPU time on the machine.
 
 1480
 01:30:38,020 --> 01:30:39,310
 好的，好的。
-Okay, yeah.
 
 1481
 01:30:39,310 --> 01:30:42,910
 事实上，它可以在不消耗 CPU 时间的情况下丢弃，
-That the fact that it can drop without burning up CPU time here,
 
 1482
 01:30:43,120 --> 01:30:47,260
 是解释它如何避免活锁的一种方式。
-is one way of explaining how they avoid live locks.
 
 1483
 01:30:48,250 --> 01:30:50,470
 好的，好的，非常感谢。
-Right, right, okay, thank you so much.
 
 1484
 01:30:55,660 --> 01:30:56,800
 我有一个简短的问题，
-I had a quick question,
 
 1485
 01:30:56,980 --> 01:30:58,990
 会不会有这样一种情况，
-will there ever be a scenario,
 
 1486
 01:30:58,990 --> 01:31:04,120
 在这种情况下， CPU 会拉出几个数据包，
-in which the CPU will pull a few packets,
 
 1487
 01:31:04,330 --> 01:31:07,660
 但是内部软件队列都是满的。
-but the like internal software queues are all like full.
 
 1488
 01:31:08,730 --> 01:31:09,420
 哦，当然。
-Oh sure.
 
 1489
 01:31:10,620 --> 01:31:12,300
 是的，还有其他一些瓶颈，
-Yeah, there's some other bottleneck,
 
 1490
 01:31:12,630 --> 01:31:17,520
 比如，假设这些传入数据包，
-so for example suppose these incoming packets,
 
 1491
 01:31:17,520 --> 01:31:21,470
 其中一些需要传送到套接字上的某个应用程序，
-some of them need to be delivered to some application on a socket,
 
 1492
 01:31:21,920 --> 01:31:24,530
 如果那个应用程序读取数据包速度不够快，
-if that application isn't reading packets fast enough,
 
 1493
 01:31:25,400 --> 01:31:30,020
 那么套接字缓存导致，
-then the socket buffer leading to
 
 1494
 01:31:30,020 --> 01:31:33,560
 那个应用程序正在读取的套接字缓冲区将被填满，
-you know that that application should be reading will get full
 
 1495
 01:31:33,590 --> 01:31:38,570
 然后数据包可能在网络线程中丢弃，
-and then packets may be dropped in the networking thread,
 
 1496
 01:31:39,250 --> 01:31:42,610
 这也可能导致活锁，
-and that can also lead to live lock,
 
 1497
 01:31:43,120 --> 01:31:44,800
 因为现在因为我们有相同的，
-because now because we have the same,
 
 1498
 01:31:44,800 --> 01:31:46,660
 活动锁出现的原因是，
-the reason live lock comes up is that
 
 1499
 01:31:46,750 --> 01:31:51,440
 我们扩展了资源处理数据包，后来被丢弃，
-we expanded resources processing a packet that was later dropped,
 
 1500
 01:31:51,560 --> 01:31:52,940
 所以这是白费力气。
-so it was wasted effort.
 
 1501
 01:31:53,670 --> 01:31:55,830
 如果应用程序没有读取它的，
-If the application is not reading it's,
 
 1502
 01:31:55,830 --> 01:31:58,750
 好的，我们可以获得活锁的一种方法是，
-well, one way we can get live lock is
 
 1503
 01:31:58,960 --> 01:32:01,330
 随着负载的增加，
-as the load goes up,
 
 1504
 01:32:01,330 --> 01:32:05,080
 也许我们使用 100% 的时间在网络线程上，
-maybe we end up spending a 100% of our time in the networking thread,
 
 1505
 01:32:05,960 --> 01:32:10,280
 为应该读取数据包的应用程序留出 0% 的时间，
-leaving 0% of the time for whatever application is supposed to be reading the packets
 
 1506
 01:32:10,310 --> 01:32:12,170
 然后我们会再次得到活锁。
-and then we'll again get live lock.
 
 1507
 01:32:13,080 --> 01:32:15,780
 但它不是中断活锁，
-But it won't be interrupt live lock,
 
 1508
 01:32:15,780 --> 01:32:18,810
 它是网络处理活锁或其他什么，
-it will be network processing live lock or something,
 
 1509
 01:32:18,900 --> 01:32:22,500
 这个论文有关于这方面的描述，
-the paper actually has a story for that,
 
 1510
 01:32:24,210 --> 01:32:25,830
 在第六部分的某个地方，
-somewhere in section six,
 
 1511
 01:32:25,980 --> 01:32:27,450
 他们谈到了网络，
-they talk about the network,
 
 1512
 01:32:27,480 --> 01:32:30,690
 如果数据包被递送到本地应用，
-if packets are being delivered to a local application,
 
 1513
 01:32:30,900 --> 01:32:34,810
 网络线程将查看那个应用的套接字队列，
-the network thread would look at the socket queue for that application,
 
 1514
 01:32:34,810 --> 01:32:36,400
 如果它变长了，
-and if it was getting long,
 
 1515
 01:32:36,580 --> 01:32:39,430
 它会关闭中断，
-it would turn off interrupt would turn off interrupts
 
 1516
 01:32:39,430 --> 01:32:41,950
 并停止从网络接口拉出数据包，
-and stop pulling packets off the network interface
 
 1517
 01:32:41,950 --> 01:32:43,060
 直到队列变短。
-until the queue got shorter.
 
 1518
 01:32:43,740 --> 01:32:47,880
 这意味着网络线程将停止运行，
-And and so that means that network thread would stop running
 
 1519
 01:32:47,880 --> 01:32:50,640
 给应用程序一个运行和处理数据包的机会，
-and give the application a chance to run and process the packets,
 
 1520
 01:32:50,700 --> 01:32:55,320
 所以你可以在任何阶段得到活锁，
-so you can get live lock like situations at any stage,
 
 1521
 01:32:55,320 --> 01:32:58,980
 如果你在多阶段处理方案中不小心的话。
-if you're not careful in a multistage process scheme.
 
 1522
 01:33:00,010 --> 01:33:01,780
 好的，有道理，谢谢。
-OK, that makes sense, thank you.
 
 1523
 01:33:04,820 --> 01:33:05,570
 谢谢。
-Thank you.
 
 1524
 01:33:05,720 --> 01:33:06,590
 谢谢。
-Thank you.
 
 1525
 01:33:07,040 --> 01:33:07,430
 不客气。
-Welcome.
 
