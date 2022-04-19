@@ -2928,7 +2928,7 @@ Java.
 
 733
 00:43:44,550 --> 00:43:49,740
-Yeah,java python, you know, Go, many of them actually correct,
+Yeah java python, you know, Go, many of them actually correct,
 
 734
 00:43:49,800 --> 00:43:52,680
@@ -3363,2218 +3363,2214 @@ this is called Baker's algorithm,
 it's an old algorithm,
 
 842
-00:49:44,770 --> 00:49:49,350
-and one of the nice you know features has
+00:49:44,770 --> 00:49:50,190
+and one of the nice you know features has is that
 
 843
-00:49:49,350 --> 00:49:49,650
-is
+00:49:50,370 --> 00:49:53,370
+sometimes it's originally called real-time,
 
 844
-00:49:49,650 --> 00:49:53,370
-that sometimes it's originally called real-time,
-
-845
 00:49:53,370 --> 00:49:57,690
 real what I meant is it's an incremental garbage collector.
 
-846
+845
 00:50:02,730 --> 00:50:07,170
 So, and the main idea is that,
 
-847
+846
 00:50:11,350 --> 00:50:16,410
 here if we have our two from space and to space,
 
-848
+847
 00:50:19,340 --> 00:50:24,590
 main idea is that you know we have our root again,
 
-849
+848
 00:50:25,400 --> 00:50:28,400
 here's root, it had two pointers,
 
-850
+849
 00:50:30,540 --> 00:50:32,010
 and it's pointing back.
 
-851
+850
 00:50:34,520 --> 00:50:35,780
 The main idea is that,
 
-852
+851
 00:50:35,780 --> 00:50:41,750
 it's not really necessary to stop the world and copy everything over
 
-853
+852
 00:50:42,020 --> 00:50:43,700
 and then basically resume [competition],
 
-854
+853
 00:50:44,400 --> 00:50:49,150
 the only thing really necessary is to actually move copy over the root,
 
-855
+854
 00:50:51,670 --> 00:50:53,110
 and basically do nothing else,
 
-856
+855
 00:50:53,380 --> 00:50:57,610
 and so basically you know at this point you know the root has been copied,
 
-857
+856
 00:50:57,670 --> 00:51:03,040
 but you know it's pointers are still pointing you know the here,
 
-858
+857
 00:51:03,040 --> 00:51:04,930
 because that object has not been scanned,
 
-859
+858
 00:51:05,020 --> 00:51:07,510
 it hasn't been, it's pointer haven't been updated yet.
 
-860
+859
 00:51:08,250 --> 00:51:10,410
 And and the basic idea is
 
-861
+860
 00:51:10,410 --> 00:51:14,760
 then whenever the application calls new,
 
-862
+861
 00:51:19,480 --> 00:51:21,610
 you know whenever new call,
 
-863
+862
 00:51:21,610 --> 00:51:23,410
 you scan a few more objects,
 
-864
+863
 00:51:23,410 --> 00:51:25,270
 or you forward a couple more objects.
 
-865
+864
 00:51:34,920 --> 00:51:36,240
 And that's sort of nice, correct,
 
-866
+865
 00:51:36,240 --> 00:51:37,800
 because basically you spread
 
-867
+866
 00:51:37,830 --> 00:51:43,170
 the cost of actually you know copying the complete you know active or live heap
 
-868
+867
 00:51:43,380 --> 00:51:45,570
 from the application incremental steps,
 
-869
+868
 00:51:45,600 --> 00:51:49,170
 every new every call allocates contributes a little bit,
 
-870
+869
 00:51:49,170 --> 00:51:51,180
 you know to actually do a complete copy operation.
 
-871
+870
 00:51:52,670 --> 00:51:56,870
 And of course the application might also be using you know some of these pointers,
 
-872
+871
 00:51:56,870 --> 00:52:03,290
 for example if you know root will be dereferencing actually this, this second red pointer,
 
-873
+872
 00:52:03,350 --> 00:52:05,450
 it's still actually pointing into the from space,
 
-874
+873
 00:52:05,480 --> 00:52:06,680
 and of course that is dangerous,
 
-875
+874
 00:52:06,680 --> 00:52:09,320
 because we shouldn't be tracking pointers in the from space.
 
-876
+875
 00:52:09,740 --> 00:52:13,280
 And so basically this means that every time you do dereference,
 
-877
+876
 00:52:16,440 --> 00:52:17,970
 do dereference a pointer,
 
-878
+877
 00:52:20,410 --> 00:52:21,370
 you need to check,
 
-879
+878
 00:52:23,610 --> 00:52:27,060
 check if it's in the from space, if in from space,
 
-880
+879
 00:52:29,020 --> 00:52:32,410
 and if so, you know do the forwarding.
 
-881
+880
 00:52:36,880 --> 00:52:38,980
 And so the application is allowed to use the pointers,
 
-882
+881
 00:52:38,980 --> 00:52:39,940
 but basically to run,
 
-883
+882
 00:52:39,940 --> 00:52:42,850
 the compiler has to instrument the application
 
-884
+883
 00:52:42,850 --> 00:52:45,790
 that basically every pointer accesses surrounded by that check,
 
-885
+884
 00:52:46,120 --> 00:52:50,230
 so that you know, we basically maintain the invariant that all,
 
-886
+885
 00:52:50,560 --> 00:52:53,410
 at any pointer in the to space,
 
-887
+886
 00:52:53,410 --> 00:52:55,180
 you know points to objects in to space.
 
-888
+887
 00:52:56,040 --> 00:52:57,660
 And we need to ensure that, correct,
 
-889
+888
 00:52:57,660 --> 00:52:59,220
 because when in the end we're done,
 
-890
+889
 00:52:59,400 --> 00:53:02,850
 you know we want to remove the from space
 
-891
+890
 00:53:02,850 --> 00:53:07,680
 and have, so that we can discard it and reuse it as free space.
 
-892
+891
 00:53:09,810 --> 00:53:12,810
 Okay, any questions about this, this is sort of the basic setup.
 
-893
+892
 00:53:20,710 --> 00:53:23,080
 Okay, so, if there are no questions,
 
-894
+893
 00:53:23,080 --> 00:53:25,720
 in the paper makes two points you know about this scheme
 
-895
+894
 00:53:25,840 --> 00:53:31,510
 and one is you know it's annoying or too bad
 
-896
+895
 00:53:31,510 --> 00:53:33,580
 you actually have to do this dereference at every time,
 
-897
+896
 00:53:34,130 --> 00:53:37,520
 so basically this means load or store instruction,
 
-898
+897
 00:53:37,610 --> 00:53:40,670
 instead of being single instruction actually has a bunch of instructions,
 
-899
+898
 00:53:40,670 --> 00:53:42,500
 namely branch instruction
 
-900
+899
 00:53:42,500 --> 00:53:45,290
 and perhaps you know calling a function to actually do it forward,
 
-901
+900
 00:53:46,030 --> 00:53:50,560
 and so you know that increase the cost of the application.
 
-902
+901
 00:53:51,380 --> 00:53:54,500
 The second thing that actually points out is that
 
-903
+902
 00:53:54,770 --> 00:54:01,940
 it is not that easy to parallelize the garbage collector,
 
-904
+903
 00:54:02,060 --> 00:54:03,470
 because maybe in a nice setting,
 
-905
+904
 00:54:03,470 --> 00:54:05,540
 it's like if you're running in a multi-core machine,
 
-906
+905
 00:54:05,540 --> 00:54:07,670
 where you know have a lot of free CPUs,
 
-907
+906
 00:54:07,670 --> 00:54:12,020
 basically I [realize] that the collector you know just put in the backgrounds,
 
-908
+907
 00:54:12,020 --> 00:54:15,680
 you know traverse the object graph,
 
-909
+908
 00:54:16,020 --> 00:54:20,130
 and you know copy things incrementally over as it continues.
 
-910
+909
 00:54:20,640 --> 00:54:25,080
 But if the application at the same time you know is using the graph,
 
-911
+910
 00:54:25,080 --> 00:54:27,090
 there's a risk you know the application maybe,
 
-912
+911
 00:54:27,090 --> 00:54:28,980
 you know, there's one of the reference check,
 
-913
+912
 00:54:28,980 --> 00:54:31,440
 one of these checks starts copying an object,
 
-914
+913
 00:54:31,530 --> 00:54:33,690
 while at the same time, the collectors also copying the object
 
-915
+914
 00:54:33,690 --> 00:54:35,220
 and if we're not very carefully,
 
-916
+915
 00:54:35,280 --> 00:54:38,340
 we may end up with the object copied twice
 
-917
+916
 00:54:38,340 --> 00:54:40,920
 and that pointer you know not pointing in the right places,
 
-918
+917
 00:54:40,950 --> 00:54:43,410
 you can easily see correct there's a race condition,
 
-919
+918
 00:54:43,530 --> 00:54:46,050
 possible of a possibility of race conditions.
 
-920
+919
 00:54:48,260 --> 00:54:52,360
 So the paper basically describes a scheme,
 
-921
+920
 00:54:52,390 --> 00:54:55,660
 it's like if you had you know the user level primitives,
 
-922
+921
 00:54:55,900 --> 00:54:57,580
 then actually you could do something different,
 
-923
+922
 00:54:57,580 --> 00:54:59,230
 you could do a cool trick
 
-924
+923
 00:54:59,470 --> 00:55:03,730
 and you can actually use VM, you know virtual memory
 
-925
+924
 00:55:03,730 --> 00:55:07,570
 to basically reduce the cost of the check,
 
-926
+925
 00:55:07,780 --> 00:55:11,110
 in almost get concurrency for free.
 
-927
+926
 00:55:12,180 --> 00:55:15,210
 And so the basic idea is as follows,
 
-928
+927
 00:55:15,600 --> 00:55:22,060
 you know we have our same setup,
 
-929
+928
 00:55:22,060 --> 00:55:25,450
 you know our from and here's our to.
 
-930
+929
 00:55:26,270 --> 00:55:28,130
 And what we're gonna do is
 
-931
+930
 00:55:28,130 --> 00:55:32,510
 like we're gonna have we're gonna have we're gonna region,
 
-932
+931
 00:55:32,540 --> 00:55:36,030
 we actually divide the to space virtually
 
-933
+932
 00:55:36,030 --> 00:55:40,980
 or literally we divide the to space in an area that is a unscanned.
 
-934
+933
 00:55:45,110 --> 00:55:46,610
 Let me a little bit more clear,
 
-935
+934
 00:55:48,760 --> 00:55:52,310
 we have an area basically, here is scanned,
 
-936
+935
 00:55:54,440 --> 00:55:56,750
 and an area unsacnned.
 
-937
+936
 00:55:59,000 --> 00:56:02,960
 And initially basically you know the whole area is unscanned,
 
-938
+937
 00:56:03,440 --> 00:56:05,390
 you know when you know start out,
 
-939
+938
 00:56:05,390 --> 00:56:08,360
 you know you make the flip from the from to the to space,
 
-940
+939
 00:56:08,510 --> 00:56:10,310
 nothing has been scanned yet,
 
-941
+940
 00:56:10,640 --> 00:56:12,290
 because there's no objects at the yet,
 
-942
+941
 00:56:12,290 --> 00:56:14,840
 and so but basically scheme starts in the same way,
 
-943
+942
 00:56:14,870 --> 00:56:18,250
 we copy over the root object,
 
-944
+943
 00:56:20,310 --> 00:56:21,600
 it used to be there,
 
-945
+944
 00:56:21,690 --> 00:56:22,890
 and copy it over,
 
-946
+945
 00:56:22,920 --> 00:56:24,060
 you know have some pointers,
 
-947
+946
 00:56:24,060 --> 00:56:27,060
 you know basically these pointers point still back into the,
 
-948
+947
 00:56:32,910 --> 00:56:33,540
 oops,
 
-949
+948
 00:56:33,660 --> 00:56:37,500
 yeah, and these pointers will point back into the old from space
 
-950
+949
 00:56:37,860 --> 00:56:39,480
 and so that's it,
 
-951
+950
 00:56:39,480 --> 00:56:43,260
 and now we're basically saying, and what we're gonna do is
 
-952
+951
 00:56:43,380 --> 00:56:47,220
 for the unscanned area, which is this point [],
 
-953
+952
 00:56:47,730 --> 00:56:51,480
 we're going to basically map and map them with no permission,
 
-954
+953
 00:56:52,200 --> 00:56:53,130
 map none.
 
-955
+954
 00:56:56,380 --> 00:56:57,670
 And so what does that mean,
 
-956
+955
 00:56:57,670 --> 00:56:58,630
 well, that means that,
 
-957
+956
 00:56:58,630 --> 00:57:00,400
 the first time run the application,
 
-958
+957
 00:57:00,640 --> 00:57:01,870
 you know after we did the flip,
 
-959
+958
 00:57:02,140 --> 00:57:03,610
 the garbage collector it to flip,
 
-960
+959
 00:57:03,610 --> 00:57:06,730
 the first time the application is use the root pointer,
 
-961
+960
 00:57:07,000 --> 00:57:08,830
 it will get a page fault,
 
-962
+961
 00:57:08,860 --> 00:57:13,540
 because you know that part of the address range has actually unmapped.
 
-963
+962
 00:57:14,010 --> 00:57:16,470
 So basically then the idea is in the fault handler,
 
-964
+963
 00:57:22,350 --> 00:57:24,930
 scan one page of objects,
 
-965
+964
 00:57:31,960 --> 00:57:33,970
 and forward to what that need to be forwarded.
 
-966
+965
 00:57:37,850 --> 00:57:39,950
 So basically you know we in this particular setting,
 
-967
+966
 00:57:39,950 --> 00:57:42,590
 where we're only copied over just the root so far,
 
-968
+967
 00:57:42,800 --> 00:57:47,150
 you know we are going to copy over root,
 
-969
+968
 00:57:47,150 --> 00:57:52,340
 we can scan you know the pointers in the object to which the root is pointing,
 
-970
+969
 00:57:52,430 --> 00:57:53,900
 in this case there are only two of them,
 
-971
+970
 00:57:53,930 --> 00:57:58,530
 we kind of copy over those two objects you know into the unscanned space,
 
-972
+971
 00:57:58,530 --> 00:58:00,720
 or maybe let me drawing slightly different here,
 
-973
+972
 00:58:01,700 --> 00:58:06,990
 just make it look like we've got copy over those two objects that were pointing to
 
-974
+973
 00:58:07,500 --> 00:58:09,690
 and basically we update you know the,
 
-975
+974
 00:58:09,810 --> 00:58:15,400
 you know we move this scan line you know from here to there,
 
-976
+975
 00:58:16,080 --> 00:58:17,250
 so this is you know scanned.
 
-977
+976
 00:58:20,230 --> 00:58:21,820
 And so after we scan the page,
 
-978
+977
 00:58:21,820 --> 00:58:27,110
 we can actually increase you know basically protect
 
-979
+978
 00:58:27,110 --> 00:58:28,340
 or basically unprotect,
 
-980
+979
 00:58:30,880 --> 00:58:34,890
 you can unprotect the page, unprotect the scan page.
 
-981
+980
 00:58:42,510 --> 00:58:43,170
 Okay?
 
-982
+981
 00:58:44,120 --> 00:58:45,230
 And you know the,
 
-983
+982
 00:58:45,350 --> 00:58:48,530
 and then the application you know can just you know access the particular object,
 
-984
+983
 00:58:48,530 --> 00:58:51,440
 because we translated you know the pointer that's inside of the objects,
 
-985
+984
 00:58:51,440 --> 00:58:53,480
 it's safe to expose it to the application,
 
-986
+985
 00:58:53,690 --> 00:58:55,550
 the application can traverse those pointers,
 
-987
+986
 00:58:55,670 --> 00:59:00,260
 of course those pointers are still pointing to objects that are having been scanned in,
 
-988
+987
 00:59:00,350 --> 00:59:02,930
 then we'll, we'll get a page fault again
 
-989
+988
 00:59:02,930 --> 00:59:04,460
 and then we scan a little bit more.
 
-990
+989
 00:59:04,920 --> 00:59:07,410
 So it basically has the benefits still incremental,
 
-991
+990
 00:59:11,350 --> 00:59:13,120
 you can still do a little bit of work,
 
-992
+991
 00:59:13,120 --> 00:59:13,840
 you know every time,
 
-993
+992
 00:59:13,840 --> 00:59:15,400
 we can also do it every time new,
 
-994
+993
 00:59:15,400 --> 00:59:17,620
 we can actually allocate you know some do some work,
 
-995
+994
 00:59:17,620 --> 00:59:19,570
 but it has the additional benefit,
 
-996
+995
 00:59:19,780 --> 00:59:21,640
 there's no no pointer check anymore,
 
-997
+996
 00:59:25,060 --> 00:59:26,470
 the pointer check is still there,
 
-998
+997
 00:59:26,950 --> 00:59:28,090
 but it's done in hardware,
 
-999
+998
 00:59:28,600 --> 00:59:30,790
 with the page, the VM hardware does it for us.
 
-1000
+999
 00:59:39,280 --> 00:59:40,090
 Does that make sense?
 
-1001
+1000
 00:59:41,950 --> 00:59:44,320
 Any questions about this, about this plan?
 
-1002
+1001
 00:59:45,680 --> 00:59:48,230
 I have a question,
 
-1003
+1002
 00:59:48,260 --> 00:59:54,870
 so, in, in the handler you're saying that you scan one page of objects,
 
-1004
+1003
 00:59:54,870 --> 00:59:56,640
 but how do you know that,
 
-1005
+1004
 00:59:57,200 --> 01:00:04,220
 the objects that the root has references to will be will fall into the same,
 
-1006
+1005
 01:00:04,250 --> 01:00:08,600
 like how do you know that the objects that really need to be forwarded,
 
-1007
+1006
 01:00:08,900 --> 01:00:13,520
 in order to not violate the invariant will be in the same page.
 
-1008
+1007
 01:00:14,200 --> 01:00:14,950
 You'll be,
 
-1009
+1008
 01:00:14,950 --> 01:00:17,860
 okay, there's some set of objects in the page,
 
-1010
+1009
 01:00:17,860 --> 01:00:19,870
 the starting,
 
-1011
+1010
 01:00:19,870 --> 01:00:22,030
 okay but let's say you know what the,
 
-1012
+1011
 01:00:23,930 --> 01:00:29,530
 okay, at the beginning when we flip this spaces,
 
-1013
+1012
 01:00:29,530 --> 01:00:30,850
 there's nothing in the to space,
 
-1014
+1013
 01:00:32,780 --> 01:00:33,680
 what we could do is,
 
-1015
+1014
 01:00:33,680 --> 01:00:34,640
 like what the right thing to do is
 
-1016
+1015
 01:00:34,640 --> 01:00:36,920
 just copy I just tried to just copy one page,
 
-1017
+1016
 01:00:36,920 --> 01:00:41,180
 but basically copy over or forward one page,
 
-1018
+1017
 01:00:41,180 --> 01:00:43,580
 basically copy n objects over,
 
-1019
+1018
 01:00:43,580 --> 01:00:45,050
 so that they fill a complete page.
 
-1020
+1019
 01:00:46,040 --> 01:00:46,520
 Right.
 
-1021
+1020
 01:00:46,760 --> 01:00:50,720
 Now we have n objects sitting on that one page, all unscanned,
 
-1022
+1021
 01:00:51,820 --> 01:00:54,460
 then, at some point a page fault handler happen
 
-1023
+1022
 01:00:54,610 --> 01:00:56,620
 and then you know the garbage collector,
 
-1024
+1023
 01:00:56,620 --> 01:01:00,580
 you know collector go through each object on that one page
 
-1025
+1024
 01:01:00,640 --> 01:01:02,680
 and looks for its pointers,
 
-1026
+1025
 01:01:03,260 --> 01:01:04,100
 and for each pointer,
 
-1027
+1026
 01:01:04,100 --> 01:01:08,210
 it will copies over those you know objects
 
-1028
+1027
 01:01:08,240 --> 01:01:13,790
 into the, into the unscan part of the to space.
 
-1029
+1028
 01:01:14,240 --> 01:01:17,750
 And so that if you know anybody or if the application would use one of those,
 
-1030
+1029
 01:01:17,750 --> 01:01:19,280
 what objects will get a page fault
 
-1031
+1030
 01:01:19,280 --> 01:01:21,380
 and they can scan those etc etc.
 
-1032
+1031
 01:01:23,690 --> 01:01:24,740
 Does that answer the question?
 
-1033
+1032
 01:01:25,100 --> 01:01:25,550
 Yeah.
 
-1034
+1033
 01:01:27,000 --> 01:01:27,690
 Okay.
 
-1035
+1034
 01:01:28,900 --> 01:01:30,880
 Oh, sorry, I also had a question.
 
-1036
+1035
 01:01:31,090 --> 01:01:35,770
 Yeah, so after you do this do flip the to in the from.
 
-1037
+1036
 01:01:36,280 --> 01:01:36,760
 Okay.
 
-1038
+1037
 01:01:37,330 --> 01:01:40,870
 Okay, you, you start out in the from space,
 
-1039
+1038
 01:01:40,870 --> 01:01:42,640
 you flip it up, you flip to,
 
-1040
+1039
 01:01:42,670 --> 01:01:44,470
 you copied over to the to space
 
-1041
+1040
 01:01:44,470 --> 01:01:46,150
 and then you call the from,
 
-1042
+1041
 01:01:46,150 --> 01:01:48,070
 once you're done with the complete with scanning,
 
-1043
+1042
 01:01:48,740 --> 01:01:51,950
 and you're done with the from space is completely clear,
 
-1044
+1043
 01:01:51,950 --> 01:01:53,300
 just you flip the names,
 
-1045
+1044
 01:01:53,390 --> 01:01:56,750
 and you start using the to space to actually do the allocations
 
-1046
+1045
 01:01:56,750 --> 01:01:58,640
 until it's full and then you flip again.
 
-1047
+1046
 01:02:02,820 --> 01:02:03,750
 Thank you.
 
-1048
+1047
 01:02:08,070 --> 01:02:10,800
 Any further questions?
 
-1049
+1048
 01:02:12,990 --> 01:02:17,280
 So one of the, one of the things that one of the arguments the paper also makes,
 
-1050
+1049
 01:02:17,280 --> 01:02:21,360
 that you know the one other thing that the VM system or using VM,
 
-1051
+1050
 01:02:21,360 --> 01:02:24,420
 simplifies is basically concurrency,
 
-1052
+1051
 01:02:25,560 --> 01:02:27,780
 the argument is that,
 
-1053
+1052
 01:02:28,600 --> 01:02:33,250
 basically the collector you can just go through the unscanned pages,
 
-1054
+1053
 01:02:33,250 --> 01:02:36,220
 so we have go through and scan pages
 
-1055
+1054
 01:02:36,220 --> 01:02:39,010
 and basically scan one page at a time,
 
-1056
+1055
 01:02:39,370 --> 01:02:44,020
 and if it is guaranteed that the application has no pointers
 
-1057
+1056
 01:02:44,020 --> 01:02:47,350
 or cannot access in the same time that page,
 
-1058
+1057
 01:02:47,350 --> 01:02:48,370
 because its unmap.
 
-1059
+1058
 01:02:49,280 --> 01:02:52,490
 And so, you know as long as the,
 
-1060
+1059
 01:02:53,180 --> 01:02:56,810
 so the paging hardware basically sort of introduces
 
-1061
+1060
 01:02:56,840 --> 01:03:00,590
 explicit synchronization or protection against races,
 
-1062
+1061
 01:03:00,680 --> 01:03:04,100
 because only the collector can access that page at the from
 
-1063
+1062
 01:03:04,190 --> 01:03:06,950
 and the application can actually not access the page.
 
-1064
+1063
 01:03:07,650 --> 01:03:11,340
 So it gives a nice automatic parallelism,
 
-1065
+1064
 01:03:11,340 --> 01:03:13,560
 where the application can run and do its business,
 
-1066
+1065
 01:03:13,590 --> 01:03:15,090
 the collector can do its business,
 
-1067
+1066
 01:03:15,210 --> 01:03:18,450
 and they will never step on each other's toes,
 
-1068
+1067
 01:03:18,510 --> 01:03:23,250
 because if the application ever will touch an unscanned page
 
-1069
+1068
 01:03:23,430 --> 01:03:24,600
 and it get a page fault,
 
-1070
+1069
 01:03:24,870 --> 01:03:31,650
 and, and the collector never touches scanned pages,
 
-1071
+1070
 01:03:31,770 --> 01:03:33,810
 and so will never interfere with the application.
 
-1072
+1071
 01:03:35,430 --> 01:03:39,750
 So you get sort of concurrency for free,
 
-1073
+1072
 01:03:39,750 --> 01:03:41,190
 but it actually has a tricky issue.
 
-1074
+1073
 01:03:48,420 --> 01:03:49,860
 Although it's almost for free,
 
-1075
+1074
 01:03:49,860 --> 01:03:52,500
 you know there's actually one thing you actually have to arrange,
 
-1076
+1075
 01:03:52,860 --> 01:03:56,580
 which is the area, correct,
 
-1077
+1076
 01:03:56,580 --> 01:03:59,100
 in the unscanned area, which actually unmapped,
 
-1078
+1077
 01:03:59,130 --> 01:04:03,630
 so we look at our picture from before,
 
-1079
+1078
 01:04:03,630 --> 01:04:05,070
 here are two,
 
-1080
+1079
 01:04:05,760 --> 01:04:08,600
 where here's our from, here's our to,
 
-1081
+1080
 01:04:08,690 --> 01:04:14,260
 and you know we have split in the unscanned, scanned the area,
 
-1082
+1081
 01:04:14,860 --> 01:04:17,800
 and unscanned it has no, none, protect none.
 
-1083
+1082
 01:04:19,110 --> 01:04:20,340
 So that raises the question,
 
-1084
+1083
 01:04:21,100 --> 01:04:23,830
 you know how this actually do collector go through,
 
-1085
+1084
 01:04:23,830 --> 01:04:26,230
 because we can't actually access those pages,
 
-1086
+1085
 01:04:26,230 --> 01:04:31,000
 because you know they're unmap, correct, they're inaccessible.
 
-1087
+1086
 01:04:31,610 --> 01:04:33,560
 And so and the trick is basically as follows,
 
-1088
+1087
 01:04:33,800 --> 01:04:36,530
 and this is where map2 comes in,
 
-1089
+1088
 01:04:38,260 --> 01:04:41,440
 what we're gonna do is actually going to map that same physical memory,
 
-1090
+1089
 01:04:42,060 --> 01:04:43,320
 we mapped at once, correct,
 
-1091
+1090
 01:04:43,320 --> 01:04:44,820
 we mapped at once in this way,
 
-1092
+1091
 01:04:45,490 --> 01:04:50,220
 and gonna map the second time in the collector's view,
 
-1093
+1092
 01:04:50,220 --> 01:04:53,170
 sort of the collector's view of the to space.
 
-1094
+1093
 01:04:54,490 --> 01:04:56,680
 So here's collector's view, here's the app view
 
-1095
+1094
 01:04:57,280 --> 01:04:58,510
 and in the collector's view,
 
-1096
+1095
 01:04:58,540 --> 01:05:01,570
 where I still have to and from exactly like before.
 
-1097
+1096
 01:05:02,680 --> 01:05:03,730
 Oops, let me try.
 
-1098
+1097
 01:05:04,750 --> 01:05:07,350
 We have to and from.
 
-1099
+1098
 01:05:09,100 --> 01:05:10,720
 And what we're doing actually
 
-1100
+1099
 01:05:10,720 --> 01:05:12,430
 you know here's our unscanned area,
 
-1101
+1100
 01:05:16,380 --> 01:05:20,220
 but in the collector, we map actually those unscanned area read and write,
 
-1102
+1101
 01:05:21,350 --> 01:05:23,900
 and so that the collector actually can go through,
 
-1103
+1102
 01:05:23,900 --> 01:05:27,560
 look at the, scan the objects you know and forward pointer is necessary.
 
-1104
+1103
 01:05:28,530 --> 01:05:32,550
 And so the here's look at the place where this map2 call is necessary,
 
-1105
+1104
 01:05:32,550 --> 01:05:38,730
 where arrange physical piece of physical memory is actually mapped twice
 
-1106
+1105
 01:05:38,730 --> 01:05:40,470
 in the address space of an application,
 
-1107
+1106
 01:05:40,470 --> 01:05:41,910
 at two different levels of protection,
 
-1108
+1107
 01:05:42,590 --> 01:05:44,930
 to basically make things, scenario like this work.
 
-1109
+1108
 01:05:46,850 --> 01:05:47,900
 Any questions about this?
 
-1110
+1109
 01:05:57,670 --> 01:05:59,230
 I have a question,
 
-1111
+1110
 01:05:59,230 --> 01:06:06,160
 do you, do you kind of give each collector in the app,
 
-1112
+1111
 01:06:08,160 --> 01:06:11,190
 different versions of the page table, or.
 
-1113
+1112
 01:06:11,400 --> 01:06:13,830
 No, they have the same page table, correct,
 
-1114
+1113
 01:06:13,830 --> 01:06:17,190
 but they have the memory mapped in two place,
 
-1115
+1114
 01:06:17,190 --> 01:06:20,070
 the physical memory map in two different places in the address space,
 
-1116
+1115
 01:06:20,070 --> 01:06:22,440
 in two different places places in page table.
 
-1117
+1116
 01:06:23,560 --> 01:06:28,990
 And, in one place you basically the mapping is invalid,
 
-1118
+1117
 01:06:29,440 --> 01:06:33,100
 and in the other address range, you make the mapping read write.
 
-1119
+1118
 01:06:35,940 --> 01:06:36,420
 Okay.
 
-1120
+1119
 01:06:39,440 --> 01:06:42,860
 Let me make, make a make this a little bit more clear,
 
-1121
+1120
 01:06:44,150 --> 01:06:45,590
 since there were so many questions about it.
 
-1122
+1121
 01:06:47,790 --> 01:06:54,510
 I actually have a trivial implementation of actually this basic idea,
 
-1123
+1122
 01:06:54,600 --> 01:06:56,370
 the idea that was described in the paper,
 
-1124
+1123
 01:06:56,580 --> 01:06:58,230
 that you could make it a little bit more concrete.
 
-1125
+1124
 01:07:00,250 --> 01:07:02,920
 And so, let me walk through this
 
-1126
+1125
 01:07:02,920 --> 01:07:05,950
 and ask feel free to jump in,
 
-1127
+1126
 01:07:06,520 --> 01:07:09,160
 basically toy implementation of what's described in the paper
 
-1128
+1127
 01:07:09,340 --> 01:07:10,600
 and I'm sure it has bugs,
 
-1129
+1128
 01:07:10,600 --> 01:07:14,470
 I mean, I haven't really tested this in any way seriously,
 
-1130
+1129
 01:07:14,590 --> 01:07:16,960
 but it's mostly there's illustrates
 
-1131
+1130
 01:07:16,960 --> 01:07:18,760
 you know to make everything slightly more concrete.
 
-1132
+1131
 01:07:19,330 --> 01:07:20,860
 So the collector,
 
-1133
+1132
 01:07:20,920 --> 01:07:24,160
 the API if you will that the application uses is,
 
-1134
+1133
 01:07:24,370 --> 01:07:25,870
 a new and readptr,
 
-1135
+1134
 01:07:25,870 --> 01:07:32,590
 and readptr is that basically does the check whether pointers in from space,
 
-1136
+1135
 01:07:32,590 --> 01:07:34,990
 and if it is in the from space, that needs to be copied
 
-1137
+1136
 01:07:35,230 --> 01:07:37,960
 and of course when we're using VM tricks,
 
-1138
+1137
 01:07:37,960 --> 01:07:40,000
 then basically this readptr is going to be very cheap,
 
-1139
+1138
 01:07:40,000 --> 01:07:43,060
 we basically return the [] return the argument.
 
-1140
+1139
 01:07:44,590 --> 01:07:46,960
 If we're just for this simple application,
 
-1141
+1140
 01:07:46,960 --> 01:07:50,380
 I have a linked list and it has two roots,
 
-1142
+1141
 01:07:50,380 --> 01:07:50,860
 you know pointing,
 
-1143
+1142
 01:07:50,860 --> 01:07:53,980
 one to the head and one to the last node of the linked list,
 
-1144
+1143
 01:07:53,980 --> 01:07:55,570
 it's a circular linked list,
 
-1145
+1144
 01:07:56,040 --> 01:07:58,350
 and nothing really too exciting going on,
 
-1146
+1145
 01:07:58,350 --> 01:08:00,960
 basically what the application [] does is,
 
-1147
+1146
 01:08:01,380 --> 01:08:03,990
 you know thousand times makes the list
 
-1148
+1147
 01:08:04,380 --> 01:08:07,260
 and make_clist and check_clist,
 
-1149
+1148
 01:08:07,290 --> 01:08:08,880
 and so it generates a lot of garbage,
 
-1150
+1149
 01:08:08,880 --> 01:08:10,770
 like everytime after to make_clist is done,
 
-1151
+1150
 01:08:11,130 --> 01:08:12,060
 it's going to make a new one
 
-1152
+1151
 01:08:12,060 --> 01:08:13,920
 and so the last list is basically garbage.
 
-1153
+1152
 01:08:14,760 --> 01:08:16,830
 And so the collector actually has something to do
 
-1154
+1153
 01:08:16,830 --> 01:08:20,460
 and make_clist you know is basically a little bit of ugly code,
 
-1155
+1154
 01:08:20,700 --> 01:08:25,290
 mostly because you know every pointer needs to be wrapped in this readptr check,
 
-1156
+1155
 01:08:26,130 --> 01:08:28,920
 normally, of course would be generated by a compiler
 
-1157
+1156
 01:08:28,980 --> 01:08:31,740
 and I don't really have a compiler for a garbage collected language
 
-1158
+1157
 01:08:31,740 --> 01:08:37,140
 and so I'm just simulating what may be a compiler that might have generated.
 
-1159
+1158
 01:08:39,080 --> 01:08:42,470
 And basically you want you know the code does is,
 
-1160
+1159
 01:08:42,470 --> 01:08:46,310
 it goes through the built a list of at least LISTSZ,
 
-1161
+1160
 01:08:46,430 --> 01:08:47,840
 allocates a new element
 
-1162
+1161
 01:08:48,170 --> 01:08:53,000
 and stick to the prepend at the beginning of the list,
 
-1163
+1162
 01:08:53,000 --> 01:08:56,540
 and then updates the last pointer to point basically to the beginning of the list,
 
-1164
+1163
 01:08:56,750 --> 01:08:57,620
 so that's circular.
 
-1165
+1164
 01:08:59,920 --> 01:09:02,740
 Any questions about this little fragment of code?
 
-1166
+1165
 01:09:06,400 --> 01:09:07,570
 So the most interesting question is,
 
-1167
+1166
 01:09:07,570 --> 01:09:09,250
 like what goes on exactly the collector,
 
-1168
+1167
 01:09:09,370 --> 01:09:12,430
 let's first look at the case where there's no virtual memory,
 
-1169
+1168
 01:09:12,640 --> 01:09:14,350
 where we're not using these tricks.
 
-1170
+1169
 01:09:15,120 --> 01:09:17,640
 And so we just have to look at two APIs,
 
-1171
+1170
 01:09:17,970 --> 01:09:20,640
 one is new and readptr.
 
-1172
+1171
 01:09:21,240 --> 01:09:23,910
 So here's new,
 
-1173
+1172
 01:09:24,120 --> 01:09:27,000
 forget the mutex, that is for the VM based solution,
 
-1174
+1173
 01:09:27,800 --> 01:09:30,380
 basically, I [] that,
 
-1175
+1174
 01:09:30,380 --> 01:09:33,770
 we're assuming that we're actually not scanning, we're not collecting for a while,
 
-1176
+1175
 01:09:33,980 --> 01:09:42,240
 were basically, we check if there's enough space left in the free space,
 
-1177
+1176
 01:09:42,240 --> 01:09:44,250
 if there's enough free space left,
 
-1178
+1177
 01:09:44,250 --> 01:09:46,380
 you know we just bump up to point a little bit,
 
-1179
+1178
 01:09:46,380 --> 01:09:48,510
 you know to allocate object and return it.
 
-1180
+1179
 01:09:49,310 --> 01:09:53,000
 And if there's not enough space less left,
 
-1181
+1180
 01:09:53,000 --> 01:09:54,350
 then we basically have to flip,
 
-1182
+1181
 01:09:54,350 --> 01:09:55,880
 we have to do the garbage collector run.
 
-1183
+1182
 01:09:56,710 --> 01:09:58,690
 And so we look at flip,
 
-1184
+1183
 01:09:59,920 --> 01:10:03,580
 you know flip basically switches the to from pointers around,
 
-1185
+1184
 01:10:04,030 --> 01:10:10,600
 and basically forward which you know the two roots that this application has,
 
-1186
+1185
 01:10:10,900 --> 01:10:15,640
 you know to the from the from space to space,
 
-1187
+1186
 01:10:15,670 --> 01:10:16,900
 so let's look at forward.
 
-1188
+1187
 01:10:25,000 --> 01:10:26,080
 So here's forward,
 
-1189
+1188
 01:10:26,560 --> 01:10:32,520
 it looks if the forward object that is pointed to by o,
 
-1190
+1189
 01:10:32,520 --> 01:10:34,410
 it looks always actually in the from space,
 
-1191
+1190
 01:10:34,410 --> 01:10:35,880
 if it is in the from space
 
-1192
+1191
 01:10:36,300 --> 01:10:38,190
 and it has not been copied before,
 
-1193
+1192
 01:10:38,810 --> 01:10:41,210
 then we're gonna copy it
 
-1194
+1193
 01:10:41,660 --> 01:10:44,030
 and now we're done.
 
-1195
+1194
 01:10:44,030 --> 01:10:47,480
 So we moved the object from the from space to to space,
 
-1196
+1195
 01:10:47,930 --> 01:10:49,460
 if we already copied it,
 
-1197
+1196
 01:10:49,460 --> 01:10:51,380
 then basically we can replace the pointer,
 
-1198
+1197
 01:10:51,470 --> 01:10:54,250
 you know we have the new pointer is
 
-1199
+1198
 01:10:54,250 --> 01:10:57,970
 actually the pointer to the already moved object
 
-1200
+1199
 01:10:58,090 --> 01:10:58,900
 and return that.
 
-1201
+1200
 01:10:59,990 --> 01:11:00,740
 Okay?
 
-1202
+1201
 01:11:01,630 --> 01:11:02,650
 So that's forwarding.
 
-1203
+1202
 01:11:04,060 --> 01:11:07,780
 And so, then the readptr you know we actually ever,
 
-1204
+1203
 01:11:09,730 --> 01:11:11,470
 readptr to basically go through,
 
-1205
+1204
 01:11:17,770 --> 01:11:20,020
 let's see what the readptr with the garbage collecter,
 
-1206
+1205
 01:11:20,020 --> 01:11:22,930
 just readptr it's like right here,
 
-1207
+1206
 01:11:24,360 --> 01:11:27,150
 if we're not using if we're not using VM,
 
-1208
+1207
 01:11:27,390 --> 01:11:28,890
 basically what it does,
 
-1209
+1208
 01:11:28,980 --> 01:11:30,810
 it does a forward operation,
 
-1210
+1209
 01:11:30,810 --> 01:11:33,510
 in the forward operation is checking if the from space,
 
-1211
+1210
 01:11:33,510 --> 01:11:37,440
 if not in the from space, then, do nothing,
 
-1212
+1211
 01:11:37,440 --> 01:11:40,020
 if it is in the from space, then do this copy again.
 
-1213
+1212
 01:11:40,590 --> 01:11:42,750
 So here we see this sort of the expensive check,
 
-1214
+1213
 01:11:42,750 --> 01:11:45,630
 is really checking if the object actually sits in the from space.
 
-1215
+1214
 01:11:48,520 --> 01:11:49,270
 Any questions,
 
-1216
+1215
 01:11:51,170 --> 01:11:56,750
 before I jump into sort of the version that actually use the VM tricks.
 
-1217
+1216
 01:11:58,480 --> 01:12:01,810
 Okay, let's look at actually what the VM tricks,
 
-1218
+1217
 01:12:02,480 --> 01:12:06,950
 so the setup is a little bit, is here,
 
-1219
+1218
 01:12:07,220 --> 01:12:11,690
 basically you know there's a call called shm_open
 
-1220
+1219
 01:12:11,690 --> 01:12:14,330
 that allows you to create a shared memory object,
 
-1221
+1220
 01:12:14,360 --> 01:12:16,460
 it's a Linux call or Unix call,
 
-1222
+1221
 01:12:17,010 --> 01:12:19,740
 and it almost behaves like a file, but it's not,
 
-1223
+1222
 01:12:20,610 --> 01:12:22,890
 it behaves like a file, but it is not a file,
 
-1224
+1223
 01:12:22,890 --> 01:12:23,880
 it just sits in memory,
 
-1225
+1224
 01:12:23,880 --> 01:12:26,100
 there's no disk space associated with it or anything,
 
-1226
+1225
 01:12:26,100 --> 01:12:27,960
 it's like an in-memory file system, if you will.
 
-1227
+1226
 01:12:28,820 --> 01:12:32,000
 And, basically you know what we're doing is
 
-1228
+1227
 01:12:32,000 --> 01:12:34,310
 we allocate one of the shared memory objects,
 
-1229
+1228
 01:12:34,610 --> 01:12:37,190
 we truncate the shared memory object to be
 
-1230
+1229
 01:12:37,190 --> 01:12:40,520
 the size of the sum of the to and the from space,
 
-1231
+1230
 01:12:40,520 --> 01:12:42,440
 so we have a space,
 
-1232
+1231
 01:12:42,940 --> 01:12:49,060
 and then we map it once in the for mutator,
 
-1233
+1232
 01:12:49,060 --> 01:12:51,070
 and we map it once you know for the collector.
 
-1234
+1233
 01:12:52,150 --> 01:12:56,380
 So this is basically you know the sort of sequence of operations here,
 
-1235
+1234
 01:12:56,380 --> 01:12:59,140
 you know the shm_open, the ftruncate and the two mmaps
 
-1236
+1235
 01:12:59,410 --> 01:13:02,500
 are basically sort of equivalent of the map2 calls.
 
-1237
+1236
 01:13:04,580 --> 01:13:06,950
 And so we look at you know,
 
-1238
+1237
 01:13:07,620 --> 01:13:11,280
 let's go back up to our implementation,
 
-1239
+1238
 01:13:11,640 --> 01:13:15,780
 the readptr in the VM case does nothing,
 
-1240
+1239
 01:13:15,780 --> 01:13:18,780
 you know there's no check whatsoever would return a pointer straight.
 
-1241
+1240
 01:13:19,480 --> 01:13:22,480
 And then you know of course we used [] pointer,
 
-1242
+1241
 01:13:22,480 --> 01:13:23,650
 we're gonna get a page fault,
 
-1243
+1242
 01:13:23,680 --> 01:13:27,010
 like as before in the square roots table application,
 
-1244
+1243
 01:13:27,400 --> 01:13:29,320
 maybe here's the page fault handler,
 
-1245
+1244
 01:13:30,090 --> 01:13:33,850
 so it is, if it's a page on
 
-1246
+1245
 01:13:33,850 --> 01:13:36,790
 and actually let me run a little bit here,
 
-1247
+1246
 01:13:39,450 --> 01:13:44,280
 if you know the object was moved somewhere earlier and sitting in the unscanned area,
 
-1248
+1247
 01:13:44,280 --> 01:13:45,420
 we're getting a page fault
 
-1249
+1248
 01:13:45,420 --> 01:13:48,330
 and basically the scan page you know function runs.
 
-1250
+1249
 01:13:49,010 --> 01:13:53,630
 and but you know the the scan page function runs
 
-1251
+1250
 01:13:53,630 --> 01:13:56,930
 actually with you know the address ranges of the collector
 
-1252
+1251
 01:13:57,290 --> 01:13:58,430
 and so it actually can work,
 
-1253
+1252
 01:13:58,430 --> 01:14:03,680
 because otherwise a mutator correct, the application cannot touch those pages,
 
-1254
+1253
 01:14:03,680 --> 01:14:05,960
 because then we take a result in a page fault.
 
-1255
+1254
 01:14:07,880 --> 01:14:11,660
 And once you know we can, you know once we've scanned all the pages,
 
-1256
+1255
 01:14:11,750 --> 01:14:14,300
 then you know the,
 
-1257
+1256
 01:14:14,570 --> 01:14:20,460
 the collector actually makes the page actually accessible to the user application,
 
-1258
+1257
 01:14:24,740 --> 01:14:26,570
 It may be helpful to look at flip again,
 
-1259
+1258
 01:14:26,780 --> 01:14:30,710
 just to see what happens, actually flip what happens,
 
-1260
+1259
 01:14:31,070 --> 01:14:34,370
 we switch from the from space is full,
 
-1261
+1260
 01:14:34,550 --> 01:14:39,980
 we make basically mark the whole to space as not accessible to the application,
 
-1262
+1261
 01:14:40,460 --> 01:14:41,420
 and then we move to,
 
-1263
+1262
 01:14:41,420 --> 01:14:46,320
 collector moves actually the root head and the root last you know to the to space,
 
-1264
+1263
 01:14:46,320 --> 01:14:50,820
 that the application cannot access or at least not directly,
 
-1265
+1264
 01:14:50,820 --> 01:14:52,050
 and you know will result,
 
-1266
+1265
 01:14:52,050 --> 01:14:55,020
 whenever the application accesses root head, root last,
 
-1267
+1266
 01:14:55,140 --> 01:14:57,780
 it will actually result in a page fault,
 
-1268
+1267
 01:14:58,050 --> 01:15:00,210
 and then the collector can copy things over
 
-1269
+1268
 01:15:00,210 --> 01:15:01,650
 and then protect the one page.
 
-1270
+1269
 01:15:03,750 --> 01:15:04,530
 Does that make sense?
 
-1271
+1270
 01:15:17,240 --> 01:15:19,460
 Okay note in the handler correct,
 
-1272
+1271
 01:15:19,460 --> 01:15:21,890
 it's actually crucial that first the pages scanned,
 
-1273
+1272
 01:15:21,890 --> 01:15:26,390
 before you make you know the page accessible to the application,
 
-1274
+1273
 01:15:26,390 --> 01:15:33,470
 because if you were to make it accessible before you scan that,
 
-1275
+1274
 01:15:33,470 --> 01:15:35,900
 you know, and if there were multiple application threads,
 
-1276
+1275
 01:15:35,990 --> 01:15:41,390
 then those applications might be looking at objects on the in the unscanned area,
 
-1277
+1276
 01:15:41,510 --> 01:15:43,010
 of course that we need to forbid that,
 
-1278
+1277
 01:15:43,160 --> 01:15:45,770
 that's over this code basically for scans
 
-1279
+1278
 01:15:45,830 --> 01:15:49,230
 and then raises the protection level,
 
-1280
+1279
 01:15:49,230 --> 01:15:51,390
 so the application can access the pages.
 
-1281
+1280
 01:15:56,150 --> 01:16:01,730
 Any questions about the collector and tricks to use virtual memory?
 
-1282
+1281
 01:16:07,210 --> 01:16:07,990
 Okay.
 
-1283
+1282
 01:16:09,080 --> 01:16:11,510
 In that case I want to wrap up a couple points,
 
-1284
+1283
 01:16:11,510 --> 01:16:18,440
 I wanna make one point basically before wrapping up.
 
-1285
+1284
 01:16:22,430 --> 01:16:23,630
 You know, one question to ask,
 
-1286
+1285
 01:16:23,630 --> 01:16:25,370
 should you use the VM for this,
 
-1287
+1286
 01:16:30,760 --> 01:16:33,220
 it really is it does those tricks payoff
 
-1288
+1287
 01:16:33,370 --> 01:16:36,340
 and because many of the,
 
-1289
+1288
 01:16:36,370 --> 01:16:38,920
 for example garbage collectors and many garbage collectors out there,
 
-1290
+1289
 01:16:38,920 --> 01:16:42,040
 that actually don't use virtual memory at all,
 
-1291
+1290
 01:16:42,070 --> 01:16:43,750
 but use basic instrument,
 
-1292
+1291
 01:16:43,750 --> 01:16:44,890
 you know the compiler is actually
 
-1293
+1292
 01:16:44,890 --> 01:16:49,120
 very aware of the code generated an instrument you know the code correctly,
 
-1294
+1293
 01:16:49,540 --> 01:16:52,750
 and as all kinds of other tricks to reduce the performance overhead.
 
-1295
+1294
 01:16:53,450 --> 01:16:55,880
 So the observation is that in most cases,
 
-1296
+1295
 01:16:56,460 --> 01:16:57,750
 it can be,
 
-1297
+1296
 01:16:58,510 --> 01:17:02,020
 and most cases could have been implemented with extra instructions.
 
-1298
+1297
 01:17:14,240 --> 01:17:15,410
 And that is,
 
-1299
+1298
 01:17:16,550 --> 01:17:20,420
 you know if you were basically a compiler or runtime, or for a programming language,
 
-1300
+1299
 01:17:20,420 --> 01:17:22,280
 then maybe that's not so bad,
 
-1301
+1300
 01:17:22,910 --> 01:17:24,800
 because the compiler can do the implementation,
 
-1302
+1301
 01:17:25,160 --> 01:17:27,800
 but if you know there's not a runtime applications
 
-1303
+1302
 01:17:27,800 --> 01:17:30,770
 not compiler application or a programming language settings,
 
-1304
+1303
 01:17:30,980 --> 01:17:33,020
 then that might be painful.
 
-1305
+1304
 01:17:33,380 --> 01:17:36,290
 So it turns out that for some of these applications
 
-1306
+1305
 01:17:36,290 --> 01:17:38,570
 where there's no compiler involved at all,
 
-1307
+1306
 01:17:38,570 --> 01:17:40,190
 for example like check pointing
 
-1308
+1307
 01:17:40,890 --> 01:17:44,920
 or you know do shared virtual memory,
 
-1309
+1308
 01:17:45,190 --> 01:17:49,870
 those actually you know really needs these kind of primitives.
 
-1310
+1309
 01:17:50,350 --> 01:17:51,760
 And so in practice,
 
-1311
+1310
 01:17:51,760 --> 01:17:52,870
 you know it is the case that
 
-1312
+1311
 01:17:52,870 --> 01:17:55,900
 you know not application programmers I find these primitive worthwhile,
 
-1313
+1312
 01:17:55,900 --> 01:17:58,120
 but basically today's operating systems support them.
 
-1314
+1313
 01:18:05,610 --> 01:18:06,240
 Okay?
 
-1315
+1314
 01:18:08,880 --> 01:18:10,890
 Some people ask, a lot of people actually asking,
 
-1316
+1315
 01:18:10,890 --> 01:18:13,290
 what has changed since,
 
-1317
+1316
 01:18:16,510 --> 01:18:17,890
 what has changed since 91.
 
-1318
+1317
 01:18:22,110 --> 01:18:23,820
 You know, one thing that has changed,
 
-1319
+1318
 01:18:23,820 --> 01:18:26,490
 of course, like most Unix do support the primitives now,
 
-1320
+1319
 01:18:27,210 --> 01:18:29,910
 and in fact there are many changes since 91,
 
-1321
+1320
 01:18:29,910 --> 01:18:32,760
 yeah yeah, maybe hard to imagine,
 
-1322
+1321
 01:18:32,760 --> 01:18:36,150
 but basically there's a continuous development in the VM system,
 
-1323
+1322
 01:18:36,240 --> 01:18:40,710
 so if you look at like Linux you know git log,
 
-1324
+1323
 01:18:40,830 --> 01:18:45,540
 you'll see, you know there's a there's continued developing
 
-1325
+1324
 01:18:45,540 --> 01:18:46,920
 the all aspects of the kernel,
 
-1326
+1325
 01:18:47,040 --> 01:18:50,760
 and including a continuous development of the VM system.
 
-1327
+1326
 01:18:51,520 --> 01:18:54,070
 And you know some of the bigger changes,
 
-1328
+1327
 01:18:54,070 --> 01:18:57,430
 what are some big changes in the last you know whatever ten years,
 
-1329
+1328
 01:18:59,600 --> 01:19:03,350
 there there's you know there's now five level page table
 
-1330
+1329
 01:19:03,650 --> 01:19:09,380
 to deal with really large a bigger addresses,
 
-1331
+1330
 01:19:09,380 --> 01:19:17,530
 there's address space identifiers to deal with TLB the cost of TLB flushes.
 
-1332
+1331
 01:19:18,410 --> 01:19:20,420
 More recently a year ago or something like that
 
-1333
+1332
 01:19:20,420 --> 01:19:24,830
 something is called was introduced called KPTI kernel page table isolation,
 
-1334
+1333
 01:19:25,130 --> 01:19:30,410
 which you know is there because of the meltdown attacks
 
-1335
+1334
 01:19:30,410 --> 01:19:32,450
 and we'll talk about later in the semester.
 
-1336
+1335
 01:19:33,020 --> 01:19:39,200
 So, you know the virtual memory system is absolutely not a static system,
 
-1337
+1336
 01:19:39,200 --> 01:19:42,650
 almost after no aspect of any kernel kernel is static,
 
-1338
+1337
 01:19:42,740 --> 01:19:46,310
 there's a traumatic amount of changes almost every couple months,
 
-1339
+1338
 01:19:46,760 --> 01:19:48,320
 in different aspects of the kernel,
 
-1340
+1339
 01:19:49,010 --> 01:19:52,520
 and so in systems, once in a while actually completely rewritten,
 
-1341
+1340
 01:19:53,040 --> 01:19:55,710
 so it's always in flux.
 
-1342
+1341
 01:19:57,000 --> 01:19:58,560
 Okay, let me stop with that
 
-1343
+1342
 01:19:58,590 --> 01:20:00,900
 and you know anybody has more questions,
 
-1344
+1343
 01:20:00,900 --> 01:20:03,210
 you know please feel free to ask them
 
-1345
+1344
 01:20:03,210 --> 01:20:05,070
 or if you have to go, feel free to go.
 
-1346
+1345
 01:20:11,430 --> 01:20:14,970
 Could I ask about one of the first slides,
 
-1347
+1346
 01:20:15,000 --> 01:20:18,490
 where of, sorry, I'm trying to see it,
 
-1348
+1347
 01:20:18,700 --> 01:20:22,660
 it's VM implementation like two slides after this one.
 
-1349
+1348
 01:20:23,500 --> 01:20:26,110
 Yes, that one.
 
-1350
+1349
 01:20:26,530 --> 01:20:30,880
 What do you mean exactly by continuous range for addresses?
 
-1351
+1350
 01:20:31,060 --> 01:20:34,510
 Oh, yeah continuous range of virtual addresses,
 
-1352
+1351
 01:20:35,340 --> 01:20:40,380
 so you know the may you know VMA copies range 1000 to 2000,
 
-1353
+1352
 01:20:41,540 --> 01:20:46,130
 and if you had another address range like 2100 or something like that,
 
-1354
+1353
 01:20:46,130 --> 01:20:47,930
 that would be has its own VMA,
 
-1355
+1354
 01:20:51,460 --> 01:20:54,490
 so every VMA covers a continuous range of addresses,
 
-1356
+1355
 01:20:54,880 --> 01:20:56,110
 there are no holes in it.
 
-1357
+1356
 01:20:57,440 --> 01:20:58,040
 Okay.
 
-1358
+1357
 01:20:58,670 --> 01:20:59,750
 That makes it easier,
 
-1359
+1358
 01:20:59,750 --> 01:21:04,310
 as you will see in the, as you will see mmap lab,
 
-1360
+1359
 01:21:04,310 --> 01:21:06,110
 that will make it much easier to reason about things,
 
-1361
+1360
 01:21:09,040 --> 01:21:12,040
 addresses in the range of VMA has no hole in it.
 
-1362
+1361
 01:21:14,460 --> 01:21:17,100
 Okay, okay, so those are for,
 
-1363
+1362
 01:21:17,460 --> 01:21:24,830
 this particular use case, for mmap, right.
 
-1364
+1363
 01:21:26,560 --> 01:21:27,430
 Yeah.
 
-1365
+1364
 01:21:27,640 --> 01:21:28,540
-Okay,I see,thank you.
+Okay I see thank you.
 
-1366
+1365
 01:21:28,960 --> 01:21:31,300
 So basically you can think about it for every mmap call,
 
-1367
+1366
 01:21:31,300 --> 01:21:33,850
 there's one VMA, if mmaps don't overlap.
 
-1368
+1367
 01:21:35,910 --> 01:21:39,870
 Oh, okay, okay I think I think I understand, thank you.
 
-1369
+1368
 01:21:43,850 --> 01:21:50,060
 To ask, so for for the high,
 
-1370
+1369
 01:21:50,060 --> 01:21:52,970
 on the to and from like garbage collection,
 
-1371
+1370
 01:21:52,970 --> 01:21:55,970
 when do you stop and start again,
 
-1372
+1371
 01:21:56,030 --> 01:21:59,990
 like I guess collector runs can run all the time, if its concurrent.
 
-1373
+1372
 01:22:00,170 --> 01:22:03,290
 Yeah, that's one of the cool things about this VM solution,
 
-1374
+1373
 01:22:03,290 --> 01:22:04,760
 the collector can run all the time,
 
-1375
+1374
 01:22:05,420 --> 01:22:10,430
 and it can stop once basically it has there's no more unscanned objects.
 
-1376
+1375
 01:22:11,900 --> 01:22:14,360
 Okay, so you have, but you have to go through,
 
-1377
+1376
 01:22:14,390 --> 01:22:15,350
 that means you,
 
-1378
+1377
 01:22:16,320 --> 01:22:18,930
 so so you'll go through all of the stuff
 
-1379
+1378
 01:22:18,960 --> 01:22:21,240
 like all of the objects in the from section
 
-1380
+1379
 01:22:21,240 --> 01:22:24,750
 and all you're either gonna collect them or copy them over
 
-1381
+1380
 01:22:24,810 --> 01:22:26,370
 how do you know you've gone through all of them.
 
-1382
+1381
 01:22:27,340 --> 01:22:31,150
 You, at some point, you you trace the object up and down, correct,
 
-1383
+1382
 01:22:31,540 --> 01:22:34,660
 and at some point, you're not adding any objects anymore,
 
-1384
+1383
 01:22:34,660 --> 01:22:36,280
 because you already copied them in the past.
 
-1385
+1384
 01:22:36,920 --> 01:22:38,270
 Okay okay, that makes sense.
 
-1386
+1385
 01:22:38,270 --> 01:22:39,230
 You don't add any more,
 
-1387
+1386
 01:22:39,230 --> 01:22:41,540
 basically your unscanned area is not growing,
 
-1388
+1387
 01:22:41,540 --> 01:22:43,610
 so if your unscanned area is not growing anymore, you don't.
 
-1389
+1388
 01:22:44,640 --> 01:22:48,630
 Okay, okay, and then when you copy it over you unmap it,
 
-1390
+1389
 01:22:48,630 --> 01:22:53,910
 so if someone tries to access the old pointer is going to be invalid, right.
 
-1391
+1390
 01:22:54,150 --> 01:22:55,500
 Okay, that makes sense, thanks.
 
-1392
+1391
 01:22:55,860 --> 01:22:57,990
 Alright, I'll see you guys later.
 
-1393
+1392
 01:23:01,060 --> 01:23:02,140
 Thank you.
 
-1394
+1393
 01:23:02,470 --> 01:23:03,040
 You're welcome.
 
-1395
+1394
 01:23:12,120 --> 01:23:14,880
 Okay, I think that may be it for today.
 

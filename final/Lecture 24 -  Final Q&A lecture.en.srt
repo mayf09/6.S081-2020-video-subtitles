@@ -775,4722 +775,4718 @@ and a large part of the driver is you know dealing with that coordination.
 There's also the software software coordination,
 
 195
-00:11:28,540 --> 00:11:30,700
-the driver multiple threads,
+00:11:28,540 --> 00:11:31,780
+the driver multiple threads, or multiple kernel threads
 
 196
-00:11:30,700 --> 00:11:31,780
-or multiple kernel threads
-
-197
 00:11:31,780 --> 00:11:36,100
 might be ending around handler run inside of the driver,
 
-198
+197
 00:11:36,100 --> 00:11:37,060
 and we've got to make sure that,
 
-199
+198
 00:11:37,060 --> 00:11:41,470
 they don't step on each other's toes, nothing else happens,
 
-200
+199
 00:11:41,470 --> 00:11:46,430
 and this comes a lot to like you know locking topic.
 
-201
+200
 00:11:47,160 --> 00:11:49,140
 Even the, even this driver,
 
-202
+201
 00:11:49,140 --> 00:11:54,990
 thinks a reasonable straightforward, in terms of the concurrency for software concurrency,
 
-203
+202
 00:11:55,020 --> 00:11:58,440
 but nevertheless you know something that requires attention and a little bit of thinking.
 
-204
+203
 00:11:59,260 --> 00:12:04,330
 And finally I guess that was probably on the top of your list or many of your list,
 
-205
+204
 00:12:04,330 --> 00:12:07,450
 just debugging this is a little bit hard,
 
-206
+205
 00:12:08,070 --> 00:12:10,740
 a little bit something more challenging of pure software debugging,
 
-207
+206
 00:12:10,740 --> 00:12:14,490
 because you can't set breakpoints inside of the network card,
 
-208
+207
 00:12:14,550 --> 00:12:17,340
 you know you're in program the registers,
 
-209
+208
 00:12:17,340 --> 00:12:20,490
 and then this would give the card a kick and say like please do your work,
 
-210
+209
 00:12:20,970 --> 00:12:22,710
 and then if the card doesn't do anything
 
-211
+210
 00:12:22,710 --> 00:12:24,990
 or you don't see your packet coming out on the other side,
 
-212
+211
 00:12:24,990 --> 00:12:29,720
 you know in the log of the packet rates,
 
-213
+212
 00:12:30,050 --> 00:12:32,750
 then you basically have to scratch your head
 
-214
+213
 00:12:32,750 --> 00:12:36,110
 and start thinking about what you might have gone wrong
 
-215
+214
 00:12:36,110 --> 00:12:39,350
 or what you might have missed in the hardware specification,
 
-216
+215
 00:12:40,220 --> 00:12:42,530
 and you have to circle back and forth,
 
-217
+216
 00:12:42,530 --> 00:12:44,630
 and there's no sort of easy way,
 
-218
+217
 00:12:44,630 --> 00:12:49,870
 you just cannot single step you know through the network card.
 
-219
+218
 00:12:52,550 --> 00:12:54,290
 Does that make sense in terms of challenges,
 
-220
+219
 00:12:54,290 --> 00:12:56,840
 you know there's that line up with your own experience
 
-221
+220
 00:12:56,840 --> 00:12:58,670
 or I missing some of the,
 
-222
+221
 00:12:59,410 --> 00:13:01,930
 missing one of the core challenges that you dealt with.
 
-223
+222
 00:13:18,330 --> 00:13:20,490
 Okay, well, yeah.
 
-224
+223
 00:13:21,390 --> 00:13:22,350
 Let's talk to the,
 
-225
+224
 00:13:22,350 --> 00:13:24,360
 let's start with the hardware side of things,
 
-226
+225
 00:13:24,450 --> 00:13:27,870
 and the reason I want to start there,
 
-227
+226
 00:13:27,870 --> 00:13:31,380
 because you know, it's so easy to keep or lose track of the fact,
 
-228
+227
 00:13:31,380 --> 00:13:33,000
 that you're actually dealing with hardware here,
 
-229
+228
 00:13:33,360 --> 00:13:38,820
 you know even through you know sort of virtualized where it is emulated by QEMU,
 
-230
+229
 00:13:38,820 --> 00:13:42,810
 and you're just running it on your, on Athena or your laptop,
 
-231
+230
 00:13:42,960 --> 00:13:46,410
 the actual thing that's implemented by QEMU is hardware.
 
-232
+231
 00:13:46,590 --> 00:13:48,000
 So it's usually gonna remind you again,
 
-233
+232
 00:13:48,240 --> 00:13:50,880
 you've seen this picture before,
 
-234
+233
 00:13:50,880 --> 00:13:52,680
 you know the way to think about it is that,
 
-235
+234
 00:13:52,680 --> 00:13:59,100
 you know QEMU emulate a complete board of devices and processor.
 
-236
+235
 00:13:59,750 --> 00:14:01,700
 And.
 
-237
+236
 00:14:04,220 --> 00:14:07,520
 And so we all know, I'm talk a little bit before about,
 
-238
+237
 00:14:07,520 --> 00:14:13,700
 the processor actually these are like almost like a small piece of the whole board,
 
-239
+238
 00:14:13,700 --> 00:14:15,440
 you know the thing that sits under the fan here,
 
-240
+239
 00:14:15,680 --> 00:14:19,010
 but then there's a range of devices,
 
-241
+240
 00:14:19,010 --> 00:14:22,310
 you know that are connected or can be connected to this board,
 
-242
+241
 00:14:22,640 --> 00:14:26,840
 and then interact you know with the code running on the processor,
 
-243
+242
 00:14:26,840 --> 00:14:29,210
 you know here use this particular lab,
 
-244
+243
 00:14:29,210 --> 00:14:30,740
 what is really interesting sort of,
 
-245
+244
 00:14:31,280 --> 00:14:32,930
 it is actually Ethernet jack,
 
-246
+245
 00:14:33,050 --> 00:14:34,970
 where you can plug Ethernet cable,
 
-247
+246
 00:14:34,970 --> 00:14:38,660
 and then the other is actually the thing that the network card you know sends its package over.
 
-248
+247
 00:14:40,440 --> 00:14:44,250
 You know, QEMU doesn't emulate exactly this board,
 
-249
+248
 00:14:44,520 --> 00:14:45,690
 so things like are slightly differently,
 
-250
+249
 00:14:45,690 --> 00:14:47,850
 but again you know at least conceptually,
 
-251
+250
 00:14:47,850 --> 00:14:50,700
 this is like the picture, you should have in your in your head, right,
 
-252
+251
 00:14:50,700 --> 00:14:54,210
 and so when there's a process writing registers,
 
-253
+252
 00:14:54,210 --> 00:14:57,540
 you know of the device driver that costs some stuff to happen,
 
-254
+253
 00:14:57,540 --> 00:15:00,000
 that actually in the end some packages comes out of this cable,
 
-255
+254
 00:15:00,240 --> 00:15:03,370
 that's connected to Ethernet connector.
 
-256
+255
 00:15:05,840 --> 00:15:08,600
 You know in a slightly more,
 
-257
+256
 00:15:08,690 --> 00:15:16,940
 you know in a slightly more in a schematic diagram,
 
-258
+257
 00:15:16,940 --> 00:15:19,430
 you know this is the same picture basically in here,
 
-259
+258
 00:15:19,430 --> 00:15:21,440
 you know we're seeing here is our processor,
 
-260
+259
 00:15:21,920 --> 00:15:24,230
 board that has four cores on it,
 
-261
+260
 00:15:24,440 --> 00:15:26,960
 it has l1 and l2 cache,
 
-262
+261
 00:15:26,960 --> 00:15:29,420
 and then there's like a link you know go to memory,
 
-263
+262
 00:15:29,570 --> 00:15:32,690
 so here's a memory, and the RAM random access memory,
 
-264
+263
 00:15:32,690 --> 00:15:34,250
 and as we'll see in a second,
 
-265
+264
 00:15:34,250 --> 00:15:36,110
 you know that play is actually big role.
 
-266
+265
 00:15:36,520 --> 00:15:39,370
 And here like intersection to link you know to the,
 
-267
+266
 00:15:39,730 --> 00:15:43,000
 for here actually it's linked to the gigabit Ethernet controller,
 
-268
+267
 00:15:44,350 --> 00:15:47,550
 you know, just a little bit messy,
 
-269
+268
 00:15:47,550 --> 00:15:51,870
 you know sort of think about the this level of detail what exactly is going on.
 
-270
+269
 00:15:51,930 --> 00:15:53,160
 And so for the rest of lecture,
 
-271
+270
 00:15:53,160 --> 00:15:56,040
 here a little bit more simpler picture,
 
-272
+271
 00:15:58,240 --> 00:16:01,450
 and the picture guys really you should you're in your head
 
-273
+272
 00:16:01,780 --> 00:16:06,340
 and you probably developed while doing lab is as follows.
 
-274
+273
 00:16:07,780 --> 00:16:14,290
 Basically have are basically four processors or cores,
 
-275
+274
 00:16:15,470 --> 00:16:16,880
 here's are RISC-V,
 
-276
+275
 00:16:19,120 --> 00:16:22,450
 and then there's RISC-V of cores
 
-277
+276
 00:16:22,450 --> 00:16:26,020
 and execute instructions you know you're writing,
 
-278
+277
 00:16:26,170 --> 00:16:27,580
 and you can just think about them,
 
-279
+278
 00:16:27,580 --> 00:16:29,560
 they're sort of all connected to your bus,
 
-280
+279
 00:16:29,560 --> 00:16:31,840
 and then there's a little bit of simplification,
 
-281
+280
 00:16:31,840 --> 00:16:34,360
 but like it makes it easier to explain things.
 
-282
+281
 00:16:34,780 --> 00:16:37,870
 And so on the bus, you know there's the random access memory,
 
-283
+282
 00:16:40,030 --> 00:16:43,960
 where all the data you know the kernel actually uses store,
 
-284
+283
 00:16:43,960 --> 00:16:45,670
 the kernel [] that itself stores,
 
-285
+284
 00:16:45,670 --> 00:16:48,610
 you know look at there's a great amount of detail in the beginning of the semester.
 
-286
+285
 00:16:49,000 --> 00:16:50,860
 And then this you know for this particular lab,
 
-287
+286
 00:16:50,860 --> 00:16:52,960
 the thing that's interesting is that on the bus,
 
-288
+287
 00:16:53,570 --> 00:16:59,360
 is actually the network card you know E1000, that E1000.
 
-289
+288
 00:17:01,910 --> 00:17:06,680
 And you know the RAM is generally more connected to the RISC-V processor
 
-290
+289
 00:17:06,680 --> 00:17:08,150
 directly with some private bus,
 
-291
+290
 00:17:08,330 --> 00:17:13,250
 and network devices tend to be on a slower type of bus,
 
-292
+291
 00:17:13,460 --> 00:17:15,530
 in particular bus that in the lab,
 
-293
+292
 00:17:15,530 --> 00:17:19,010
 you know there's a PCIe PCIe bus,
 
-294
+293
 00:17:19,010 --> 00:17:24,090
 that actually connects the processor part you know with the network part.
 
-295
+294
 00:17:27,260 --> 00:17:29,870
 You know to get the network to do something,
 
-296
+295
 00:17:29,990 --> 00:17:33,710
 the network card has controller inside of it,
 
-297
+296
 00:17:33,710 --> 00:17:35,960
 and you know these controller has registers,
 
-298
+297
 00:17:37,690 --> 00:17:38,890
 and you can,
 
-299
+298
 00:17:39,460 --> 00:17:42,250
 one of the cool aspects of you know these registers,
 
-300
+299
 00:17:42,250 --> 00:17:46,180
 they are called memory mapped IO registers,
 
-301
+300
 00:17:46,390 --> 00:17:47,890
 and so you could just write them
 
-302
+301
 00:17:47,890 --> 00:17:52,870
 with whatever a star you know, 0x and whatever the value is
 
-303
+302
 00:17:52,870 --> 00:17:55,180
 you know for in the physical memory space,
 
-304
+303
 00:17:55,330 --> 00:17:57,310
 what the value is for that particular register,
 
-305
+304
 00:17:57,760 --> 00:18:01,290
 you know, like we might have our head, our tail registers.
 
-306
+305
 00:18:02,260 --> 00:18:05,740
 And you know we can, the driver can write those
 
-307
+306
 00:18:05,740 --> 00:18:08,410
 by executing load or store instruction
 
-308
+307
 00:18:08,710 --> 00:18:13,450
 you know to the address you know of corresponds you know in the physical address space
 
-309
+308
 00:18:13,570 --> 00:18:15,220
 to the location of that register.
 
-310
+309
 00:18:15,770 --> 00:18:18,620
 And the hardware will ensure when we do load or store,
 
-311
+310
 00:18:18,710 --> 00:18:21,950
 you know that that store will either go you know go to the,
 
-312
+311
 00:18:22,660 --> 00:18:25,900
 if it is one of the control register, will go to the control registers,
 
-313
+312
 00:18:25,900 --> 00:18:29,470
 if the go one address is in RAM, will go to the RAM.
 
-314
+313
 00:18:31,270 --> 00:18:35,050
 So you can just manipulate the program network card
 
-315
+314
 00:18:35,050 --> 00:18:38,590
 by loading, reading and writing these control registers,
 
-316
+315
 00:18:38,590 --> 00:18:42,310
 and basically bits in these control registers have special meaning as you have seen.
 
-317
+316
 00:18:43,570 --> 00:18:46,490
 Now, for this particular card
 
-318
+317
 00:18:46,490 --> 00:18:49,790
 you know network needs to send packets across the network,
 
-319
+318
 00:18:49,940 --> 00:18:52,070
 and you know it needs to get the packet somewhere.
 
-320
+319
 00:18:53,010 --> 00:18:55,770
 And so, the packets actually live,
 
-321
+320
 00:18:55,800 --> 00:18:58,320
 you know are allocated as we'll see in a second
 
-322
+321
 00:18:58,320 --> 00:18:59,820
 you know just live somewhere in memory,
 
-323
+322
 00:19:01,930 --> 00:19:04,840
 and and what we do is,
 
-324
+323
 00:19:05,110 --> 00:19:06,910
 in fact, in addition to these packets,
 
-325
+324
 00:19:06,910 --> 00:19:09,910
 you know there's sort of two ring structures that also live in memory.
 
-326
+325
 00:19:14,420 --> 00:19:20,710
 And, and we can you know program,
 
-327
+326
 00:19:20,800 --> 00:19:22,960
 and we can tell the card,
 
-328
+327
 00:19:22,960 --> 00:19:25,540
 you know the card also knows where these ring structures are,
 
-329
+328
 00:19:26,230 --> 00:19:28,900
 you know it has address where to you know tx ring is,
 
-330
+329
 00:19:28,900 --> 00:19:32,400
 you know it has an address where to rx ring is,
 
-331
+330
 00:19:32,850 --> 00:19:37,530
 and you know the hardware card looks at those addresses
 
-332
+331
 00:19:37,530 --> 00:19:39,720
 to actually see which packets need to be sent,
 
-333
+332
 00:19:39,840 --> 00:19:43,710
 so here we might have a queue of packets that need to be transmitted
 
-334
+333
 00:19:43,710 --> 00:19:45,690
 or a queue packets that need to be received.
 
-335
+334
 00:19:48,910 --> 00:19:55,610
 And, you know the E1000 you know DMAs,
 
-336
+335
 00:19:55,610 --> 00:20:01,130
 you know for example like you know they're going to work on the first packet to sent,
 
-337
+336
 00:20:01,130 --> 00:20:06,290
 it will DMA basically you know those packets data associated with the the packets,
 
-338
+337
 00:20:06,440 --> 00:20:09,260
 you know straight from RAM to the network,
 
-339
+338
 00:20:09,980 --> 00:20:12,350
 without actually having the processor involved at all,
 
-340
+339
 00:20:13,400 --> 00:20:15,110
 what is called DMA, direct memory access.
 
-341
+340
 00:20:19,130 --> 00:20:19,910
 Okay?
 
-342
+341
 00:20:21,890 --> 00:20:25,220
 Does this makes sense in terms of a more abstract picture
 
-343
+342
 00:20:25,250 --> 00:20:32,120
 for the organization of the RISC-V RAM and E1000.
 
-344
+343
 00:20:33,070 --> 00:20:34,330
 Any questions about this?
 
-345
+344
 00:20:41,500 --> 00:20:45,490
 So, one thing in talking about hardware, software concurrency,
 
-346
+345
 00:20:45,550 --> 00:20:49,690
 clearly you know the E1000 and you know the processor
 
-347
+346
 00:20:49,690 --> 00:20:56,560
 are both manipulating these transmission and reception queues or rings.
 
-348
+347
 00:20:57,030 --> 00:20:58,650
 And so, there has to be some protocol
 
-349
+348
 00:20:58,860 --> 00:21:01,170
 sort of given taken give and take protocol,
 
-350
+349
 00:21:01,230 --> 00:21:02,910
 where you know at some point,
 
-351
+350
 00:21:03,030 --> 00:21:08,790
 particular parts of the ring are operated, are owned or operated by the network card,
 
-352
+351
 00:21:08,790 --> 00:21:12,840
 and there are parts that are maybe under control of the software or the OS kernel.
 
-353
+352
 00:21:13,500 --> 00:21:15,750
 And you'll see in a second how that is arranged,
 
-354
+353
 00:21:15,960 --> 00:21:17,910
 but you know we got a little bit careful,
 
-355
+354
 00:21:17,910 --> 00:21:23,220
 again, that the card doesn't trip over or trip over the operating system
 
-356
+355
 00:21:23,220 --> 00:21:24,090
 or the other way around.
 
-357
+356
 00:21:28,540 --> 00:21:29,350
 A quick question,
 
-358
+357
 00:21:29,380 --> 00:21:35,140
 so is there a separate transmit ring and and receive ring in the RAM
 
-359
+358
 00:21:35,140 --> 00:21:40,270
 and then, also in the E1000 or E1000 driver.
 
-360
+359
 00:21:40,570 --> 00:21:41,710
 Yeah, well, the one way,
 
-361
+360
 00:21:41,710 --> 00:21:43,330
 okay, so there's two things going on,
 
-362
+361
 00:21:43,330 --> 00:21:44,920
 and we look at the code in a second,
 
-363
+362
 00:21:45,100 --> 00:21:51,190
 the the the transmission ring and receive ring basically lived in RAM,
 
-364
+363
 00:21:51,740 --> 00:21:58,730
 and both the E1000 and the RISC-V manipulates the ring that actually stored in RAM,
 
-365
+364
 00:22:01,140 --> 00:22:04,950
 and those are the rings that you saw in the hardware documentation.
 
-366
+365
 00:22:05,520 --> 00:22:06,720
 It happens to be the case,
 
-367
+366
 00:22:06,720 --> 00:22:12,780
 that xv6 also has a driver maintains a sort of a ring of mbufs,
 
-368
+367
 00:22:13,110 --> 00:22:16,770
 separately of the transmit ring and rx ring,
 
-369
+368
 00:22:16,830 --> 00:22:18,840
 like there's something like tx mbufs.
 
-370
+369
 00:22:21,460 --> 00:22:23,500
 And that's you know that is the data structure
 
-371
+370
 00:22:23,500 --> 00:22:25,420
 only the operating system really knows about,
 
-372
+371
 00:22:25,840 --> 00:22:28,150
 the network card doesn't really know about it,
 
-373
+372
 00:22:28,150 --> 00:22:33,760
 and network card only knows about the the tx ring and rx ring,
 
-374
+373
 00:22:33,850 --> 00:22:37,600
 because those are the values that were programmed into the registers,
 
-375
+374
 00:22:37,720 --> 00:22:39,490
 saying like here's where you can find,
 
-376
+375
 00:22:39,490 --> 00:22:41,470
 here's the address where you can find the transmit ring,
 
-377
+376
 00:22:41,530 --> 00:22:43,270
 here's the address where you can find the receive ring.
 
-378
+377
 00:22:44,520 --> 00:22:45,450
 Okay, that makes sense.
 
-379
+378
 00:22:45,660 --> 00:22:46,260
 That makes sense?
 
-380
+379
 00:22:49,840 --> 00:22:52,000
 Okay, so that's sort of the hardware picture,
 
-381
+380
 00:22:52,120 --> 00:22:55,750
 in a more schematic version.
 
-382
+381
 00:22:55,930 --> 00:22:58,180
 Let's talk a little bit about the software structure,
 
-383
+382
 00:22:59,520 --> 00:23:02,760
 there's a big confusing actually in this in this lab.
 
-384
+383
 00:23:05,870 --> 00:23:07,010
-So,software structure.
+So software structure.
 
-385
+384
 00:23:12,050 --> 00:23:14,990
 So, let's just draw you know the thing,
 
-386
+385
 00:23:14,990 --> 00:23:17,330
 that we most care about of course you know the driver,
 
-387
+386
 00:23:17,360 --> 00:23:21,970
 so here's our driver, the e1000 driver.
 
-388
+387
 00:23:26,150 --> 00:23:28,790
 And it basically has only two functions,
 
-389
+388
 00:23:29,000 --> 00:23:37,600
 it has a transmit function and it has a receive function.
 
-390
+389
 00:23:40,810 --> 00:23:44,530
 And the receive function runs in response to interrupts,
 
-391
+390
 00:23:46,300 --> 00:23:47,560
 so an interrupt happens,
 
-392
+391
 00:23:48,550 --> 00:23:53,860
 then you know xv6 you will use the usual interrupt mechanism,
 
-393
+392
 00:23:53,860 --> 00:23:55,150
 you know a trap happen,
 
-394
+393
 00:23:55,540 --> 00:23:58,540
 trap look you know to see if there's an interrupt from the network card,
 
-395
+394
 00:23:58,540 --> 00:23:59,470
 if there's an interrupt,
 
-396
+395
 00:23:59,470 --> 00:24:01,240
 the network card will call the receive function.
 
-397
+396
 00:24:02,600 --> 00:24:03,860
 And as you remember,
 
-398
+397
 00:24:03,860 --> 00:24:07,490
 we used to have one of the previous lectures about device drivers,
 
-399
+398
 00:24:07,580 --> 00:24:11,270
 you know it's often helpful to think of the device drivers were split in two parts,
 
-400
+399
 00:24:11,760 --> 00:24:16,530
 you know the bottom half which runs in the context of of interrupt handler,
 
-401
+400
 00:24:18,160 --> 00:24:20,320
 typically [name] for those in the top half,
 
-402
+401
 00:24:22,880 --> 00:24:29,360
 which generally runs in the context of you know kernel process or like a user level process,
 
-403
+402
 00:24:29,360 --> 00:24:32,750
 so for example if you think about things that sit on top of here,
 
-404
+403
 00:24:32,930 --> 00:24:36,110
 there's the network stack code,
 
-405
+404
 00:24:36,110 --> 00:24:40,910
 that actually implements you know IP UDP and etc, sit above this.
 
-406
+405
 00:24:41,430 --> 00:24:42,930
 And then you know there is,
 
-407
+406
 00:24:43,500 --> 00:24:46,110
 you know, our usual you know sort of line,
 
-408
+407
 00:24:47,160 --> 00:24:50,220
 you know kernel space below, user space up,
 
-409
+408
 00:24:50,220 --> 00:24:53,250
 and you know this is [] OS view of the world,
 
-410
+409
 00:24:53,250 --> 00:24:56,820
 where user space not particularly that big or important,
 
-411
+410
 00:24:57,090 --> 00:25:02,580
 and you know for example are whatever nettest in the user level program
 
-412
+411
 00:25:03,090 --> 00:25:06,360
 runs in user space and it makes system calls,
 
-413
+412
 00:25:06,780 --> 00:25:10,650
 system calls go to the network stack,
 
-414
+413
 00:25:11,010 --> 00:25:19,120
 for example like if you knew calls the write system call with a file descriptor,
 
-415
+414
 00:25:19,420 --> 00:25:22,630
 the kernel knows you know for that file descriptor, if you do write,
 
-416
+415
 00:25:22,630 --> 00:25:25,360
 then you know the write should go to the network stack,
 
-417
+416
 00:25:25,540 --> 00:25:27,520
 the network stack builds up the packets,
 
-418
+417
 00:25:27,700 --> 00:25:29,260
 and then it calls transmit.
 
-419
+418
 00:25:30,830 --> 00:25:35,090
 And then transmit whatever manipulates the transmission queue,
 
-420
+419
 00:25:35,090 --> 00:25:36,530
 that the tx queue or ring,
 
-421
+420
 00:25:36,710 --> 00:25:39,980
 and you know that actually gets packets you know of network,
 
-422
+421
 00:25:40,010 --> 00:25:42,590
 at some point a response might go back come back,
 
-423
+422
 00:25:42,590 --> 00:25:44,120
 you know that will generate an interrupt,
 
-424
+423
 00:25:44,270 --> 00:25:45,890
 and then the recv function will run
 
-425
+424
 00:25:45,890 --> 00:25:50,090
 and inspect you know the receive ring, right.
 
-426
+425
 00:25:50,760 --> 00:25:53,010
 So there's a couple things that you know wanna,
 
-427
+426
 00:25:53,560 --> 00:25:57,460
 I want to point out you know in terms of concurrency.
 
-428
+427
 00:25:58,060 --> 00:26:00,670
 And so, first of all, like the interrupt handler,
 
-429
+428
 00:26:00,670 --> 00:26:03,520
 basically can run at any instant in time, right,
 
-430
+429
 00:26:03,520 --> 00:26:05,380
 you know you might be user space,
 
-431
+430
 00:26:05,380 --> 00:26:06,490
 and if interrupt comes in
 
-432
+431
 00:26:06,520 --> 00:26:09,190
 you know the interrupt mechanism will cause
 
-433
+432
 00:26:09,190 --> 00:26:12,790
 you know the current user program to switch to the kernel mode,
 
-434
+433
 00:26:12,790 --> 00:26:15,220
 you know the trap functionality of code,
 
-435
+434
 00:26:15,220 --> 00:26:16,330
 we've seen before it runs,
 
-436
+435
 00:26:16,330 --> 00:26:17,770
 and it will all received.
 
-437
+436
 00:26:17,770 --> 00:26:20,230
 So we might be in the middle of some user process,
 
-438
+437
 00:26:20,230 --> 00:26:21,640
 in boom, we get an interrupt
 
-439
+438
 00:26:21,640 --> 00:26:23,080
 and suddenly we're in the recv function.
 
-440
+439
 00:26:23,900 --> 00:26:24,890
 And even in the kernel,
 
-441
+440
 00:26:24,890 --> 00:26:26,630
 like if we're not holding locks,
 
-442
+441
 00:26:26,630 --> 00:26:28,070
 you know locks turn interrupts off,
 
-443
+442
 00:26:28,070 --> 00:26:29,330
 but we're not holding locks,
 
-444
+443
 00:26:29,330 --> 00:26:30,620
 we could get an interrupt,
 
-445
+444
 00:26:30,620 --> 00:26:36,770
 and the kernel may change the program counter basically to the interrupt handler
 
-446
+445
 00:26:36,770 --> 00:26:38,750
 and run the recv function.
 
-447
+446
 00:26:39,560 --> 00:26:42,530
 So this code sort of runs you know the things that in the bottom half,
 
-448
+447
 00:26:42,530 --> 00:26:45,200
 you know can basically run instantly almost anytime.
 
-449
+448
 00:26:45,950 --> 00:26:48,560
 In the code, in the top half,
 
-450
+449
 00:26:48,650 --> 00:26:53,300
 it really operates on behalf of a user level processes or kernel threads,
 
-451
+450
 00:26:53,300 --> 00:26:57,510
 that actually make calls into the top half.
 
-452
+451
 00:26:58,080 --> 00:26:59,760
 You know easily could have been the case,
 
-453
+452
 00:27:00,060 --> 00:27:02,160
 in fact this is the case even in nettest,
 
-454
+453
 00:27:02,160 --> 00:27:07,170
 we might actually have nettest for a whole bunch of processes,
 
-455
+454
 00:27:07,470 --> 00:27:10,200
 that we have actually many instances, one of the tests,
 
-456
+455
 00:27:10,230 --> 00:27:12,210
 we have many instances of nettest running,
 
-457
+456
 00:27:14,700 --> 00:27:17,190
 and they all jump into the network stack,
 
-458
+457
 00:27:17,190 --> 00:27:20,370
 and they all you know then called transmit, right.
 
-459
+458
 00:27:20,820 --> 00:27:21,900
 So that is the case,
 
-460
+459
 00:27:21,900 --> 00:27:24,240
 so we're looking at this from the perspective concurrency,
 
-461
+460
 00:27:24,420 --> 00:27:28,020
 multiple senders can be actually in the context,
 
-462
+461
 00:27:28,020 --> 00:27:29,280
 it can be in the top half,
 
-463
+462
 00:27:29,310 --> 00:27:30,510
 and so it's pretty clear,
 
-464
+463
 00:27:30,510 --> 00:27:34,260
 you know we need some locking scheme or discipline
 
-465
+464
 00:27:34,260 --> 00:27:38,640
 to at least make sure that different senders don't trip over each other.
 
-466
+465
 00:27:40,380 --> 00:27:41,910
 Then on the bottom half,
 
-467
+466
 00:27:42,480 --> 00:27:44,970
 there's only one interrupt handler, correct,
 
-468
+467
 00:27:45,060 --> 00:27:48,360
 there's never in the case that the receive is going to be called by multiple,
 
-469
+468
 00:27:48,570 --> 00:27:52,710
 there's multiple receivers running at the same time in parallel on different cores,
 
-470
+469
 00:27:52,710 --> 00:27:57,000
 you know the the interrupt handler when an interrupt happens,
 
-471
+470
 00:27:57,270 --> 00:27:59,130
 the process is alert it,
 
-472
+471
 00:27:59,560 --> 00:28:02,260
 and if future interrupts happen,
 
-473
+472
 00:28:02,260 --> 00:28:06,610
 they're actually blocked until the current interrupt actually dealt with,
 
-474
+473
 00:28:06,820 --> 00:28:11,670
 and so in fact, when the recv function runs,
 
-475
+474
 00:28:11,910 --> 00:28:15,450
 there's actually only one interrupt handler running,
 
-476
+475
 00:28:15,450 --> 00:28:18,030
 at the time that calls for recv.
 
-477
+476
 00:28:18,760 --> 00:28:24,360
 And so there's no real immediately concurrency in recv itself,
 
-478
+477
 00:28:24,360 --> 00:28:31,200
 although of course the transmit you know threads can run concurrently with the interrupt handler,
 
-479
+478
 00:28:31,200 --> 00:28:34,110
 for example, we might have one core running an interrupt handler,
 
-480
+479
 00:28:34,320 --> 00:28:37,950
 may have another core actually is about to transmit.
 
-481
+480
 00:28:39,860 --> 00:28:43,530
 This, any questions about this?
 
-482
+481
 00:28:45,870 --> 00:28:50,540
 It's sort of important to have, to understand.
 
-483
+482
 00:28:51,310 --> 00:28:53,350
 It's a bit of review but it's important too.
 
-484
+483
 00:29:00,400 --> 00:29:01,000
 Okay, so.
 
-485
+484
 00:29:01,030 --> 00:29:03,700
 I guess, I have a general question,
 
-486
+485
 00:29:03,790 --> 00:29:05,020
 how do we know,
 
-487
+486
 00:29:05,740 --> 00:29:09,760
 what is supposed to be classified as a bottom half and the top half?
 
-488
+487
 00:29:10,430 --> 00:29:13,250
 So, yeah, I think the way to think about it is that,
 
-489
+488
 00:29:13,250 --> 00:29:15,410
 anything that runs in the context of an interrupt handler,
 
-490
+489
 00:29:15,440 --> 00:29:16,280
 that's the bottom half,
 
-491
+490
 00:29:17,330 --> 00:29:19,370
 and in this case is basically just receive.
 
-492
+491
 00:29:20,700 --> 00:29:26,410
 And anything that runs in the context of regular process or thread kernel thread,
 
-493
+492
 00:29:26,440 --> 00:29:27,880
 you know that's the top half.
 
-494
+493
 00:29:32,200 --> 00:29:37,720
 Okay, so if you look at this picture a little bit more,
 
-495
+494
 00:29:38,080 --> 00:29:38,860
 since where,
 
-496
+495
 00:29:39,010 --> 00:29:41,770
 actually let me have a high level statement here,
 
-497
+496
 00:29:41,920 --> 00:29:45,280
 a lot of people ask you know why no locking receive,
 
-498
+497
 00:29:46,320 --> 00:29:49,620
 and where is lock needed.
 
-499
+498
 00:29:49,950 --> 00:29:53,070
 And so the first glance,
 
-500
+499
 00:29:53,680 --> 00:29:56,200
 it might not be necessary to lock if necessary, correct,
 
-501
+500
 00:29:56,200 --> 00:29:59,710
 because there's only one instance of receive running,
 
-502
+501
 00:29:59,740 --> 00:30:02,620
 so there's not multiple instances of receive running at the same time,
 
-503
+502
 00:30:02,770 --> 00:30:03,940
 and so these receives,
 
-504
+503
 00:30:03,970 --> 00:30:05,170
 since there's only one receive,
 
-505
+504
 00:30:05,200 --> 00:30:07,450
 it doesn't share data structures with any other receive,
 
-506
+505
 00:30:07,450 --> 00:30:08,860
 because there's only one of them, right.
 
-507
+506
 00:30:09,380 --> 00:30:10,850
 Now, of course it could be the case,
 
-508
+507
 00:30:10,850 --> 00:30:13,640
 that the receiver and the transmitter shared data structures,
 
-509
+508
 00:30:13,670 --> 00:30:16,340
 but as we see in a second that actually is not the case,
 
-510
+509
 00:30:16,860 --> 00:30:20,730
 basically the transmission part of the driver is completely separate from
 
-511
+510
 00:30:20,730 --> 00:30:24,900
 the reception part of the driver, receiving packets.
 
-512
+511
 00:30:25,380 --> 00:30:29,400
 And so as a result, receive doesn't really, doesn't need actually locks,
 
-513
+512
 00:30:29,430 --> 00:30:32,700
 you know it's really not sharing data structures with any other concurrent activity.
 
-514
+513
 00:30:34,400 --> 00:30:37,910
 Weird part is that you know some of you found out,
 
-515
+514
 00:30:37,910 --> 00:30:41,380
 if you do use a lock, you actually get a panic.
 
-516
+515
 00:30:42,100 --> 00:30:44,470
 And so let me say a little bit about that,
 
-517
+516
 00:30:44,470 --> 00:30:47,830
 because the reason that panic happens is,
 
-518
+517
 00:30:47,830 --> 00:30:48,790
 a little bit because there's,
 
-519
+518
 00:30:48,790 --> 00:30:54,610
 this the software structure actually in in xv6 kernel slightly,
 
-520
+519
 00:30:56,740 --> 00:30:58,750
 slightly more complicated than you might think,
 
-521
+520
 00:30:58,960 --> 00:31:00,760
 and the reason is that
 
-522
+521
 00:31:00,760 --> 00:31:04,630
 basically the receive interrupt handler just quite a bit of work,
 
-523
+522
 00:31:05,140 --> 00:31:06,790
 or can do quite a bit of work,
 
-524
+523
 00:31:07,090 --> 00:31:08,470
 so let me talk a little bit about it.
 
-525
+524
 00:31:09,430 --> 00:31:12,700
 In the particular case that actually does quite a bit of work,
 
-526
+525
 00:31:12,700 --> 00:31:16,550
 for example ARP requests,
 
-527
+526
 00:31:20,180 --> 00:31:23,690
 ARP is one of those packet types that Robert talked about a little while ago,
 
-528
+527
 00:31:23,990 --> 00:31:26,720
 but basically what happens like an interrupt comes in,
 
-529
+528
 00:31:27,570 --> 00:31:35,700
 so an ARP request for discovery the ethernet addresses where an IP address you know comes in,
 
-530
+529
 00:31:35,700 --> 00:31:39,620
 you know that will call you know eth1000_recv,
 
-531
+530
 00:31:43,400 --> 00:31:46,700
 and you know that will call whatever net_rx,
 
-532
+531
 00:31:46,700 --> 00:31:51,500
 so that will go call into the network stack on the previous pictures,
 
-533
+532
 00:31:51,500 --> 00:31:55,280
 so that receives calls into this code over here,
 
-534
+533
 00:31:56,460 --> 00:31:59,190
 net receive you know calls,
 
-535
+534
 00:32:03,540 --> 00:32:10,680
-oops,net receive calls net_rx_arp,
+oops net receive calls net_rx_arp,
 
-536
+535
 00:32:12,690 --> 00:32:16,560
 and it and you know it looks you know there's an ARP packet,
 
-537
+536
 00:32:16,560 --> 00:32:24,000
 and basically sends back the ethernet address for this particular for xv6,
 
-538
+537
 00:32:24,210 --> 00:32:27,270
 and then the way it does that of course you know to send the packet,
 
-539
+538
 00:32:27,270 --> 00:32:36,860
 it will call you know, e1000_transmit right,
 
-540
+539
 00:32:36,860 --> 00:32:40,280
 and you know we know that will actually need to acquire a lock,
 
-541
+540
 00:32:42,070 --> 00:32:45,550
 well, you did that you know whatever there's eth1000_lock.
 
-542
+541
 00:32:50,860 --> 00:32:53,020
 The reason that actually has to go on a lock is,
 
-543
+542
 00:32:53,020 --> 00:32:54,910
 because there might be multiple senders
 
-544
+543
 00:32:54,910 --> 00:32:59,350
 and you know the senders should not trip over over, trip over each other.
 
-545
+544
 00:33:00,440 --> 00:33:02,270
 So that's sort of the picture,
 
-546
+545
 00:33:02,270 --> 00:33:04,520
 so what we're basically in terms of this previous picture,
 
-547
+546
 00:33:04,520 --> 00:33:05,840
 what we're seeing here is that,
 
-548
+547
 00:33:06,590 --> 00:33:12,770
 the bottom half may end up call the code in the top half,
 
-549
+548
 00:33:12,950 --> 00:33:16,010
 and come back into the driver through the top half.
 
-550
+549
 00:33:17,400 --> 00:33:20,940
 And a number of you know you run into trouble with that,
 
-551
+550
 00:33:20,940 --> 00:33:25,170
 because you know the you know it's not 100% clear,
 
-552
+551
 00:33:25,170 --> 00:33:29,610
 that you didn't need a locks in the receiving part,
 
-553
+552
 00:33:29,730 --> 00:33:32,070
 and so quite a number of you run into this particular bug,
 
-554
+553
 00:33:32,070 --> 00:33:43,700
 where you're actually required the you know eth1000_lock in receive.
 
-555
+554
 00:33:45,460 --> 00:33:46,750
 And that worked all fine correctly,
 
-556
+555
 00:33:46,750 --> 00:33:48,400
 except once in a while you get a panic,
 
-557
+556
 00:33:49,670 --> 00:33:51,110
 why do you get the panic,
 
-558
+557
 00:33:52,140 --> 00:33:54,060
 hopefully with this picture, that's pretty clear about.
 
-559
+558
 00:33:59,400 --> 00:34:01,590
 I mean, isn't it going to be the same lock,
 
-560
+559
 00:34:01,590 --> 00:34:05,280
 because that the e1000_transmit is going to try to acquire eth1000_lock.
 
-561
+560
 00:34:05,610 --> 00:34:07,020
 Yeah exactly, correct,
 
-562
+561
 00:34:07,380 --> 00:34:10,890
 so eth1000 here at this point now owns the lock, holds it,
 
-563
+562
 00:34:10,890 --> 00:34:14,280
 calls net_rx, calls net_rx_arp, e1000_transmit,
 
-564
+563
 00:34:14,280 --> 00:34:15,420
 then calls acquire again,
 
-565
+564
 00:34:15,780 --> 00:34:17,760
 and as you might remember from previous labs,
 
-566
+565
 00:34:17,940 --> 00:34:21,240
 if require it's called it's already held,
 
-567
+566
 00:34:21,610 --> 00:34:23,440
 that's a deadlock right,
 
-568
+567
 00:34:23,440 --> 00:34:25,600
 and so xv6 kernel panics.
 
-569
+568
 00:34:28,240 --> 00:34:32,620
 Question, let's let's assume we had a slightly different implementation of locks,
 
-570
+569
 00:34:32,620 --> 00:34:34,630
 such as those functions are not occur,
 
-571
+570
 00:34:35,480 --> 00:34:37,220
 like it would such,
 
-572
+571
 00:34:37,400 --> 00:34:40,010
 let's assume like if I wanted to acquire a lock already held,
 
-573
+572
 00:34:40,010 --> 00:34:40,820
 nothing happened.
 
-574
+573
 00:34:41,060 --> 00:34:45,110
 Yeah so, these are these are called recursive locks,
 
-575
+574
 00:34:47,660 --> 00:34:50,750
 or reentrant locks is another way the name for them.
 
-576
+575
 00:34:51,580 --> 00:34:54,460
 And so if you have a recursive locks, reentrant locks,
 
-577
+576
 00:34:54,460 --> 00:34:56,530
 then you know you could freely do this
 
-578
+577
 00:34:56,530 --> 00:34:57,520
 and it would be no problem.
 
-579
+578
 00:34:58,170 --> 00:35:01,890
 And I think one of you over email mentioned to me,
 
-580
+579
 00:35:01,890 --> 00:35:05,970
 that actually the implemented recursive locks to actually deal with this particular problem.
 
-581
+580
 00:35:06,660 --> 00:35:11,100
 And so they did required to lock in the eth1000_recv function,
 
-582
+581
 00:35:11,370 --> 00:35:14,010
 and you know after the panic,
 
-583
+582
 00:35:14,010 --> 00:35:16,770
 basically fixed acquire release in the xv6
 
-584
+583
 00:35:16,770 --> 00:35:18,720
 [direction] support recursive locks.
 
-585
+584
 00:35:20,760 --> 00:35:21,810
 And that would be a solution.
 
-586
+585
 00:35:23,240 --> 00:35:25,820
 The simple solution, it's a fine solution,
 
-587
+586
 00:35:25,880 --> 00:35:31,970
 the solution that we intended and the staff solution as is
 
-588
+587
 00:35:31,970 --> 00:35:35,120
 basically just doesn't require locks in receive at all,
 
-589
+588
 00:35:35,120 --> 00:35:37,100
 because it actually turned out not to be necessary.
 
-590
+589
 00:35:39,910 --> 00:35:41,110
 Sorry, can you say again,
 
-591
+590
 00:35:41,110 --> 00:35:45,070
 why there couldn't be two threads in receive?
 
-592
+591
 00:35:46,550 --> 00:35:49,310
 There's only one thread in receive, the interrupt handler runs,
 
-593
+592
 00:35:49,930 --> 00:35:53,200
 there's only one receive function ever running at the time on any core,
 
-594
+593
 00:35:54,110 --> 00:36:00,770
 that actually calls into the top half of the, the top half of the operating system
 
-595
+594
 00:36:01,160 --> 00:36:04,280
 and that calles back out into the bottom half,
 
-596
+595
 00:36:05,180 --> 00:36:07,940
-sorry,not in the bottom, that calls back into e1000_transmit
+sorry not in the bottom, that calls back into e1000_transmit
 
-597
+596
 00:36:07,940 --> 00:36:09,980
 and transmit definitely needs to acquire a lock,
 
-598
+597
 00:36:10,430 --> 00:36:16,840
 so even receive, eth1000_recv, while holding the lock calls e1000_transmit,
 
-599
+598
 00:36:16,900 --> 00:36:20,650
 which tries to acquire the same lock that the interrupt handler already holds,
 
-600
+599
 00:36:21,600 --> 00:36:25,080
 if you have, if you locked in receive handler.
 
-601
+600
 00:36:26,830 --> 00:36:30,270
 I see, so so it is the case,
 
-602
+601
 00:36:30,270 --> 00:36:33,060
 like one interrupt can go off
 
-603
+602
 00:36:33,060 --> 00:36:36,270
 and then while it's still running,
 
-604
+603
 00:36:36,390 --> 00:36:39,510
 another interrupt could go off as well, is.
 
-605
+604
 00:36:39,510 --> 00:36:42,870
 No, no, the picture, maybe go back to this picture,
 
-606
+605
 00:36:43,170 --> 00:36:46,370
 so interrupt happens, that calls the receive function,
 
-607
+606
 00:36:46,760 --> 00:36:48,500
 there's only one receive function running,
 
-608
+607
 00:36:48,620 --> 00:36:53,390
 that receive function calls you know rx net receive,
 
-609
+608
 00:36:53,390 --> 00:36:55,220
 that calls rx net_rx_arp,
 
-610
+609
 00:36:55,430 --> 00:36:58,040
 and that arp function calls transmit,
 
-611
+610
 00:36:58,740 --> 00:37:02,460
 and if you were using the same lock in transmit and receive,
 
-612
+611
 00:37:02,580 --> 00:37:03,870
 you know you would get a deadlock.
 
-613
+612
 00:37:08,100 --> 00:37:09,600
 Okay I see, thank you.
 
-614
+613
 00:37:13,660 --> 00:37:14,710
 That's sort of, yeah, okay,
 
-615
+614
 00:37:15,540 --> 00:37:17,430
 and so basically the two solutions to this,
 
-616
+615
 00:37:17,460 --> 00:37:19,440
 one is to use recursive locks,
 
-617
+616
 00:37:20,370 --> 00:37:24,560
 other solution was no locks in receive,
 
-618
+617
 00:37:25,790 --> 00:37:27,740
 or you know have two locks.
 
-619
+618
 00:37:31,040 --> 00:37:33,260
 All three of them are totally reasonable solutions.
 
-620
+619
 00:37:37,000 --> 00:37:38,050
 Any questions about this?
 
-621
+620
 00:37:39,070 --> 00:37:42,610
 Would there be a reason to have a lock around receive at all?
 
-622
+621
 00:37:42,910 --> 00:37:44,770
 No, in this particular case,
 
-623
+622
 00:37:44,770 --> 00:37:46,360
 there's no reason to have a lock at all.
 
-624
+623
 00:37:49,540 --> 00:37:52,570
 What would be, could we think of a situation
 
-625
+624
 00:37:52,570 --> 00:37:54,490
 where you would want a receive lock,
 
-626
+625
 00:37:54,490 --> 00:37:57,970
 would be like if you had two network cards or something.
 
-627
+626
 00:37:58,550 --> 00:38:03,620
 Yeah, or if you like if you remember in the UART code,
 
-628
+627
 00:38:03,980 --> 00:38:10,760
 okay, so may a common reason why you might want to have a locking shared is,
 
-629
+628
 00:38:10,760 --> 00:38:15,020
 because the bottom half and the top half shared data structures.
 
-630
+629
 00:38:17,200 --> 00:38:21,850
 So, for example the receive and transmit might manipulate the same shared data structures,
 
-631
+630
 00:38:22,090 --> 00:38:24,100
 at that point you need you need a lock,
 
-632
+631
 00:38:24,160 --> 00:38:26,560
 and so for example you remember from your console driver,
 
-633
+632
 00:38:27,060 --> 00:38:28,320
 they shared a queue,
 
-634
+633
 00:38:29,100 --> 00:38:32,970
 and so receive handler needed to get queue,
 
-635
+634
 00:38:33,120 --> 00:38:35,550
 need to get the lock to actually get access to that queue.
 
-636
+635
 00:38:39,480 --> 00:38:40,680
 Does that answer your question?
 
-637
+636
 00:38:42,500 --> 00:38:43,580
 Yeah, thanks.
 
-638
+637
 00:38:44,720 --> 00:38:47,510
 And so this brings me up with a second sort of point I wanted to make.
 
-639
+638
 00:38:48,230 --> 00:38:52,700
 That the let me actually draw a new picture,
 
-640
+639
 00:38:52,700 --> 00:38:53,930
 because it gets a little crowded.
 
-641
+640
 00:38:54,350 --> 00:38:57,740
 We think about this bottom half again, and the top half.
 
-642
+641
 00:39:00,670 --> 00:39:01,450
 So here's the bottom,
 
-643
+642
 00:39:01,450 --> 00:39:04,390
 a little bit abstract, but you know it may be helpful.
 
-644
+643
 00:39:07,110 --> 00:39:11,610
 In much typically in much software, driver software,
 
-645
+644
 00:39:11,640 --> 00:39:16,560
 the bottom half basically doesn't really call into the top half at all.
 
-646
+645
 00:39:17,360 --> 00:39:20,870
 So, for example if you go back and you look at the console code,
 
-647
+646
 00:39:21,080 --> 00:39:24,500
 this sequence of the sequence cannot happen there,
 
-648
+647
 00:39:24,530 --> 00:39:25,880
 and the reason doesn't happen is,
 
-649
+648
 00:39:25,880 --> 00:39:28,310
 because the bottom half typically does very little work,
 
-650
+649
 00:39:28,550 --> 00:39:30,890
 the only thing it does maybe you grab the packet,
 
-651
+650
 00:39:31,100 --> 00:39:32,330
 stick the packet in the queue.
 
-652
+651
 00:39:34,000 --> 00:39:35,560
 And then, at some point later,
 
-653
+652
 00:39:35,680 --> 00:39:40,980
 you know the the top half, you know there's a separate thread in the top half,
 
-654
+653
 00:39:40,980 --> 00:39:43,590
 that basically looks at that queue and then grabs packets out of the queue,
 
-655
+654
 00:39:43,590 --> 00:39:45,570
 and then keeps on doing whatever needs to be done.
 
-656
+655
 00:39:46,400 --> 00:39:51,650
 Now, for simplicity a in this simplicity and reduce the amount of code,
 
-657
+656
 00:39:51,860 --> 00:39:54,620
 that is not the structure that these particular driver follows,
 
-658
+657
 00:39:54,830 --> 00:39:58,800
 this driver once in a while may actually call up in,
 
-659
+658
 00:39:58,800 --> 00:40:02,840
 call up actually sometimes this structure is followed by the driver,
 
-660
+659
 00:40:02,840 --> 00:40:05,690
 but once in awhile, it can actually go into the top half
 
-661
+660
 00:40:05,780 --> 00:40:07,970
 and come back out into the bottom half.
 
-662
+661
 00:40:15,210 --> 00:40:16,140
 Any questions about this?
 
-663
+662
 00:40:23,120 --> 00:40:27,500
 Okay, so that's sort of I guess software concurrency
 
-664
+663
 00:40:27,500 --> 00:40:28,970
 and we'll come back to a little more later,
 
-665
+664
 00:40:28,970 --> 00:40:30,920
 if we look at the code in a bit more detail,
 
-666
+665
 00:40:31,440 --> 00:40:33,570
 talk a little bit about the rings.
 
-667
+666
 00:40:37,540 --> 00:40:39,640
 And so basically the way you think about it,
 
-668
+667
 00:40:39,640 --> 00:40:42,670
 you know there ring,
 
-669
+668
 00:40:42,880 --> 00:40:47,260
 there's two rings and one for receiving and one for sending,
 
-670
+669
 00:40:47,260 --> 00:40:51,790
 you know tx rx both lives in RAM.
 
-671
+670
 00:40:52,510 --> 00:40:58,600
 And you know they're manipulated by code running on the RISC-V cores
 
-672
+671
 00:40:58,600 --> 00:41:01,030
 and by you know the network card itself.
 
-673
+672
 00:41:01,710 --> 00:41:03,060
 So there has to be some protocol
 
-674
+673
 00:41:03,060 --> 00:41:07,380
 between the network card and the RISC-V of course,
 
-675
+674
 00:41:07,410 --> 00:41:09,780
 about who gets to look at what,
 
-676
+675
 00:41:10,020 --> 00:41:15,270
 and so the way this is a very common organization in hardware devices,
 
-677
+676
 00:41:15,270 --> 00:41:16,680
 the way that typically is done,
 
-678
+677
 00:41:16,680 --> 00:41:18,690
 there's sort of, look at the transmit queue,
 
-679
+678
 00:41:18,690 --> 00:41:21,930
 there's basically a queue of some fixed size structures descriptors,
 
-680
+679
 00:41:21,960 --> 00:41:23,790
 as we'll looking in a second,
 
-681
+680
 00:41:24,060 --> 00:41:25,230
 these are the descriptors.
 
-682
+681
 00:41:29,360 --> 00:41:33,320
 And the organization or the coordination that is actually
 
-683
+682
 00:41:33,320 --> 00:41:39,260
 that's happening between the driver and network card is
 
-684
+683
 00:41:39,260 --> 00:41:46,140
 the consumer producer coordination.
 
-685
+684
 00:41:47,430 --> 00:41:49,350
 Basically, one way to think about it,
 
-686
+685
 00:41:49,350 --> 00:41:52,470
 you know there is if this is the transmit queue,
 
-687
+686
 00:41:52,470 --> 00:41:54,450
 you know there's maybe there's a head pointer,
 
-688
+687
 00:41:56,520 --> 00:41:57,840
 there's a tail pointer,
 
-689
+688
 00:42:00,440 --> 00:42:04,400
 and you know this the tail pointer is controlled by the software,
 
-690
+689
 00:42:05,580 --> 00:42:07,590
 and so the software looks at the tail pointer,
 
-691
+690
 00:42:07,590 --> 00:42:10,650
 and it wants to send, send another packet,
 
-692
+691
 00:42:10,650 --> 00:42:14,910
 sticks it you know in a the ring at the location of tail plus one,
 
-693
+692
 00:42:14,910 --> 00:42:17,400
 and then moves up tail pointer in that direction.
 
-694
+693
 00:42:19,240 --> 00:42:22,330
 And the head pointer is usually controlled by the hardware.
 
-695
+694
 00:42:24,750 --> 00:42:27,030
 So tail by software, head by hardware
 
-696
+695
 00:42:27,030 --> 00:42:29,820
 and basically the you know the hardware basically looks at the head,
 
-697
+696
 00:42:29,820 --> 00:42:31,980
 and this is the first packet that is going to be sent,
 
-698
+697
 00:42:32,040 --> 00:42:34,530
 you know there's a little bit of information in the descriptor,
 
-699
+698
 00:42:34,680 --> 00:42:38,310
 or enough information that descriptor for the network card to look at,
 
-700
+699
 00:42:38,310 --> 00:42:43,770
 and say like oh this is the bytes that I need to move on to the move on to the cable.
 
-701
+700
 00:42:44,950 --> 00:42:48,670
 And once it's done, it moves the head pointer in that direction,
 
-702
+701
 00:42:48,790 --> 00:42:52,630
 once it's consumed you know one of the packets out of the transmission queue.
 
-703
+702
 00:42:53,630 --> 00:42:55,160
 And one way to think about it is that,
 
-704
+703
 00:42:55,430 --> 00:43:01,400
 all the descriptors between here, between the tail,
 
-705
+704
 00:43:02,540 --> 00:43:05,240
 and so all the things that are actually being filled in,
 
-706
+705
 00:43:05,720 --> 00:43:08,930
 like the tail moved up maybe to here.
 
-707
+706
 00:43:12,540 --> 00:43:13,290
 You know all the packets,
 
-708
+707
 00:43:13,290 --> 00:43:16,200
 that are all the descriptor entries that are actually filled in,
 
-709
+708
 00:43:16,260 --> 00:43:17,880
 the way you think about them is,
 
-710
+709
 00:43:18,640 --> 00:43:21,190
 they are owned by the hardware owned by the network card.
 
-711
+710
 00:43:21,810 --> 00:43:25,230
 The network card is allowed to read them, do things with them,
 
-712
+711
 00:43:25,350 --> 00:43:29,580
 but the software and the software is not allowed to do anything with that,
 
-713
+712
 00:43:29,760 --> 00:43:33,780
 like if the software would be scribbling over these descriptors,
 
-714
+713
 00:43:34,080 --> 00:43:38,880
 while they really sort of owned by the hardware by network card,
 
-715
+714
 00:43:39,000 --> 00:43:42,240
 that would change the data that the network card sees,
 
-716
+715
 00:43:42,240 --> 00:43:43,800
 and that would be pretty undesirable.
 
-717
+716
 00:43:44,460 --> 00:43:47,550
 And so, the protocol basically is
 
-718
+717
 00:43:47,550 --> 00:43:50,880
 that like once you know the software moves the tail pointer one up,
 
-719
+718
 00:43:51,060 --> 00:43:56,100
 then you know that point you have just moved into the network queue in the transmission queue
 
-720
+719
 00:43:56,130 --> 00:43:57,450
 is now owned by the hardware,
 
-721
+720
 00:43:57,780 --> 00:43:58,950
 and it will stick in,
 
-722
+721
 00:43:58,950 --> 00:44:03,090
 you know it will be owned by the hardware until it has to be sent,
 
-723
+722
 00:44:03,210 --> 00:44:07,140
 and basically until the head pointer moves past you know that particular structure.
 
-724
+723
 00:44:09,890 --> 00:44:10,760
 Does that make sense?
 
-725
+724
 00:44:18,950 --> 00:44:21,380
 Good, for transmission, basically it's the same story,
 
-726
+725
 00:44:21,410 --> 00:44:24,230
 you know there's a there's a head pointer,
 
-727
+726
 00:44:24,880 --> 00:44:30,740
 that basically that's controlled by the hardware,
 
-728
+727
 00:44:30,770 --> 00:44:32,150
 and there's a tail pointer,
 
-729
+728
 00:44:32,150 --> 00:44:35,800
 that is controlled by, there is the software pointer,
 
-730
+729
 00:44:37,340 --> 00:44:39,710
 and basically the packets in between
 
-731
+730
 00:44:40,840 --> 00:44:47,920
 are are packets are actually have been received by the hardware,
 
-732
+731
 00:44:47,920 --> 00:44:53,110
 and and you know by expecting the tail pointer,
 
-733
+732
 00:44:53,110 --> 00:44:55,180
 and the software can see if there's actually a new packet,
 
-734
+733
 00:44:55,180 --> 00:44:57,850
 you know that is ready to be consumed,
 
-735
+734
 00:44:57,850 --> 00:44:59,440
 and if that ready to be consumed,
 
-736
+735
 00:44:59,440 --> 00:45:02,950
 the hardware will indicate that by saying that DD bit in the status field.
 
-737
+736
 00:45:03,440 --> 00:45:05,210
 And so when the DD bit is set,
 
-738
+737
 00:45:05,270 --> 00:45:06,740
 hardware software are good,
 
-739
+738
 00:45:06,770 --> 00:45:09,200
 you know these packets, you know the hardware is done with it,
 
-740
+739
 00:45:09,530 --> 00:45:13,220
 and so it can take it out and move the tail pointer one up.
 
-741
+740
 00:45:14,920 --> 00:45:21,700
 And so there's sort of this give and take between driver and our hardware
 
-742
+741
 00:45:21,730 --> 00:45:24,880
 to actually coordinate they don't trip over each other.
 
-743
+742
 00:45:27,340 --> 00:45:31,840
 Any questions about the rings?
 
-744
+743
 00:45:36,200 --> 00:45:36,920
 Is this like,
 
-745
+744
 00:45:36,980 --> 00:45:41,810
 is this a universal way to kind of implement,
 
-746
+745
 00:45:41,810 --> 00:45:45,680
 like user or any kind of communication between two things that have shared memory?
 
-747
+746
 00:45:46,270 --> 00:45:49,090
 Yeah, it's a pretty certainly also in software, you see this,
 
-748
+747
 00:45:49,090 --> 00:45:51,880
 but many hardware devices play this sort of trick,
 
-749
+748
 00:45:52,510 --> 00:46:00,250
 where going to producer consumer style coordination between the hardware and software.
 
-750
+749
 00:46:05,350 --> 00:46:06,820
 So yeah, it's a very common structure.
 
-751
+750
 00:46:08,430 --> 00:46:11,250
 Maybe one or two questions, you can ask about it,
 
-752
+751
 00:46:11,460 --> 00:46:14,280
 like why is there actually even a queue, why is there a ring.
 
-753
+752
 00:46:14,910 --> 00:46:16,410
 Okay, the reason there's a ring correct,
 
-754
+753
 00:46:16,410 --> 00:46:20,250
 because the queue wraps around, queue wraps around to make it fix size,
 
-755
+754
 00:46:21,590 --> 00:46:25,730
 but you know, why, why not, you know have queue one entry, one entry,
 
-756
+755
 00:46:27,900 --> 00:46:29,190
 like it's almost like the UART,
 
-757
+756
 00:46:29,550 --> 00:46:32,550
 you remember the UART driver and controller
 
-758
+757
 00:46:32,550 --> 00:46:35,670
 is basically only one register to send a byte
 
-759
+758
 00:46:35,670 --> 00:46:37,230
 and there's another register receive a byte.
 
-760
+759
 00:46:38,880 --> 00:46:42,450
 And so why have, why go for this complicated scheme,
 
-761
+760
 00:46:42,450 --> 00:46:44,250
 you could have yourself a single register,
 
-762
+761
 00:46:44,250 --> 00:46:47,040
 and then you can basically say you know hardware,
 
-763
+762
 00:46:47,040 --> 00:46:48,690
 this register is now ready, send it,
 
-764
+763
 00:46:49,390 --> 00:46:52,500
 and then you just wait until the it's done.
 
-765
+764
 00:46:55,300 --> 00:46:59,950
 To allow for when there are bursts of packets.
 
-766
+765
 00:47:00,480 --> 00:47:02,530
 Yeah, yeah exactly,
 
-767
+766
 00:47:02,860 --> 00:47:07,750
 you know the network interface where the network card or cable is pretty high performance,
 
-768
+767
 00:47:07,750 --> 00:47:10,630
 in fact very high performance, gigabits per second.
 
-769
+768
 00:47:11,310 --> 00:47:14,910
 And so, it can be hard for the core,
 
-770
+769
 00:47:14,910 --> 00:47:16,260
 the processors actually keep up with it,
 
-771
+770
 00:47:16,290 --> 00:47:18,660
 so you would like to give it a whole bunch of packets,
 
-772
+771
 00:47:18,660 --> 00:47:21,030
 you know the networks or network card chunk along
 
-773
+772
 00:47:21,030 --> 00:47:22,740
 and all send them out at high speed.
 
-774
+773
 00:47:23,280 --> 00:47:26,880
 And similarly you know in reception you might get a burst of packets coming in
 
-775
+774
 00:47:27,270 --> 00:47:29,370
 and you want to place them in the queue
 
-776
+775
 00:47:29,370 --> 00:47:33,710
 and then the operating system can start processing the queue, right.
 
-777
+776
 00:47:35,090 --> 00:47:36,830
 And so this is a common,
 
-778
+777
 00:47:39,270 --> 00:47:45,010
 this is the reason, that these queues are common to handle bursts.
 
-779
+778
 00:47:48,910 --> 00:47:51,700
 What happens if the queue is full, like reception.
 
-780
+779
 00:47:58,950 --> 00:48:02,610
 I think the the document mentioned that,
 
-781
+780
 00:48:02,610 --> 00:48:05,790
 it does some form of drop tail scheme.
 
-782
+781
 00:48:06,810 --> 00:48:10,290
 Yeah, there, yeah, basically the packets get dropped.
 
-783
+782
 00:48:11,170 --> 00:48:13,420
 So any future incoming packets,
 
-784
+783
 00:48:13,420 --> 00:48:17,230
 if the queue is full, the packets or there's no room anymore in the ring,
 
-785
+784
 00:48:17,230 --> 00:48:19,390
 the network card can't do anything with that, correct,
 
-786
+785
 00:48:19,390 --> 00:48:23,830
 and so the only option it actually has to basically delete the packet
 
-787
+786
 00:48:23,860 --> 00:48:26,930
 or not added to the ring and therefore disappears.
 
-788
+787
 00:48:27,890 --> 00:48:30,560
 So, one reason you know packet loss, sometimes is that,
 
-789
+788
 00:48:31,170 --> 00:48:33,660
 and operating system is overloaded,
 
-790
+789
 00:48:33,690 --> 00:48:36,330
 you know with packet can't keep up and the ring fills
 
-791
+790
 00:48:36,540 --> 00:48:38,670
 and then you know the packets get dropped.
 
-792
+791
 00:48:41,110 --> 00:48:42,130
 You know higher level software,
 
-793
+792
 00:48:42,130 --> 00:48:46,840
 of course maybe like TCP connection might re-transmit those packets,
 
-794
+793
 00:48:47,110 --> 00:48:49,660
 but this is one reason why packets can get dropped.
 
-795
+794
 00:48:52,730 --> 00:48:56,030
 So even if the hardware sort of works all perfectly fine,
 
-796
+795
 00:48:56,150 --> 00:48:57,830
 you know because of these bursts
 
-797
+796
 00:48:57,830 --> 00:48:59,870
 you know it can happen that some packets might get dropped.
 
-798
+797
 00:49:01,240 --> 00:49:02,920
 So you had a really really big burst.
 
-799
+798
 00:49:07,010 --> 00:49:10,010
 The head and tail pointers,
 
-800
+799
 00:49:10,010 --> 00:49:12,560
 they're all software abstractions, right, of the queue?
 
-801
+800
 00:49:13,160 --> 00:49:15,740
 Okay, so these are actually turns out that
 
-802
+801
 00:49:15,740 --> 00:49:18,320
 those are these control registers, right,
 
-803
+802
 00:49:18,320 --> 00:49:22,370
 so there's a control register for the hardware, the header pointer is,
 
-804
+803
 00:49:22,370 --> 00:49:25,970
 a control register for the basically the tail pointers,
 
-805
+804
 00:49:26,060 --> 00:49:28,010
 there's no real distinction between hardware software,
 
-806
+805
 00:49:28,010 --> 00:49:30,110
 basically the driver knows about the tail pointer,
 
-807
+806
 00:49:30,110 --> 00:49:35,490
 and it knows about the hardware knows about the tail pointer and header pointer
 
-808
+807
 00:49:35,520 --> 00:49:37,050
 and use a basic control registers.
 
-809
+808
 00:49:37,720 --> 00:49:38,410
 Okay yeah.
 
-810
+809
 00:49:39,070 --> 00:49:40,300
 We will see the code in seconds,
 
-811
+810
 00:49:40,300 --> 00:49:41,260
 how did that shows up,
 
-812
+811
 00:49:42,810 --> 00:49:44,280
 make sure if you go back to our,
 
-813
+812
 00:49:44,610 --> 00:49:48,420
 maybe let's see this picture still here,
 
-814
+813
 00:49:48,840 --> 00:49:51,210
 here's that earlier picture we looked at,
 
-815
+814
 00:49:51,540 --> 00:49:54,660
 and you know here's control register that holds the head,
 
-816
+815
 00:49:54,780 --> 00:49:57,060
 here's control register that holds the tail,
 
-817
+816
 00:49:57,060 --> 00:50:00,480
 and of course there's one for both reception and one for sending.
 
-818
+817
 00:50:04,300 --> 00:50:04,930
 Okay?
 
-819
+818
 00:50:08,810 --> 00:50:10,280
 Let's go back here.
 
-820
+819
 00:50:11,290 --> 00:50:14,140
 Okay, so let's talk a little bit about the descriptors.
 
-821
+820
 00:50:15,250 --> 00:50:18,310
 And so the descriptors are defined by the hardware
 
-822
+821
 00:50:18,730 --> 00:50:20,140
 and so the hardware says
 
-823
+822
 00:50:20,140 --> 00:50:22,240
 like here's how the descriptors should look like,
 
-824
+823
 00:50:22,240 --> 00:50:25,660
 and your driver you know these are the bits you can fill in,
 
-825
+824
 00:50:25,660 --> 00:50:28,930
 and if you fill in that bit that tells me to follow, right.
 
-826
+825
 00:50:29,270 --> 00:50:34,350
 And so here's the two descriptors are important,
 
-827
+826
 00:50:34,380 --> 00:50:40,160
 you know, here's the receive descriptor rx,
 
-828
+827
 00:50:40,160 --> 00:50:42,680
 and here's a tx, one of the tx descriptors.
 
-829
+828
 00:50:43,380 --> 00:50:45,960
 And so let's look a little bit.
 
-830
+829
 00:50:46,600 --> 00:50:48,370
 Yeah, it's a little bit,
 
-831
+830
 00:50:48,820 --> 00:50:52,990
 probably the most important part is this address,
 
-832
+831
 00:50:53,530 --> 00:50:56,560
 and that is the address that the software filled in
 
-833
+832
 00:50:56,560 --> 00:51:00,370
 to say where they should where the hardware to dump the packet,
 
-834
+833
 00:51:00,490 --> 00:51:04,690
 where in RAM to the driver,
 
-835
+834
 00:51:04,930 --> 00:51:09,100
 where should the network card put the data that is received into RAM,
 
-836
+835
 00:51:09,220 --> 00:51:12,460
 so it's the address of the reception buffer, if you will.
 
-837
+836
 00:51:17,080 --> 00:51:20,500
 And then you know probably the most important part in
 
-838
+837
 00:51:20,560 --> 00:51:23,470
 is the status field as you've seen.
 
-839
+838
 00:51:24,020 --> 00:51:28,370
 So when the driver basically still continues to look sort of at the tail
 
-840
+839
 00:51:28,430 --> 00:51:31,460
 and sees that there's a new packet has been received
 
-841
+840
 00:51:31,670 --> 00:51:34,490
 and the way it tells whether a new packet received is,
 
-842
+841
 00:51:34,670 --> 00:51:39,450
 is that the DD bit, correct, is set by the hardware.
 
-843
+842
 00:51:40,540 --> 00:51:47,290
 And you know the shaded areas are the fields of the packet descriptor of the,
 
-844
+843
 00:51:47,920 --> 00:51:50,890
 receive descriptor actually the hardware fills in,
 
-845
+844
 00:51:51,010 --> 00:51:53,620
 and the white you know the non shaded ones
 
-846
+845
 00:51:53,620 --> 00:51:56,860
 are the fields that actually shaded in are filled in by the software,
 
-847
+846
 00:51:57,100 --> 00:51:59,470
 again here we see this clear distinction about,
 
-848
+847
 00:51:59,680 --> 00:52:01,240
 somethings are owned by software,
 
-849
+848
 00:52:01,270 --> 00:52:05,690
 somethings are owned by by the hardware.
 
-850
+849
 00:52:08,760 --> 00:52:13,290
 Okay, and there's a similar you know descriptor,
 
-851
+850
 00:52:13,290 --> 00:52:14,760
 very simple descriptor that looks,
 
-852
+851
 00:52:15,150 --> 00:52:18,060
 that's a hardware descriptor for the transmission,
 
-853
+852
 00:52:18,300 --> 00:52:19,920
 it has an address,
 
-854
+853
 00:52:19,980 --> 00:52:21,210
 the address of course is
 
-855
+854
 00:52:21,210 --> 00:52:25,590
 the address where the data is in memory that needs to be sent.
 
-856
+855
 00:52:26,000 --> 00:52:28,460
 And then it has a bunch of, has a command field,
 
-857
+856
 00:52:29,160 --> 00:52:32,610
 and here's how the software tells the driver tells the network card,
 
-858
+857
 00:52:32,670 --> 00:52:34,740
 this is what you should do with this particular packet
 
-859
+858
 00:52:34,740 --> 00:52:37,470
 or you know this is what you should know about this particular packet.
 
-860
+859
 00:52:38,290 --> 00:52:39,760
 And so one thing,
 
-861
+860
 00:52:40,000 --> 00:52:42,370
 yeah we I think we [fill] in two packet, two things,
 
-862
+861
 00:52:42,370 --> 00:52:46,330
 we call the EOP says you know the end of packet,
 
-863
+862
 00:52:46,630 --> 00:52:48,160
 and that basically tells the driver,
 
-864
+863
 00:52:48,310 --> 00:52:51,550
 this is the last descriptor of a particular packet,
 
-865
+864
 00:52:51,550 --> 00:52:56,080
 and now can you know send off you know whatever data that's in these descriptors.
 
-866
+865
 00:52:56,900 --> 00:53:06,220
 And I think we set the response you know requested command bit
 
-867
+866
 00:53:06,490 --> 00:53:09,850
 or RS I think it is,
 
-868
+867
 00:53:09,880 --> 00:53:11,530
 basically tells network card,
 
-869
+868
 00:53:11,560 --> 00:53:14,530
 when you're done transmitting this thing,
 
-870
+869
 00:53:14,680 --> 00:53:20,600
 you know set the, set the bit that it actually has been transmitted.
 
-871
+870
 00:53:21,430 --> 00:53:23,650
 We'll see in a second how how that shows up.
 
-872
+871
 00:53:25,570 --> 00:53:26,350
 Any questions?
 
-873
+872
 00:53:32,230 --> 00:53:34,090
 So one one thing to keep in mind,
 
-874
+873
 00:53:34,360 --> 00:53:35,350
 you know with these structures,
 
-875
+874
 00:53:35,380 --> 00:53:36,610
 these are defined by the hardware,
 
-876
+875
 00:53:36,640 --> 00:53:39,970
 like hardware, software has no control over their structure,
 
-877
+876
 00:53:39,970 --> 00:53:43,780
 you know there's just literally defined by the hardware, by the network card.
 
-878
+877
 00:53:44,860 --> 00:53:47,050
 Okay, let's look at a little bit of code
 
-879
+878
 00:53:47,470 --> 00:53:50,590
 and see what the solution looks like,
 
-880
+879
 00:53:50,590 --> 00:53:52,450
 and we'll look at a couple of issues
 
-881
+880
 00:53:52,450 --> 00:53:54,580
 that we haven't looked at yet, you know the mbufs,
 
-882
+881
 00:53:55,060 --> 00:53:59,020
 issues if during transmission and issues during receiving.
 
-883
+882
 00:54:00,600 --> 00:54:03,090
 And this would be presumably all well familiar with to you,
 
-884
+883
 00:54:03,090 --> 00:54:05,250
 given the fact that you just finished the lab.
 
-885
+884
 00:54:08,880 --> 00:54:09,900
 Okay, so here,
 
-886
+885
 00:54:09,900 --> 00:54:14,010
 just to go to the top, here's the transmit ring.
 
-887
+886
 00:54:15,040 --> 00:54:18,580
 Yeah, and that's basically the ring of descriptors,
 
-888
+887
 00:54:18,580 --> 00:54:22,000
 you know we drew off in the last couple of slides.
 
-889
+888
 00:54:22,670 --> 00:54:23,540
 There's a separate,
 
-890
+889
 00:54:23,600 --> 00:54:24,830
 we talked briefly about this,
 
-891
+890
 00:54:24,830 --> 00:54:28,280
 there's a separate basically ring of mbufs,
 
-892
+891
 00:54:28,520 --> 00:54:34,190
 but in that ring is completely you know a software or driver only abstraction,
 
-893
+892
 00:54:34,550 --> 00:54:42,090
 hardware, this is defined by this structure is defined by the hardware, right,
 
-894
+893
 00:54:42,090 --> 00:54:42,870
 and if you look at.
 
-895
+894
 00:54:43,480 --> 00:54:43,960
 Oops.
 
-896
+895
 00:55:02,990 --> 00:55:04,760
 You know look at the definitions,
 
-897
+896
 00:55:04,760 --> 00:55:06,740
 but here's struct tx_desc,
 
-898
+897
 00:55:06,860 --> 00:55:10,310
 that corresponds to the C version of exactly the structure
 
-899
+898
 00:55:10,310 --> 00:55:11,750
 that actually was defined by the hardware,
 
-900
+899
 00:55:11,780 --> 00:55:14,090
 you know 64 bit address,
 
-901
+900
 00:55:14,090 --> 00:55:17,480
 you know the length field, the cso, byte the cmd byte,
 
-902
+901
 00:55:17,480 --> 00:55:21,740
 the status byte, the css byte, and then two word for special.
 
-903
+902
 00:55:22,590 --> 00:55:25,320
 And there's a similar ring that is literally defined by the hardware,
 
-904
+903
 00:55:25,840 --> 00:55:28,390
 or similar descriptors received descriptor as defined by hardware,
 
-905
+904
 00:55:28,390 --> 00:55:32,560
 and those we just have see descriptors corresponding to these hardware structures.
 
-906
+905
 00:55:34,970 --> 00:55:36,230
 Alright, let's look at transmit,
 
-907
+906
 00:55:37,780 --> 00:55:41,650
 so here's the sort of staff solution for transmit,
 
-908
+907
 00:55:42,390 --> 00:55:44,370
 you know acquires a lock,
 
-909
+908
 00:55:44,400 --> 00:55:46,680
 and the reason we said before that needed lock is,
 
-910
+909
 00:55:46,680 --> 00:55:49,110
 because multiple functions or multiple threads, kernel threads
 
-911
+910
 00:55:49,110 --> 00:55:51,900
 might call transmit at the same time.
 
-912
+911
 00:55:53,460 --> 00:55:55,110
 And then it looks at the tail,
 
-913
+912
 00:55:55,320 --> 00:55:57,660
 you know to see if there's any,
 
-914
+913
 00:55:58,300 --> 00:56:01,120
 in the room to actually sent a new packet,
 
-915
+914
 00:56:01,120 --> 00:56:03,880
 because you know the network card got behind,
 
-916
+915
 00:56:03,880 --> 00:56:07,390
 and all the descriptors actually are be in used.
 
-917
+916
 00:56:08,170 --> 00:56:09,280
 And so the way it checks,
 
-918
+917
 00:56:09,730 --> 00:56:13,390
 where you're actually the descriptor in the in use,
 
-919
+918
 00:56:13,390 --> 00:56:19,040
 by checking whether the DD bit is not set.
 
-920
+919
 00:56:20,120 --> 00:56:22,850
 And if it is set then,
 
-921
+920
 00:56:25,410 --> 00:56:29,760
 if it's not set, then it returns immediately,
 
-922
+921
 00:56:29,760 --> 00:56:31,170
 not sending the packet at all,
 
-923
+922
 00:56:31,350 --> 00:56:33,660
 and in any other case, gonna it keeps on,
 
-924
+923
 00:56:33,660 --> 00:56:35,550
 going and actually will send the mbuf.
 
-925
+924
 00:56:39,760 --> 00:56:43,600
 So if there's still an mbuf in this position in the tx_mbufs,
 
-926
+925
 00:56:43,600 --> 00:56:45,820
 and means this is an mbuf for a while back,
 
-927
+926
 00:56:45,850 --> 00:56:47,260
 you know free that mbuf,
 
-928
+927
 00:56:47,260 --> 00:56:50,800
 because we're going to actually stick in a new mbuf into this descriptor,
 
-929
+928
 00:56:51,100 --> 00:56:52,120
 we just need to remember,
 
-930
+929
 00:56:52,120 --> 00:56:54,490
 which you know mbuf we stuck in that descriptor,
 
-931
+930
 00:56:54,610 --> 00:56:56,080
 and so the way we do that is
 
-932
+931
 00:56:56,080 --> 00:56:58,420
 by keeping that in the tx_mbufs.
 
-933
+932
 00:56:59,820 --> 00:57:01,230
 And then we fill in the descriptor,
 
-934
+933
 00:57:01,500 --> 00:57:04,530
 and so the first thing we'll filling is the head
 
-935
+934
 00:57:04,530 --> 00:57:05,820
 and we fill in,
 
-936
+935
 00:57:05,850 --> 00:57:11,970
 we put in the address the start of the first header in the mbuf,
 
-937
+936
 00:57:13,470 --> 00:57:17,020
 then, put the length, set the status 0,
 
-938
+937
 00:57:17,110 --> 00:57:18,730
 put the command field in place
 
-939
+938
 00:57:18,730 --> 00:57:23,200
 by setting both RS and the EOP bit as we discuss the second.
 
-940
+939
 00:57:23,760 --> 00:57:28,340
 And, and then basically you'll be synchronized
 
-941
+940
 00:57:28,340 --> 00:57:30,860
 to make actually sure there's no reordering of,
 
-942
+941
 00:57:30,890 --> 00:57:35,300
 you know that all these instructions are performed before the next instruction.
 
-943
+942
 00:57:36,140 --> 00:57:37,310
 And what the next instruction does,
 
-944
+943
 00:57:37,310 --> 00:57:38,930
 it actually updates the tail pointer,
 
-945
+944
 00:57:39,080 --> 00:57:41,330
 and so the [] updates the tail pointer,
 
-946
+945
 00:57:41,330 --> 00:57:45,470
 and the tail pointer correct is a control register in the network card,
 
-947
+946
 00:57:45,890 --> 00:57:48,200
 and so basically when we update the tail pointer,
 
-948
+947
 00:57:48,290 --> 00:57:51,170
 the network card knows aha something changed,
 
-949
+948
 00:57:51,470 --> 00:57:56,180
 and it's going to read you know the data at that descriptor,
 
-950
+949
 00:57:56,420 --> 00:58:00,200
 and it's going to basically read these fields, we've just filled in,
 
-951
+950
 00:58:00,350 --> 00:58:02,450
 so we're gonna basically make absolutely sure that,
 
-952
+951
 00:58:02,880 --> 00:58:06,750
 all these writes, all the stores are materialized in memory,
 
-953
+952
 00:58:06,780 --> 00:58:09,630
 before the network card actually reads them,
 
-954
+953
 00:58:09,630 --> 00:58:11,520
 and so this is why the __sync_synchronize there,
 
-955
+954
 00:58:13,760 --> 00:58:14,900
 and then we release about a lock,
 
-956
+955
 00:58:14,900 --> 00:58:17,240
 and that's basically all we have to do to transmit a packet.
 
-957
+956
 00:58:20,790 --> 00:58:24,800
 Can you explain the __sync_synchronize again, like what.
 
-958
+957
 00:58:25,270 --> 00:58:30,160
 Yeah, it's mostly memory ordering technicality, correct,
 
-959
+958
 00:58:30,160 --> 00:58:32,140
 compilers are free to reorder instructions,
 
-960
+959
 00:58:32,660 --> 00:58:38,720
 the writes might actually sit in the L1 cache or the L2 cache,
 
-961
+960
 00:58:39,080 --> 00:58:42,380
 and sync basically the synchronize sort of memory fence,
 
-962
+961
 00:58:42,680 --> 00:58:45,260
 that tells the hardware and compiler,
 
-963
+962
 00:58:45,350 --> 00:58:48,680
 please don't move any instructions across this barrier,
 
-964
+963
 00:58:49,630 --> 00:58:51,670
 and make sure that all the data,
 
-965
+964
 00:58:51,670 --> 00:58:54,640
 that you know all the stores before this barrier
 
-966
+965
 00:58:54,730 --> 00:58:57,100
 are actually actually materialized in RAM.
 
-967
+966
 00:58:58,700 --> 00:58:59,990
 And the reason that is important is,
 
-968
+967
 00:58:59,990 --> 00:59:04,340
 because the, go back to our picture for a little while ago,
 
-969
+968
 00:59:05,380 --> 00:59:10,060
 all the way back here.
 
-970
+969
 00:59:10,710 --> 00:59:14,970
 Make sure both you know the RISC-V cores that run the driver code
 
-971
+970
 00:59:15,000 --> 00:59:17,160
 basically put values here in round right,
 
-972
+971
 00:59:17,160 --> 00:59:20,670
 but you know those values are [] the L1 cache and L2 cache
 
-973
+972
 00:59:21,030 --> 00:59:24,000
 and the memory flush and ensures that they actually show up in the RAM,
 
-974
+973
 00:59:24,120 --> 00:59:26,940
 this is important because as soon as we update the tail pointer,
 
-975
+974
 00:59:26,940 --> 00:59:29,670
 the e1000 is going to look into RAM for these descriptors,
 
-976
+975
 00:59:30,970 --> 00:59:34,000
 and we've got to make sure that all the fields are indeed set,
 
-977
+976
 00:59:34,800 --> 00:59:37,080
 otherwise, it would read stale values.
 
-978
+977
 00:59:40,360 --> 00:59:41,140
 Does that make sense?
 
-979
+978
 00:59:43,410 --> 00:59:43,980
-Yep,thank you.
+Yep thank you.
 
-980
+979
 00:59:46,320 --> 00:59:48,300
 Why do mbuf exist,
 
-981
+980
 01:00:00,660 --> 01:00:02,730
 why have these sort of separate structure of,
 
-982
+981
 01:00:02,760 --> 01:00:07,850
 why have these two sort of corresponding structures?
 
-983
+982
 01:00:09,590 --> 01:00:11,000
 So I guess part of it is,
 
-984
+983
 01:00:11,000 --> 01:00:13,590
 it's all nice and well
 
-985
+984
 01:00:13,590 --> 01:00:18,510
 if the driver needs to talk to the hardware about where things are,
 
-986
+985
 01:00:18,510 --> 01:00:19,260
 but at the end of the day,
 
-987
+986
 01:00:19,260 --> 01:00:20,820
 we do need to store the packet
 
-988
+987
 01:00:20,820 --> 01:00:22,800
 to hand off to the network stack somehow.
 
-989
+988
 01:00:24,020 --> 01:00:24,860
 Yeah, exactly,
 
-990
+989
 01:00:24,920 --> 01:00:27,350
 you know, so you know so one way to think about it is
 
-991
+990
 01:00:27,350 --> 01:00:30,110
 that the you know the mbufs completely an OS abstraction,
 
-992
+991
 01:00:30,110 --> 01:00:32,750
 nothing to do with really the network card at all,
 
-993
+992
 01:00:33,140 --> 01:00:33,740
 and it's there,
 
-994
+993
 01:00:33,740 --> 01:00:39,590
 because like you know if at some point, you know maybe receive a packet,
 
-995
+994
 01:00:39,590 --> 01:00:41,450
 you know we hand it off to the network stack,
 
-996
+995
 01:00:41,450 --> 01:00:43,610
 in the network stack now sticks at some queue,
 
-997
+996
 01:00:43,700 --> 01:00:45,890
 so that when later a user process calls read,
 
-998
+997
 01:00:45,920 --> 01:00:47,150
 you actually can read it,
 
-999
+998
 01:00:48,000 --> 01:00:50,550
 in the meantime, we need to have some structure,
 
-1000
+999
 01:00:50,550 --> 01:00:53,040
 that holds that data that we actually received
 
-1001
+1000
 01:00:53,040 --> 01:00:54,990
 and that's exactly what those mbuf structures are.
 
-1002
+1001
 01:01:01,310 --> 01:01:03,800
 Sorry, can you talk about the,
 
-1003
+1002
 01:01:04,700 --> 01:01:09,990
 like how, how do you use the link list structure in your code,
 
-1004
+1003
 01:01:09,990 --> 01:01:13,690
 because I was trying to to understand it and track it down
 
-1005
+1004
 01:01:14,290 --> 01:01:19,490
 and it seems like there's some push tail or push head,
 
-1006
+1005
 01:01:19,550 --> 01:01:23,680
 but I don't ever call it in my code,
 
-1007
+1006
 01:01:24,220 --> 01:01:28,000
 oh, it might be it might be in the net.c file.
 
-1008
+1007
 01:01:30,200 --> 01:01:33,110
 The networks C files file, we gave you to, correct?
 
-1009
+1008
 01:01:33,770 --> 01:01:34,610
 Yeah.
 
-1010
+1009
 01:01:39,650 --> 01:01:40,940
 And where you're thinking?
 
-1011
+1010
 01:01:42,800 --> 01:01:49,940
 If you look for something like pull pop, I think pop.
 
-1012
+1011
 01:01:54,210 --> 01:01:57,030
 Yeah, so this is this is the only place
 
-1013
+1012
 01:01:57,030 --> 01:02:03,540
 where it looks like it does things with the linked list structure of mbuf,
 
-1014
+1013
 01:02:04,290 --> 01:02:08,700
 and if you don't ever call this function or the push tail,
 
-1015
+1014
 01:02:09,000 --> 01:02:17,610
 you basically just treat the mbuf as an array of like how many characters,
 
-1016
+1015
 01:02:17,670 --> 01:02:20,570
 so, so why is mbuf there.
 
-1017
+1016
 01:02:21,370 --> 01:02:27,710
 Because here, when you receive a UDP packet,
 
-1018
+1017
 01:02:28,130 --> 01:02:30,440
 so the UDP packet comes in from the network card,
 
-1019
+1018
 01:02:30,470 --> 01:02:31,850
 it goes to the network stack,
 
-1020
+1019
 01:02:32,450 --> 01:02:34,430
 then the UDP packet,
 
-1021
+1020
 01:02:34,460 --> 01:02:38,060
 the mbuf for the UDP that holds that UDP packet
 
-1022
+1021
 01:02:38,450 --> 01:02:40,250
 is actually stuck in a queue right here,
 
-1023
+1022
 01:02:42,090 --> 01:02:44,220
 on the socket for the receiver.
 
-1024
+1023
 01:02:47,460 --> 01:02:50,370
 And so this is the reason that you can have queues within mbufs.
 
-1025
+1024
 01:02:54,420 --> 01:02:56,100
 And the reason is stack in the queue there correct,
 
-1026
+1025
 01:02:56,100 --> 01:02:57,300
 is because you know who knows,
 
-1027
+1026
 01:02:57,300 --> 01:03:00,690
 you know the user process that's going to read you know from this particular socket,
 
-1028
+1027
 01:03:01,140 --> 01:03:02,670
 you know might be doing something else,
 
-1029
+1028
 01:03:02,700 --> 01:03:05,310
 and at some point later, it's going to call the read system call,
 
-1030
+1029
 01:03:05,310 --> 01:03:09,630
 then the read system call is going to move you know that mbuf from that socket.
 
-1031
+1030
 01:03:11,780 --> 01:03:20,250
 And so, the point with each socket can have a list of mbufs for reception.
 
-1032
+1031
 01:03:22,070 --> 01:03:23,390
 I see, thank you.
 
-1033
+1032
 01:03:25,840 --> 01:03:27,580
 Okay, let's go back to the driver.
 
-1034
+1033
 01:03:28,190 --> 01:03:30,230
 So that was transmit.
 
-1035
+1034
 01:03:32,480 --> 01:03:33,980
 So then we receive,
 
-1036
+1035
 01:03:34,010 --> 01:03:37,340
 you know almost similar, not that much difference,
 
-1037
+1036
 01:03:37,760 --> 01:03:42,620
 basically you know read the tail pointer from the network card.
 
-1038
+1037
 01:03:43,220 --> 01:03:45,470
 You see there actually a packet,
 
-1039
+1038
 01:03:45,560 --> 01:03:51,110
 and if there's a packet, then the DD field would be set,
 
-1040
+1039
 01:03:51,770 --> 01:03:53,630
 if the DD field is not set,
 
-1041
+1040
 01:03:53,660 --> 01:03:56,360
 then we know there's no packet and so we're done,
 
-1042
+1041
 01:03:57,200 --> 01:03:59,750
 if it is set, we're going to read it,
 
-1043
+1042
 01:04:02,220 --> 01:04:03,660
 and read the length,
 
-1044
+1043
 01:04:03,660 --> 01:04:08,710
 you know, and when we when we call and net_rx,
 
-1045
+1044
 01:04:08,710 --> 01:04:11,230
 you know do up call into the higher level stack.
 
-1046
+1045
 01:04:11,930 --> 01:04:14,270
 And when we're done,
 
-1047
+1046
 01:04:14,270 --> 01:04:18,780
 you know we're basically free up you know that entry,
 
-1048
+1047
 01:04:18,870 --> 01:04:20,880
 so that the driver can use it
 
-1049
+1048
 01:04:20,880 --> 01:04:22,470
 to actually receive more packets in it.
 
-1050
+1049
 01:04:23,340 --> 01:04:25,980
 And the real crucial operation there is, correct,
 
-1051
+1050
 01:04:25,980 --> 01:04:28,710
 we bump up basically the tail to tell the driver,
 
-1052
+1051
 01:04:29,100 --> 01:04:31,560
 okay, you know we're done with it, you can use it again,
 
-1053
+1052
 01:04:31,590 --> 01:04:33,060
 you know here's again that slot.
 
-1054
+1053
 01:04:35,900 --> 01:04:37,910
 So maybe the most interesting question is
 
-1055
+1054
 01:04:37,940 --> 01:04:40,430
 and number of questions have you asked,
 
-1056
+1055
 01:04:40,460 --> 01:04:41,810
 why is the while there,
 
-1057
+1056
 01:04:45,530 --> 01:04:46,730
 why is this in a loop,
 
-1058
+1057
 01:04:47,690 --> 01:04:48,830
 don't you get an interrupt,
 
-1059
+1058
 01:04:48,830 --> 01:04:50,690
 then you know you grab one packet then you've done,
 
-1060
+1059
 01:04:50,930 --> 01:04:54,370
 a number of people that actually forgot while loop first,
 
-1061
+1060
 01:04:54,370 --> 01:04:56,470
 you know notice that basically at some point
 
-1062
+1061
 01:04:56,470 --> 01:04:58,750
 you don't receive packets anymore, during nettest.
 
-1063
+1062
 01:05:02,840 --> 01:05:06,230
 Is it because you would like to transmit as many packets
 
-1064
+1063
 01:05:06,230 --> 01:05:08,900
 that are ready as possible with only one interrupt,
 
-1065
+1064
 01:05:08,900 --> 01:05:13,010
 so that you can kind of amortize the cost of the interrupt.
 
-1066
+1065
 01:05:13,780 --> 01:05:15,850
 Yeah, this, this is absolutely part of it,
 
-1067
+1066
 01:05:15,850 --> 01:05:17,320
 you know you get to the,
 
-1068
+1067
 01:05:17,470 --> 01:05:20,890
 let's first talk about you know the root cause is write,
 
-1069
+1068
 01:05:21,730 --> 01:05:24,700
 if a number of burst package comes in,
 
-1070
+1069
 01:05:25,330 --> 01:05:28,570
 and the network card will generate the interrupt,
 
-1071
+1070
 01:05:28,930 --> 01:05:30,220
 but more packets are coming in,
 
-1072
+1071
 01:05:30,310 --> 01:05:33,130
 and so it will just put them in the free descriptors right
 
-1073
+1072
 01:05:33,130 --> 01:05:34,390
 that actually can use,
 
-1074
+1073
 01:05:35,060 --> 01:05:37,190
 can't generate more interrupts,
 
-1075
+1074
 01:05:37,190 --> 01:05:38,750
 because already generated interrupt,
 
-1076
+1075
 01:05:39,140 --> 01:05:42,620
 and at some point you know the whatever the process
 
-1077
+1076
 01:05:42,620 --> 01:05:47,300
 or you know, maybe we were the core was just in a section of code that turned off interrupts,
 
-1078
+1077
 01:05:47,300 --> 01:05:48,650
 because it was doing something atomic,
 
-1079
+1078
 01:05:49,010 --> 01:05:49,700
 at the end of it,
 
-1080
+1079
 01:05:49,700 --> 01:05:51,110
 you know there's a release from lock,
 
-1081
+1080
 01:05:51,110 --> 01:05:52,400
 that actually turns interruption on,
 
-1082
+1081
 01:05:52,550 --> 01:05:53,420
 that point of time,
 
-1083
+1082
 01:05:53,420 --> 01:05:57,800
 then basically the receive handlers, the interrupt handler going to run,
 
-1084
+1083
 01:05:58,160 --> 01:05:59,720
 but between a period,
 
-1085
+1084
 01:05:59,720 --> 01:06:02,510
 when the first packet comes in and before you receive handler runs,
 
-1086
+1085
 01:06:02,510 --> 01:06:06,290
 there's a whole bunch of other packets might have could have could have come in.
 
-1087
+1086
 01:06:07,430 --> 01:06:10,310
 And so we don't run in the while loop,
 
-1088
+1087
 01:06:10,340 --> 01:06:13,100
 will leave those packets,
 
-1089
+1088
 01:06:13,100 --> 01:06:15,650
 will grab the first one and will grab the other
 
-1090
+1089
 01:06:15,650 --> 01:06:18,380
 and the later ones you stick there in the queue, right,
 
-1091
+1090
 01:06:18,380 --> 01:06:19,670
 they're just sitting there in that ring.
 
-1092
+1091
 01:06:20,680 --> 01:06:22,780
 Now, if subsequent interrupt would come in,
 
-1093
+1092
 01:06:22,780 --> 01:06:23,920
 we'll grab the next one,
 
-1094
+1093
 01:06:24,340 --> 01:06:26,110
 but like the tests,
 
-1095
+1094
 01:06:26,140 --> 01:06:29,110
 you know what they do they run their UDP packets,
 
-1096
+1095
 01:06:29,110 --> 01:06:30,700
 you know, so they send off a whole bunch,
 
-1097
+1096
 01:06:30,700 --> 01:06:34,600
 like one of the test since like ten ping request in parallel,
 
-1098
+1097
 01:06:34,810 --> 01:06:38,200
 you know the ten responses coming parallel back, you know correct.
 
-1099
+1098
 01:06:38,640 --> 01:06:41,940
 The first one receives generates an interrupt,
 
-1100
+1099
 01:06:42,030 --> 01:06:43,980
 the other nine go into the queue,
 
-1101
+1100
 01:06:44,480 --> 01:06:48,230
 the higher level software, you know reached the first one,
 
-1102
+1101
 01:06:48,830 --> 01:06:51,380
 and then returns like it's done,
 
-1103
+1102
 01:06:51,650 --> 01:06:53,450
 and at that point, nothing happens anymore,
 
-1104
+1103
 01:06:53,450 --> 01:06:56,210
 because the receiver is waiting for more receive packets,
 
-1105
+1104
 01:06:56,360 --> 01:06:57,350
 they happen to be there,
 
-1106
+1105
 01:06:57,350 --> 01:06:58,250
 they're sitting in the ring,
 
-1107
+1106
 01:06:58,430 --> 01:07:02,120
 except you know the receive didn't do them in a while loop
 
-1108
+1107
 01:07:02,120 --> 01:07:03,140
 and so didn't pick them up.
 
-1109
+1108
 01:07:05,850 --> 01:07:06,570
 Does that make sense?
 
-1110
+1109
 01:07:13,160 --> 01:07:15,710
 So, for example if the test programs would have sent,
 
-1111
+1110
 01:07:15,710 --> 01:07:18,320
 one request waited for a response,
 
-1112
+1111
 01:07:18,320 --> 01:07:20,420
 one request waited for a response,
 
-1113
+1112
 01:07:20,600 --> 01:07:24,050
 then you would never notice that, you needed to a while loop.
 
-1114
+1113
 01:07:24,550 --> 01:07:27,910
 And it's because like there's a burst of responses might come back,
 
-1115
+1114
 01:07:28,030 --> 01:07:30,970
 and that only generate together one interrupt.
 
-1116
+1115
 01:07:35,020 --> 01:07:36,820
 Any questions about that, about this?
 
-1117
+1116
 01:07:36,820 --> 01:07:37,990
 I have a question,
 
-1118
+1117
 01:07:37,990 --> 01:07:42,160
 so for example if instead of a while one,
 
-1119
+1118
 01:07:42,700 --> 01:07:45,580
 we would have a for loop that just goes through the whole queue,
 
-1120
+1119
 01:07:45,580 --> 01:07:49,060
 that would also be wrong for the same reason.
 
-1121
+1120
 01:07:49,420 --> 01:07:53,260
 No, we skip all the ones that have the DD not set.
 
-1122
+1121
 01:07:54,670 --> 01:07:57,370
 Okay, we should only we should only look at packets
 
-1123
+1122
 01:07:57,370 --> 01:08:00,220
 and actually we should only look at the tail pointer.
 
-1124
+1123
 01:08:02,170 --> 01:08:05,380
 But you know in principle, you could just skip the whole queue
 
-1125
+1124
 01:08:05,380 --> 01:08:07,120
 and I guess look at the DD packets,
 
-1126
+1125
 01:08:07,120 --> 01:08:09,490
 you know let them see the DD bit is set,
 
-1127
+1126
 01:08:09,520 --> 01:08:11,920
 and that might work, I don't know I haven't tried that.
 
-1128
+1127
 01:08:14,060 --> 01:08:18,050
 Okay, but isn't the device able to
 
-1129
+1128
 01:08:18,320 --> 01:08:23,270
 put more mbufs in the receive after we read stale?
 
-1130
+1129
 01:08:25,000 --> 01:08:25,930
 Yeah yeah.
 
-1131
+1130
 01:08:29,070 --> 01:08:29,610
 Okay.
 
-1132
+1131
 01:08:32,080 --> 01:08:32,890
 And we have to.
 
-1133
+1132
 01:08:42,200 --> 01:08:43,010
 It's very dangerous,
 
-1134
+1133
 01:08:43,010 --> 01:08:45,110
 like this proposal of like sort of looking around,
 
-1135
+1134
 01:08:45,110 --> 01:08:47,150
 and you know seeing DD set,
 
-1136
+1135
 01:08:47,150 --> 01:08:49,490
 because you know really we should do,
 
-1137
+1136
 01:08:49,490 --> 01:08:54,260
 we should not look at buf that really are controlled by the driver or by the hardware,
 
-1138
+1137
 01:08:54,500 --> 01:08:58,180
 and only look at buffers are actually available to the software
 
-1139
+1138
 01:08:58,240 --> 01:09:00,760
 and which is indicated by the DD bit,
 
-1140
+1139
 01:09:00,760 --> 01:09:02,470
 and basically by looking at the tail pointer.
 
-1141
+1140
 01:09:04,080 --> 01:09:08,430
 Basically, anything owned between the tail and the head is owned by the hardware.
 
-1142
+1141
 01:09:13,220 --> 01:09:17,060
 Going back to the mbuf, like the reason we need the mbuf,
 
-1143
+1142
 01:09:17,450 --> 01:09:23,990
 why do we need the other information in the buffer like the [] array,
 
-1144
+1143
 01:09:24,580 --> 01:09:26,230
 I think it's called the backing store.
 
-1145
+1144
 01:09:28,760 --> 01:09:30,830
 It gets in net.h.
 
-1146
+1145
 01:09:40,490 --> 01:09:42,830
 So we need we need the buf field, correct,
 
-1147
+1146
 01:09:42,830 --> 01:09:44,300
 because it actually contains the data.
 
-1148
+1147
 01:09:46,800 --> 01:09:49,410
 I thought the head contains a pointer to the data.
 
-1149
+1148
 01:09:49,590 --> 01:09:50,400
 Yeah yeah okay,
 
-1150
+1149
 01:09:50,400 --> 01:09:53,190
 but the buf actually is the actual allocates space,
 
-1151
+1150
 01:09:53,190 --> 01:09:54,510
 you know the whole packets, right,
 
-1152
+1151
 01:09:54,750 --> 01:09:57,240
 and then head get pointers into buf,
 
-1153
+1152
 01:09:57,420 --> 01:09:59,100
 basically the start of the packet.
 
-1154
+1153
 01:10:01,450 --> 01:10:02,230
 Okay, okay.
 
-1155
+1154
 01:10:04,160 --> 01:10:05,630
 And this is mbuf, this is,
 
-1156
+1155
 01:10:05,630 --> 01:10:08,990
 okay so a little bit more context to mbuf is
 
-1157
+1156
 01:10:08,990 --> 01:10:11,270
 a structure that you see in a lot of network stacks,
 
-1158
+1157
 01:10:11,270 --> 01:10:12,920
 so you look in the Linux kernel,
 
-1159
+1158
 01:10:12,920 --> 01:10:14,420
 you'll see structure similar like this,
 
-1160
+1159
 01:10:14,420 --> 01:10:17,420
 and it's typically called mbufs, and so we have to.
 
-1161
+1160
 01:10:19,060 --> 01:10:22,030
 We could have simplified this structure quite a bit, if we wanted to
 
-1162
+1161
 01:10:22,270 --> 01:10:24,490
 and maybe subsequent here is we should,
 
-1163
+1162
 01:10:24,550 --> 01:10:26,620
 but this is sort of the standard way
 
-1164
+1163
 01:10:26,620 --> 01:10:30,430
 in which packets are represented in operating system kernels.
 
-1165
+1164
 01:10:39,430 --> 01:10:41,110
 Okay, any further questions about this?
 
-1166
+1165
 01:10:50,760 --> 01:10:51,900
 So I have a choice now,
 
-1167
+1166
 01:10:51,930 --> 01:10:55,590
 a couple of things I could say about the network driver,
 
-1168
+1167
 01:10:55,860 --> 01:10:59,340
 but then I won't have any time to talk about mmap.
 
-1169
+1168
 01:10:59,880 --> 01:11:03,780
 I could also talk a little bit about mmap and then and stop here,
 
-1170
+1169
 01:11:04,500 --> 01:11:06,600
 in terms of talking to the network driver.
 
-1171
+1170
 01:11:09,640 --> 01:11:11,200
 Any preferences?
 
-1172
+1171
 01:11:24,740 --> 01:11:25,700
 No preferences.
 
-1173
+1172
 01:11:31,350 --> 01:11:33,270
 Let me talk a little bit about mmap,
 
-1174
+1173
 01:11:33,270 --> 01:11:35,940
 because there was a question that came up a couple times,
 
-1175
+1174
 01:11:36,330 --> 01:11:40,080
 and that might be worth addressing,
 
-1176
+1175
 01:11:40,920 --> 01:11:45,090
 it's almost more a question about you know why mmap exists,
 
-1177
+1176
 01:11:45,420 --> 01:11:48,540
 then, you know actually how to implement it.
 
-1178
+1177
 01:11:49,680 --> 01:11:53,010
 So there's no real objections which sounds different,
 
-1179
+1178
 01:11:53,040 --> 01:11:55,770
 let me talk a little bit more about mmap.
 
-1180
+1179
 01:11:56,750 --> 01:11:58,100
 So this is your last chance
 
-1181
+1180
 01:11:58,100 --> 01:12:00,980
 to ask any questions about the network driver until the end of class.
 
-1182
+1181
 01:12:06,660 --> 01:12:12,990
 Okay, let's talk about the mbufs, oh, mmap.
 
-1183
+1182
 01:12:28,610 --> 01:12:33,840
 Okay, so the, the question really relates to sort of the file system API,
 
-1184
+1183
 01:12:33,990 --> 01:12:38,220
 and so the file system has a reasonable broad API,
 
-1185
+1184
 01:12:38,820 --> 01:12:42,660
 supporting directories, symbolic links, hard links, etc etc,
 
-1186
+1185
 01:12:42,660 --> 01:12:46,980
 but presumably the main the main part of it is the the file API, correct,
 
-1187
+1186
 01:12:46,980 --> 01:12:50,520
 the file API, you're well familiar to you now,
 
-1188
+1187
 01:12:52,110 --> 01:12:56,860
 open the file, you know with some permissions,
 
-1189
+1188
 01:12:56,890 --> 01:12:58,720
 and once you have opened the file,
 
-1190
+1189
 01:12:58,960 --> 01:13:01,450
 you know you can read from the file,
 
-1191
+1190
 01:13:04,600 --> 01:13:07,870
 into a buffer, create some data.
 
-1192
+1191
 01:13:08,830 --> 01:13:12,550
 And you can write you know to the file,
 
-1193
+1192
 01:13:15,040 --> 01:13:17,920
 whatever file descriptor and buf, you know len,
 
-1194
+1193
 01:13:18,310 --> 01:13:19,390
 so let's say we,
 
-1195
+1194
 01:13:20,080 --> 01:13:23,590
 and then we can close the file descriptor.
 
-1196
+1195
 01:13:25,070 --> 01:13:26,900
 Now let's say we want to write an application
 
-1197
+1196
 01:13:27,140 --> 01:13:29,240
 and you can think about the,
 
-1198
+1197
 01:13:30,050 --> 01:13:34,940
 you know may be just a file as, you know files normally a array of bytes,
 
-1199
+1198
 01:13:34,940 --> 01:13:37,610
 but like maybe this application has sort of
 
-1200
+1199
 01:13:37,610 --> 01:13:39,710
 it's an array of struct that are stored in it.
 
-1201
+1200
 01:13:39,890 --> 01:13:43,320
 So, and let's say the application wants to update the struct,
 
-1202
+1201
 01:13:43,320 --> 01:13:44,880
 so you know we have to file,
 
-1203
+1202
 01:13:46,170 --> 01:13:50,200
 here's a file and so divided in you know structs,
 
-1204
+1203
 01:13:50,200 --> 01:13:52,780
 you know whatever zero to use the file length,
 
-1205
+1204
 01:13:52,780 --> 01:13:56,470
 and you know we maybe like in the middle,
 
-1206
+1205
 01:13:56,830 --> 01:13:59,200
 let's have structure 16 bytes or something
 
-1207
+1206
 01:13:59,200 --> 01:14:01,540
 and you know we want to update one of these
 
-1208
+1207
 01:14:01,840 --> 01:14:03,490
 or maybe want to update the first one.
 
-1209
+1208
 01:14:05,680 --> 01:14:07,240
 And so in a way we could do that correctly,
 
-1210
+1209
 01:14:07,240 --> 01:14:09,340
 we read and we open the file,
 
-1211
+1210
 01:14:09,340 --> 01:14:12,670
 we read you know the first you know whatever 16 bytes,
 
-1212
+1211
 01:14:13,800 --> 01:14:15,720
 that correspond to this you know we,
 
-1213
+1212
 01:14:16,420 --> 01:14:20,680
 let's say updates you know the first field struct,
 
-1214
+1213
 01:14:20,710 --> 01:14:23,170
 the first byte of that struct, you know to be 1.
 
-1215
+1214
 01:14:23,880 --> 01:14:28,080
 And then we call write, to basically write it back
 
-1216
+1215
 01:14:28,110 --> 01:14:29,130
 and then we close the file.
 
-1217
+1216
 01:14:29,800 --> 01:14:31,480
 So if when is write happens where,
 
-1218
+1217
 01:14:31,480 --> 01:14:32,530
 where does it actually write.
 
-1219
+1218
 01:14:41,090 --> 01:14:44,360
 So we've set this memory above the 1,
 
-1220
+1219
 01:14:44,360 --> 01:14:47,540
 you know will this first by change to 1,
 
-1221
+1220
 01:14:52,140 --> 01:14:53,160
 if we call write.
 
-1222
+1221
 01:15:08,510 --> 01:15:11,540
 So, remember the file descriptor has not set associated with it correct.
 
-1223
+1222
 01:15:13,320 --> 01:15:17,040
 And reads read pushes that offset you know forward,
 
-1224
+1223
 01:15:17,040 --> 01:15:19,110
 in this case, we've read 16 bytes,
 
-1225
+1224
 01:15:19,110 --> 01:15:22,020
 you know the offset goes from up 0 to 16.
 
-1226
+1225
 01:15:22,960 --> 01:15:24,310
 And so where does write write,
 
-1227
+1226
 01:15:27,190 --> 01:15:32,470
 as you notice, there's no offset argument in the write system call,
 
-1228
+1227
 01:15:32,500 --> 01:15:33,610
 so where does it write.
 
-1229
+1228
 01:15:37,070 --> 01:15:37,940
 Len?
 
-1230
+1229
 01:15:39,180 --> 01:15:41,010
 Yeah you we'll write len bytes,
 
-1231
+1230
 01:15:41,010 --> 01:15:42,420
 which offset in the file,
 
-1232
+1231
 01:15:44,080 --> 01:15:46,360
 presumably len exactly at 16 right.
 
-1233
+1232
 01:15:46,920 --> 01:15:47,520
 Yes.
 
-1234
+1233
 01:15:47,940 --> 01:15:51,420
 Write here, so which, this byte will change to 1, correct.
 
-1235
+1234
 01:15:54,090 --> 01:15:58,470
 Not the actual thing that we are actually trying to modify.
 
-1236
+1235
 01:15:59,970 --> 01:16:00,690
 Does that make sense?
 
-1237
+1236
 01:16:02,540 --> 01:16:04,340
 So the way you've written this application,
 
-1238
+1237
 01:16:04,340 --> 01:16:06,050
 it turns out there was one a system call,
 
-1239
+1238
 01:16:06,050 --> 01:16:07,790
 that we didn't really talk much about at all,
 
-1240
+1239
 01:16:07,910 --> 01:16:12,290
 but every operating system, Unix operating system is called system called lseek.
 
-1241
+1240
 01:16:14,220 --> 01:16:18,210
 And lseek allows you basically to change the offset to some position.
 
-1242
+1241
 01:16:18,850 --> 01:16:20,620
 And so in this particular case,
 
-1243
+1242
 01:16:20,620 --> 01:16:23,200
 we want to do have the effect
 
-1244
+1243
 01:16:23,200 --> 01:16:25,600
 that we're going to write this struct not that one.
 
-1245
+1244
 01:16:26,140 --> 01:16:28,960
 Then we would have said like you know lseek 0,
 
-1246
+1245
 01:16:28,990 --> 01:16:34,250
 basically resetting the offset to actually 0,
 
-1247
+1246
 01:16:34,280 --> 01:16:37,580
 so then this write would actually sort here now offset 0.
 
-1248
+1247
 01:16:38,380 --> 01:16:42,850
 And then this write actually you would write actually at the first 16 bytes.
 
-1249
+1248
 01:16:44,170 --> 01:16:44,920
 Does that make sense?
 
-1250
+1249
 01:16:51,700 --> 01:16:53,290
 So this is slightly inconvenient, correctly,
 
-1251
+1250
 01:16:53,290 --> 01:16:54,340
 if you think about this,
 
-1252
+1251
 01:16:54,520 --> 01:16:55,930
 you look at this interface,
 
-1253
+1252
 01:16:55,930 --> 01:16:58,000
 there's actually quite a bit of stuff going on,
 
-1254
+1253
 01:16:58,000 --> 01:16:59,890
 you know you gotta open, you gotta read it,
 
-1255
+1254
 01:16:59,890 --> 01:17:01,570
 you know you can seek it and then you can write it.
 
-1256
+1255
 01:17:02,310 --> 01:17:05,010
 And so, one reason that mmap is popular,
 
-1257
+1256
 01:17:06,600 --> 01:17:10,860
 is you can sort of avoid you know these these complications.
 
-1258
+1257
 01:17:11,460 --> 01:17:13,740
 Because if we write this using mmap,
 
-1259
+1258
 01:17:13,740 --> 01:17:15,840
 you know, we do fd is open
 
-1260
+1259
 01:17:16,110 --> 01:17:17,850
 and we open the file as before,
 
-1261
+1260
 01:17:20,980 --> 01:17:24,370
 and then you know we just call mmap,
 
-1262
+1261
 01:17:26,240 --> 01:17:27,830
 it's going to be whatever our struct,
 
-1263
+1262
 01:17:27,860 --> 01:17:33,100
 let's say our struct h, you know, blah, blah blah,
 
-1264
+1263
 01:17:33,130 --> 01:17:42,440
 you know whatever some len for the file, read, write permissions,
 
-1265
+1264
 01:17:43,530 --> 01:17:50,920
 you know map shared, and file descriptor 0.
 
-1266
+1265
 01:17:52,160 --> 01:17:56,450
 And then, so now basically with this correct we're in mmapping,
 
-1267
+1266
 01:17:56,450 --> 01:18:01,070
 you know the file f at the location h, you know in memory.
 
-1268
+1267
 01:18:01,580 --> 01:18:04,040
 Now, we can just say h
 
-1269
+1268
 01:18:04,040 --> 01:18:08,300
 whatever first byte is zero or one that we did before.
 
-1270
+1269
 01:18:08,980 --> 01:18:11,710
 And then you know at some point you know we can munmap,
 
-1271
+1270
 01:18:16,440 --> 01:18:21,500
 you know the munmap h, right,
 
-1272
+1271
 01:18:21,500 --> 01:18:23,840
 and so if we think about this, we look in memory.
 
-1273
+1272
 01:18:24,400 --> 01:18:26,920
 We're looking at this from the perspective of the file,
 
-1274
+1273
 01:18:27,310 --> 01:18:28,570
 you know what this does, correct,
 
-1275
+1274
 01:18:28,570 --> 01:18:32,410
 code literally did is basically you've got a pointer to this h,
 
-1276
+1275
 01:18:32,770 --> 01:18:35,560
 and you can just update here, you know that thing to 1
 
-1277
+1276
 01:18:35,920 --> 01:18:37,390
 and be done with it, right.
 
-1278
+1277
 01:18:38,360 --> 01:18:40,790
 And so if we sort of need to manipulate
 
-1279
+1278
 01:18:40,820 --> 01:18:44,660
 you know file structure, data structure that sits inside of a file,
 
-1280
+1279
 01:18:44,960 --> 01:18:47,570
 this mmap interface is much more convenient.
 
-1281
+1280
 01:18:48,060 --> 01:18:50,100
 Then you know this previous interface,
 
-1282
+1281
 01:18:50,340 --> 01:18:51,930
 we're you know we have to read,
 
-1283
+1282
 01:18:51,930 --> 01:18:55,800
 you know we manipulated the memory you know we you know we seek back,
 
-1284
+1283
 01:18:55,800 --> 01:18:57,180
 and then we actually write the information.
 
-1285
+1284
 01:18:57,740 --> 01:18:59,360
 And in this particular case,
 
-1286
+1285
 01:18:59,360 --> 01:19:03,410
 we really can think about the file as being an array of bytes,
 
-1287
+1286
 01:19:03,410 --> 01:19:05,120
 you know that we can write willy nilly,
 
-1288
+1287
 01:19:05,630 --> 01:19:07,790
 without actually having to navigate to jump around,
 
-1289
+1288
 01:19:11,950 --> 01:19:16,060
 do people see what the advantage of the mmap interfaces.
 
-1290
+1289
 01:19:23,960 --> 01:19:25,040
 Any questions about this?
 
-1291
+1290
 01:19:28,170 --> 01:19:32,310
 Any big storage systems use this,
 
-1292
+1291
 01:19:32,310 --> 01:19:34,050
 like I don't know like databases,
 
-1293
+1292
 01:19:34,050 --> 01:19:36,300
 do they use this a lot or not really.
 
-1294
+1293
 01:19:36,630 --> 01:19:37,740
 They use this a lot.
 
-1295
+1294
 01:19:38,600 --> 01:19:40,850
 I think a lot of applications use mmap,
 
-1296
+1295
 01:19:40,880 --> 01:19:44,660
 because for these kinds of things like a database is much more convenient,
 
-1297
+1296
 01:19:47,270 --> 01:19:49,790
 then this interface, this interface is great, correct,
 
-1298
+1297
 01:19:49,790 --> 01:19:51,560
 if you need to read from standard input,
 
-1299
+1298
 01:19:51,680 --> 01:19:53,570
 and there's a stream of bytes coming in,
 
-1300
+1299
 01:19:53,600 --> 01:19:57,770
 you read you read you read and you produce some output some other stream.
 
-1301
+1300
 01:19:58,910 --> 01:20:01,640
 That interface that interface is very suitable for here,
 
-1302
+1301
 01:20:02,000 --> 01:20:03,500
 you don't have to update offset,
 
-1303
+1302
 01:20:03,500 --> 01:20:05,510
 you know you read, get offset immediately update,
 
-1304
+1303
 01:20:05,510 --> 01:20:07,760
 you read again, you read a bit further etc etc.
 
-1305
+1304
 01:20:07,940 --> 01:20:11,600
 So it's really good for stream oriented input.
 
-1306
+1305
 01:20:12,190 --> 01:20:13,450
 Well, this is really good,
 
-1307
+1306
 01:20:13,450 --> 01:20:16,960
 you know if the file has data structure,
 
-1308
+1307
 01:20:16,960 --> 01:20:21,600
 and use one of sort of update basic pieces of the file,
 
-1309
+1308
 01:20:21,600 --> 01:20:23,850
 and you know arbitrary locations.
 
-1310
+1309
 01:20:32,220 --> 01:20:37,080
 Okay, let's see,
 
-1311
+1310
 01:20:37,110 --> 01:20:42,660
 I'm going to start on about to run out of time.
 
-1312
+1311
 01:20:43,270 --> 01:20:46,200
 So let me so stop here,
 
-1313
+1312
 01:20:46,200 --> 01:20:48,750
 hopefully this one tidbit about mmap,
 
-1314
+1313
 01:20:48,750 --> 01:20:51,150
 you know it's useful to know,
 
-1315
+1314
 01:20:51,540 --> 01:20:56,650
 and tells you why you know that sort of is a popular scheme.
 
-1316
+1315
 01:21:00,080 --> 01:21:01,010
 Let's see,
 
-1317
+1316
 01:21:01,040 --> 01:21:06,560
 so I I think that actually you know we were basically we come to the end of this lecture
 
-1318
+1317
 01:21:06,590 --> 01:21:16,000
 and I guess the end of the end of six the six 6.S081,
 
-1319
+1318
 01:21:16,030 --> 01:21:21,790
 and so again you know if you have not filled out the feedback survey,
 
-1320
+1319
 01:21:21,790 --> 01:21:24,640
 you know please do so,
 
-1321
+1320
 01:21:24,670 --> 01:21:28,300
 you know we appreciate if you fill out the subject evaluation.
 
-1322
+1321
 01:21:29,180 --> 01:21:34,080
 And and again I wanna thank you for your attention,
 
-1323
+1322
 01:21:34,110 --> 01:21:36,330
 again it is a strange semester,
 
-1324
+1323
 01:21:36,330 --> 01:21:38,400
 I wish I could have met you all in person.
 
-1325
+1324
 01:21:39,620 --> 01:21:43,880
 Talk to you in person either class or before class or after class,
 
-1326
+1325
 01:21:44,240 --> 01:21:48,650
 and unfortunately, as it happened,
 
-1327
+1326
 01:21:48,680 --> 01:21:52,940
 but I hope you got quite a bit of 6.S081
 
-1328
+1327
 01:21:52,940 --> 01:21:56,120
 and certainly with the staff and thank you for the engagement,
 
-1329
+1328
 01:21:56,210 --> 01:21:59,060
 you guys have been wonderful this semester.
 
-1330
+1329
 01:21:59,860 --> 01:22:01,800
 So with that, thank you.
 
-1331
+1330
 01:22:03,150 --> 01:22:05,160
 If you have any questions, please hang around.
 
-1332
+1331
 01:22:06,550 --> 01:22:08,500
 But I'm sure some of you have deadlines.
 
-1333
+1332
 01:22:10,100 --> 01:22:12,680
 Honestly on behalf of the TAs as well,
 
-1334
+1333
 01:22:12,680 --> 01:22:15,320
 we've really enjoyed all the time
 
-1335
+1334
 01:22:15,320 --> 01:22:18,110
 we spent with you guys in office hours and doing check offs,
 
-1336
+1335
 01:22:18,110 --> 01:22:20,210
 and this is the first semester, we've done check offs,
 
-1337
+1336
 01:22:20,210 --> 01:22:23,600
 and then David and I both found it a really enjoyable process,
 
-1338
+1337
 01:22:23,600 --> 01:22:25,370
 and you know hopefully we were able to
 
-1339
+1338
 01:22:25,700 --> 01:22:28,610
 help you guys out and have some good conversations as well,
 
-1340
+1339
 01:22:28,610 --> 01:22:30,530
 so thanks for making it a great semester
 
-1341
+1340
 01:22:30,530 --> 01:22:32,540
 and adjusting on the fly with us
 
-1342
+1341
 01:22:32,540 --> 01:22:35,350
 with all of the remote learning problems,
 
-1343
+1342
 01:22:35,350 --> 01:22:37,750
 we've run into and had to deal with
 
-1344
+1343
 01:22:38,020 --> 01:22:39,970
 an absolute pleasure achieving this course.
 
-1345
+1344
 01:22:46,360 --> 01:22:47,320
 Any further questions?
 
-1346
+1345
 01:22:49,170 --> 01:22:50,670
 Again, feel free to hang around.
 
-1347
+1346
 01:23:00,530 --> 01:23:03,260
 Oh, I had a question,
 
-1348
+1347
 01:23:03,800 --> 01:23:06,700
 so, it's it's oh yeah,
 
-1349
+1348
 01:23:06,700 --> 01:23:07,810
 thank you so much for the class,
 
-1350
+1349
 01:23:07,810 --> 01:23:11,500
 I really like class, the best class semester,
 
-1351
+1350
 01:23:11,620 --> 01:23:16,210
 I wanted to ask about the interrupts, the received interrupts,
 
-1352
+1351
 01:23:16,270 --> 01:23:23,160
 how does the how does the hardware knows when when the software has finished,
 
-1353
+1352
 01:23:24,130 --> 01:23:27,970
 handling the previous interrupt, not issue another one.
 
-1354
+1353
 01:23:28,800 --> 01:23:32,220
 Because the there's multiple steps,
 
-1355
+1354
 01:23:32,880 --> 01:23:43,030
 one is you know you're looking e1000 at the bottom,
 
-1356
+1355
 01:23:43,420 --> 01:23:45,010
 we re-enable interrupts
 
-1357
+1356
 01:23:45,400 --> 01:23:46,420
 or we tell the card,
 
-1358
+1357
 01:23:46,420 --> 01:23:48,070
 we're ready to receive further interrupts.
 
-1359
+1358
 01:23:49,170 --> 01:23:52,320
 So that's why we tell the card to generate interrupts,
 
-1360
+1359
 01:23:52,770 --> 01:23:55,410
 of course at this point interrupts actually not really turned on,
 
-1361
+1360
 01:23:55,410 --> 01:23:57,720
 and we just tells the card you can generate interrupts again,
 
-1362
+1361
 01:23:58,280 --> 01:24:00,710
 the interrupts get turned on, correct,
 
-1363
+1362
 01:24:00,710 --> 01:24:04,310
 like you know by you know these functions, you know interrupt enable
 
-1364
+1363
 01:24:04,730 --> 01:24:07,280
 and at that point, if you turn on interrupt enable,
 
-1365
+1364
 01:24:07,280 --> 01:24:12,620
 if this field set, plus you know the point where you turn on interrupt enable
 
-1366
+1365
 01:24:12,650 --> 01:24:14,330
 and actually interrupt might happen again.
 
-1367
+1366
 01:24:15,680 --> 01:24:18,680
 Right, I forgot about this register, thank you so much.
 
-1368
+1367
 01:24:18,680 --> 01:24:22,670
 Yeah, it's just like one instruction, easy to miss.
 
-1369
+1368
 01:24:25,960 --> 01:24:26,770
 Any other questions?
 
-1370
+1369
 01:24:30,500 --> 01:24:31,490
 Thank you all.
 
-1371
+1370
 01:24:32,580 --> 01:24:33,480
 Thank you, okay.
 
-1372
+1371
 01:24:36,520 --> 01:24:37,420
 Thank you.
 
-1373
+1372
 01:24:38,770 --> 01:24:39,850
 Thank you.
 
-1374
+1373
 01:24:40,910 --> 01:24:41,840
 Thank you so much.
 
