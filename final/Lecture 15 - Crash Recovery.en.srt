@@ -5687,742 +5687,738 @@ because you remember,
 one thing I didn't really state it explicitly as a goal early on
 
 1423
-01:20:22,200 --> 01:20:25,230
-is that we basically execute the system calls still in the write order,
+01:20:22,200 --> 01:20:26,250
+is that we basically execute the system calls still in the write order, right,
 
 1424
-01:20:25,980 --> 01:20:26,250
-right,
-
-1425
 01:20:26,250 --> 01:20:30,510
 if a if a if a write,
 
-1426
+1425
 01:20:30,510 --> 01:20:31,680
 if a read observes write
 
-1427
+1426
 01:20:31,680 --> 01:20:32,670
 and then does a write,
 
-1428
+1427
 01:20:32,850 --> 01:20:33,960
 then it has to be the case,
 
-1429
+1428
 01:20:33,960 --> 01:20:36,390
 that that second write happens later than the first write.
 
-1430
+1429
 01:20:37,120 --> 01:20:39,790
 And the reason that this is a log, correct,
 
-1431
+1430
 01:20:39,790 --> 01:20:43,000
 because that basically reflects the order in which the writes haven't happened.
 
-1432
+1431
 01:20:44,090 --> 01:20:49,700
 And so you can really really nearly changed the order of the writes in the log,
 
-1433
+1432
 01:20:49,700 --> 01:20:54,680
 because that maybe actually result into bizarre behavior,
 
-1434
+1433
 01:20:54,980 --> 01:20:56,930
 observable by user programs.
 
-1435
+1434
 01:20:58,120 --> 01:20:59,050
 And so that has to be the case
 
-1436
+1435
 01:20:59,050 --> 01:21:03,730
 that basically you commit you know the operations of these actions in the order they happened,
 
-1437
+1436
 01:21:05,240 --> 01:21:07,370
 we also perform the writes in the order they happened.
 
-1438
+1437
 01:21:09,250 --> 01:21:14,080
 And so in general you know, it's, it's safer,
 
-1439
+1438
 01:21:14,080 --> 01:21:16,510
 you know it's safe to basically commit them all together
 
-1440
+1439
 01:21:16,600 --> 01:21:17,680
 you're always in good [].
 
-1441
+1440
 01:21:18,510 --> 01:21:19,140
 Okay?
 
-1442
+1441
 01:21:19,880 --> 01:21:20,690
 Good question, though.
 
-1443
+1442
 01:21:23,780 --> 01:21:27,560
 Okay I just want to go back to one more thing,
 
-1444
+1443
 01:21:27,800 --> 01:21:30,380
 and then look at the begin_op, yet I talked a little bit,
 
-1445
+1444
 01:21:30,380 --> 01:21:33,110
 because like I don't want to talk about it right now.
 
-1446
+1445
 01:21:35,460 --> 01:21:39,280
 But, there we can see.
 
-1447
+1446
 01:21:41,000 --> 01:21:42,260
 So here's the begin_op,
 
-1448
+1447
 01:21:43,180 --> 01:21:47,080
 first of all, if we're ready committing the log,
 
-1449
+1448
 01:21:47,080 --> 01:21:48,970
 we're just gonna wait until the log has committed,
 
-1450
+1449
 01:21:49,000 --> 01:21:51,490
 because you know we can't write to the log
 
-1451
+1450
 01:21:51,490 --> 01:21:53,260
 while the log actually being installed.
 
-1452
+1451
 01:21:53,930 --> 01:21:58,280
 If we're end,
 
-1453
+1452
 01:21:58,400 --> 01:22:02,450
 concurrent operation that basically makes us go across the logsize,
 
-1454
+1453
 01:22:02,450 --> 01:22:03,680
 we could go to sleep,
 
-1455
+1454
 01:22:05,080 --> 01:22:09,700
 and wait until basically all the preceding concurrent transactions are done,
 
-1456
+1455
 01:22:10,150 --> 01:22:12,700
 and if we're allowed to proceed
 
-1457
+1456
 01:22:12,730 --> 01:22:15,130
 basically are entrance is allowed,
 
-1458
+1457
 01:22:15,250 --> 01:22:17,530
 we increase log.outstanding by 1,
 
-1459
+1458
 01:22:17,680 --> 01:22:18,970
 because they reflect our thing
 
-1460
+1459
 01:22:18,970 --> 01:22:20,110
 and then we basically proceed
 
-1461
+1460
 01:22:20,110 --> 01:22:21,790
 and start doing file system operations.
 
-1462
+1461
 01:22:22,920 --> 01:22:25,860
 And if you look at end_op again, just to.
 
-1463
+1462
 01:22:26,550 --> 01:22:30,420
 So you see the end_op basically decreases log.outstanding by one,
 
-1464
+1463
 01:22:30,420 --> 01:22:32,010
 because one transaction is finished.
 
-1465
+1464
 01:22:32,590 --> 01:22:37,510
 It certainly would be an error in committing states, with panic in that case
 
-1466
+1465
 01:22:37,810 --> 01:22:41,380
 and we actually are the last one from that set of concurrent transactions,
 
-1467
+1466
 01:22:41,930 --> 01:22:44,510
 then, actually, and log.outstanding goes to 0,
 
-1468
+1467
 01:22:44,510 --> 01:22:45,560
 we immediately start committing.
 
-1469
+1468
 01:22:46,880 --> 01:22:48,170
 And then when we're done,
 
-1470
+1469
 01:22:48,720 --> 01:22:52,410
 we're when actually, if we're not the log,
 
-1471
+1470
 01:22:52,500 --> 01:22:57,020
 yeah, yeah, we commit.
 
-1472
+1471
 01:22:59,460 --> 01:23:02,310
 And if there's space you know left,
 
-1473
+1472
 01:23:02,310 --> 01:23:03,180
 we wake up the guy,
 
-1474
+1473
 01:23:03,180 --> 01:23:04,530
 so they can actually start running.
 
-1475
+1474
 01:23:06,380 --> 01:23:06,920
 Okay?
 
-1476
+1475
 01:23:07,620 --> 01:23:09,990
 So even though this dirt simple file system,
 
-1477
+1476
 01:23:09,990 --> 01:23:13,110
 that are just dirt simple logging system that xv6
 
-1478
+1477
 01:23:13,110 --> 01:23:15,180
 actually has a bunch of complications.
 
-1479
+1478
 01:23:18,160 --> 01:23:19,780
 So I'm starting to run out of time,
 
-1480
+1479
 01:23:19,780 --> 01:23:21,490
 so let me wrap up here.
 
-1481
+1480
 01:23:22,320 --> 01:23:23,640
 So in summary,
 
-1482
+1481
 01:23:26,010 --> 01:23:29,850
 you know what we what we talk about is basically logging,
 
-1483
+1482
 01:23:30,600 --> 01:23:35,180
 as a solution for, for crash safety,
 
-1484
+1483
 01:23:35,890 --> 01:23:41,090
 or really for multi-step file system operations.
 
-1485
+1484
 01:23:43,660 --> 01:23:46,420
 And you know if you've seen so far,
 
-1486
+1485
 01:23:46,510 --> 01:23:48,190
 it works great for crash safety,
 
-1487
+1486
 01:23:48,190 --> 01:23:53,360
 but you know performance, and that's going to be the topic for Monday
 
-1488
+1487
 01:23:53,360 --> 01:23:57,950
 and as you read the ext3 file system paper for Monday,
 
-1489
+1488
 01:23:58,100 --> 01:24:00,110
 you know that's the thing you should be thinking about.
 
-1490
+1489
 01:24:01,900 --> 01:24:03,730
 Okay, any more file system questions?
 
-1491
+1490
 01:24:04,000 --> 01:24:07,180
 In fact anybody who has to leave, please feel free to leave,
 
-1492
+1491
 01:24:07,180 --> 01:24:11,290
 but if you want to hang around and ask more questions, you know, please do so.
 
-1493
+1492
 01:24:14,510 --> 01:24:19,670
 Oh, I have a question regarding cache size and the log size,
 
-1494
+1493
 01:24:19,760 --> 01:24:24,260
 so you said that the cache size has to be great as big as the log size,
 
-1495
+1494
 01:24:24,290 --> 01:24:28,130
 but they seem to be the same size for this case,
 
-1496
+1495
 01:24:28,250 --> 01:24:35,530
 so is that means that if the log pins 30 buffers
 
-1497
+1496
 01:24:35,890 --> 01:24:38,920
 and then some other operation tries to do something,
 
-1498
+1497
 01:24:39,760 --> 01:24:40,600
 it just fails,
 
-1499
+1498
 01:24:40,600 --> 01:24:47,440
 because it it runs out of a free slots in the buffer.
 
-1500
+1499
 01:24:47,470 --> 01:24:51,340
 No, maybe let's let's look at the,
 
-1501
+1500
 01:24:52,830 --> 01:24:54,120
 okay, so,
 
-1502
+1501
 01:24:56,600 --> 01:24:58,130
 let me first check one thing.
 
-1503
+1502
 01:25:02,590 --> 01:25:04,390
 Okay, let's go to bio.
 
-1504
+1503
 01:25:07,070 --> 01:25:08,240
 Yeah, okay.
 
-1505
+1504
 01:25:10,240 --> 01:25:17,780
 Let's actually first check NBUF is bigger than size of LOGSIZE, the buffer cache,
 
-1506
+1505
 01:25:17,780 --> 01:25:19,550
 okay, so it's set up to something big.
 
-1507
+1506
 01:25:20,610 --> 01:25:23,490
 So what happens actually if we can't find,
 
-1508
+1507
 01:25:23,490 --> 01:25:24,930
 bget can't find a buffer,
 
-1509
+1508
 01:25:25,670 --> 01:25:26,780
 actually it's panics.
 
-1510
+1509
 01:25:28,840 --> 01:25:33,630
 And, so we we,
 
-1511
+1510
 01:25:33,630 --> 01:25:35,520
 there's no free slot in the buffer cache,
 
-1512
+1511
 01:25:35,520 --> 01:25:36,600
 you know xv6 panic,
 
-1513
+1512
 01:25:36,600 --> 01:25:37,890
 that's not particularly ideal,
 
-1514
+1513
 01:25:37,920 --> 01:25:39,750
 in fact would be terrible
 
-1515
+1514
 01:25:39,930 --> 01:25:42,210
 and so you hope never to be in this situation
 
-1516
+1515
 01:25:42,210 --> 01:25:45,390
 and hopefully picked numbers correctly basically is unlikely to happen.
 
-1517
+1516
 01:25:46,040 --> 01:25:47,840
 But why can't we return an error.
 
-1518
+1517
 01:25:49,520 --> 01:25:51,740
 Because that seems like the obvious thing to do, like,
 
-1519
+1518
 01:26:05,660 --> 01:26:07,520
 if return an error to the caller
 
-1520
+1519
 01:26:07,520 --> 01:26:11,480
 and the caller maybe returns back up to the file system interface
 
-1521
+1520
 01:26:11,480 --> 01:26:14,150
 and just return -1 saying like oh this operation failed.
 
-1522
+1521
 01:26:15,140 --> 01:26:17,630
 Why is that a problem?
 
-1523
+1522
 01:26:21,060 --> 01:26:22,200
 So ready to think about this is
 
-1524
+1523
 01:26:22,200 --> 01:26:26,460
 that you know many file system operations are multi-step operations, right,
 
-1525
+1524
 01:26:27,030 --> 01:26:28,620
 as we've seen now,
 
-1526
+1525
 01:26:28,710 --> 01:26:31,440
 in this lecture and in the previous lecture
 
-1527
+1526
 01:26:31,740 --> 01:26:37,050
 and let's say, we did two writes and then the third write,
 
-1528
+1527
 01:26:37,080 --> 01:26:38,340
 we run into this case,
 
-1529
+1528
 01:26:38,790 --> 01:26:40,590
 where we can't actually do the write,
 
-1530
+1529
 01:26:40,590 --> 01:26:42,600
 because there's no place in the block cache,
 
-1531
+1530
 01:26:44,380 --> 01:26:46,390
 we have done two writes, right.
 
-1532
+1531
 01:26:47,380 --> 01:26:49,420
 Can we just bail out of the file system call.
 
-1533
+1532
 01:26:53,760 --> 01:26:55,290
 Okay, I see right.
 
-1534
+1533
 01:26:55,500 --> 01:26:56,430
 We cannot, correct,
 
-1535
+1534
 01:26:56,430 --> 01:27:03,710
 because we might have updated to in the directory, directory block of some file,
 
-1536
+1535
 01:27:03,740 --> 01:27:06,320
 if we might have to update the directory block in some directory,
 
-1537
+1536
 01:27:06,350 --> 01:27:09,170
 and if we wanted to make this work,
 
-1538
+1537
 01:27:09,170 --> 01:27:11,900
 what we would have to do is undo those changes,
 
-1539
+1538
 01:27:11,930 --> 01:27:15,310
 like any writes that we did before,
 
-1540
+1539
 01:27:15,310 --> 01:27:17,260
 as part of that system call, we have to undo.
 
-1541
+1540
 01:27:18,770 --> 01:27:20,180
 Okay.
 
-1542
+1541
 01:27:20,180 --> 01:27:23,210
 That was painful, that's what we don't do it.
 
-1543
+1542
 01:27:24,270 --> 01:27:24,900
 Does that make sense?
 
-1544
+1543
 01:27:25,640 --> 01:27:26,990
 Okay so it's not a problem,
 
-1545
+1544
 01:27:26,990 --> 01:27:32,470
 if the log the log pins everything
 
-1546
+1545
 01:27:32,920 --> 01:27:34,540
 and there's no more space for cache,
 
-1547
+1546
 01:27:34,540 --> 01:27:36,820
 but it will just panic, okay.
 
-1548
+1547
 01:27:38,320 --> 01:27:39,970
 Yeah, of course this panic never really happen,
 
-1549
+1548
 01:27:39,970 --> 01:27:43,510
 like there's a only corner cases where this hopefully happens.
 
-1550
+1549
 01:27:45,120 --> 01:27:46,080
 I guess you just,
 
-1551
+1550
 01:27:46,780 --> 01:27:48,400
 okay, yeah, that makes sense,
 
-1552
+1551
 01:27:48,400 --> 01:27:49,990
 okay, thank you.
 
-1553
+1552
 01:27:51,940 --> 01:27:52,960
 Any more questions?
 
-1554
+1553
 01:27:54,120 --> 01:27:55,440
 I have a question about,
 
-1555
+1554
 01:27:55,470 --> 01:28:00,720
 I guess following up my earlier one about the group commits,
 
-1556
+1555
 01:28:01,080 --> 01:28:03,690
 I was trying to think of,
 
-1557
+1556
 01:28:03,990 --> 01:28:06,060
 like I think I kind of understand it a high level,
 
-1558
+1557
 01:28:06,060 --> 01:28:06,930
 I was trying to make sure,
 
-1559
+1558
 01:28:06,930 --> 01:28:11,160
 I understand concrete example, why it is important
 
-1560
+1559
 01:28:11,160 --> 01:28:15,560
 and may is this an example that kind of demonstrates its,
 
-1561
+1560
 01:28:15,560 --> 01:28:17,960
 like I guess I was thinking of a situation
 
-1562
+1561
 01:28:17,960 --> 01:28:22,790
 where you have say like this might be convoluted,
 
-1563
+1562
 01:28:22,790 --> 01:28:27,380
 like one process generating a stream of numbers like one to n
 
-1564
+1563
 01:28:27,680 --> 01:28:30,860
 and then two processes consuming,
 
-1565
+1564
 01:28:31,100 --> 01:28:33,470
 that maybe they're listening on the same pipe,
 
-1566
+1565
 01:28:33,500 --> 01:28:37,910
 and say like n like stops an even number,
 
-1567
+1566
 01:28:38,060 --> 01:28:42,140
 one process is consuming and printing out the odd numbers,
 
-1568
+1567
 01:28:42,140 --> 01:28:45,110
 one process is consuming part of the even numbers,
 
-1569
+1568
 01:28:45,380 --> 01:28:48,200
 and if you didn't have group commits,
 
-1570
+1569
 01:28:48,200 --> 01:28:50,000
 so like the correct behavior
 
-1571
+1570
 01:28:50,000 --> 01:28:54,230
 and say they're printing it for like their writing the same file,
 
-1572
+1571
 01:28:54,600 --> 01:28:57,900
 and so the correct behavior would be
 
-1573
+1572
 01:28:57,930 --> 01:29:00,030
 at the end of at the end of all this,
 
-1574
+1573
 01:29:00,030 --> 01:29:02,310
 you would expect the file to have like an even number,
 
-1575
+1574
 01:29:02,430 --> 01:29:04,080
 like the last number,
 
-1576
+1575
 01:29:04,600 --> 01:29:06,370
 but if you didn't have group commits,
 
-1577
+1576
 01:29:06,370 --> 01:29:13,810
 it's possible that the second to last process actually gets committed after the last one
 
-1578
+1577
 01:29:13,870 --> 01:29:14,920
 and it actually see nine,
 
-1579
+1578
 01:29:14,920 --> 01:29:17,920
 is just like a correct example, why this is important.
 
-1580
+1579
 01:29:17,920 --> 01:29:20,710
 I think I have to think a little bit more carefully about it,
 
-1581
+1580
 01:29:20,800 --> 01:29:24,490
 but that is definitely the flavour of the problem,
 
-1582
+1581
 01:29:24,490 --> 01:29:27,040
 you might run into if you reorder system calls.
 
-1583
+1582
 01:29:28,290 --> 01:29:29,900
 Okay, okay.
 
-1584
+1583
 01:29:30,680 --> 01:29:33,500
 I have a great example in the lecture note,
 
-1585
+1584
 01:29:33,560 --> 01:29:35,990
 if the lecture notes,
 
-1586
+1585
 01:29:35,990 --> 01:29:39,050
 you know shell command that really you know behave weirdly
 
-1587
+1586
 01:29:39,050 --> 01:29:39,980
 if you didn't commit to,
 
-1588
+1587
 01:29:40,700 --> 01:29:42,740
 this is not really an issue in some sense from group commit,
 
-1589
+1588
 01:29:42,740 --> 01:29:45,890
 is really an issue that transactions need to be committed in order.
 
-1590
+1589
 01:29:47,320 --> 01:29:49,520
 Mhm, I see,
 
-1591
+1590
 01:29:49,610 --> 01:29:51,710
 and group if it didn't have group commit, then.
 
-1592
+1591
 01:29:52,100 --> 01:29:54,140
 Yeah, people might think
 
-1593
+1592
 01:29:54,140 --> 01:29:56,960
 like well what if you don't have group commit,
 
-1594
+1593
 01:29:56,960 --> 01:29:58,370
 then there's a temptation
 
-1595
+1594
 01:29:58,370 --> 01:30:00,410
 to basically you know commit some later transaction,
 
-1596
+1595
 01:30:00,410 --> 01:30:01,490
 because it's already finished,
 
-1597
+1596
 01:30:01,490 --> 01:30:02,930
 but the first one isn't finished yet,
 
-1598
+1597
 01:30:03,440 --> 01:30:04,850
 and to create space,
 
-1599
+1598
 01:30:04,850 --> 01:30:05,900
 but that's not a solution.
 
-1600
+1599
 01:30:07,490 --> 01:30:09,590
 Okay, that makes sense,
 
-1601
+1600
 01:30:09,590 --> 01:30:12,140
 where in the lecture notes this example of?
 
-1602
+1601
 01:30:12,140 --> 01:30:12,770
 I think shell command,
 
-1603
+1602
 01:30:13,280 --> 01:30:16,460
 where were illustrated by ordering is important.
 
-1604
+1603
 01:30:17,270 --> 01:30:17,690
 Okay.
 
-1605
+1604
 01:30:17,810 --> 01:30:21,590
 It doesn't, it doesn't tie it directly to a group commits,
 
-1606
+1605
 01:30:21,590 --> 01:30:24,740
 but it basically makes the point that ordering system calls is important.
 
-1607
+1606
 01:30:25,820 --> 01:30:28,850
 I see, is this in the the like the text.
 
